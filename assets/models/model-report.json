@@ -1,0 +1,67 @@
+{
+  "golfer": {
+    "triangles": 10512,
+    "meshCount": 11,
+    "bytes": 247692,
+    "bones": [
+      "root",
+      "spine",
+      "head",
+      "shR",
+      "elR",
+      "shL",
+      "elL",
+      "hipR",
+      "knR",
+      "hipL",
+      "knL"
+    ],
+    "clips": [
+      "backhand",
+      "forehand",
+      "tomahawk",
+      "scoober",
+      "putt",
+      "idle_weight",
+      "idle_look",
+      "idle_practice",
+      "celebrate",
+      "slump"
+    ]
+  },
+  "disc": {
+    "triangles": 1248,
+    "meshCount": 1,
+    "bytes": 28200
+  },
+  "basket": {
+    "triangles": 12960,
+    "meshCount": 1,
+    "bytes": 138012
+  },
+  "tee_sign": {
+    "triangles": 204,
+    "meshCount": 1,
+    "bytes": 27348
+  },
+  "pine": {
+    "triangles": 2432,
+    "meshCount": 1,
+    "bytes": 124968
+  },
+  "deciduous": {
+    "triangles": 872,
+    "meshCount": 1,
+    "bytes": 61248
+  },
+  "bush": {
+    "triangles": 500,
+    "meshCount": 1,
+    "bytes": 27252
+  },
+  "grass": {
+    "triangles": 80,
+    "meshCount": 1,
+    "bytes": 22988
+  }
+}

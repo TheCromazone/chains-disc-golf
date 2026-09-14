@@ -3,6 +3,7 @@ import { buildCourse, makeRng, COURSES, courseById, courseLayout } from './cours
 import { DISCS, THROWS, discById, launch, step, DT, isDone, resultOf, simulate, speedFor } from './physics.js';
 import { createCharacter, DEFAULT_AVATAR, AVATAR_OPTIONS, randomAvatar } from './player.js';
 import { loadManifest, asset } from './assets.js';
+import { loadModels, modelStatus } from './models.js';
 import { createDiscMesh, setDiscPose } from './disc.js';
 import { setupInput } from './input.js';
 import { planBotThrow } from './bot.js';
@@ -499,6 +500,7 @@ $('btnLobbyStart').onclick = () => {
 setupInput({ sceneEl: canvas, padEl: $('pad'), getThrow: () => G.throwType, onAim, onGesture });
 setTimeout(async () => {
   await loadManifest();
+  await loadModels(renderer);
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   UI.hide('loading'); loop();

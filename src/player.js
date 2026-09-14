@@ -2,6 +2,7 @@
 // canvas texture, build). Faces -Z. Root yaw + = turns left. Throw animations are keyframed per throw
 // type; phase 0..0.5 is the windup (scrubbed by the swipe), 0.5..1 the release/follow-through.
 import * as THREE from 'three';
+import { createGLTFCharacter } from './gltf-player.js';
 
 export const AVATAR_OPTIONS = {
   skin: ['#f6dcc4', '#eec0a0', '#d9a382', '#c68a5e', '#a86b42', '#8d5a3b', '#6b4229', '#4a2d1c'],
@@ -97,6 +98,7 @@ function jerseyTexture(a) {
 
 export function createCharacter(opts = {}) {
   const a = { ...DEFAULT_AVATAR, ...(opts.color ? { jersey: opts.color } : {}), ...(opts.skin ? { skin: opts.skin } : {}), ...(opts.cap ? { headwearColor: opts.cap } : {}), ...opts };
+  const imported = createGLTFCharacter(a); if (imported) return imported;
   const g = new THREE.Group();
   const std = (c, r = 0.75, extra = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: r, ...extra });
   const skinM = new THREE.MeshPhysicalMaterial({ color: a.skin, roughness: 0.55, sheen: 0.25, sheenRoughness: 0.8, sheenColor: new THREE.Color('#ffd9c0') });

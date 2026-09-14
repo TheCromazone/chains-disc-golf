@@ -1,0 +1,238 @@
+Warning: No mesh data to join
+Warning: No mesh data to join
+Info: Saved as "golfer.blend"
+INFO Draco mesh compression is available, use library at C:\Users\matth\.codex\tools\blender\blender-4.5.9-windows-x64\4.5\scripts\addons_core\io_scene_gltf2\extern_draco.dll
+16:50:56 | INFO: Starting glTF 2.0 export
+16:50:56 | INFO: Extracting primitive: tailored_jersey
+16:50:56 | INFO: Primitives created: 9
+16:50:56 | INFO: Extracting primitive: Sphere.038
+16:50:56 | INFO: Primitives created: 1
+16:50:56 | INFO: Extracting primitive: Sphere.025
+16:50:56 | INFO: Primitives created: 1
+16:50:56 | INFO: Extracting primitive: Sphere.026
+16:50:56 | INFO: Primitives created: 1
+16:50:56 | INFO: Extracting primitive: Sphere.036
+16:50:56 | INFO: Primitives created: 1
+16:50:56 | INFO: Extracting primitive: Sphere.024
+16:50:56 | INFO: Primitives created: 1
+16:50:56 | INFO: Extracting primitive: Sphere.042
+16:50:56 | INFO: Primitives created: 1
+16:50:56 | INFO: Extracting primitive: Sphere.044
+16:50:56 | INFO: Primitives created: 1
+16:50:56 | INFO: Extracting primitive: Sphere.040
+16:50:56 | INFO: Primitives created: 1
+16:50:56 | INFO: Extracting primitive: Torus.006
+16:50:56 | INFO: Primitives created: 1
+16:50:56 | INFO: Extracting primitive: Cube.005
+16:50:56 | INFO: Primitives created: 1
+16:50:57 | INFO: Draco encoder: Encoding mesh golfer_body.
+16:50:57 | INFO: Draco encoder: Encoding mesh hair_bun.
+16:50:57 | INFO: Draco encoder: Encoding mesh hair_buzz.
+16:50:57 | INFO: Draco encoder: Encoding mesh hair_curly.
+16:50:57 | INFO: Draco encoder: Encoding mesh hair_long.
+16:50:57 | INFO: Draco encoder: Encoding mesh hair_short.
+16:50:57 | INFO: Draco encoder: Encoding mesh headwear_backcap.
+16:50:57 | INFO: Draco encoder: Encoding mesh headwear_beanie.
+16:50:57 | INFO: Draco encoder: Encoding mesh headwear_cap.
+16:50:57 | INFO: Draco encoder: Encoding mesh headwear_visor.
+16:50:57 | INFO: Draco encoder: Encoding mesh shades.
+16:50:57 | INFO: Finished glTF 2.0 export in 0.8684113025665283 s
+
+CHAINS_EXPORT golfer {'triangles': 10512, 'meshCount': 11, 'bytes': 247692}
+Blender 4.5.9 LTS (hash 8bf95cbd38d1 built 2026-04-21 01:33:45)
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 510 vertices, 1788 indices, raw size: 30096, encoded size: 4980, compression ratio: 6.04
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 230 vertices, 720 indices, raw size: 13400, encoded size: 2534, compression ratio: 5.29
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 882 vertices, 2592 indices, raw size: 51048, encoded size: 6121, compression ratio: 8.34
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 2404 vertices, 9108 indices, raw size: 143224, encoded size: 18201, compression ratio: 7.87
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 664 vertices, 2160 indices, raw size: 38848, encoded size: 4996, compression ratio: 7.78
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 276 vertices, 1008 indices, raw size: 16368, encoded size: 2245, compression ratio: 7.29
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 64 vertices, 120 indices, raw size: 3568, encoded size: 864, compression ratio: 4.13
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 332 vertices, 1344 indices, raw size: 19952, encoded size: 2967, compression ratio: 6.72
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 40 vertices, 84 indices, raw size: 2248, encoded size: 576, compression ratio: 3.90
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 266 vertices, 1176 indices, raw size: 16184, encoded size: 2374, compression ratio: 6.82
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 151 vertices, 672 indices, raw size: 9196, encoded size: 1385, compression ratio: 6.64
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 700 vertices, 2832 indices, raw size: 42064, encoded size: 4239, compression ratio: 9.92
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 266 vertices, 1176 indices, raw size: 16184, encoded size: 2354, compression ratio: 6.88
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 151 vertices, 672 indices, raw size: 9196, encoded size: 1332, compression ratio: 6.90
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 393 vertices, 1728 indices, raw size: 23892, encoded size: 3099, compression ratio: 7.71
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 276 vertices, 1248 indices, raw size: 16848, encoded size: 2189, compression ratio: 7.70
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 393 vertices, 1728 indices, raw size: 23892, encoded size: 3332, compression ratio: 7.17
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 242 vertices, 1056 indices, raw size: 14696, encoded size: 2158, compression ratio: 6.81
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 72 vertices, 324 indices, raw size: 4392, encoded size: 848, compression ratio: 5.18
+Fra:1 Mem:14.85M (Peak 14.85M) | Time:17:34:05.02 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | disc
+Fra:1 Mem:14.94M (Peak 14.94M) | Time:17:34:05.02 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:14.94M (Peak 14.94M) | Time:17:34:05.02 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading disc_albedo
+Fra:1 Mem:14.91M (Peak 23.78M) | Time:17:34:05.05 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | disc
+Fra:1 Mem:14.96M (Peak 23.78M) | Time:17:34:05.05 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:14.96M (Peak 23.78M) | Time:17:34:05.05 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading disc_normal
+Fra:1 Mem:14.97M (Peak 23.80M) | Time:17:34:05.06 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | disc
+Fra:1 Mem:15.02M (Peak 23.80M) | Time:17:34:05.06 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:15.01M (Peak 23.80M) | Time:17:34:05.06 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading disc_roughness
+Warning: No mesh data to join
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Saved as "disc.blend"
+16:50:57 | INFO: Starting glTF 2.0 export
+16:50:57 | INFO: Extracting primitive: disc
+16:50:57 | INFO: Primitives created: 1
+16:50:57 | INFO: Draco encoder: Encoding mesh disc.
+16:50:57 | INFO: Finished glTF 2.0 export in 0.011493444442749023 s
+
+CHAINS_EXPORT disc {'triangles': 1248, 'meshCount': 1, 'bytes': 28200}
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 892 vertices, 3744 indices, raw size: 36032, encoded size: 6871, compression ratio: 5.24
+Fra:1 Mem:18.33M (Peak 24.92M) | Time:17:34:06.81 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | basket
+Fra:1 Mem:19.27M (Peak 24.92M) | Time:17:34:06.81 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:19.26M (Peak 24.92M) | Time:17:34:06.81 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading basket_albedo
+Fra:1 Mem:18.79M (Peak 28.48M) | Time:17:34:06.83 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | basket
+Fra:1 Mem:19.30M (Peak 28.48M) | Time:17:34:06.83 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:19.30M (Peak 28.48M) | Time:17:34:06.83 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading basket_normal
+Fra:1 Mem:19.13M (Peak 28.52M) | Time:17:34:06.84 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | basket
+Fra:1 Mem:19.64M (Peak 28.52M) | Time:17:34:06.84 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:19.63M (Peak 28.52M) | Time:17:34:06.84 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading basket_roughness
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Saved as "basket.blend"
+16:50:58 | INFO: Starting glTF 2.0 export
+16:50:58 | INFO: Extracting primitive: Cone.020
+16:50:59 | INFO: Primitives created: 1
+16:50:59 | INFO: Draco encoder: Encoding mesh basket.
+16:50:59 | INFO: Finished glTF 2.0 export in 0.0219576358795166 s
+
+CHAINS_EXPORT basket {'triangles': 12960, 'meshCount': 1, 'bytes': 138012}
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 16888 vertices, 38880 indices, raw size: 618176, encoded size: 106425, compression ratio: 5.81
+Fra:1 Mem:19.52M (Peak 28.52M) | Time:17:34:06.89 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | tee_sign
+Fra:1 Mem:19.53M (Peak 28.52M) | Time:17:34:06.89 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:19.53M (Peak 28.52M) | Time:17:34:06.89 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading tee_sign_albedo
+Fra:1 Mem:19.58M (Peak 28.52M) | Time:17:34:06.92 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | tee_sign
+Fra:1 Mem:19.58M (Peak 28.52M) | Time:17:34:06.92 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:19.58M (Peak 28.52M) | Time:17:34:06.92 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading tee_sign_normal
+Fra:1 Mem:19.64M (Peak 28.52M) | Time:17:34:06.93 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | tee_sign
+Fra:1 Mem:19.64M (Peak 28.52M) | Time:17:34:06.93 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:19.64M (Peak 28.52M) | Time:17:34:06.93 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading tee_sign_roughness
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Saved as "tee_sign.blend"
+16:50:59 | INFO: Starting glTF 2.0 export
+16:50:59 | INFO: Extracting primitive: Cone.070
+16:50:59 | INFO: Primitives created: 1
+16:50:59 | INFO: Draco encoder: Encoding mesh tee_sign.
+16:50:59 | INFO: Finished glTF 2.0 export in 0.008311748504638672 s
+
+CHAINS_EXPORT tee_sign {'triangles': 204, 'meshCount': 1, 'bytes': 27348}
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 240 vertices, 612 indices, raw size: 8904, encoded size: 2005, compression ratio: 4.44
+Fra:1 Mem:20.43M (Peak 28.52M) | Time:17:34:07.10 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | pine
+Fra:1 Mem:20.62M (Peak 28.52M) | Time:17:34:07.10 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:20.61M (Peak 28.52M) | Time:17:34:07.10 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading pine_albedo
+Fra:1 Mem:20.57M (Peak 29.49M) | Time:17:34:07.12 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | pine
+Fra:1 Mem:20.67M (Peak 29.49M) | Time:17:34:07.12 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:20.66M (Peak 29.49M) | Time:17:34:07.12 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading pine_normal
+Fra:1 Mem:20.68M (Peak 29.54M) | Time:17:34:07.13 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | pine
+Fra:1 Mem:20.78M (Peak 29.54M) | Time:17:34:07.13 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:20.78M (Peak 29.54M) | Time:17:34:07.13 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading pine_roughness
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Saved as "pine.blend"
+16:50:59 | INFO: Starting glTF 2.0 export
+16:50:59 | INFO: Extracting primitive: Cone.072
+16:50:59 | INFO: Primitives created: 1
+16:50:59 | INFO: Draco encoder: Encoding mesh pine.
+16:50:59 | INFO: Finished glTF 2.0 export in 0.01632547378540039 s
+
+CHAINS_EXPORT pine {'triangles': 2432, 'meshCount': 1, 'bytes': 124968}
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 2900 vertices, 7296 indices, raw size: 107392, encoded size: 24500, compression ratio: 4.38
+Fra:1 Mem:21.08M (Peak 29.54M) | Time:17:34:07.19 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | deciduous
+Fra:1 Mem:21.15M (Peak 29.54M) | Time:17:34:07.19 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:21.15M (Peak 29.54M) | Time:17:34:07.19 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading deciduous_albedo
+Fra:1 Mem:21.17M (Peak 29.97M) | Time:17:34:07.22 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | deciduous
+Fra:1 Mem:21.20M (Peak 29.97M) | Time:17:34:07.22 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:21.20M (Peak 29.97M) | Time:17:34:07.22 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading deciduous_normal
+Fra:1 Mem:21.25M (Peak 30.03M) | Time:17:34:07.23 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | deciduous
+Fra:1 Mem:21.28M (Peak 30.03M) | Time:17:34:07.23 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:21.28M (Peak 30.03M) | Time:17:34:07.23 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading deciduous_roughness
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Saved as "deciduous.blend"
+16:50:59 | INFO: Starting glTF 2.0 export
+16:50:59 | INFO: Extracting primitive: Cone.103
+16:50:59 | INFO: Primitives created: 1
+16:50:59 | INFO: Draco encoder: Encoding mesh deciduous.
+16:50:59 | INFO: Finished glTF 2.0 export in 0.012987136840820312 s
+
+CHAINS_EXPORT deciduous {'triangles': 872, 'meshCount': 1, 'bytes': 61248}
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 902 vertices, 2616 indices, raw size: 34096, encoded size: 8912, compression ratio: 3.83
+Fra:1 Mem:21.46M (Peak 30.03M) | Time:17:34:07.28 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | bush
+Fra:1 Mem:21.50M (Peak 30.03M) | Time:17:34:07.28 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:21.49M (Peak 30.03M) | Time:17:34:07.28 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading bush_albedo
+Fra:1 Mem:21.51M (Peak 30.31M) | Time:17:34:07.30 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | bush
+Fra:1 Mem:21.53M (Peak 30.31M) | Time:17:34:07.30 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:21.53M (Peak 30.31M) | Time:17:34:07.30 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading bush_normal
+Fra:1 Mem:21.57M (Peak 30.34M) | Time:17:34:07.31 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | bush
+Fra:1 Mem:21.59M (Peak 30.34M) | Time:17:34:07.31 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:21.58M (Peak 30.34M) | Time:17:34:07.31 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading bush_roughness
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Saved as "bush.blend"
+16:50:59 | INFO: Starting glTF 2.0 export
+16:50:59 | INFO: Extracting primitive: Sphere.083
+16:50:59 | INFO: Primitives created: 1
+16:50:59 | INFO: Draco encoder: Encoding mesh bush.
+16:50:59 | INFO: Finished glTF 2.0 export in 0.011449575424194336 s
+
+CHAINS_EXPORT bush {'triangles': 500, 'meshCount': 1, 'bytes': 27252}
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 470 vertices, 1500 indices, raw size: 18040, encoded size: 3951, compression ratio: 4.57
+Fra:1 Mem:21.72M (Peak 30.34M) | Time:17:34:07.36 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | grass
+Fra:1 Mem:21.73M (Peak 30.34M) | Time:17:34:07.36 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:21.73M (Peak 30.34M) | Time:17:34:07.36 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading grass_albedo
+Fra:1 Mem:21.75M (Peak 30.53M) | Time:17:34:07.38 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | grass
+Fra:1 Mem:21.76M (Peak 30.53M) | Time:17:34:07.38 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:21.75M (Peak 30.53M) | Time:17:34:07.38 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading grass_normal
+Fra:1 Mem:21.77M (Peak 30.55M) | Time:17:34:07.38 | Mem:0.00M, Peak:0.00M | Scene | Synchronizing object | grass
+Fra:1 Mem:21.78M (Peak 30.55M) | Time:17:34:07.38 | Mem:0.00M, Peak:0.00M | Scene | Initializing
+Fra:1 Mem:21.78M (Peak 30.55M) | Time:17:34:07.38 | Mem:0.00M, Peak:0.00M | Scene | Updating Images | Loading grass_roughness
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Baking map saved to internal image, save it externally or pack it
+Info: Saved as "grass.blend"
+16:50:59 | INFO: Starting glTF 2.0 export
+16:50:59 | INFO: Extracting primitive: blade
+16:50:59 | INFO: Primitives created: 1
+16:50:59 | INFO: Draco encoder: Encoding mesh grass.
+16:50:59 | INFO: Finished glTF 2.0 export in 0.01248478889465332 s
+
+CHAINS_EXPORT grass {'triangles': 80, 'meshCount': 1, 'bytes': 22988}
+CHAINS_MODELS_COMPLETE
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 100 vertices, 240 indices, raw size: 3680, encoded size: 1031, compression ratio: 3.57
+
+Blender quit

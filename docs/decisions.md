@@ -19,3 +19,12 @@
 - Before: docs/qa/00-baseline-play.png. After: docs/qa/01-assets-after.png and 01-cards-after.png.
 - No gameplay source changed in this milestone; original physics, synthesis and fallback behavior retained.
 
+
+## Milestone 2 — Blender assets
+
+- Installed official portable Blender 4.5.9 after Windows Installer was busy. Vendor SHA256 verified. Sources: art/blender; reproducible generator: tools/build-models.py.
+- Eight GLBs, Draco-compressed geometry; seven prop atlases use KTX2 UASTC with mipmaps. Three r170 GLTFLoader supports both codecs; browser reports all eight ready and compressed textures active, with no console errors.
+- Golfer: 10,512 triangles including hidden variants, exactly eleven required bones, seven recolorable wardrobe slots plus facial details. Five throws preserve the original pose/phase contract; five additional idle/reaction clips are authored for milestone 4.
+- Chains are modeled as individual interlocking links, combined into one render mesh to reduce draw calls. Props have Cycles-baked albedo, tangent normal and roughness maps. Grass uses ten tapered ribbon cards.
+- Lite keeps procedural foliage. Optional model failures use procedural characters/props. Locker number, colors, build, hair, headwear and shades remain supported.
+- Before: 01-assets-after.png. After: 02-models-after.png. Physics test passes unchanged.

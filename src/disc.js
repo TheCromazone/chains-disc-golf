@@ -1,6 +1,7 @@
 // Disc mesh: lathe profile of a real golf disc + a canvas stamp on the flight plate.
 import * as THREE from 'three';
 import { asset } from './assets.js';
+import { cloneModel } from './models.js';
 
 const profile = [[0, 0.017], [0.03, 0.0165], [0.06, 0.0145], [0.085, 0.0095], [0.1, 0.003], [0.105, -0.004], [0.104, -0.012], [0.098, -0.014], [0.088, -0.012], [0.086, -0.004], [0.086, 0.004], [0.06, 0.006], [0.03, 0.007], [0, 0.007]].map(p => new THREE.Vector2(p[0], p[1]));
 const bodyGeo = new THREE.LatheGeometry(profile, 56);
@@ -25,6 +26,8 @@ export function createDiscMesh(disc) {
   const g = new THREE.Group();
   const body = new THREE.Mesh(bodyGeo, new THREE.MeshPhysicalMaterial({ color: disc.color, roughness: 0.32, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.25 }));
   body.castShadow = true; g.add(body);
+  const imported = cloneModel('disc');
+  if (imported) { body.visible = false; imported.scene.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set(disc.color); o.material.roughness = .32; } }); g.add(imported.scene); }
   const stamp = new THREE.Mesh(stampGeo, new THREE.MeshStandardMaterial({ map: stampMap(disc), transparent: true, roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -1 }));
   g.add(stamp);
   g.userData.disc = disc; g.userData.spinAngle = 0;

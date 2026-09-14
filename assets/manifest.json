@@ -32,5 +32,15 @@
     "icon": "icon.png",
     "menu_bg": "menu_bg.jpg"
   },
-  "sfx": {}
+  "sfx": {},
+  "models": {
+    "golfer": "models/golfer.glb",
+    "disc": "models/disc.glb",
+    "basket": "models/basket.glb",
+    "tee_sign": "models/tee_sign.glb",
+    "pine": "models/pine.glb",
+    "deciduous": "models/deciduous.glb",
+    "bush": "models/bush.glb",
+    "grass": "models/grass.glb"
+  }
 }

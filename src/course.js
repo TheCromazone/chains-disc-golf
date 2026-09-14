@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
+import { modelParts, addModel } from './models.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
@@ -240,15 +241,26 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     group.add(im); return im;
   };
   const col = new THREE.Color();
-  inst(pineTrunk, trunkMat, pineSpots, null, false);
-  inst(pineLeaf, leafMat, pineSpots, s => col.setHSL(0.33 + (noise(s.x, s.z) - 0.5) * 0.06, 0.45, 0.2 + noise(s.z, s.x) * 0.1, THREE.SRGBColorSpace));
-  inst(decTrunk, trunkMat, decSpots, null, false);
-  inst(decLeaf, leafMat, decSpots, s => col.setHSL(def.leafHue + (noise(s.x + 9, s.z) - 0.5) * 0.1, 0.55, 0.3 + noise(s.z + 4, s.x) * 0.14, THREE.SRGBColorSpace));
-  inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
+  const importedInstances = (name, spots, shadow = true) => {
+    // Lite retains its existing foliage geometry budget.
+    if (quality === 'low') return false;
+    const parts = modelParts(name); if (!parts) return false;
+    for (const part of parts) inst(part.geometry, part.material, spots, null, shadow);
+    return true;
+  };
+  if (!importedInstances('pine', pineSpots)) {
+    inst(pineTrunk, trunkMat, pineSpots, null, false);
+    inst(pineLeaf, leafMat, pineSpots, s => col.setHSL(0.33 + (noise(s.x, s.z) - 0.5) * 0.06, 0.45, 0.2 + noise(s.z, s.x) * 0.1, THREE.SRGBColorSpace));
+  }
+  if (!importedInstances('deciduous', decSpots)) {
+    inst(decTrunk, trunkMat, decSpots, null, false);
+    inst(decLeaf, leafMat, decSpots, s => col.setHSL(def.leafHue + (noise(s.x + 9, s.z) - 0.5) * 0.1, 0.55, 0.3 + noise(s.z + 4, s.x) * 0.14, THREE.SRGBColorSpace));
+  }
+  if (!importedInstances('bush', bushes, false)) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
   // grass tufts: crossed quads
   const tuftGeo = mergeGeometries([new THREE.PlaneGeometry(1, 0.8).translate(0, 0.4, 0), new THREE.PlaneGeometry(1, 0.8).translate(0, 0.4, 0).rotateY(Math.PI / 2)]);
   const tuftMat = new THREE.MeshStandardMaterial({ map: texture('tuft') || bladeTexture(), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 1 });
-  if (quality !== 'low') inst(tuftGeo, tuftMat, tufts, null, false);
+  if (quality !== 'low' && !importedInstances('grass', tufts, false)) inst(tuftGeo, tuftMat, tufts, null, false);
 
   // --- water ---
   const waterNormal = texture('water_normal', { repeat: [4, 4], srgb: false }) || waterNormalTexture(noise);
@@ -274,8 +286,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     board.position.y = 1.35; board.castShadow = true; sign.add(board);
     const sx = h.tee[0] + Math.cos(yaw) * 2.4 - Math.sin(yaw) * 2.6, sz = h.tee[1] - Math.sin(yaw) * 2.4 - Math.cos(yaw) * 2.6;   // right of and behind the pad
     sign.position.set(sx, height(sx, sz), sz); sign.rotation.y = yaw + Math.PI; group.add(sign);
+    const signModel = addModel(sign, 'tee_sign');
+    if (signModel) { post.visible = false; board.scale.set(.85, .65, 1); board.position.set(0, 1.30, -.08); board.rotation.y = Math.PI; }
     const b = new THREE.Group(); b.position.set(h.basket[0], h.basketY, h.basket[1]);
     const bm = new THREE.Mesh(basketGeo, metal); bm.castShadow = true; b.add(bm);
+    if (addModel(b, 'basket')) bm.visible = false;
     const flag = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, 0.03), new THREE.MeshStandardMaterial({ map: textTexture([String(h.idx + 1)], { w: 128, h: 96, bg: '#f2c318', font: 'bold 70px system-ui, sans-serif' }) }));
     flag.position.set(0, 1.62, 0); flag.rotation.y = yaw; b.add(flag);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.06, 12), concrete); base.position.y = 0.03; b.add(base);
@@ -306,7 +321,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   };
   const dispose = () => {   // tear down so another course can be built into the same scene
     scene.remove(group, sky, sun, sun.target, hemi); scene.fog = null; scene.environment = null; envRT.dispose();
-    group.traverse(o => { o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { for (const k of ['map', 'normalMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
+    group.traverse(o => { if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
   return { def, world, holes, group, terrain, update, setHole, sunDir, baskets, dispose };
