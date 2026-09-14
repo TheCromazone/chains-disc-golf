@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0d1b12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Chains — Disc Golf</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23ff4d3d'/><circle cx='50' cy='50' r='22' fill='none' stroke='white' stroke-width='6'/></svg>">
+<style>
+  :root { --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); --pad-h: clamp(170px, 32vh, 300px); --accent: #ffd23f; --border: rgba(255,255,255,0.22);
+    /* liquid glass: translucent tinted sheet, heavy blur + saturation, specular inset rim (light top-left, shade bottom-right), soft inner glow */
+    --glass: linear-gradient(155deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.06) 40%, rgba(255,255,255,0.03) 60%, rgba(255,255,255,0.12) 100%), rgba(12, 22, 16, 0.34);
+    --glass-blur: blur(22px) saturate(180%);
+    --glass-shadow: inset 1.5px 1.5px 0.5px -1px rgba(255,255,255,0.55), inset -1px -1px 0.5px -0.5px rgba(255,255,255,0.18), inset 0 0 10px 3px rgba(255,255,255,0.05), 0 0 0 0.5px rgba(0,0,0,0.25), 0 10px 30px rgba(0,0,0,0.30);
+    --glass-shadow-sm: inset 1px 1px 0.5px -0.5px rgba(255,255,255,0.6), inset -1px -1px 0.5px -0.5px rgba(255,255,255,0.15), inset 0 0 8px 2px rgba(255,255,255,0.06), 0 0 0 0.5px rgba(0,0,0,0.25), 0 4px 14px rgba(0,0,0,0.25); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1b12; color: #f4f6f2; font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; overscroll-behavior: none; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  button { position: relative; font: inherit; font-weight: 600; letter-spacing: 0.2px; color: inherit; cursor: pointer; border: 1px solid var(--border); background: var(--glass); background-blend-mode: normal; border-radius: 14px; padding: 10px 14px; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shadow-sm); text-shadow: 0 1px 2px rgba(0,0,0,0.35); transition: transform .15s cubic-bezier(.2,.8,.2,1), filter .2s, box-shadow .2s; user-select: none; overflow: hidden; }
+  button::before { content: ""; position: absolute; inset: 0 0 55% 0; border-radius: inherit; background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0)); pointer-events: none; }
+  @media (hover:hover) { button:hover { filter: brightness(1.12); transform: translateY(-1px); } }
+  button:active { transform: scale(0.96); filter: brightness(0.92); }
+  button.primary, button.on { background: linear-gradient(160deg, rgba(255,235,140,0.95), rgba(255,200,40,0.85) 55%, rgba(255,170,30,0.9)); color: #1a1a1a; border-color: rgba(255,240,180,0.7); text-shadow: 0 1px 0 rgba(255,255,255,0.45); box-shadow: inset 1.5px 1.5px 0.5px -1px rgba(255,255,255,0.9), inset -1px -1px 0.5px -0.5px rgba(120,80,0,0.35), inset 0 0 10px 2px rgba(255,255,255,0.15), 0 6px 16px rgba(0,0,0,0.28), 0 0 0 0.5px rgba(0,0,0,0.2); }
+  button.primary { font-weight: 700; }
+  input { font: inherit; color: #fff; background: linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.12)); border: 1px solid var(--border); border-radius: 12px; padding: 11px 12px; width: 100%; box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), inset 0 -1px 0 rgba(255,255,255,0.12); outline: none; }
+  input:focus { border-color: rgba(255,210,63,0.6); box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 0 0 3px rgba(255,210,63,0.18); }
+  input::placeholder { color: rgba(255,255,255,0.4); }
+  .hidden { display: none !important; }
+  .panel { position: relative; background: var(--glass); border: 1px solid var(--border); border-radius: 22px; padding: 18px; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shadow); }
+  .panel::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(150deg, rgba(255,255,255,0.55), rgba(255,255,255,0.05) 35%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.25)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; padding-top: calc(16px + var(--sat)); z-index: 30; overflow: auto; }
+  .overlay .panel { width: min(440px, 100%); max-height: 100%; overflow: auto; }
+  h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: -1px; line-height: 1; }
+  h1 small { display: block; font-size: 13px; letter-spacing: 3px; color: var(--accent); font-weight: 700; margin-bottom: 8px; }
+  h2 { margin: 0 0 12px; font-size: 20px; }
+  .muted { color: rgba(255,255,255,0.65); font-size: 13px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+  .seg { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(0,0,0,0.22); box-shadow: inset 0 1px 4px rgba(0,0,0,0.35), inset 0 -1px 0 rgba(255,255,255,0.08); }
+  .seg button { flex: 1; padding: 8px 9px; font-size: 12.5px; border-radius: 10px; white-space: nowrap; overflow: visible; }
+  .seg button:not(.on) { background: transparent; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .seg button:not(.on)::before { display: none; }
+  .big { width: 100%; padding: 14px; font-size: 17px; }
+  label.f { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: rgba(255,255,255,0.75); }
+
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #hud > * { pointer-events: auto; }
+  #top { position: absolute; top: calc(8px + var(--sat)); left: 8px; right: 8px; display: flex; gap: 8px; align-items: stretch; }
+  #top .panel { padding: 8px 12px; border-radius: 16px; box-shadow: var(--glass-shadow-sm); }
+  #holeInfo { flex: 0 0 auto; }
+  #holeInfo b { font-size: 17px; display: block; }
+  #distInfo { flex: 1; text-align: center; }
+  #distInfo b { font-size: 22px; display: block; letter-spacing: -0.5px; }
+  #playerInfo { flex: 0 0 auto; text-align: right; }
+  #playerInfo b { display: block; font-size: 15px; }
+  #wind { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+  #windArrow { display: inline-block; transition: transform .2s; font-size: 16px; }
+  #pad { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--pad-h) + var(--sab)); padding-bottom: var(--sab); background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02) 30%, rgba(8,14,10,0.34)); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); border-top: 1px solid rgba(255,255,255,0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), inset 0 12px 24px -12px rgba(255,255,255,0.12), 0 -10px 30px rgba(0,0,0,0.25); touch-action: none; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; user-select: none; }
+  #pad.bad { animation: shake .3s; border-top-color: #ff5e5e; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  #hintArrow { font-size: 64px; line-height: 1; color: rgba(255,255,255,0.85); text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
+  #hintText { font-size: 14px; color: rgba(255,255,255,0.8); letter-spacing: 0.5px; }
+  #hintSub { font-size: 12px; color: rgba(255,255,255,0.5); }
+  #controls { position: absolute; left: 8px; right: 8px; bottom: calc(var(--pad-h) + var(--sab) + 8px); display: flex; flex-direction: column; gap: 6px; }
+  #throwRow, #discRow { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  #throwRow::-webkit-scrollbar, #discRow::-webkit-scrollbar { display: none; }
+  #throwRow button { flex: 1 0 auto; min-width: 64px; padding: 8px 6px; font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  #throwRow button span { font-size: 20px; line-height: 1; }
+  #discRow button { flex: 1 0 auto; padding: 7px 8px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.3); }
+  #sideBtns { position: absolute; right: 8px; top: calc(98px + var(--sat)); display: flex; flex-direction: column; gap: 8px; }
+  #sideBtns button { width: 46px; height: 46px; padding: 0; font-size: 20px; border-radius: 50%; }
+  #power { position: absolute; left: 10px; bottom: calc(var(--pad-h) + var(--sab) + 132px); height: min(24vh, 190px); width: 16px; border-radius: 10px; background: linear-gradient(90deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15) 40%, rgba(255,255,255,0.08) 70%, rgba(0,0,0,0.25)); border: 1px solid var(--border); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: inset 0 0 6px rgba(0,0,0,0.45), inset 1px 0 0 rgba(255,255,255,0.25), 0 4px 12px rgba(0,0,0,0.3); overflow: hidden; }
+  #powerFill { position: absolute; inset: 0; transform-origin: bottom; transform: scaleY(0); background: linear-gradient(0deg, #4ade80, #ffd23f 60%, #ff4d3d); transition: transform .04s linear; }
+  #powerFill::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,0.45), rgba(255,255,255,0) 45%, rgba(0,0,0,0.25)); }
+  #powerLabel { position: absolute; left: 6px; bottom: calc(var(--pad-h) + var(--sab) + 136px + min(24vh, 190px)); font-size: 12px; font-weight: 700; color: var(--accent); text-shadow: 0 1px 4px #000; white-space: nowrap; }
+  #toast { position: absolute; left: 50%; top: 22%; transform: translate(-50%, 0); text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s, transform .25s; }
+  #toast.show { opacity: 1; transform: translate(-50%, -8px); }
+  #toast b { display: block; font-size: 30px; letter-spacing: -0.5px; text-shadow: 0 2px 16px rgba(0,0,0,0.7); }
+  #toast span { font-size: 14px; text-shadow: 0 1px 8px rgba(0,0,0,0.8); }
+  #waiting { position: absolute; left: 50%; bottom: calc(var(--pad-h) + var(--sab) + 132px); transform: translateX(-50%); padding: 8px 14px; border-radius: 999px; font-size: 13px; white-space: nowrap; max-width: calc(100% - 140px); overflow: hidden; text-overflow: ellipsis; }
+  #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 20; }
+  #fade.on { opacity: 1; }
+
+  /* scorecard */
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { padding: 6px 4px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  th { color: rgba(255,255,255,0.6); font-weight: 600; }
+  td.name { text-align: left; font-weight: 600; white-space: nowrap; }
+  td.s-1, td.s-2, td.s-3 { color: #7ff0a3; font-weight: 700; } td.s1 { color: #ffb36b; } td.s2, td.s3, td.s4 { color: #ff7a7a; }
+  td.cur { background: rgba(255,210,63,0.15); }
+  .stand { display: flex; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: linear-gradient(160deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)); border: 1px solid rgba(255,255,255,0.14); box-shadow: inset 1px 1px 0 rgba(255,255,255,0.18); margin-bottom: 6px; }
+  .stand.win { background: linear-gradient(160deg, rgba(255,230,140,0.35), rgba(255,200,40,0.18)); border-color: rgba(255,220,120,0.45); }
+  .players .row { margin-bottom: 6px; }
+  .code { font-size: 42px; letter-spacing: 8px; font-weight: 800; text-align: center; color: var(--accent); margin: 6px 0; }
+  ul.list { list-style: none; padding: 0; margin: 0 0 10px; } ul.list li { padding: 8px 10px; background: linear-gradient(160deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)); border: 1px solid rgba(255,255,255,0.14); box-shadow: inset 1px 1px 0 rgba(255,255,255,0.18); border-radius: 10px; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .kbd { display: inline-block; padding: 2px 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; background: rgba(255,255,255,0.1); box-shadow: inset 0 1px 0 rgba(255,255,255,0.3); }
+  #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; background: #0d1b12; z-index: 50; }
+  .spin { width: 42px; height: 42px; border-radius: 50%; border: 4px solid rgba(255,255,255,0.15); border-top-color: var(--accent); animation: rot 1s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  /* hub menu, course cards, locker room */
+  .overlay.hub, .overlay.locker { align-items: flex-end; padding-bottom: calc(12px + var(--sab)); }
+  .hub-top { position: fixed; top: calc(10px + var(--sat)); left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; }
+  .hub-top > * { pointer-events: auto; }
+  .brand { font-size: 36px; font-weight: 900; letter-spacing: -1.5px; line-height: 1; text-shadow: 0 2px 16px rgba(0,0,0,0.55); padding-top: 4px; }
+  .brand small { display: block; font-size: 11px; letter-spacing: 3px; color: var(--accent); font-weight: 700; margin-bottom: 4px; }
+  .pcard { display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 12px 8px 8px; border-radius: 16px; }
+  .pcard .sw { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.7); box-shadow: inset 0 -8px 12px rgba(0,0,0,0.25); flex: none; }
+  .pcard b { display: block; font-size: 15px; } .pcard .muted { font-size: 11px; }
+  .hub-main { width: min(440px, 100%); max-height: 100%; overflow: auto; }
+  .row2 { display: flex; gap: 8px; } .row2 button { flex: 1; }
+  .ccard { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 12px; width: 100%; border-radius: 16px; }
+  .ccard .cmap { width: 84px; height: 62px; flex: none; border-radius: 10px; background: rgba(0,0,0,0.25); box-shadow: inset 0 1px 3px rgba(0,0,0,0.4); overflow: hidden; }
+  .ccard .cmap img, .ccard .cmap svg { width: 100%; height: 100%; display: block; object-fit: cover; }
+  .ccard .cinfo { flex: 1; min-width: 0; } .ccard .cinfo b { display: block; font-size: 16px; } .ccard .cinfo .muted { display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ccard .chev { font-size: 24px; opacity: 0.6; }
+  .ccard.on { border-color: rgba(255,225,140,0.8); box-shadow: var(--glass-shadow-sm), 0 0 0 2px rgba(255,210,63,0.4); }
+  .overlay.locker .panel { max-height: 56vh; }
+  .opt { display: flex; flex-direction: column; gap: 6px; } .opt > span { font-size: 11px; letter-spacing: 1.5px; color: rgba(255,255,255,0.6); text-transform: uppercase; font-weight: 600; }
+  .sw-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sw-row button { width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); box-shadow: inset 0 -8px 10px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.3); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .sw-row button::before { display: none; }
+  .sw-row button.on { border-color: #fff; transform: scale(1.12); box-shadow: 0 0 0 2px rgba(255,210,63,0.85), 0 2px 8px rgba(0,0,0,0.4); }
+  .opt input[type=number] { width: 90px; }
+  .overlay.hub { padding-top: calc(78px + var(--sat)); }   /* keep the panel clear of the fixed brand + player card */
+  @media (min-width: 900px) { .overlay.hub, .overlay.locker { justify-content: flex-start; align-items: center; padding-left: 5vw; } .overlay.locker .panel, .overlay.hub .panel { max-height: 100%; } }
+  @media (max-width: 460px) { #discRow button .muted { display: none; } #discRow button { padding: 7px 6px; } #throwRow button { min-width: 58px; } }
+  @media (min-width: 900px) { :root { --pad-h: 220px; } #pad { left: 25%; right: 25%; border-radius: 18px 18px 0 0; border-left: 1px solid var(--border); border-right: 1px solid var(--border); } #controls { left: 25%; right: 25%; } }
+  /* landscape phones: pad becomes a square on the right, controls stack bottom-left, side buttons go above the pad */
+  @media (max-height: 520px) and (min-aspect-ratio: 5/4) {
+    :root { --pad-h: 0px; }
+    #top .panel { padding: 5px 10px; } #holeInfo b { font-size: 14px; } #distInfo b { font-size: 18px; } #playerInfo b { font-size: 13px; } #top .muted { font-size: 11px; }
+    #pad { left: auto; right: 8px; bottom: calc(8px + var(--sab)); width: 38%; height: 56%; border-radius: 18px; border: 1px solid var(--border); padding-bottom: 0; }
+    #hintArrow { font-size: 40px; } #hintText { font-size: 12px; } #hintSub { display: none; }
+    #controls { left: 8px; right: calc(38% + 16px); bottom: calc(8px + var(--sab)); }
+    #discRow button .muted { display: none; }
+    #throwRow button { min-width: 0; padding: 6px 5px; font-size: 11px; } #throwRow button span { font-size: 17px; }
+    #sideBtns { flex-direction: row; top: calc(92px + var(--sat)); right: 8px; }
+    #sideBtns button { width: 40px; height: 40px; font-size: 18px; }
+    #waiting { left: 34px; transform: none; bottom: calc(126px + var(--sab)); max-width: calc(60% - 50px); }
+    #toast { top: 18%; }
+    .overlay.hub { align-items: flex-start; justify-content: flex-start; padding-left: 12px; padding-top: calc(74px + var(--sat)); }
+    .hub-main { width: min(400px, 58%); max-height: 100%; }
+    .overlay.locker { align-items: center; justify-content: flex-start; padding-left: 12px; }
+    .overlay.locker .panel { width: min(400px, 55%); max-height: 100%; }
+    .brand { font-size: 28px; }
+  }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="loading"><div class="spin"></div><div class="muted">Growing the course…</div></div>
+<div id="fade"></div>
+
+<div id="hud" class="hidden">
+  <div id="top">
+    <div id="holeInfo" class="panel"><span class="muted" id="holeLabel">HOLE 1</span><b id="holePar">Par 3 · 85 m</b></div>
+    <div id="distInfo" class="panel"><span class="muted">to basket</span><b id="dist">85 m</b><span id="wind"><span id="windArrow">➜</span><span id="windText">calm</span></span></div>
+    <div id="playerInfo" class="panel"><span class="muted" id="throwNo">Throw 1</span><b id="playerName">You</b></div>
+  </div>
+  <div id="powerLabel">POWER</div>
+  <div id="power"><div id="powerFill"></div></div>
+  <div id="sideBtns">
+    <button id="btnTarget" title="Aim at basket">🎯</button>
+    <button id="btnOverview" title="Overview">🗺️</button>
+    <button id="btnMute" title="Sound">🔊</button>
+    <button id="btnMenu" title="Menu">☰</button>
+  </div>
+  <div id="toast"><b id="toastTitle"></b><span id="toastSub"></span></div>
+  <div id="waiting" class="panel hidden">Waiting…</div>
+  <div id="controls">
+    <div id="throwRow"></div>
+    <div id="discRow"></div>
+  </div>
+  <div id="pad">
+    <div id="hintArrow">→</div>
+    <div id="hintText">BACKHAND · swipe right</div>
+    <div id="hintSub">swipe further for power · drag the view to aim</div>
+  </div>
+</div>
+
+<div id="menu" class="overlay hub">
+  <div class="hub-top">
+    <div class="brand"><small>DISC GOLF</small>Chains</div>
+    <button class="pcard" id="btnLocker"><i class="sw" id="hubSwatch"></i><div><b id="hubName">You</b><span class="muted">Locker room ›</span></div></button>
+  </div>
+  <div class="panel stack hub-main">
+    <button class="big primary" id="btnSolo">Quick round vs bots</button>
+    <div class="row2"><button class="big" id="btnLocal">Pass &amp; play</button><button class="big" id="btnOnline">Online room</button></div>
+    <button class="ccard" id="btnCourses"><div class="cmap" id="hubMap"></div><div class="cinfo"><span class="muted">COURSE</span><b id="hubCourse">Pine Hollow</b><span class="muted" id="hubCourseSub"></span></div><span class="chev">›</span></button>
+    <div class="row" style="justify-content:space-between">
+      <label class="f">Holes<div class="seg" id="holesSeg"><button data-v="3">3</button><button data-v="9" class="on">9</button></div></label>
+      <label class="f">Bots<div class="seg" id="diffSeg"><button data-v="easy">Easy</button><button data-v="medium" class="on">Medium</button><button data-v="hard">Hard</button></div></label>
+      <label class="f">Graphics<div class="seg" id="qualSeg"><button data-v="low">Lite</button><button data-v="high" class="on">Full</button></div></label>
+    </div>
+    <button id="btnHelp" style="width:100%">How to play &amp; rules</button>
+  </div>
+</div>
+
+<div id="courses" class="overlay hidden">
+  <div class="panel stack">
+    <h2>Choose a course</h2>
+    <div class="stack" id="courseList"></div>
+    <button id="btnCoursesBack">Back</button>
+  </div>
+</div>
+
+<div id="locker" class="overlay locker hidden">
+  <div class="panel stack">
+    <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Locker room</h2><button id="btnRandomAvatar">🎲 Random</button></div>
+    <label class="f">Name<input id="avName" maxlength="14" placeholder="Your name"></label>
+    <div id="avOpts" class="stack"></div>
+    <button class="big primary" id="btnLockerDone">Done</button>
+  </div>
+</div>
+
+<div id="setup" class="overlay hidden">
+  <div class="panel stack">
+    <h2 id="setupTitle">Players</h2>
+    <div class="players" id="playerList"></div>
+    <div class="row"><button id="btnAddHuman">+ Player</button><button id="btnAddBot">+ Bot</button></div>
+    <div class="row"><button id="btnSetupBack">Back</button><button class="primary" id="btnSetupStart" style="flex:1">Start round</button></div>
+  </div>
+</div>
+
+<div id="online" class="overlay hidden">
+  <div class="panel stack">
+    <h2>Online room</h2>
+    <label class="f">Your name<input id="onlineName" maxlength="14" placeholder="Name"></label>
+    <div id="onlineChoice" class="stack">
+      <button class="big primary" id="btnCreate">Create a room</button>
+      <div class="row"><input id="joinCode" maxlength="4" placeholder="ROOM CODE" style="flex:1;text-transform:uppercase;letter-spacing:4px;font-weight:700"><button id="btnJoin" class="primary">Join</button></div>
+      <div class="muted">Peer-to-peer via PeerJS. Everyone opens this page, one person creates a room and shares the 4-letter code.</div>
+      <button id="btnOnlineBack">Back</button>
+    </div>
+    <div id="lobby" class="hidden stack">
+      <div class="muted" style="text-align:center">Share this code</div>
+      <div class="code" id="roomCode">----</div>
+      <ul class="list" id="lobbyList"></ul>
+      <div class="row" id="hostControls"><button id="btnLobbyBot">+ Bot</button><button class="primary" id="btnLobbyStart" style="flex:1">Start round</button></div>
+      <div id="guestWait" class="muted hidden" style="text-align:center">Waiting for the host to start…</div>
+      <button id="btnLeave">Leave</button>
+    </div>
+  </div>
+</div>
+
+<div id="score" class="overlay hidden">
+  <div class="panel stack">
+    <h2 id="scoreTitle">Scorecard</h2>
+    <div id="scoreStand"></div>
+    <div style="overflow-x:auto"><table id="scoreTable"></table></div>
+    <div class="row"><button id="btnScoreMenu">Menu</button><button class="primary" id="btnScoreNext" style="flex:1">Next hole</button></div>
+    <div id="scoreWait" class="muted hidden" style="text-align:center">Waiting for the host…</div>
+  </div>
+</div>
+
+<div id="help" class="overlay hidden">
+  <div class="panel stack">
+    <h2>How to play</h2>
+    <div class="stack" style="font-size:14px;line-height:1.5">
+      <div><b>Aim</b> — drag anywhere on the course view. Drag up/down to change the launch angle. 🎯 snaps to the basket, 🗺️ shows the hole from above.</div>
+      <div><b>Disc</b> — Driver flies farthest but needs speed; Putter is straight and short. Flight numbers are Speed | Glide | Turn | Fade.</div>
+      <div><b>Throw</b> — pick a throw type, then swipe in the bottom pad in that throw's direction: Backhand →, Forehand ←, Tomahawk ↓, Scoober ↖, Putt ↑. Longer swipe = more power (watch the bar). Swipe slightly down for hyzer (more fade), up for anhyzer.</div>
+      <div><b>Flight</b> — a right-hand backhand fades left at the end; forehand fades right. Throw a disc faster than it's rated for and it will turn over.</div>
+      <h2 style="margin-top:6px">Rules</h2>
+      <div>Lowest total throws wins. Each hole starts on the tee pad; you play your next throw from where the disc came to rest. Farthest from the basket throws first; the best score on the previous hole tees off first. Holed when the disc rests in the basket or chains. Water and course boundaries are out of bounds: +1 throw, play from where it went out. Circle 1 is 10 m from the basket. Score names: Ace, Eagle, Birdie, Par, Bogey…</div>
+    </div>
+    <button class="primary big" id="btnHelpClose">Got it</button>
+  </div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

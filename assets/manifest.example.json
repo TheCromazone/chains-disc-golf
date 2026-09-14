@@ -1,0 +1,7 @@
+{
+  "_comment": "Rename to manifest.json and keep only the entries that exist. Paths are relative to assets/. See docs/codex-asset-prompts.md.",
+  "textures": { "grass": "textures/grass.jpg", "grass_normal": "textures/grass_normal.png", "bark": "textures/bark.jpg", "concrete": "textures/concrete.jpg", "tuft": "textures/tuft.png", "water_normal": "textures/water_normal.png" },
+  "courses": { "pine": "courses/pine.jpg", "meadow": "courses/meadow.jpg", "lake": "courses/lake.jpg" },
+  "discs": { "driver": "discs/driver.png", "fairway": "discs/fairway.png", "mid": "discs/mid.png", "putter": "discs/putter.png" },
+  "sfx": { "chains": "sfx/chains.mp3", "band": "sfx/band.mp3", "tree": "sfx/tree.mp3", "thud": "sfx/thud.mp3", "splash": "sfx/splash.mp3", "whoosh": "sfx/whoosh.mp3", "ambient": "sfx/ambient.mp3" }
+}
