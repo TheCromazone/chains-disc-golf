@@ -36,15 +36,22 @@ renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.A
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
-const resize = () => { renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' ? 1.5 : 2)); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); };
+let post = null;
+const resize = () => { renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' ? 1.5 : 2)); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); };
 addEventListener('resize', resize); resize();
 
-let course, world, holes;
+let course, world, holes, effects = null;
 const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos: new THREE.Vector3(), tLook: new THREE.Vector3(), mode: 'menu', lastHv: new THREE.Vector3(0, 0, -1) };
 const preview = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.7, gapSize: 0.45, transparent: true, opacity: 0.8, depthTest: false }));
 preview.frustumCulled = false; preview.renderOrder = 5; preview.visible = false; scene.add(preview);
 const circleRing = new THREE.Mesh(new THREE.RingGeometry(9.9, 10.1, 96).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
 scene.add(circleRing);
+// Soft projected contact shadow, only Full draws it.
+const shadowCanvas=document.createElement('canvas');shadowCanvas.width=shadowCanvas.height=64;
+const shadowInk=shadowCanvas.getContext('2d'), shadowGrad=shadowInk.createRadialGradient(32,32,2,32,32,32);
+shadowGrad.addColorStop(0,'rgba(0,0,0,.5)');shadowGrad.addColorStop(1,'rgba(0,0,0,0)');shadowInk.fillStyle=shadowGrad;shadowInk.fillRect(0,0,64,64);
+const contactShadow=new THREE.Mesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shadowCanvas),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
+contactShadow.visible=false;scene.add(contactShadow);
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
 const aimDir = () => [Math.cos(G.aim.yaw), Math.sin(G.aim.yaw)];
@@ -82,10 +89,12 @@ function placeHero() {
 function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } hero = createCharacter(G.avatar); scene.add(hero.group); const dm = createDiscMesh(discById('driver')); dm.position.set(0, -0.035, -0.02); dm.rotation.set(0.5, 0, 0); hero.hand.add(dm); placeHero(); }
 function updateHub() { const i = COURSES.findIndex(c => c.id === G.courseId); UI.setHub({ name: G.avatar.name, jersey: G.avatar.jersey, course: COURSES[i], holes: LAYOUTS[i], img: asset('courses', G.courseId) }); }
 async function loadCourse(id) {
-  const def = courseById(id); if (course && course.def.id === def.id) return;
+  const def = courseById(id); if (course && course.def.id === def.id && course.quality === G.settings.quality) return;
   const first = !course; if (!first) { UI.fade(true); await sleep(340); }
-  course?.dispose();
-  course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality });
+  course?.dispose(); post?.dispose(); post = null;
+  effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
+  if (effects) { post = effects.postprocessing(renderer,scene,camera); resize(); }
+  course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects });
   world = course.world; holes = course.holes; course.setHole(0);
   G.courseId = def.id; saveLocal('chains.course', def.id); updateHub();
   if (hero) placeHero();
@@ -314,7 +323,7 @@ function updateCamera(dt) {
   if (cam.mode === 'menu' || cam.mode === 'locker') {   // hero shot of the avatar on tee 1, slow sway
     const h0 = holes[0], t = performance.now() / 1000, d = [h0.basket[0] - h0.tee[0], h0.basket[1] - h0.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
     const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2, locker = cam.mode === 'locker';
-    const ang = Math.sin(t * 0.25) * 0.35 + (locker ? 0.15 : 0.55), dist = locker ? 2.4 : 3.6;
+    const ang = Math.sin(t * 0.18) * 0.10 + (locker ? -0.25 : -0.65), dist = locker ? 2.4 : 3.6;
     const fx = d[0] * Math.cos(ang) + r[0] * Math.sin(ang), fz = d[1] * Math.cos(ang) + r[1] * Math.sin(ang);   // direction from hero to camera, swept around his front
     const side = wide ? -0.9 : 0;   // desktop: menu panel sits on the left, so frame the hero right of centre
     cam.tPos.set(p.x + fx * dist + r[0] * side, p.y + (locker ? 1.25 : 1.35), p.z + fz * dist + r[1] * side);
@@ -392,7 +401,9 @@ function loop() {
   updateCamera(dt);
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : p ? p.char.group.position : cam.look;
   course.update(dt, time, focus);
-  renderer.render(scene, camera);
+  contactShadow.visible=G.settings.quality==='high' && !!G.flight?.pos;
+  if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
+  if(post) post.render(); else renderer.render(scene, camera);
 }
 
 // ---------- HUD / menu wiring ----------
@@ -408,7 +419,7 @@ $('btnScoreNext').onclick = () => { netSend({ t: 'next' }); advanceHole(); };
 $('btnScoreMenu').onclick = toMenu;
 UI.seg('holesSeg', v => G.settings.holes = v); UI.seg('diffSeg', v => G.settings.difficulty = v);
 $('qualSeg').querySelector(`[data-v="${G.settings.quality}"]`)?.classList.add('on'); $('qualSeg').querySelector(`[data-v="${G.settings.quality === 'low' ? 'high' : 'low'}"]`)?.classList.remove('on');
-UI.seg('qualSeg', v => { G.settings.quality = v; resize(); });
+UI.seg('qualSeg', async v => { G.settings.quality = v; resize(); await loadCourse(G.courseId); });
 document.addEventListener('pointerdown', unlock, { once: true, capture: true });
 
 const me = () => ({ name: G.avatar.name.trim() || 'You', avatar: G.avatar });

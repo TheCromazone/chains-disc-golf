@@ -28,3 +28,12 @@
 - Chains are modeled as individual interlocking links, combined into one render mesh to reduce draw calls. Props have Cycles-baked albedo, tangent normal and roughness maps. Grass uses ten tapered ribbon cards.
 - Lite keeps procedural foliage. Optional model failures use procedural characters/props. Locker number, colors, build, hair, headwear and shades remain supported.
 - Before: 01-assets-after.png. After: 02-models-after.png. Physics test passes unchanged.
+
+## Milestone 3 — Full rendering
+
+- Full dynamically imports EffectComposer, SSAO, gentle bloom, OutputPass and water reflection code. Lite bypasses postprocessing and keeps its original foliage, terrain subdivision, shadow size and pixel-ratio cap.
+- Added generated dirt/sand albedo tiles (1024 square) because the original image brief only specified grass. Terrain blends path wear and pond-edge sand through vertex weights; grass normal strength is reduced in Full.
+- Foliage sways in the vertex shader. A drifting procedural cloud sheet, golden meadow light-shaft meshes, and a projected disc contact shadow add depth. Shafts use depth-tested translucent geometry, not volumetric ray marching.
+- Water uses 256px planar reflection targets, refreshed every third visible nearby render. Full lighting reduces ambient fill to preserve form.
+- Graphics changes now rebuild the course and dispose the previous composer. Corrected the existing menu-camera/sign collision.
+- Browser compiled Full on all three courses without errors; physics passes. Before: 02-models-after.png. After: 03-rendering-after.png. Device performance remains for milestone 6.

@@ -7,7 +7,9 @@
     "tuft": "textures/tuft.png",
     "water_normal": "textures/water_normal.png",
     "jersey_pattern": "textures/jersey_pattern.png",
-    "skin_normal": "textures/skin_normal.png"
+    "skin_normal": "textures/skin_normal.png",
+    "dirt": "textures/dirt.jpg",
+    "sand": "textures/sand.jpg"
   },
   "courses": {
     "pine": "courses/pine.jpg",

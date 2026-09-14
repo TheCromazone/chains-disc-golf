@@ -5,6 +5,7 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
 import { modelParts, addModel } from './models.js';
+import { terrainSplat, windMaterial } from './materials.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
@@ -143,8 +144,9 @@ export function fairwayInfo(holes, x, z) { // nearest fairway polyline: distance
 }
 
 // ---------- main build ----------
-export function buildCourse(scene, renderer, { course: def = COURSES[0], quality = 'high' } = {}) {
+export function buildCourse(scene, renderer, { course: def = COURSES[0], quality = 'high', effects = null } = {}) {
   const seed = def.seed;
+  const windClock = { value: 0 }, waters = [];
   const noise = makeNoise(seed), rng = makeRng(seed * 7919 + 13);
   const holes = layoutHoles(makeRng(seed + 1), def);
   const ponds = holes.flatMap(h => h.ponds);
@@ -173,6 +175,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // --- terrain mesh ---
   const segX = 260, segZ = 200;
   const geo = new THREE.PlaneGeometry(W, H, segX, segZ); geo.rotateX(-Math.PI / 2);
+  const splats = new Float32Array(geo.attributes.position.count * 2);
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
   const cFair = new THREE.Color(def.grass[0]), cRough = new THREE.Color(def.grass[1]), cDark = new THREE.Color(def.grass[2]), cSand = new THREE.Color(def.grass[3]), tmp = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
@@ -182,11 +185,15 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     tmp.copy(cFair).lerp(cRough, smooth(5, 12, fi.d + (n1 - 0.5) * 3)).lerp(cDark, smooth(18, 40, fi.d) * 0.5);
     tmp.lerp(cSand, (n2 > 0.72 ? (n2 - 0.72) * 2 : 0));
     for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 2.2) tmp.lerp(cSand, smooth(2.2, 1.1, e) * 0.7); }
+    splats[i*2] = smooth(4, 0, fi.d) * smooth(.1, .3, fi.t) * (1-smooth(.7,.95,fi.t)) * .42;
+    for (const p of ponds) { const e=((x-p.x)/p.rx)**2+((z-p.z)/p.rz)**2; splats[i*2+1]=Math.max(splats[i*2+1],smooth(2.2,1.25,e)); }
     tmp.multiplyScalar(0.85 + n1 * 0.3);
+    if (quality !== 'low') tmp.lerp(new THREE.Color('#b6bf9e'), .38);
     colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3)); geo.computeVertexNormals();
   const terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: texture('grass', { repeat: [60, 46] }) || grassTexture(rng), normalMap: texture('grass_normal', { repeat: [60, 46], srgb: false }), vertexColors: true, roughness: 0.95, metalness: 0 }));
+  if (quality !== 'low') { terrainSplat(terrain.material, geo, splats); terrain.material.normalScale.set(.28,.28); }
   terrain.receiveShadow = true; group.add(terrain);
 
   // --- trees ---
@@ -245,7 +252,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     // Lite retains its existing foliage geometry budget.
     if (quality === 'low') return false;
     const parts = modelParts(name); if (!parts) return false;
-    for (const part of parts) inst(part.geometry, part.material, spots, null, shadow);
+    for (const part of parts) inst(part.geometry, windMaterial(part.material, windClock, name === 'grass'), spots, null, shadow);
     return true;
   };
   if (!importedInstances('pine', pineSpots)) {
@@ -266,7 +273,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const waterNormal = texture('water_normal', { repeat: [4, 4], srgb: false }) || waterNormalTexture(noise);
   const waterMat = new THREE.MeshStandardMaterial({ color: def.water, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.88, normalMap: waterNormal, normalScale: new THREE.Vector2(0.35, 0.35) });
   for (const p of ponds) {
-    const wm = new THREE.Mesh(new THREE.CircleGeometry(1, 56), waterMat);
+    const shape = new THREE.CircleGeometry(1,56);
+    const sd = new THREE.Vector3().setFromSphericalCoords(1,THREE.MathUtils.degToRad(90-def.sun[0]),THREE.MathUtils.degToRad(def.sun[1]));
+    const wm = effects ? effects.reflectiveWater(shape,waterNormal,def,sd) : new THREE.Mesh(shape, waterMat);
+    if(effects) waters.push(wm);
     wm.rotation.x = -Math.PI / 2; wm.scale.set(p.rx * 1.25, p.rz * 1.25, 1); wm.position.set(p.x, p.level, p.z); wm.receiveShadow = true; group.add(wm);
   }
 
@@ -304,18 +314,20 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1]));
   su.sunPosition.value.copy(sunDir);
   const pmrem = new THREE.PMREMGenerator(renderer); const envScene = new THREE.Scene(); envScene.add(sky);
-  const envRT = pmrem.fromScene(envScene); scene.environment = envRT.texture; envScene.remove(sky); scene.add(sky); pmrem.dispose();
+  const envRT = pmrem.fromScene(envScene); scene.environment = envRT.texture; scene.environmentIntensity = quality === 'low' ? 1 : .32; envScene.remove(sky); scene.add(sky); pmrem.dispose();
   scene.fog = new THREE.FogExp2(def.fog[0], def.fog[1]);
-  const sun = new THREE.DirectionalLight(def.sunColor, 2.3); sun.castShadow = true;
+  const sun = new THREE.DirectionalLight(def.sunColor, quality === 'low' ? 2.3 : 3.1); sun.castShadow = true;
   const sm = quality === 'low' ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
   const sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -42; sc2.right = sc2.top = 42; sc2.near = 1; sc2.far = 400;
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
   scene.add(sun); scene.add(sun.target);
-  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], 1.15); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], quality === 'low' ? 1.15 : .65); scene.add(hemi);
 
+  const atmosphere = effects?.atmosphere(group,def,holes);
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes };
   const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; };
   const update = (dt, t, focus) => {
+    windClock.value=t; atmosphere?.update(t); for(const w of waters) w.material.uniforms.time.value=t*.55;
     waterNormal.offset.x = t * 0.02; waterNormal.offset.y = t * 0.013;
     if (focus) { sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 180); }
   };
@@ -324,7 +336,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     group.traverse(o => { if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
-  return { def, world, holes, group, terrain, update, setHole, sunDir, baskets, dispose };
+  return { def, quality, world, holes, group, terrain, update, setHole, sunDir, baskets, dispose };
 }
 
 function makeBasketGeometry() {
