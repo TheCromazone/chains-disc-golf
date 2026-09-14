@@ -1,1 +1,36 @@
-{ "textures": {}, "courses": {}, "discs": {}, "sfx": {} }
+{
+  "textures": {
+    "grass": "textures/grass.jpg",
+    "grass_normal": "textures/grass_normal.png",
+    "bark": "textures/bark.jpg",
+    "concrete": "textures/concrete.jpg",
+    "tuft": "textures/tuft.png",
+    "water_normal": "textures/water_normal.png",
+    "jersey_pattern": "textures/jersey_pattern.png",
+    "skin_normal": "textures/skin_normal.png"
+  },
+  "courses": {
+    "pine": "courses/pine.jpg",
+    "meadow": "courses/meadow.jpg",
+    "lake": "courses/lake.jpg"
+  },
+  "discs": {
+    "driver": "discs/driver.png",
+    "fairway": "discs/fairway.png",
+    "mid": "discs/mid.png",
+    "putter": "discs/putter.png"
+  },
+  "portraits": {
+    "Ricky": "portraits/Ricky.png",
+    "Paige": "portraits/Paige.png",
+    "Simon": "portraits/Simon.png",
+    "Eagle": "portraits/Eagle.png",
+    "Calvin": "portraits/Calvin.png",
+    "Kristin": "portraits/Kristin.png"
+  },
+  "ui": {
+    "icon": "icon.png",
+    "menu_bg": "menu_bg.jpg"
+  },
+  "sfx": {}
+}

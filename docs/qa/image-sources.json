@@ -1,0 +1,186 @@
+[
+  {
+    "key": "grass",
+    "group": "textures",
+    "width": 1024,
+    "height": 1024,
+    "file": "textures/grass.jpg",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-8419fb1c-a7a6-4004-bb52-ce4e7c6b915f.png"
+  },
+  {
+    "key": "grass_normal",
+    "group": "textures",
+    "width": 1024,
+    "height": 1024,
+    "file": "textures/grass_normal.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-9aea612e-b749-4823-a58c-91070a668531.png"
+  },
+  {
+    "key": "bark",
+    "group": "textures",
+    "width": 512,
+    "height": 1024,
+    "file": "textures/bark.jpg",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-03f6901a-9336-4330-bdd8-61a7293087f1.png"
+  },
+  {
+    "key": "concrete",
+    "group": "textures",
+    "width": 512,
+    "height": 512,
+    "file": "textures/concrete.jpg",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-47413c9c-d0d0-4c89-a09b-82defdf7a5ee.png"
+  },
+  {
+    "key": "tuft",
+    "group": "textures",
+    "width": 512,
+    "height": 512,
+    "file": "textures/tuft.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-76c515e9-25cb-4f66-a724-b3802843ead6.png"
+  },
+  {
+    "key": "water_normal",
+    "group": "textures",
+    "width": 512,
+    "height": 512,
+    "file": "textures/water_normal.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-561813c1-2d49-47fe-8577-be2ec5135820.png"
+  },
+  {
+    "key": "pine",
+    "group": "courses",
+    "width": 640,
+    "height": 480,
+    "file": "courses/pine.jpg",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-fd6eeea3-8c86-4283-8b6d-521cb2031551.png"
+  },
+  {
+    "key": "meadow",
+    "group": "courses",
+    "width": 640,
+    "height": 480,
+    "file": "courses/meadow.jpg",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-850b9010-e1af-4e2e-9bd1-3bbc067d52eb.png"
+  },
+  {
+    "key": "lake",
+    "group": "courses",
+    "width": 640,
+    "height": 480,
+    "file": "courses/lake.jpg",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-309387e7-7321-48f6-bb8b-e4aa376a742b.png"
+  },
+  {
+    "key": "driver",
+    "group": "discs",
+    "width": 512,
+    "height": 512,
+    "file": "discs/driver.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-970cec06-0ec9-4ff5-bd64-7e589692bf6f.png"
+  },
+  {
+    "key": "fairway",
+    "group": "discs",
+    "width": 512,
+    "height": 512,
+    "file": "discs/fairway.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-76a0e039-4247-417f-885a-1e2a0f7ec681.png"
+  },
+  {
+    "key": "mid",
+    "group": "discs",
+    "width": 512,
+    "height": 512,
+    "file": "discs/mid.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-e37a7557-a2cd-42c9-86d7-acec231e4cc5.png"
+  },
+  {
+    "key": "putter",
+    "group": "discs",
+    "width": 512,
+    "height": 512,
+    "file": "discs/putter.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-7a9fdeb8-c6b6-45f2-904d-d59b310b3c1c.png"
+  },
+  {
+    "key": "jersey_pattern",
+    "group": "textures",
+    "width": 256,
+    "height": 256,
+    "file": "textures/jersey_pattern.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-209a7008-f478-4cfa-92a9-6c75fd49962c.png"
+  },
+  {
+    "key": "skin_normal",
+    "group": "textures",
+    "width": 256,
+    "height": 256,
+    "file": "textures/skin_normal.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-258dec10-3813-4925-a398-e545c6fef9c4.png"
+  },
+  {
+    "key": "icon",
+    "group": "ui",
+    "width": 1024,
+    "height": 1024,
+    "file": "icon.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-a920d30f-14f2-4d29-bd5b-c1f8d4103e43.png"
+  },
+  {
+    "key": "menu_bg",
+    "group": "ui",
+    "width": 1920,
+    "height": 1080,
+    "file": "menu_bg.jpg",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-6aa4cb39-a355-44bf-9bc7-efe6f8c4fcac.png"
+  },
+  {
+    "key": "Ricky",
+    "group": "portraits",
+    "width": 256,
+    "height": 256,
+    "file": "portraits/Ricky.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-cae6f646-8731-4c74-9e98-8cea7f275d63.png"
+  },
+  {
+    "key": "Paige",
+    "group": "portraits",
+    "width": 256,
+    "height": 256,
+    "file": "portraits/Paige.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-bcfb6a51-a850-448e-a269-faba0b5bd011.png"
+  },
+  {
+    "key": "Simon",
+    "group": "portraits",
+    "width": 256,
+    "height": 256,
+    "file": "portraits/Simon.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-df96b35a-303e-4989-bef3-2c6710ce1416.png"
+  },
+  {
+    "key": "Eagle",
+    "group": "portraits",
+    "width": 256,
+    "height": 256,
+    "file": "portraits/Eagle.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-4a348b7b-83ed-4f0d-9b60-615ee6a98964.png"
+  },
+  {
+    "key": "Calvin",
+    "group": "portraits",
+    "width": 256,
+    "height": 256,
+    "file": "portraits/Calvin.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-06e6a75d-b091-4645-9ca9-6e71a79b6c94.png"
+  },
+  {
+    "key": "Kristin",
+    "group": "portraits",
+    "width": 256,
+    "height": 256,
+    "file": "portraits/Kristin.png",
+    "source": "C:\\Users\\matth\\.codex\\generated_images\\01a0a23e-1723-7730-bc31-f11ae0cc74c8\\exec-6a34eac3-a079-441c-ae24-0a6746104380.png"
+  }
+]
