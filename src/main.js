@@ -62,6 +62,7 @@ const distToBasket = (x, z) => Math.hypot(basketPos()[0] - x, basketPos()[1] - z
 const isMine = p => G.mode !== 'online' ? !p.isBot : p.peerId === G.net?.id();
 const iControl = p => p.isBot ? (G.mode !== 'online' || G.net.isHost) : isMine(p);
 const netSend = msg => { if (G.mode !== 'online' || !G.net) return; G.net.isHost ? G.net.broadcast(msg) : G.net.toHost(msg); };
+const buzz = pattern => { try { navigator.vibrate?.(pattern); } catch { /* no haptics */ } };   // Android only; iOS Safari ignores it
 
 // ---------- players ----------
 function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerId = null, avatar = null }, i) {
@@ -292,6 +293,7 @@ function resolveThrow(pi, r) {
   let title, sub;
   if (r.holed) {
     p.done = true; p.scores[G.holeIdx] = p.strokes;
+    if (isMine(p)) buzz([30, 40, 60]);
     p.char.react?.(p.strokes<h.par?'celebrate':p.strokes>h.par?'slump':'idle_weight');
     title = UI.scoreName(p.strokes, h.par); sub = `${p.name} · ${p.strokes} throw${p.strokes > 1 ? 's' : ''}`;
     sfx.fanfare(p.strokes === 1 ? 'ace' : p.strokes - h.par <= -2 ? 'eagle' : p.strokes - h.par === -1 ? 'birdie' : 'par');
@@ -310,7 +312,20 @@ function resolveThrow(pi, r) {
 }
 function endHole() {
   G.phase = 'holeEnd'; preview.visible = false; UI.setControlsEnabled(false);
-  UI.renderScorecard({ players: G.players, holes: holes.slice(0, G.holeCount), holeIdx: G.holeIdx, final: G.holeIdx >= G.holeCount - 1, isHost: G.net?.isHost, online: G.mode === 'online' });
+  const final = G.holeIdx >= G.holeCount - 1;
+  UI.renderScorecard({ players: G.players, holes: holes.slice(0, G.holeCount), holeIdx: G.holeIdx, final, isHost: G.net?.isHost, online: G.mode === 'online', best: final ? personalBest() : null });
+}
+// Personal best per course and hole count for the one human on this phone (solo and online rounds; pass & play has several).
+function personalBest() {
+  const humans = G.players.filter(p => !p.isBot && isMine(p));
+  if (humans.length !== 1) return null;
+  const p = humans[0], played = holes.slice(0, G.holeCount);
+  if (played.some((h, i) => p.scores[i] == null)) return null;
+  const toPar = played.reduce((s, h, i) => s + p.scores[i] - h.par, 0), key = `chains.best.${G.courseId}.${G.holeCount}`;
+  let prev = null; try { prev = JSON.parse(localStorage.getItem(key)); } catch { /* private mode */ }
+  const isNew = prev == null || toPar < prev.toPar;
+  if (isNew) saveLocal(key, { toPar, date: Date.now() });
+  return { toPar, prev: prev?.toPar ?? null, isNew };
 }
 function advanceHole() {
   UI.hide('score'); UI.show('hud');
@@ -357,6 +372,7 @@ function onGesture(g) {
   const o = { power: g.progress, hyzer: 0, yawOffset: (Math.random() - 0.5) * 6 * wob, launchOffset: G.aim.pitch };
   if (th.latMode === 'hyzer') o.hyzer = Math.max(-35, Math.min(35, g.lateral * 80)); else o.yawOffset += Math.max(-25, Math.min(25, g.lateral * 50));
   UI.setHint(G.throwType, 'swipe further for power · drag the view to aim');
+  buzz(15);
   doThrow(G.cur, o);
 }
 function gestureParams(power, lateral) {

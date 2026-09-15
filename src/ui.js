@@ -192,8 +192,11 @@ export const scoreName = (strokes, par) => {
   if (strokes === 1) return 'ACE!'; const d = strokes - par;
   return d <= -3 ? 'Albatross!' : d === -2 ? 'Eagle!' : d === -1 ? 'Birdie!' : d === 0 ? 'Par' : d === 1 ? 'Bogey' : d === 2 ? 'Double bogey' : d === 3 ? 'Triple bogey' : `+${d}`;
 };
-export function renderScorecard({ players, holes, holeIdx, final, isHost, online }) {
+export function renderScorecard({ players, holes, holeIdx, final, isHost, online, best = null }) {
   const played = holes.slice(0, holeIdx + 1);
+  const fmt = v => v === 0 ? 'E' : v > 0 ? `+${v}` : String(v);
+  $('scoreBest').classList.toggle('hidden', !best);
+  if (best) $('scoreBest').textContent = !best.isNew ? `Personal best here: ${fmt(best.prev)}` : best.prev == null ? `Your first round here: ${fmt(best.toPar)}` : `New personal best: ${fmt(best.toPar)} (was ${fmt(best.prev)})`;
   const totals = players.map(p => { let s = 0, par = 0; played.forEach((h, i) => { if (p.scores[i] != null) { s += p.scores[i]; par += h.par; } }); return { p, s, toPar: s - par }; });
   const sorted = [...totals].sort((a, b) => a.toPar - b.toPar);
   $('scoreTitle').textContent = final ? 'Final results' : `Hole ${holeIdx + 1} complete`;
