@@ -34,30 +34,71 @@ export function setHint(throwType, sub) {
   const t = THROWS[throwType];
   const angles = { backhand: 0, forehand: 180, tomahawk: 90, scoober: -135, putt: -90 };
   $('hintArrow').innerHTML = icon('arrow'); $('hintArrow').style.transform = `rotate(${angles[throwType]}deg)`;
-  $('hintText').textContent = `${t.name.toUpperCase()} · ${t.hint}`;
+  $('pad').classList.remove('bad'); $('hintText').textContent = `${t.hint[0].toUpperCase()}${t.hint.slice(1)} to throw`;
   if (sub !== undefined) $('hintSub').textContent = sub;
 }
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
 export function setHud({ hole, par, len, dist, playerName, throwNo, windText, windDeg, circle }) {
   if (hole !== undefined) $('holeLabel').textContent = `HOLE ${hole}`;
   if (par !== undefined) $('holePar').textContent = `Par ${par} · ${Math.round(len)} m`;
-  if (dist !== undefined) $('dist').textContent = dist < 1 ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`;
+  if (dist !== undefined) { const label = dist < 1 ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`; $('dist').textContent = label; $('dist').setAttribute('aria-label', dist < 1 ? label : `${label} to basket`); }
   if (playerName !== undefined) $('playerName').textContent = playerName;
   if (throwNo !== undefined) $('throwNo').textContent = throwNo;
   if (windText !== undefined) $('windText').textContent = windText;
   if (windDeg !== undefined) $('windArrow').style.transform = `rotate(${windDeg}deg)`;
 }
+const equipmentPickers = { throwRow: 'btnThrowPicker', discRow: 'btnDiscPicker' };
+let openEquipment = null;
+function closeUtilities(returnFocus = false) {
+  const wasOpen = $('btnUtilities').getAttribute('aria-expanded') === 'true';
+  $('sideBtns').classList.add('hidden'); $('btnUtilities').setAttribute('aria-expanded', 'false');
+  if (returnFocus && wasOpen) $('btnUtilities').focus();
+}
+$('btnUtilities').onclick = () => {
+  const wasOpen = $('btnUtilities').getAttribute('aria-expanded') === 'true'; closeUtilities(); closeEquipment();
+  if (!wasOpen) { $('sideBtns').classList.remove('hidden'); $('btnUtilities').setAttribute('aria-expanded', 'true'); $('btnTarget').focus(); }
+};
+$('sideBtns').addEventListener('click', e => { if (e.target.closest('button')) closeUtilities(e.target.closest('button').id !== 'btnMenu'); });
+$('sideBtns').addEventListener('keydown', e => {
+  if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault(); const buttons = [...$('sideBtns').querySelectorAll('button')], i = buttons.indexOf(document.activeElement);
+  const step = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowUp' ? -2 : e.key === 'ArrowDown' ? 2 : 1;
+  buttons[e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1 : (i + step + buttons.length) % buttons.length]?.focus();
+});
+function closeEquipment(returnFocus = false) {
+  const previous = openEquipment; openEquipment = null;
+  for (const [row, button] of Object.entries(equipmentPickers)) { $(row).classList.add('hidden'); $(button).setAttribute('aria-expanded', 'false'); }
+  $('hud').classList.remove('equipment-open');
+  if (returnFocus && previous) $(equipmentPickers[previous]).focus();
+}
+for (const [row, button] of Object.entries(equipmentPickers)) {
+  $(button).onclick = () => {
+    const wasOpen = openEquipment === row; closeEquipment(); closeUtilities();
+    if (wasOpen) return;
+    openEquipment = row; $(row).classList.remove('hidden'); $(button).setAttribute('aria-expanded', 'true'); $('hud').classList.add('equipment-open');
+    ($(row).querySelector('.on') || $(row).querySelector('button'))?.focus();
+  };
+  $(row).onkeydown = e => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault(); const buttons = [...$(row).querySelectorAll('button')], i = buttons.indexOf(document.activeElement);
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+    buttons[next]?.focus();
+  };
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (openEquipment) { e.preventDefault(); closeEquipment(true); } else if ($('btnUtilities').getAttribute('aria-expanded') === 'true') { e.preventDefault(); closeUtilities(true); } } });
+document.addEventListener('pointerdown', e => { if (openEquipment && !$('controls').contains(e.target)) closeEquipment(); if (!$('utilities').contains(e.target)) closeUtilities(); });
+export function setResultMode(on) { document.body.classList.toggle('result-mode', on); if (on) { closeEquipment(); closeUtilities(); } }
 export function buildThrowButtons(onPick) {
   const row = $('throwRow'); row.innerHTML = '';
-  for (const [id, t] of Object.entries(THROWS)) { const b = document.createElement('button'); b.dataset.id = id; b.innerHTML = `${icon(id)}<span>${t.name}</span>`; b.title = `${t.name}: ${t.hint}`; b.onclick = () => onPick(id); row.appendChild(b); }
+  for (const [id, t] of Object.entries(THROWS)) { const b = document.createElement('button'); b.dataset.id = id; b.innerHTML = `${icon(id)}<span>${t.name}</span>`; b.title = `${t.name}: ${t.hint}`; b.onclick = () => { onPick(id); closeEquipment(true); }; row.appendChild(b); }
 }
 export function buildDiscChips(onPick) {
   const row = $('discRow'); row.innerHTML = '';
-  for (const d of DISCS) { const b = document.createElement('button'); b.dataset.id = d.id; b.innerHTML = `<i class="dot" style="background:${d.color}"></i>${d.id === 'driver' ? 'Driver' : d.id === 'fairway' ? 'Fairway' : d.id === 'mid' ? 'Midrange' : 'Putter'} <span class="muted">${d.speed}|${d.glide}|${d.turn}|${d.fade}</span>`; b.onclick = () => onPick(d.id); row.appendChild(b); }
+  for (const d of DISCS) { const b = document.createElement('button'); b.dataset.id = d.id; b.innerHTML = `<i class="dot" style="background:${d.color}"></i>${d.id === 'driver' ? 'Driver' : d.id === 'fairway' ? 'Fairway' : d.id === 'mid' ? 'Midrange' : 'Putter'} <span class="muted">${d.speed}|${d.glide}|${d.turn}|${d.fade}</span>`; b.onclick = () => { onPick(d.id); closeEquipment(true); }; row.appendChild(b); }
 }
-export function selectThrow(id) { for (const b of $('throwRow').children) pressed(b, b.dataset.id === id); setHint(id); }
-export function selectDisc(id) { for (const b of $('discRow').children) pressed(b, b.dataset.id === id); }
-export function setControlsEnabled(on) { $('controls').style.opacity = on ? 1 : 0.35; $('controls').style.pointerEvents = on ? 'auto' : 'none'; for (const b of $('controls').querySelectorAll('button')) b.disabled = !on; $('pad').style.opacity = on ? 1 : 0.5; }
+export function selectThrow(id) { for (const b of $('throwRow').children) pressed(b, b.dataset.id === id); setHint(id); $('currentThrow').textContent = THROWS[id].name; $('currentThrowIcon').innerHTML = icon(id); $('btnThrowPicker').setAttribute('aria-label', `Choose throw, current: ${THROWS[id].name}`); }
+export function selectDisc(id) { for (const b of $('discRow').children) pressed(b, b.dataset.id === id); const d = DISCS.find(d => d.id === id); const name = id === 'mid' ? 'Midrange' : id[0].toUpperCase() + id.slice(1); $('currentDisc').textContent = name; $('currentDiscDot').style.background = d?.color || '#fff'; $('btnDiscPicker').setAttribute('aria-label', `Choose disc, current: ${name}`); }
+export function setControlsEnabled(on) { if (!on) closeEquipment(); $('controls').style.opacity = on ? 1 : 0.35; $('controls').style.pointerEvents = on ? 'auto' : 'none'; for (const b of $('controls').querySelectorAll('button')) b.disabled = !on; $('pad').style.opacity = on ? 1 : 0.5; }
 export function setSoundMuted(muted) { const b = $('btnMute'); b.classList.toggle('muted-sound', muted); b.setAttribute('aria-pressed', String(muted)); b.title = muted ? 'Unmute sound' : 'Mute sound'; b.setAttribute('aria-label', b.title); }
 export function waiting(text) { if (text) { $('waiting').textContent = text; show('waiting'); } else hide('waiting'); }
 export function seg(id, onChange) { const el = $(id); for (const b of el.children) { pressed(b, b.classList.contains('on')); b.onclick = () => { for (const c of el.children) pressed(c, c === b); onChange(b.dataset.v); }; } return el.querySelector('.on').dataset.v; }

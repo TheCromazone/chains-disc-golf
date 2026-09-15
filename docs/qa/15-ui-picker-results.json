@@ -1,0 +1,218 @@
+[
+  {
+    "width": 360,
+    "height": 740,
+    "states": [
+      {
+        "name": "open-Throw",
+        "n": 13,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Throw",
+        "expanded": "false",
+        "focus": "btnThrowPicker"
+      },
+      {
+        "name": "open-Disc",
+        "n": 12,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Disc",
+        "expanded": "false",
+        "focus": "btnDiscPicker"
+      }
+    ],
+    "selection": {
+      "throw": "Putt",
+      "disc": "Putter",
+      "expanded": "false",
+      "focus": "btnThrowPicker"
+    }
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "states": [
+      {
+        "name": "open-Throw",
+        "n": 13,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Throw",
+        "expanded": "false",
+        "focus": "btnThrowPicker"
+      },
+      {
+        "name": "open-Disc",
+        "n": 12,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Disc",
+        "expanded": "false",
+        "focus": "btnDiscPicker"
+      }
+    ],
+    "selection": {
+      "throw": "Putt",
+      "disc": "Putter",
+      "expanded": "false",
+      "focus": "btnThrowPicker"
+    }
+  },
+  {
+    "width": 812,
+    "height": 375,
+    "states": [
+      {
+        "name": "open-Throw",
+        "n": 13,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Throw",
+        "expanded": "false",
+        "focus": "btnThrowPicker"
+      },
+      {
+        "name": "open-Disc",
+        "n": 12,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Disc",
+        "expanded": "false",
+        "focus": "btnDiscPicker"
+      }
+    ],
+    "selection": {
+      "throw": "Putt",
+      "disc": "Putter",
+      "expanded": "false",
+      "focus": "btnThrowPicker"
+    }
+  },
+  {
+    "width": 568,
+    "height": 320,
+    "states": [
+      {
+        "name": "open-Throw",
+        "n": 13,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Throw",
+        "expanded": "false",
+        "focus": "btnThrowPicker"
+      },
+      {
+        "name": "open-Disc",
+        "n": 12,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Disc",
+        "expanded": "false",
+        "focus": "btnDiscPicker"
+      }
+    ],
+    "selection": {
+      "throw": "Putt",
+      "disc": "Putter",
+      "expanded": "false",
+      "focus": "btnThrowPicker"
+    }
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "states": [
+      {
+        "name": "open-Throw",
+        "n": 13,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Throw",
+        "expanded": "false",
+        "focus": "btnThrowPicker"
+      },
+      {
+        "name": "open-Disc",
+        "n": 12,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Disc",
+        "expanded": "false",
+        "focus": "btnDiscPicker"
+      }
+    ],
+    "selection": {
+      "throw": "Putt",
+      "disc": "Putter",
+      "expanded": "false",
+      "focus": "btnThrowPicker"
+    }
+  },
+  {
+    "width": 1366,
+    "height": 768,
+    "states": [
+      {
+        "name": "open-Throw",
+        "n": 13,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Throw",
+        "expanded": "false",
+        "focus": "btnThrowPicker"
+      },
+      {
+        "name": "open-Disc",
+        "n": 12,
+        "overlaps": [],
+        "offscreen": [],
+        "clippedLabels": []
+      },
+      {
+        "name": "escape-Disc",
+        "expanded": "false",
+        "focus": "btnDiscPicker"
+      }
+    ],
+    "selection": {
+      "throw": "Putt",
+      "disc": "Putter",
+      "expanded": "false",
+      "focus": "btnThrowPicker"
+    }
+  }
+]

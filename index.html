@@ -20,24 +20,31 @@
 <div id="fade"></div>
 
 <div id="hud" class="hidden">
-  <div id="top">
-    <div id="holeInfo" class="panel"><span class="muted" id="holeLabel">HOLE 1</span><b id="holePar">Par 3 · 85 m</b></div>
-    <div id="distInfo" class="panel"><span class="muted">to basket</span><b id="dist">85 m</b><span id="wind"><span id="windArrow" data-icon="arrow"></span><span id="windText">calm</span></span></div>
-    <div id="playerInfo" class="panel"><span class="muted" id="throwNo">Throw 1</span><b id="playerName">You</b></div>
+  <div id="top" class="panel" aria-label="Round information">
+    <div id="holeInfo"><span class="muted" id="holeLabel">HOLE 1</span><b id="holePar">Par 3 · 85 m</b></div>
+    <div id="distInfo"><b id="dist" aria-label="Distance to basket">85 m</b><span id="wind"><span id="windArrow" data-icon="arrow"></span><span id="windText">calm</span></span></div>
+    <div id="playerInfo"><span class="muted" id="throwNo">Throw 1</span><b id="playerName">You</b></div>
   </div>
   <div id="powerLabel">POWER</div>
   <div id="power"><div id="powerFill"></div></div>
-  <div id="sideBtns">
-    <button id="btnTarget" title="Aim at basket" aria-label="Aim at basket"><span data-icon="target"></span></button>
-    <button id="btnOverview" title="Overview" aria-label="Overview"><span data-icon="map"></span></button>
-    <button id="btnMute" title="Mute sound" aria-label="Mute sound" aria-pressed="false"><span class="sound-icons"><span class="sound-on" data-icon="sound"></span><span class="sound-off" data-icon="mute"></span></span></button>
-    <button id="btnMenu" title="Menu" aria-label="Menu"><span data-icon="menu"></span></button>
+  <div id="utilities">
+    <button id="btnUtilities" aria-label="Course tools" aria-expanded="false" aria-controls="sideBtns"><span data-icon="menu"></span></button>
+    <div id="sideBtns" class="hidden" role="group" aria-label="Course tools">
+      <button id="btnTarget" title="Aim at basket" aria-label="Aim at basket"><span data-icon="target"></span><span>Aim</span></button>
+      <button id="btnOverview" title="Overview" aria-label="Overview"><span data-icon="map"></span><span>Overview</span></button>
+      <button id="btnMute" title="Mute sound" aria-label="Mute sound" aria-pressed="false"><span class="sound-icons"><span class="sound-on" data-icon="sound"></span><span class="sound-off" data-icon="mute"></span></span><span>Sound</span></button>
+      <button id="btnMenu" title="Menu" aria-label="Menu"><span data-icon="back"></span><span>Clubhouse</span></button>
+    </div>
   </div>
   <div id="toast" role="status" aria-live="polite"><b id="toastTitle"></b><span id="toastSub"></span></div>
   <div id="waiting" class="panel hidden" role="status">Waiting…</div>
   <div id="controls">
-    <div id="throwRow"></div>
-    <div id="discRow"></div>
+    <div class="equipment-summary">
+      <button id="btnThrowPicker" aria-expanded="false" aria-controls="throwRow"><span id="currentThrowIcon" data-icon="backhand"></span><span class="equipment-copy"><small>Throw</small><b id="currentThrow">Backhand</b></span><span class="picker-chevron" data-icon="chevron"></span></button>
+      <button id="btnDiscPicker" aria-expanded="false" aria-controls="discRow"><i id="currentDiscDot" class="dot"></i><span class="equipment-copy"><small>Disc</small><b id="currentDisc">Driver</b></span><span class="picker-chevron" data-icon="chevron"></span></button>
+    </div>
+    <div id="throwRow" class="equipment-picker hidden" role="group" aria-label="Choose throw"></div>
+    <div id="discRow" class="equipment-picker hidden" role="group" aria-label="Choose disc"></div>
   </div>
   <div id="pad">
     <div id="hintArrow" data-icon="arrow"></div>

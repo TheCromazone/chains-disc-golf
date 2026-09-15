@@ -1,0 +1,206 @@
+[
+  {
+    "width": 360,
+    "height": 740,
+    "utility": {
+      "name": "utilities-open",
+      "n": 9,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "escape": {
+      "expanded": "false",
+      "focus": "btnUtilities"
+    },
+    "selection": {
+      "expanded": "false",
+      "muted": "true",
+      "focus": "btnUtilities"
+    },
+    "powerAim": "hidden",
+    "powerWindup": "visible",
+    "throwPicker": {
+      "name": "throw-open",
+      "n": 10,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "pad": {
+      "width": 342,
+      "height": 62,
+      "text": "Swipe up ↑ to throw"
+    }
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "utility": {
+      "name": "utilities-open",
+      "n": 9,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "escape": {
+      "expanded": "false",
+      "focus": "btnUtilities"
+    },
+    "selection": {
+      "expanded": "false",
+      "muted": "true",
+      "focus": "btnUtilities"
+    },
+    "powerAim": "hidden",
+    "powerWindup": "visible",
+    "throwPicker": {
+      "name": "throw-open",
+      "n": 10,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "pad": {
+      "width": 412,
+      "height": 62,
+      "text": "Swipe up ↑ to throw"
+    }
+  },
+  {
+    "width": 812,
+    "height": 375,
+    "utility": {
+      "name": "utilities-open",
+      "n": 9,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "escape": {
+      "expanded": "false",
+      "focus": "btnUtilities"
+    },
+    "selection": {
+      "expanded": "false",
+      "muted": "true",
+      "focus": "btnUtilities"
+    },
+    "powerAim": "hidden",
+    "powerWindup": "visible",
+    "throwPicker": {
+      "name": "throw-open",
+      "n": 10,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "pad": {
+      "width": 307,
+      "height": 46,
+      "text": "Swipe up ↑ to throw"
+    }
+  },
+  {
+    "width": 568,
+    "height": 320,
+    "utility": {
+      "name": "utilities-open",
+      "n": 9,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "escape": {
+      "expanded": "false",
+      "focus": "btnUtilities"
+    },
+    "selection": {
+      "expanded": "false",
+      "muted": "true",
+      "focus": "btnUtilities"
+    },
+    "powerAim": "hidden",
+    "powerWindup": "visible",
+    "throwPicker": {
+      "name": "throw-open",
+      "n": 10,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "pad": {
+      "width": 214,
+      "height": 46,
+      "text": "Swipe up ↑ to throw"
+    }
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "utility": {
+      "name": "utilities-open",
+      "n": 9,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "escape": {
+      "expanded": "false",
+      "focus": "btnUtilities"
+    },
+    "selection": {
+      "expanded": "false",
+      "muted": "true",
+      "focus": "btnUtilities"
+    },
+    "powerAim": "hidden",
+    "powerWindup": "visible",
+    "throwPicker": {
+      "name": "throw-open",
+      "n": 10,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "pad": {
+      "width": 750,
+      "height": 62,
+      "text": "Swipe up ↑ to throw"
+    }
+  },
+  {
+    "width": 1366,
+    "height": 768,
+    "utility": {
+      "name": "utilities-open",
+      "n": 9,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "escape": {
+      "expanded": "false",
+      "focus": "btnUtilities"
+    },
+    "selection": {
+      "expanded": "false",
+      "muted": "true",
+      "focus": "btnUtilities"
+    },
+    "powerAim": "hidden",
+    "powerWindup": "visible",
+    "throwPicker": {
+      "name": "throw-open",
+      "n": 10,
+      "overlaps": [],
+      "offscreen": [],
+      "clippedLabels": []
+    },
+    "pad": {
+      "width": 681,
+      "height": 62,
+      "text": "Swipe up ↑ to throw"
+    }
+  }
+]
