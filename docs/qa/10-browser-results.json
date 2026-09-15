@@ -1,0 +1,2587 @@
+[
+  {
+    "width": 360,
+    "height": 740,
+    "result": {
+      "vw": 360,
+      "vh": 740,
+      "res": [
+        "hub[15] ov:- off:- clipped:-",
+        "courses[5] ov:- off:- clipped:-",
+        "locker[17] ov:- off:- clipped:-",
+        "locker-bottom[17] ov:- off:- clipped:-",
+        "setup[9] ov:- off:- clipped:-",
+        "online[6] ov:- off:- clipped:-",
+        "help[1] ov:- off:- clipped:-",
+        "help-bottom[2] ov:- off:- clipped:-",
+        "hud[20] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [
+      "[.WebGL-0x35c00b77600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "[.WebGL-0x35c00b77600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "[.WebGL-0x35c00b77600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "[.WebGL-0x35c00b77600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+    ],
+    "startup": [
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 26916,
+        "transfer": 27216
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 41569,
+        "transfer": 41869
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 27876,
+        "transfer": 28176
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 14610,
+        "transfer": 14910
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 14813,
+        "transfer": 15113
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3333,
+        "transfer": 3633
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2670,
+        "transfer": 2970
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 15792,
+        "transfer": 16092
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12353,
+        "transfer": 12653
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 3288,
+        "transfer": 3588
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4549,
+        "transfer": 4849
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5047,
+        "transfer": 5347
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2089,
+        "transfer": 2389
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 2224,
+        "transfer": 2524
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "encoded": 121613,
+        "transfer": 121913
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 11208,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 26916,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 41569,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 27876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 14610,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 14813,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3333,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2670,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 3288,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 15792,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12353,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4549,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5047,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2089,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "bytes": 121613,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow.jpg",
+        "bytes": 102343,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake.jpg",
+        "bytes": 92719,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "result": {
+      "vw": 430,
+      "vh": 932,
+      "res": [
+        "hub[15] ov:- off:- clipped:-",
+        "courses[5] ov:- off:- clipped:-",
+        "locker[17] ov:- off:- clipped:-",
+        "setup[9] ov:- off:- clipped:-",
+        "online[6] ov:- off:- clipped:-",
+        "help[2] ov:- off:- clipped:-",
+        "hud[20] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 26916,
+        "transfer": 27216
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 41569,
+        "transfer": 41869
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 14610,
+        "transfer": 14910
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 29216,
+        "transfer": 29516
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3333,
+        "transfer": 3633
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 14813,
+        "transfer": 15113
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2670,
+        "transfer": 2970
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12353,
+        "transfer": 12653
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 15792,
+        "transfer": 16092
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 3288,
+        "transfer": 3588
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5047,
+        "transfer": 5347
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4549,
+        "transfer": 4849
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2089,
+        "transfer": 2389
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 2224,
+        "transfer": 2524
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "encoded": 121613,
+        "transfer": 121913
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 11208,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 26916,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 41569,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 14610,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 29216,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3333,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 14813,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2670,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 3288,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12353,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 15792,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4549,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2089,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5047,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "bytes": 121613,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake.jpg",
+        "bytes": 92719,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow.jpg",
+        "bytes": 102343,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "width": 812,
+    "height": 375,
+    "result": {
+      "vw": 812,
+      "vh": 375,
+      "res": [
+        "hub[7] ov:- off:- clipped:-",
+        "hub-bottom[14] ov:- off:- clipped:-",
+        "courses[3] ov:- off:- clipped:-",
+        "courses-bottom[5] ov:- off:- clipped:-",
+        "locker[16] ov:- off:- clipped:-",
+        "locker-bottom[16] ov:- off:- clipped:-",
+        "setup[9] ov:- off:- clipped:-",
+        "setup-bottom[9] ov:- off:- clipped:-",
+        "online[6] ov:- off:- clipped:-",
+        "online-bottom[6] ov:- off:- clipped:-",
+        "help[1] ov:- off:- clipped:-",
+        "help-bottom[2] ov:- off:- clipped:-",
+        "hud[20] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[1] ov:- off:- clipped:-",
+        "score-bottom[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 26916,
+        "transfer": 27216
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 41569,
+        "transfer": 41869
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 29216,
+        "transfer": 29516
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 14610,
+        "transfer": 14910
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 14813,
+        "transfer": 15113
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3333,
+        "transfer": 3633
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2670,
+        "transfer": 2970
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 15792,
+        "transfer": 16092
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12353,
+        "transfer": 12653
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 3288,
+        "transfer": 3588
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4549,
+        "transfer": 4849
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5047,
+        "transfer": 5347
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2089,
+        "transfer": 2389
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 2224,
+        "transfer": 2524
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer.glb",
+        "encoded": 401160,
+        "transfer": 401460
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "encoded": 16328,
+        "transfer": 16628
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-lod.glb",
+        "encoded": 138616,
+        "transfer": 138916
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "encoded": 14832,
+        "transfer": 15132
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "encoded": 14704,
+        "transfer": 15004
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "encoded": 12360,
+        "transfer": 12660
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "encoded": 14972,
+        "transfer": 15272
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "encoded": 14968,
+        "transfer": 15268
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "encoded": 14028,
+        "transfer": 14328
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "encoded": 14380,
+        "transfer": 14680
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "encoded": 13500,
+        "transfer": 13800
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "encoded": 11000,
+        "transfer": 11300
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "encoded": 10466,
+        "transfer": 10766
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "encoded": 15826,
+        "transfer": 16126
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "encoded": 245398,
+        "transfer": 245698
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "encoded": 121613,
+        "transfer": 121913
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 11208,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 26916,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 41569,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 14610,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 29216,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 14813,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3333,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2670,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 15792,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12353,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 3288,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4549,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5047,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2089,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "bytes": 14832,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "bytes": 14704,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "bytes": 12360,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "bytes": 14972,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "bytes": 14968,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "bytes": 14028,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "bytes": 13500,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "bytes": 14380,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "bytes": 11000,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "bytes": 10466,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "bytes": 57529,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "bytes": 527333,
+        "status": 200
+      },
+      {
+        "url": "blob:http://localhost:8093/16a6c5a6-e17e-461d-bf22-58aa98ff9cc0",
+        "bytes": 68915,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "bytes": 121613,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow.jpg",
+        "bytes": 102343,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake.jpg",
+        "bytes": 92719,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "width": 568,
+    "height": 320,
+    "result": {
+      "vw": 568,
+      "vh": 320,
+      "res": [
+        "hub[7] ov:- off:- clipped:-",
+        "hub-bottom[12] ov:- off:- clipped:-",
+        "courses[3] ov:- off:- clipped:-",
+        "courses-bottom[4] ov:- off:- clipped:-",
+        "locker[16] ov:- off:- clipped:-",
+        "locker-bottom[16] ov:- off:- clipped:-",
+        "setup[7] ov:- off:- clipped:-",
+        "setup-bottom[9] ov:- off:- clipped:-",
+        "online[5] ov:- off:- clipped:-",
+        "online-bottom[6] ov:- off:- clipped:-",
+        "help[1] ov:- off:- clipped:-",
+        "help-bottom[2] ov:- off:- clipped:-",
+        "hud[20] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[1] ov:- off:- clipped:-",
+        "score-bottom[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 26916,
+        "transfer": 27216
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 41569,
+        "transfer": 41869
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 29216,
+        "transfer": 29516
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 14610,
+        "transfer": 14910
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 14813,
+        "transfer": 15113
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3333,
+        "transfer": 3633
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2670,
+        "transfer": 2970
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 15792,
+        "transfer": 16092
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12353,
+        "transfer": 12653
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5047,
+        "transfer": 5347
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2089,
+        "transfer": 2389
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4549,
+        "transfer": 4849
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 3288,
+        "transfer": 3588
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 2224,
+        "transfer": 2524
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "encoded": 121613,
+        "transfer": 121913
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 11208,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 26916,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 41569,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 14610,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3333,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 14813,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2670,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 15792,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12353,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 29216,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5047,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2089,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4549,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 3288,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "bytes": 121613,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow.jpg",
+        "bytes": 102343,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake.jpg",
+        "bytes": 92719,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "result": {
+      "vw": 768,
+      "vh": 1024,
+      "res": [
+        "hub[15] ov:- off:- clipped:-",
+        "courses[5] ov:- off:- clipped:-",
+        "locker[17] ov:- off:- clipped:-",
+        "setup[9] ov:- off:- clipped:-",
+        "online[6] ov:- off:- clipped:-",
+        "help[2] ov:- off:- clipped:-",
+        "hud[20] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 26916,
+        "transfer": 27216
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 41569,
+        "transfer": 41869
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 14610,
+        "transfer": 14910
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 29216,
+        "transfer": 29516
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 15724,
+        "transfer": 16024
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3333,
+        "transfer": 3633
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2670,
+        "transfer": 2970
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 15792,
+        "transfer": 16092
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12353,
+        "transfer": 12653
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 3288,
+        "transfer": 3588
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5047,
+        "transfer": 5347
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4549,
+        "transfer": 4849
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2089,
+        "transfer": 2389
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 2224,
+        "transfer": 2524
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer.glb",
+        "encoded": 401160,
+        "transfer": 401460
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "encoded": 16260,
+        "transfer": 16560
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-lod.glb",
+        "encoded": 138616,
+        "transfer": 138916
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "encoded": 12296,
+        "transfer": 12596
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "encoded": 14632,
+        "transfer": 14932
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "encoded": 14764,
+        "transfer": 15064
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "encoded": 14904,
+        "transfer": 15204
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "encoded": 14900,
+        "transfer": 15200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "encoded": 13956,
+        "transfer": 14256
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "encoded": 14316,
+        "transfer": 14616
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "encoded": 13436,
+        "transfer": 13736
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "encoded": 10928,
+        "transfer": 11228
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "encoded": 10466,
+        "transfer": 10766
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "encoded": 15826,
+        "transfer": 16126
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "encoded": 245398,
+        "transfer": 245698
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "encoded": 121613,
+        "transfer": 121913
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 11208,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 26916,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 41569,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 14610,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 29216,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3333,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 15724,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2670,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 15792,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12353,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 3288,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5047,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2089,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4549,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "bytes": 16260,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "bytes": 12296,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "bytes": 14632,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "bytes": 14764,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "bytes": 14904,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "bytes": 14900,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "bytes": 13956,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "bytes": 14316,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "bytes": 13436,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "bytes": 10928,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "bytes": 10466,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "bytes": 57529,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "bytes": 527333,
+        "status": 200
+      },
+      {
+        "url": "blob:http://localhost:8093/a4e296e3-387d-41ef-87fc-3c957618bee4",
+        "bytes": 68915,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "bytes": 121613,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow.jpg",
+        "bytes": 102343,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake.jpg",
+        "bytes": 92719,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "width": 1366,
+    "height": 768,
+    "result": {
+      "vw": 1366,
+      "vh": 768,
+      "res": [
+        "hub[15] ov:- off:- clipped:-",
+        "courses[5] ov:- off:- clipped:-",
+        "locker[17] ov:- off:- clipped:-",
+        "setup[9] ov:- off:- clipped:-",
+        "online[6] ov:- off:- clipped:-",
+        "help[2] ov:- off:- clipped:-",
+        "hud[20] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 26916,
+        "transfer": 27216
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 41569,
+        "transfer": 41869
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 14610,
+        "transfer": 14910
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 29216,
+        "transfer": 29516
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 15724,
+        "transfer": 16024
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3333,
+        "transfer": 3633
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2670,
+        "transfer": 2970
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 15792,
+        "transfer": 16092
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12353,
+        "transfer": 12653
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 3288,
+        "transfer": 3588
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4549,
+        "transfer": 4849
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5047,
+        "transfer": 5347
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2089,
+        "transfer": 2389
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 2224,
+        "transfer": 2524
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer.glb",
+        "encoded": 401160,
+        "transfer": 401460
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-lod.glb",
+        "encoded": 138616,
+        "transfer": 138916
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "encoded": 16260,
+        "transfer": 16560
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "encoded": 12296,
+        "transfer": 12596
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "encoded": 14632,
+        "transfer": 14932
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "encoded": 14764,
+        "transfer": 15064
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "encoded": 14904,
+        "transfer": 15204
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "encoded": 14900,
+        "transfer": 15200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "encoded": 13956,
+        "transfer": 14256
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "encoded": 14316,
+        "transfer": 14616
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "encoded": 13436,
+        "transfer": 13736
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "encoded": 10928,
+        "transfer": 11228
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "encoded": 10466,
+        "transfer": 10766
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "encoded": 15826,
+        "transfer": 16126
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "encoded": 245398,
+        "transfer": 245698
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "encoded": 121613,
+        "transfer": 121913
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 11208,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 26916,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 41569,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 14610,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 29216,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 15724,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3333,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2670,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 15792,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 3288,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12353,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4549,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5047,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2089,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "bytes": 16260,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-lod.glb",
+        "bytes": 138616,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer.glb",
+        "bytes": 401160,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "bytes": 12296,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "bytes": 14632,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "bytes": 14764,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "bytes": 14904,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "bytes": 14900,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "bytes": 13956,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "bytes": 14316,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "bytes": 13436,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "bytes": 10928,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "bytes": 10466,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "bytes": 57529,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "bytes": 527333,
+        "status": 200
+      },
+      {
+        "url": "blob:http://localhost:8093/6b890ec6-6ff0-4f22-8a0b-096aa80c010c",
+        "bytes": 68915,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine.jpg",
+        "bytes": 121613,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 2224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow.jpg",
+        "bytes": 102343,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake.jpg",
+        "bytes": 92719,
+        "status": 200
+      }
+    ]
+  }
+]

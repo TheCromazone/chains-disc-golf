@@ -2,7 +2,7 @@
 
 Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc and a throw type, then swipe in the throw pad: the swipe direction must match the throw (backhand →, forehand ←, tomahawk ↓, scoober ↖, putt ↑), the swipe length sets the power bar, and a slightly lower or higher swipe adds hyzer or anhyzer. Discs fly with a real turn/fade model, skip, roll, kick off trees, chain out, and splash into ponds.
 
-![Chains Full graphics](docs/qa/06-full-pine.jpg)
+![Chains clubhouse](docs/qa/19-clubhouse-430.png)
 
 ## Play
 
@@ -16,15 +16,15 @@ Three courses, three or nine holes each:
 - **Cedar Meadows** — open rolling meadow at golden hour, long holes, strong wind.
 - **Lakeshore Links** — morning light, water in play on five holes.
 
-**Locker room** — name, skin, hair, headwear, jersey and trim colours, number, shorts, shoes, build, shades. Your avatar stands on the tee behind the main menu and shows up in every mode, including online rooms (each player's look travels with them).
+**Locker room** — live round-headed avatar, Face / Hair / Outfit / Body tabs, visual face-part choices, skin and kit swatches. Eyes, brows, nose, mouth and glasses change atlas UVs on the same decal surfaces. Existing name, headwear, number and build choices remain available. Each player's appearance travels with them in online rooms.
 
 Works on phones (touch) and desktop (mouse). Add it to your home screen for a full-screen app.
 
 ### Game interface
 
-The clubhouse, course picker, locker room and live HUD share a forest-and-gold visual system, local SVG icons and tactile buttons. Course cards use the generated hero artwork. Equipment choices have persistent selected states; sound icons crossfade, flight controls disable during throws, and leaving a round uses an in-game confirmation. Online validation appears beside the room controls.
+The clubhouse, course picker, locker room and HUD share white/cyan frosted glass, coral actions, local SVG icons and tactile buttons. Course cards show the actual toon course. The live HUD uses a compact score strip and equipment pickers. Sound icons crossfade, flight controls disable during throws, and leaving a round uses an in-game confirmation. Online validation appears beside the room controls.
 
-Styles live in `src/ui.css`, with no external fonts or UI framework. Keyboard focus and reduced-motion styles are included. See the [UI refinement report and screenshots](docs/qa/07-ui-report.md); all six viewport overlap audits pass after this update.
+Styles live in `src/ui.css`, with no external fonts or UI framework. Keyboard focus and reduced-motion styles are included. See the [art-pass report and screenshots](docs/qa/18-REPORT.md); all six viewport overlap audits pass after this update.
 
 ## Rules implemented
 
@@ -75,7 +75,7 @@ It's static: push to GitHub and enable **Pages** on the repository root. Three.j
 | `src/course.js` | Seeded terrain, fairways, instanced trees with colliders, ponds, tee pads, baskets, sky |
 | `src/player.js`, `src/gltf-player.js` | Rigged GLB golfer, wardrobe, scrubbed Blender clips and procedural fallback |
 | `src/models.js` | Optional GLB cache, Draco and KTX2 loaders |
-| `src/materials.js`, `src/effects.js` | Terrain blending, foliage wind, water, HDR sky and Full postprocessing |
+| `src/materials.js`, `src/effects.js` | Toon terrain, foliage wind, clean water; retained optional legacy rendering infrastructure |
 | `src/input.js` | Pointer gestures: aim drag and throw swipes |
 | `src/bot.js` | Bots simulate candidate throws and pick the best, with difficulty noise |
 | `src/net.js` | PeerJS host/guest rooms |
@@ -88,26 +88,28 @@ No build step and no required assets. The shipped art replaces procedural defaul
 
 ## Graphics and animation
 
-- **Lite:** procedural instanced foliage, the original terrain/shadow budget, and optional GLB golfer, disc, basket and signs. No postprocessing targets or HDR download.
-- **Full:** grass/dirt/sand terrain blending, wind in foliage and matching shadows, planar water reflections, drifting clouds, meadow sun shafts, SSAO, subtle bloom and Unity-rendered HDR skies.
+- **Lite:** procedural round-headed golfer, analytic face atlas, instanced foliage, toon ramp, gradient sky, cartoon clouds and blob shadows. Models and Full-only texture/decoder requests are skipped at startup.
+- **Full:** the same bright art direction with the authored Blender body, ten separate mesh-free animation files, KTX2 face atlas and smaller waiting-player LOD. PBR grass, HDRI, SSAO and bloom are retired from the default look; their source infrastructure remains available.
 - Five Blender throws use phase **0–0.5 for swipe windup**, **0.62 for release**, and **0.5–1 for follow-through**. Idle weight shifts, practice swings, fairway looks and score reactions use separate clips.
 - A basket-to-tee camera introduces each hole. Chain-hit slow motion changes playback speed only; physics and network trajectory data stay unchanged.
 - Graphics switching rebuilds and disposes course resources. Foliage uses spatial groups; resolution can scale down during sustained slow frames. Lite never exceeds its original pixel-ratio cap.
 
 ## Validation and budgets
 
-Run both dependency-free checks:
+Run the checks:
 
 ```bash
 node test/physics.test.mjs
 node test/assets.test.mjs
+node test/feedback.test.mjs
+python test/sfx-normalization.py
 ```
 
 The asset test checks manifest files, GLB structure, Draco/KTX2 extensions, the golfer triangle budget, bone/material names and animation clips.
 
-Final QA: **39 manifest entries load with HTTP 200**, physics passes unchanged, a full hole completes against bots, a manual swipe advances play, and PeerJS transports all five existing message types. No console errors in the normal asset-enabled build. Six viewport audits pass, including scrolled panel bottoms: 360×740, 430×932, 812×375, 568×320, 768×1024 and 1366×768.
+Art-pass QA: **51 manifest entries**, unchanged physics passes, a real pointer swipe and a complete Full-quality hole pass, and empty-assets play works in both qualities. No JavaScript errors in integration checks. The six viewport overlap audit includes 360×740, 430×932, 812×375, 568×320, 768×1024 and 1366×768. The previous PeerJS transport verification remains applicable: protocol source and message shapes were preserved.
 
-Measured startup transfer at milestone 6: **4.55 MB Lite / 4.82 MB with Full**, including CDN code and decoders. The later UI refinement replaces the inline CSS with a 22.3 KB stylesheet and 2.1 KB icon module in local encoded-transfer measurements. The complete manifest totals 8.27 MB, loaded selectively. **60 fps Lite / 45 fps Full on mid-range Android and iPhone 12 remain physical-device targets, not certified results.** Desktop Chromium on an RTX 5090 passes; this does not establish mobile GPU or Safari performance.
+The art pass brings Lite startup below **2 MB**, including CDN code (see the current byte ledger in [the art-pass report](docs/qa/18-REPORT.md)). Disc stamps are 6.6–18.7 KB; normal maps are 256px JPEGs. **60 fps Lite / 45 fps Full on mid-range Android and iPhone 12 remain physical-device targets, not certified results.** Desktop Chromium does not establish mobile GPU or Safari performance.
 
 See [QA report](docs/qa/REPORT.md), [budget data](docs/qa/budget-results.json), [overlap results](docs/qa/overlap-results.json), and [decisions](docs/decisions.md). Milestone before/after screenshots are in `docs/qa/`.
 
@@ -116,11 +118,16 @@ See [QA report](docs/qa/REPORT.md), [budget data](docs/qa/budget-results.json), 
 The web game needs none of these tools. Blender sources live in `art/blender/`; image prompts are in [the asset brief](docs/codex-asset-prompts.md).
 
 ```bash
-blender --background --python tools/build-models.py
-python tools/compress-models.py /path/to/toktx
+blender --background --python tools/build-mii.py
+python tools/split-golfer-clips.py
+node tools/build-face-atlas.mjs
 ```
 
-Blender creates GLBs, PBR bakes and editable `.blend` files. The second command uses Khronos KTX-Software to replace embedded PNG maps with mipmapped KTX2 while preserving Draco geometry. The golfer is **10,512 triangles including all hidden variants**, with the eleven required bones and separate wardrobe materials.
+The golfer body is **466,036 bytes / 10,800 triangles**; the distant LOD is **160,840 bytes / 3,230 triangles**. Ten independent animation GLBs contain no mesh, material or texture payload. The eleven bone names remain unchanged. `tools/build-face-atlas.mjs` builds deterministic flat face parts and compresses them with Khronos `toktx`; the runtime retains its generated atlas fallback. Legacy model and Unity authoring tools remain in the repository.
+
+### Sound recordings — still outstanding
+
+`python tools/generate-sfx.py` uses the ElevenLabs sound-effects API to generate twelve effects, normalizes each to −6 dBFS, and publishes `manifest.sfx` only after the full set succeeds. It requires `ELEVENLABS_API_KEY` and ffmpeg. The credential was unavailable during this pass, so **no ElevenLabs recordings have been generated and `sfx` is still empty**. Synthesis supplies chains, applause, a descending miss reaction and reward notes until recordings are available. The normalization test uses a synthetic fixture, not a claimed generated recording.
 
 `art/unity/Assets/Editor/RenderChains.cs` renders the sampled course layouts to JPEG cards and half-float EXR skies. Run Unity in batch mode with `-projectPath art/unity -executeMethod RenderChains.Run -quit`. Generated Unity scenes/caches are disposable; the editor script recreates them. There is no Unity game build or runtime dependency.
 

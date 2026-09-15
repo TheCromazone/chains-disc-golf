@@ -74,3 +74,39 @@
 - Replaced browser confirm/alert UI with a native HTML dialog styled as part of the game and inline room errors. The leave dialog defaults to Keep playing, restores focus, and accepts an explicit Leave round action. Connection buttons preserve icons, expose busy state and disable during their own requests. Online payload shapes remain unchanged.
 - Six viewport audits pass, including panel scroll bottoms and the new leave dialog. A real 66% backhand swipe advances through bots to the next human turn; selected and disabled states work. Physics and asset tests pass. No Chromium console warnings/errors or failed resources in final diagnostics. Physical mobile performance and slowed Animations-panel replay were not verified in this UI pass.
 - Before/after and detailed verification: `docs/qa/07-ui-report.md`.
+
+## Round two — Wii / Switch Sports direction (2026-09-14–15)
+
+### Character and face parts
+
+- Studied the sibling `../ultimate frisbee game` Meshy clip extraction, deterministic appearance compiler, Blender prep and figure/appearance asset folders. Kept the architecture: body once, independent clip files, explicit LOD, reproducible appearance compiler. Original Blender geometry replaces the previous realistic golfer; no Nintendo geometry or texture is shipped.
+- Body: 466,036 bytes / 10,800 triangles. LOD: 160,840 bytes / 3,230 triangles, below the sibling's 492 KB. Ten clip files (idle, practice swing, five throws, celebrate, slump, walk) are 10.9–16.3 KB each and contain zero meshes/materials/textures, improving on the sibling's placeholder-triangle clips. The eleven bone names are unchanged.
+- Short body, round head, hair shells, tubular limbs and white gloves use a shared toon ramp. Five curved decal surfaces use a single deterministic 640px face atlas. Eye/brow/nose/mouth/glasses changes update UVs without mesh or material replacement. Full uses 10,466-byte KTX2; Lite draws the same paths locally. Corrected inverted KTX2 V coordinates and hair covering brows after criticism.
+- Existing avatar storage remains additive. Legacy shades map to sport glasses. Procedural ten-action fallback remains available when models or the manifest are absent. Waiting players use the smaller body; the active player is promoted at turn boundaries.
+
+### World
+
+- Both quality settings use saturated toon greens, a gradient sky, soft clouds, chunky foliage and blob/contact shadows. PBR grass, HDRI, SSAO and bloom are retired from the default path. Retained prior source assets/rendering tools for provenance and optional future work.
+- Criticism of a flat green plane led to scalloped fairways, contrasting first-cut collars, mowing bands, a lighter basket green, varied crowns and a visible yellow destination marker. A further losing comparison required real landforms: broad shared-height ridges/hollows, one-sided tee clearings and opposing tree groups. Course elevations and obstacle placement therefore changed deliberately; terrain rendering, normals, water levels and collision all use the same shared functions. `physics.js` and trajectory/message contracts remain unchanged. Fifty-four terrain drive probes stayed finite; full-hole integration is rerun for the revised course.
+- Course cards now show actual in-engine toon flyovers rather than photographic hero art.
+
+### Clubhouse, locker and HUD
+
+- Fetched both specified 21st.dev component sources (Tahoe button and Liquid Glass Card); adapted layered highlights, translucent fills, blur and saturation to native CSS. Kept local SVG icons, hierarchy, native confirmation dialog, keyboard focus and reduced-motion handling. No React dependency or external font added.
+- White/cyan glass and coral actions follow the sports-menu direction. A pale studio stage keeps the same live actor readable in the clubhouse and locker. Face editing moves the camera closer. Locker categories are keyboard-accessible tabs and visual part/swatch grids.
+- After the HUD lost the comparison, reduced the top information to one strip and moved secondary throw/disc options behind two equipment selectors. A further critique led to one utilities menu, a 64px contextual swipe cue and a power gauge visible only while preparing/releasing a throw. The aim camera favors the landing area over blank sky. Selection, Escape, outside dismissal, touch mute, focus return and all six expanded-picker/utility viewport checks pass. Original control IDs remain available.
+
+### Feedback and sound
+
+- Added Chains!, Nice shot!, applause and a descending missed-basket reaction. Holed trajectories never play the miss reaction, even when they touch a rim/band first. Each missed throw gets at most one gallery reaction. Pre-unlock mute state and individual sample-load failures are handled correctly.
+- Result moments hide inactive controls, enlarge the outcome and cut to a centered full-character reaction. The near-basket QA fixture runs the real throw simulation, events and playback; it is not an invented result overlay.
+- ElevenLabs delivery is **blocked**: no `ELEVENLABS_API_KEY` or callable ElevenLabs connection was available. `tools/generate-sfx.py` contains all twelve requests, resumable source caching, 24 kHz mono output and measured −6 dBFS peak normalization. It updates `manifest.sfx` only after the full set succeeds. No recordings were fabricated or mislabeled; `sfx` remains empty. Synthesized fallback sounds remain active. The sine-fixture normalization test does not verify generated recordings or audible quality.
+
+### Budget, review method and outstanding work
+
+- Lite skips body/LOD/clip/decoder/Full-texture downloads. Disc stamps are 6,596–18,656 bytes each. Grass/water normal maps now reference 256px JPEGs. `.impeccable/`, local credentials and Python caches are ignored. Final startup accounting includes HTML, local assets and exposed CDN transfer timings in `19-browser-results.json`: Lite 625,562 encoded bytes / 635,462 transferred bytes; Full 1,664,520 encoded bytes / 1,678,920 transferred bytes.
+- Builder and separate critics reviewed character, face, world, HUD, clubhouse, locker, feedback and sound. First/second criticisms triggered real revisions. Blind boards hide product labels but cannot hide recognizable characters; unequal aspect ratios and screen functions limit the experiment. A preparation frame is not valid proof of another game's inferior celebration. No universal Nintendo-beating claim is justified by these screenshots.
+- Wii and Switch galleries and YouTube round footage were inspected; files and exact links are indexed under `docs/qa/references/`. Both Refero pages were inaccessible in this session, so their actual designs were not claimed as reviewed.
+- Physics and asset checks pass. Integration exercises a real pointer swipe, a complete Full hole and both empty-assets quality paths. All six overlap viewports are rerun after layout changes. The prior online message contracts and storage keys remain unchanged.
+- **Physical Android and iPhone frame rates are still owed.** Desktop Chromium screenshots and timing do not certify mobile GPU, touch latency or Safari behavior. Generated ElevenLabs recordings and a defensible all-pieces blind win are also still outstanding.
+- Final lighting refinement adds a six-value terrain-normal ramp without extra textures/passes or collision changes. Final six-viewport overlap audit passes. The last independent world comparison still selects the reference; the additional lighting refinement does not justify claiming that the overall art target has been met. The HUD is provisionally preferred for phone readability, subject to mismatched reference aspect ratios.
