@@ -7,6 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Water } from 'three/addons/objects/Water.js';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+import { windMaterial, windTime } from './materials.js';
 
 export async function loadSky(renderer, url) {
   if(!url)return null;
@@ -18,16 +19,30 @@ export async function loadSky(renderer, url) {
 export function postprocessing(renderer, scene, camera) {
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const ao = new SSAOPass(scene, camera, 512, 512); ao.kernelRadius = .65; ao.minDistance = .001; ao.maxDistance = .035; composer.addPass(ao);
+  const ao = new SSAOPass(scene, camera, 512, 512); ao.kernelRadius = .4; ao.minDistance = .004; ao.maxDistance = .035;
+  const oldNormal = ao.normalMaterial; ao.normalMaterial = windMaterial(oldNormal, windTime); oldNormal.dispose(); composer.addPass(ao);
   const bloom = new UnrealBloomPass(new THREE.Vector2(512,512), .13, .35, 1.15); composer.addPass(bloom);
   const output = new OutputPass(); composer.addPass(output);
-  return { render: () => composer.render(), resize(w,h) { composer.setPixelRatio(1); composer.setSize(w,h); ao.setSize(Math.ceil(w*.65),Math.ceil(h*.65)); }, dispose() { for (const p of composer.passes) p.dispose?.(); composer.dispose(); } };
+  return { render: () => composer.render(), resize(w,h) { composer.setPixelRatio(1); composer.setSize(w,h); ao.setSize(Math.ceil(w*.65),Math.ceil(h*.65)); }, dispose() {
+    // r170 SSAOPass.dispose omits its noise texture and SSAO shader material.
+    ao.noiseTexture?.dispose(); ao.ssaoMaterial.dispose();
+    for (const p of composer.passes) p.dispose?.(); composer.dispose();
+  } };
 }
 
 export function reflectiveWater(geometry, normals, def, sunDir) {
   const water = new Water(geometry, { textureWidth: 256, textureHeight: 256, waterNormals: normals, sunDirection: sunDir, sunColor: def.sunColor, waterColor: def.water, distortionScale: 1.4, fog: true });
-  const reflect = water.onBeforeRender; let frame = 0;
-  water.onBeforeRender = function(...args) { const camera=args[2]; if (camera.position.distanceToSquared(this.position)<180*180 && frame++%3===0) reflect.apply(this,args); };
+  const reflect = water.onBeforeRender; let frame = 0, target = null;
+  water.onBeforeRender = function(...args) {
+    const renderer=args[0],camera=args[2];
+    if(args[1].overrideMaterial)return;
+    if(camera.position.distanceToSquared(this.position)>180*180 || frame++%3!==0)return;
+    // Water's r170 closure owns the reflection target; capture it for course teardown.
+    const set=renderer.setRenderTarget;
+    renderer.setRenderTarget=function(rt,...rest){if(!target&&rt?.width===256&&rt?.height===256)target=rt;return set.call(this,rt,...rest);};
+    try {reflect.apply(this,args);} finally {renderer.setRenderTarget=set;}
+  };
+  water.userData.dispose=()=>target?.dispose();
   return water;
 }
 

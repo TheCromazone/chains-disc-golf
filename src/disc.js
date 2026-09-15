@@ -8,7 +8,8 @@ const bodyGeo = new THREE.LatheGeometry(profile, 56);
 const stampGeo = new THREE.CircleGeometry(0.062, 40).rotateX(-Math.PI / 2).translate(0, 0.0178, 0);
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0), _n = new THREE.Vector3();
 
-const stampMap = disc => { const u = asset('discs', disc.id); if (!u) return stampTexture(disc); const t = new THREE.TextureLoader().load(u); t.colorSpace = THREE.SRGBColorSpace; return t; };   // generated stamp art overrides the canvas one
+const stamps = new Map();
+const stampMap = disc => { if(stamps.has(disc.id))return stamps.get(disc.id); const u=asset('discs',disc.id);const t=u?new THREE.TextureLoader().load(u):stampTexture(disc);t.colorSpace=THREE.SRGBColorSpace;t.__shared=true;stamps.set(disc.id,t);return t; };
 function stampTexture(disc) {
   const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
   g.clearRect(0, 0, 256, 256);
@@ -31,6 +32,7 @@ export function createDiscMesh(disc) {
   const stamp = new THREE.Mesh(stampGeo, new THREE.MeshStandardMaterial({ map: stampMap(disc), transparent: true, roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -1 }));
   g.add(stamp);
   g.userData.disc = disc; g.userData.spinAngle = 0;
+  g.userData.dispose = () => g.traverse(o => { for(const m of [].concat(o.material||[])) if(!m.__shared)m.dispose(); });
   return g;
 }
 

@@ -1,0 +1,111 @@
+{
+  "lite": {
+    "quality": "low",
+    "bytes": 4554865,
+    "requests": 49,
+    "zero": [],
+    "assets": 3685516
+  },
+  "full": {
+    "quality": "high",
+    "bytes": 4818278,
+    "requests": 67,
+    "zero": []
+  },
+  "performance": {
+    "gpu": "RTX 5090 / Chromium, viewport emulation; not mobile device certification",
+    "samplesPerCase": 90,
+    "cases": [
+      {
+        "quality": "low",
+        "course": "pine",
+        "width": 430,
+        "height": 932,
+        "meanFps": 174.01392111368764,
+        "p50ms": 5.80000000000291,
+        "p95ms": 6.100000000005821,
+        "drawCalls": 64,
+        "triangles": 292010,
+        "memory": {
+          "geometries": 26,
+          "textures": 40
+        }
+      },
+      {
+        "quality": "low",
+        "course": "meadow",
+        "width": 430,
+        "height": 932,
+        "meanFps": 175.26777020447906,
+        "p50ms": 5.600000000005821,
+        "p95ms": 6.200000000004366,
+        "drawCalls": 54,
+        "triangles": 238024,
+        "memory": {
+          "geometries": 26,
+          "textures": 40
+        }
+      },
+      {
+        "quality": "low",
+        "course": "lake",
+        "width": 430,
+        "height": 932,
+        "meanFps": 174.8931208705796,
+        "p50ms": 5.899999999994179,
+        "p95ms": 6.100000000005821,
+        "drawCalls": 51,
+        "triangles": 242606,
+        "memory": {
+          "geometries": 25,
+          "textures": 40
+        }
+      },
+      {
+        "quality": "high",
+        "course": "pine",
+        "width": 430,
+        "height": 932,
+        "meanFps": 179.56903431763874,
+        "p50ms": 5.5,
+        "p95ms": 6.099999999998545,
+        "drawCalls": 139,
+        "triangles": 3859445,
+        "memory": {
+          "geometries": 26,
+          "textures": 60
+        }
+      },
+      {
+        "quality": "high",
+        "course": "meadow",
+        "width": 430,
+        "height": 932,
+        "meanFps": 173.04364545279802,
+        "p50ms": 5.900000000001455,
+        "p95ms": 6.5,
+        "drawCalls": 121,
+        "triangles": 1128877,
+        "memory": {
+          "geometries": 26,
+          "textures": 61
+        }
+      },
+      {
+        "quality": "high",
+        "course": "lake",
+        "width": 430,
+        "height": 932,
+        "meanFps": 173.9802822346791,
+        "p50ms": 5.900000000001455,
+        "p95ms": 6.200000000004366,
+        "drawCalls": 119,
+        "triangles": 1792445,
+        "memory": {
+          "geometries": 26,
+          "textures": 62
+        }
+      }
+    ]
+  }
+}

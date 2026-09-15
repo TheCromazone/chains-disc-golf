@@ -32,36 +32,36 @@
   "disc": {
     "triangles": 1248,
     "meshCount": 1,
-    "bytes": 28200
+    "bytes": 37004
   },
   "basket": {
     "triangles": 12960,
     "meshCount": 1,
-    "bytes": 138012
+    "bytes": 145076
   },
   "tee_sign": {
     "triangles": 204,
     "meshCount": 1,
-    "bytes": 27348
+    "bytes": 34960
   },
   "pine": {
     "triangles": 2432,
     "meshCount": 1,
-    "bytes": 124968
+    "bytes": 137848
   },
   "deciduous": {
     "triangles": 872,
     "meshCount": 1,
-    "bytes": 61248
+    "bytes": 82748
   },
   "bush": {
     "triangles": 500,
     "meshCount": 1,
-    "bytes": 27252
+    "bytes": 43940
   },
   "grass": {
     "triangles": 80,
     "meshCount": 1,
-    "bytes": 22988
+    "bytes": 40156
   }
 }

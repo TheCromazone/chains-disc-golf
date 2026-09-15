@@ -5,7 +5,7 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
 import { modelParts, addModel } from './models.js';
-import { terrainSplat, windMaterial } from './materials.js';
+import { terrainSplat, windMaterial, windTime } from './materials.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
@@ -146,7 +146,7 @@ export function fairwayInfo(holes, x, z) { // nearest fairway polyline: distance
 // ---------- main build ----------
 export function buildCourse(scene, renderer, { course: def = COURSES[0], quality = 'high', effects = null, hdri = null } = {}) {
   const seed = def.seed;
-  const windClock = { value: 0 }, waters = [];
+  const windClock = windTime, waters = [], clusters = []; let lastCull=-1;
   const noise = makeNoise(seed), rng = makeRng(seed * 7919 + 13);
   const holes = layoutHoles(makeRng(seed + 1), def);
   const ponds = holes.flatMap(h => h.ponds);
@@ -192,7 +192,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3)); geo.computeVertexNormals();
-  const terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: texture('grass', { repeat: [60, 46] }) || grassTexture(rng), normalMap: texture('grass_normal', { repeat: [60, 46], srgb: false }), vertexColors: true, roughness: 0.95, metalness: 0 }));
+  const terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: texture('grass', { repeat: [260, 200] }) || grassTexture(rng), normalMap: texture('grass_normal', { repeat: [260, 200], srgb: false }), vertexColors: true, roughness: 0.95, metalness: 0 }));
+  terrain.material.normalScale.set(.22,.22);
   if (quality !== 'low') { terrainSplat(terrain.material, geo, splats); terrain.material.normalScale.set(.28,.28); }
   terrain.receiveShadow = true; group.add(terrain);
 
@@ -242,10 +243,15 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const bushGeo = blob(1, 1, 0.6).scale(1, 0.75, 1).translate(0, 0.5, 0);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
   const inst = (geo, mat, spots, colorFn, shadow = true) => {
-    const im = new THREE.InstancedMesh(geo, mat, Math.max(1, spots.length));
-    spots.forEach((s, i) => { e.set(0, s.rot, 0); q.setFromEuler(e); v.set(s.x, s.y - 0.15, s.z); sc.set(s.s, s.s, s.s); m.compose(v, q, sc); im.setMatrixAt(i, m); if (colorFn) im.setColorAt(i, colorFn(s)); });
-    im.count = spots.length; im.castShadow = shadow; im.receiveShadow = true; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
-    group.add(im); return im;
+    const cells=new Map();
+    for(const s of spots){const key=Math.floor(s.x/64)+','+Math.floor(s.z/64);if(!cells.has(key))cells.set(key,[]);cells.get(key).push(s);}
+    for(const cell of cells.values()){
+      const im=new THREE.InstancedMesh(geo,mat,cell.length);
+      cell.forEach((s,i)=>{e.set(0,s.rot,0);q.setFromEuler(e);v.set(s.x,s.y-.15,s.z);sc.setScalar(s.s);m.compose(v,q,sc);im.setMatrixAt(i,m);if(colorFn)im.setColorAt(i,colorFn(s));});
+      if(quality!=='low'){const depth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking});im.customDepthMaterial=windMaterial(depth,windClock);depth.dispose();}
+      im.castShadow=shadow;im.receiveShadow=true;im.instanceMatrix.needsUpdate=true;if(im.instanceColor)im.instanceColor.needsUpdate=true;
+      im.computeBoundingSphere();im.computeBoundingBox();group.add(im);clusters.push(im);
+    }
   };
   const col = new THREE.Color();
   const importedInstances = (name, spots, shadow = true) => {
@@ -327,14 +333,16 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const atmosphere = effects?.atmosphere(group,def,holes);
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes };
   const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; };
-  const update = (dt, t, focus) => {
+  const update = (dt, t, focus, view) => {
+    if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
     windClock.value=t; atmosphere?.update(t); for(const w of waters) w.material.uniforms.time.value=t*.55;
     waterNormal.offset.x = t * 0.02; waterNormal.offset.y = t * 0.013;
     if (focus) { sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 180); }
   };
   const dispose = () => {   // tear down so another course can be built into the same scene
+    for(const w of waters)w.userData.dispose?.();
     scene.remove(group, sky, sun, sun.target, hemi); scene.fog = null; scene.environment = null; scene.background = null; envRT.dispose(); hdri?.texture.dispose();
-    group.traverse(o => { if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
+    group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
   return { def, quality, world, holes, group, terrain, update, setHole, sunDir, baskets, dispose };

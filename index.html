@@ -148,6 +148,24 @@
     .overlay.locker .panel { width: min(400px, 55%); max-height: 100%; }
     .brand { font-size: 28px; }
   }
+  /* Matte tournament UI: one translucent surface, clear selection and legible type. */
+  :root { --glass: rgba(13,28,23,.84); --glass-blur: blur(12px); --border: rgba(235,246,232,.18); --glass-shadow: 0 12px 36px rgba(0,0,0,.22); --glass-shadow-sm: 0 3px 12px rgba(0,0,0,.16); }
+  button { background:rgba(242,250,237,.065); text-shadow:none; }
+  button::before,.panel::before { display:none; }
+  button.primary,button.on { background:#f2cc59; color:#17251d; border-color:#f8dd88; box-shadow:0 3px 12px rgba(0,0,0,.14); text-shadow:none; }
+  .panel { border-radius:20px; }
+  .stack > * { flex-shrink:0; }
+  .brand { letter-spacing:-1.8px; }
+  .brand small { letter-spacing:3.5px; }
+  .pcard { background:rgba(13,28,23,.8); }
+  .ccard { background:rgba(246,255,240,.045); }
+  .seg { box-shadow:none; background:rgba(0,0,0,.23); }
+  #pad { backdrop-filter:none; -webkit-backdrop-filter:none; background:linear-gradient(180deg,rgba(13,28,23,.4),rgba(13,28,23,.9)); box-shadow:none; }
+  button:focus-visible { outline:3px solid #fff2b6; outline-offset:3px; }
+  @media (prefers-reduced-motion:reduce) { button,#toast,#fade {transition:none;} }
+  @media (max-height:520px) and (min-aspect-ratio:5/4) {
+    .overlay.hub .panel { width:min(400px,58%); }
+  }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }

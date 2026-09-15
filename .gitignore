@@ -10,3 +10,6 @@ art/unity/Logs/
 art/unity/obj/
 art/unity/UserSettings/
 art/unity/Assets/*.unity*
+docs/qa/empty-site/
+art/unity/ProjectSettings/*.asset
+art/unity/ProjectSettings/SceneTemplateSettings.json

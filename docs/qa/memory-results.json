@@ -1,0 +1,51 @@
+[
+  {
+    "id": "pine",
+    "memory": {
+      "geometries": 27,
+      "textures": 57
+    }
+  },
+  {
+    "id": "meadow",
+    "memory": {
+      "geometries": 27,
+      "textures": 60
+    }
+  },
+  {
+    "id": "lake",
+    "memory": {
+      "geometries": 28,
+      "textures": 60
+    }
+  },
+  {
+    "id": "pine",
+    "memory": {
+      "geometries": 28,
+      "textures": 60
+    }
+  },
+  {
+    "id": "meadow",
+    "memory": {
+      "geometries": 27,
+      "textures": 60
+    }
+  },
+  {
+    "id": "lake",
+    "memory": {
+      "geometries": 28,
+      "textures": 60
+    }
+  },
+  {
+    "id": "pine",
+    "memory": {
+      "geometries": 28,
+      "textures": 60
+    }
+  }
+]

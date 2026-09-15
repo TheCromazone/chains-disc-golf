@@ -53,3 +53,14 @@
 - Reproducible Unity editor source and sampled layout are in art/unity. Generated Library, temporary scenes and editor caches are excluded from Git and deployment. No Unity player or WebGL build is shipped.
 - Browser verified a 1024-wide half-float HDR background with reflection environment and no errors. Unity batch returned success (docs/qa/unity-render.log).
 - Before: 03-rendering-after.png. After: 05-unity-sky-after.png. Render outputs are assets/courses/*_unity.jpg and assets/skies/*.exr.
+
+## Milestone 6 — budget, polish and QA
+
+- Initial encoded transfer measured 4.55 MB Lite and 4.82 MB with Full, including Three/PeerJS/addons and codec downloads. All 39 manifest entries return 200 and images decode; asset structural and physics tests pass.
+- Partitioned foliage into 64 m spatial groups with distance/frustum culling. Physics collider placement and terrain heights are unchanged. Added bounded resolution scaling for sustained slow frames; Lite retains its original upper pixel-ratio and shadow budgets.
+- Fixed disc/marker/hero resource disposal, serialized course changes, disposed planar reflection targets, and explicitly freed the noise texture/material omitted by Three r170 SSAOPass.dispose. Repeated Full rebuilds stabilize after warmup.
+- Matched wind in the SSAO normal and shadow passes. Water skips reflection work during override-material passes. Reduced the apparent grass tile size and gave the menu a matte surface with clearer text.
+- Corrected landscape panel children shrinking and clipping labels. Enhanced the supplied overlap audit with ancestor clipping, vertical label overflow checks and scroll-bottom coverage. All six requested viewports pass.
+- A complete post-upgrade Pine hole finishes (You 4, Ricky 3, Paige 2). Diagnostic human throws use bot planning and faster presentation; a separate real 98% swipe works and advances through bot turns. PeerJS host/guest transports all five message types bidirectionally. A separate empty-assets copy boots and simulates in both qualities (one expected missing-manifest 404).
+- Desktop 430×932 samples on RTX 5090 average 173–180 fps, but these do not certify Android/iPhone performance. Physical-device 60/45 fps targets remain unverified and are explicitly listed in README and QA report.
+- Before/after and machine-readable results are indexed in docs/qa/REPORT.md. README now covers graphics, budgets, fallback, authoring tools and minimal static deployment.

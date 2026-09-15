@@ -2,7 +2,7 @@
 
 Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc and a throw type, then swipe in the throw pad: the swipe direction must match the throw (backhand →, forehand ←, tomahawk ↓, scoober ↖, putt ↑), the swipe length sets the power bar, and a slightly lower or higher swipe adds hyzer or anhyzer. Discs fly with a real turn/fade model, skip, roll, kick off trees, chain out, and splash into ponds.
 
-![Chains screenshot](docs/screenshot.jpg)
+![Chains Full graphics](docs/qa/06-full-pine.jpg)
 
 ## Play
 
@@ -67,7 +67,9 @@ It's static: push to GitHub and enable **Pages** on the repository root. Three.j
 |---|---|
 | `src/physics.js` | Flight model, collisions, basket catch, OB, headless simulation |
 | `src/course.js` | Seeded terrain, fairways, instanced trees with colliders, ponds, tee pads, baskets, sky |
-| `src/player.js` | Procedural rigged golfer with keyframed throw animations per throw type |
+| `src/player.js`, `src/gltf-player.js` | Rigged GLB golfer, wardrobe, scrubbed Blender clips and procedural fallback |
+| `src/models.js` | Optional GLB cache, Draco and KTX2 loaders |
+| `src/materials.js`, `src/effects.js` | Terrain blending, foliage wind, water, HDR sky and Full postprocessing |
 | `src/input.js` | Pointer gestures: aim drag and throw swipes |
 | `src/bot.js` | Bots simulate candidate throws and pick the best, with difficulty noise |
 | `src/net.js` | PeerJS host/guest rooms |
@@ -75,4 +77,45 @@ It's static: push to GitHub and enable **Pages** on the repository root. Three.j
 | `src/assets.js` | Optional asset manifest: drop generated textures, course art, disc stamps and real recordings into `assets/` |
 | `src/main.js` | Game state machine, camera, hub menu, locker room, HUD wiring, online sync |
 
-No build step and no required assets: every texture, the avatar and every sound are generated in code. To upgrade the look and sound with generated or recorded assets, follow [docs/codex-asset-prompts.md](docs/codex-asset-prompts.md); anything you add to `assets/manifest.json` replaces the procedural version, everything else keeps working.
+No build step and no required assets. The shipped art replaces procedural defaults; an empty `assets/` folder still boots and plays. Sounds retain synthesis and accept optional sample overrides. To upgrade the look and sound with generated or recorded assets, follow [docs/codex-asset-prompts.md](docs/codex-asset-prompts.md); anything you add to `assets/manifest.json` replaces the procedural version, everything else keeps working.
+
+
+## Graphics and animation
+
+- **Lite:** procedural instanced foliage, the original terrain/shadow budget, and optional GLB golfer, disc, basket and signs. No postprocessing targets or HDR download.
+- **Full:** grass/dirt/sand terrain blending, wind in foliage and matching shadows, planar water reflections, drifting clouds, meadow sun shafts, SSAO, subtle bloom and Unity-rendered HDR skies.
+- Five Blender throws use phase **0–0.5 for swipe windup**, **0.62 for release**, and **0.5–1 for follow-through**. Idle weight shifts, practice swings, fairway looks and score reactions use separate clips.
+- A basket-to-tee camera introduces each hole. Chain-hit slow motion changes playback speed only; physics and network trajectory data stay unchanged.
+- Graphics switching rebuilds and disposes course resources. Foliage uses spatial groups; resolution can scale down during sustained slow frames. Lite never exceeds its original pixel-ratio cap.
+
+## Validation and budgets
+
+Run both dependency-free checks:
+
+```bash
+node test/physics.test.mjs
+node test/assets.test.mjs
+```
+
+The asset test checks manifest files, GLB structure, Draco/KTX2 extensions, the golfer triangle budget, bone/material names and animation clips.
+
+Final QA: **39 manifest entries load with HTTP 200**, physics passes unchanged, a full hole completes against bots, a manual swipe advances play, and PeerJS transports all five existing message types. No console errors in the normal asset-enabled build. Six viewport audits pass, including scrolled panel bottoms: 360×740, 430×932, 812×375, 568×320, 768×1024 and 1366×768.
+
+Measured startup transfer: **4.55 MB Lite / 4.82 MB with Full**, including CDN code and decoders. The complete manifest totals 8.27 MB, loaded selectively. **60 fps Lite / 45 fps Full on mid-range Android and iPhone 12 remain physical-device targets, not certified results.** Desktop Chromium on an RTX 5090 passes; this does not establish mobile GPU or Safari performance.
+
+See [QA report](docs/qa/REPORT.md), [budget data](docs/qa/budget-results.json), [overlap results](docs/qa/overlap-results.json), and [decisions](docs/decisions.md). Milestone before/after screenshots are in `docs/qa/`.
+
+## Rebuild art (optional authoring tools)
+
+The web game needs none of these tools. Blender sources live in `art/blender/`; image prompts are in [the asset brief](docs/codex-asset-prompts.md).
+
+```bash
+blender --background --python tools/build-models.py
+python tools/compress-models.py /path/to/toktx
+```
+
+Blender creates GLBs, PBR bakes and editable `.blend` files. The second command uses Khronos KTX-Software to replace embedded PNG maps with mipmapped KTX2 while preserving Draco geometry. The golfer is **10,512 triangles including all hidden variants**, with the eleven required bones and separate wardrobe materials.
+
+`art/unity/Assets/Editor/RenderChains.cs` renders the sampled course layouts to JPEG cards and half-float EXR skies. Run Unity in batch mode with `-projectPath art/unity -executeMethod RenderChains.Run -quit`. Generated Unity scenes/caches are disposable; the editor script recreates them. There is no Unity game build or runtime dependency.
+
+For a minimal static deployment, publish `index.html`, `src/` and `assets/`. Authoring files, QA images and local tools are not needed by players. `chains.avatar`, `chains.course`, and the `lobby`, `start`, `throw`, `next`, `botify` message contracts remain unchanged.

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { texture } from './assets.js';
+export const windTime = { value: 0 };
 
 export function terrainSplat(material, geometry, weights) {
   const dirt=texture('dirt'),sand=texture('sand'); if(!dirt||!sand)return;
@@ -28,7 +29,10 @@ export function windMaterial(source, clock, grass=false) {
       #ifdef USE_INSTANCING
       origin=instanceMatrix[3].xyz;
       #endif
-      float bend=${grass?'clamp(position.y,0.,1.)':'smoothstep(1.8,8.,position.y)'};
+      float bend=0.;
+      #ifdef USE_INSTANCING
+      bend=${grass?'clamp(position.y,0.,1.)':'smoothstep(1.8,8.,position.y)'};
+      #endif
       float wave=sin(windTime*1.5+origin.x*.23+origin.z*.17+position.y*.4);
       transformed.x+=wave*bend*${grass?'.15':'.18'};
       transformed.z+=cos(windTime*1.1+origin.z*.2)*bend*.075;`);

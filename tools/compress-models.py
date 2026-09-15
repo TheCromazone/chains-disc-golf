@@ -29,3 +29,8 @@ for path in (root/'assets/models').glob('*.glb'):
     js=json.dumps(doc,separators=(',',':')).encode(); js+=b' '*((-len(js))%4)
     path.write_bytes(struct.pack('<III',0x46546c67,2,28+len(js)+len(data))+struct.pack('<II',len(js),0x4e4f534a)+js+struct.pack('<II',len(data),0x004e4942)+data)
     print(path.name,len(raw),'->',path.stat().st_size)
+
+report=root/"assets/models/model-report.json"
+doc=json.loads(report.read_text())
+for name,value in doc.items(): value["bytes"]=(root/"assets/models"/(name+".glb")).stat().st_size
+report.write_text(json.dumps(doc,indent=2)+"\n")

@@ -1,0 +1,331 @@
+[
+  {
+    "group": "textures",
+    "name": "grass",
+    "path": "textures/grass.jpg",
+    "status": 200,
+    "bytes": 555286,
+    "width": 1024,
+    "height": 1024
+  },
+  {
+    "group": "textures",
+    "name": "grass_normal",
+    "path": "textures/grass_normal.png",
+    "status": 200,
+    "bytes": 920390,
+    "width": 1024,
+    "height": 1024
+  },
+  {
+    "group": "textures",
+    "name": "bark",
+    "path": "textures/bark.jpg",
+    "status": 200,
+    "bytes": 215748,
+    "width": 512,
+    "height": 1024
+  },
+  {
+    "group": "textures",
+    "name": "concrete",
+    "path": "textures/concrete.jpg",
+    "status": 200,
+    "bytes": 94739,
+    "width": 512,
+    "height": 512
+  },
+  {
+    "group": "textures",
+    "name": "tuft",
+    "path": "textures/tuft.png",
+    "status": 200,
+    "bytes": 131386,
+    "width": 512,
+    "height": 512
+  },
+  {
+    "group": "textures",
+    "name": "water_normal",
+    "path": "textures/water_normal.png",
+    "status": 200,
+    "bytes": 290931,
+    "width": 512,
+    "height": 512
+  },
+  {
+    "group": "textures",
+    "name": "jersey_pattern",
+    "path": "textures/jersey_pattern.png",
+    "status": 200,
+    "bytes": 105245,
+    "width": 256,
+    "height": 256
+  },
+  {
+    "group": "textures",
+    "name": "skin_normal",
+    "path": "textures/skin_normal.png",
+    "status": 200,
+    "bytes": 117261,
+    "width": 256,
+    "height": 256
+  },
+  {
+    "group": "textures",
+    "name": "dirt",
+    "path": "textures/dirt.jpg",
+    "status": 200,
+    "bytes": 403153,
+    "width": 1024,
+    "height": 1024
+  },
+  {
+    "group": "textures",
+    "name": "sand",
+    "path": "textures/sand.jpg",
+    "status": 200,
+    "bytes": 403181,
+    "width": 1024,
+    "height": 1024
+  },
+  {
+    "group": "courses",
+    "name": "pine",
+    "path": "courses/pine.jpg",
+    "status": 200,
+    "bytes": 121613,
+    "width": 640,
+    "height": 480
+  },
+  {
+    "group": "courses",
+    "name": "meadow",
+    "path": "courses/meadow.jpg",
+    "status": 200,
+    "bytes": 102343,
+    "width": 640,
+    "height": 480
+  },
+  {
+    "group": "courses",
+    "name": "lake",
+    "path": "courses/lake.jpg",
+    "status": 200,
+    "bytes": 92719,
+    "width": 640,
+    "height": 480
+  },
+  {
+    "group": "discs",
+    "name": "driver",
+    "path": "discs/driver.png",
+    "status": 200,
+    "bytes": 361872,
+    "width": 512,
+    "height": 512
+  },
+  {
+    "group": "discs",
+    "name": "fairway",
+    "path": "discs/fairway.png",
+    "status": 200,
+    "bytes": 195305,
+    "width": 512,
+    "height": 512
+  },
+  {
+    "group": "discs",
+    "name": "mid",
+    "path": "discs/mid.png",
+    "status": 200,
+    "bytes": 233116,
+    "width": 512,
+    "height": 512
+  },
+  {
+    "group": "discs",
+    "name": "putter",
+    "path": "discs/putter.png",
+    "status": 200,
+    "bytes": 143385,
+    "width": 512,
+    "height": 512
+  },
+  {
+    "group": "portraits",
+    "name": "Ricky",
+    "path": "portraits/Ricky.png",
+    "status": 200,
+    "bytes": 92373,
+    "width": 256,
+    "height": 256
+  },
+  {
+    "group": "portraits",
+    "name": "Paige",
+    "path": "portraits/Paige.png",
+    "status": 200,
+    "bytes": 92128,
+    "width": 256,
+    "height": 256
+  },
+  {
+    "group": "portraits",
+    "name": "Simon",
+    "path": "portraits/Simon.png",
+    "status": 200,
+    "bytes": 86921,
+    "width": 256,
+    "height": 256
+  },
+  {
+    "group": "portraits",
+    "name": "Eagle",
+    "path": "portraits/Eagle.png",
+    "status": 200,
+    "bytes": 90107,
+    "width": 256,
+    "height": 256
+  },
+  {
+    "group": "portraits",
+    "name": "Calvin",
+    "path": "portraits/Calvin.png",
+    "status": 200,
+    "bytes": 91621,
+    "width": 256,
+    "height": 256
+  },
+  {
+    "group": "portraits",
+    "name": "Kristin",
+    "path": "portraits/Kristin.png",
+    "status": 200,
+    "bytes": 91066,
+    "width": 256,
+    "height": 256
+  },
+  {
+    "group": "ui",
+    "name": "icon",
+    "path": "icon.png",
+    "status": 200,
+    "bytes": 758524,
+    "width": 1024,
+    "height": 1024
+  },
+  {
+    "group": "ui",
+    "name": "menu_bg",
+    "path": "menu_bg.jpg",
+    "status": 200,
+    "bytes": 326667,
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "group": "models",
+    "name": "golfer",
+    "path": "models/golfer.glb",
+    "status": 200,
+    "bytes": 247692
+  },
+  {
+    "group": "models",
+    "name": "disc",
+    "path": "models/disc.glb",
+    "status": 200,
+    "bytes": 37004
+  },
+  {
+    "group": "models",
+    "name": "basket",
+    "path": "models/basket.glb",
+    "status": 200,
+    "bytes": 145076
+  },
+  {
+    "group": "models",
+    "name": "tee_sign",
+    "path": "models/tee_sign.glb",
+    "status": 200,
+    "bytes": 34960
+  },
+  {
+    "group": "models",
+    "name": "pine",
+    "path": "models/pine.glb",
+    "status": 200,
+    "bytes": 137848
+  },
+  {
+    "group": "models",
+    "name": "deciduous",
+    "path": "models/deciduous.glb",
+    "status": 200,
+    "bytes": 82748
+  },
+  {
+    "group": "models",
+    "name": "bush",
+    "path": "models/bush.glb",
+    "status": 200,
+    "bytes": 43940
+  },
+  {
+    "group": "models",
+    "name": "grass",
+    "path": "models/grass.glb",
+    "status": 200,
+    "bytes": 40156
+  },
+  {
+    "group": "skies",
+    "name": "pine",
+    "path": "skies/pine.exr",
+    "status": 200,
+    "bytes": 201170
+  },
+  {
+    "group": "skies",
+    "name": "meadow",
+    "path": "skies/meadow.exr",
+    "status": 200,
+    "bytes": 216488
+  },
+  {
+    "group": "skies",
+    "name": "lake",
+    "path": "skies/lake.exr",
+    "status": 200,
+    "bytes": 188678
+  },
+  {
+    "group": "renders",
+    "name": "pine",
+    "path": "courses/pine_unity.jpg",
+    "status": 200,
+    "bytes": 287969,
+    "width": 1280,
+    "height": 960
+  },
+  {
+    "group": "renders",
+    "name": "meadow",
+    "path": "courses/meadow_unity.jpg",
+    "status": 200,
+    "bytes": 215514,
+    "width": 1280,
+    "height": 960
+  },
+  {
+    "group": "renders",
+    "name": "lake",
+    "path": "courses/lake_unity.jpg",
+    "status": 200,
+    "bytes": 270759,
+    "width": 1280,
+    "height": 960
+  }
+]

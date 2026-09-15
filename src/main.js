@@ -36,8 +36,8 @@ renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.A
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
-let post = null;
-const resize = () => { renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' ? 1.5 : 2)); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); };
+let post = null, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0;
+const resize = () => { renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' || isMobile ? 1.5 : 2) * resolutionScale); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); };
 addEventListener('resize', resize); resize();
 
 let course, world, holes, effects = null;
@@ -74,10 +74,10 @@ function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerI
 }
 function ensureDisc(p, discId) {
   if (p.discId === discId && p.discMesh) return;
-  if (p.discMesh) scene.remove(p.discMesh);
+  if (p.discMesh) { scene.remove(p.discMesh); p.discMesh.userData.dispose?.(); }
   p.discMesh = createDiscMesh(discById(discId)); p.discId = discId; scene.add(p.discMesh);
 }
-function clearPlayers() { for (const p of G.players) { scene.remove(p.char.group); scene.remove(p.marker); if (p.discMesh) scene.remove(p.discMesh); p.char.dispose(); } G.players = []; }
+function clearPlayers() { for (const p of G.players) { scene.remove(p.char.group); scene.remove(p.marker); p.marker.geometry.dispose(); p.marker.material.dispose(); if (p.discMesh) { scene.remove(p.discMesh); p.discMesh.userData.dispose?.(); } p.char.dispose(); } G.players = []; }
 
 // ---------- course + hero (menu avatar) ----------
 let hero = null;
@@ -86,9 +86,11 @@ function placeHero() {
   const h = holes[0], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]);
   hero.group.position.set(h.tee[0], h.teeY + 0.07, h.tee[1]); hero.faceDir(d[0] / L, d[1] / L); hero.setPhase(null);
 }
-function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } hero = createCharacter(G.avatar); scene.add(hero.group); const dm = createDiscMesh(discById('driver')); dm.position.set(0, -0.035, -0.02); dm.rotation.set(0.5, 0, 0); hero.hand.add(dm); placeHero(); }
+function makeHero() { if (hero) { scene.remove(hero.group); hero.hand.children.forEach(o=>o.userData.dispose?.()); hero.dispose(); } hero = createCharacter(G.avatar); scene.add(hero.group); const dm = createDiscMesh(discById('driver')); dm.position.set(0, -0.035, -0.02); dm.rotation.set(0.5, 0, 0); hero.hand.add(dm); placeHero(); }
 function updateHub() { const i = COURSES.findIndex(c => c.id === G.courseId); UI.setHub({ name: G.avatar.name, jersey: G.avatar.jersey, course: COURSES[i], holes: LAYOUTS[i], img: asset('courses', G.courseId) }); }
-async function loadCourse(id) {
+let courseQueue=Promise.resolve();
+function loadCourse(id){courseQueue=courseQueue.catch(()=>{}).then(()=>applyCourse(id));return courseQueue;}
+async function applyCourse(id) {
   const def = courseById(id); if (course && course.def.id === def.id && course.quality === G.settings.quality) return;
   const first = !course; if (!first) { UI.fade(true); await sleep(340); }
   course?.dispose(); post?.dispose(); post = null;
@@ -329,7 +331,7 @@ function updateCamera(dt) {
     const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2, locker = cam.mode === 'locker';
     const ang = Math.sin(t * 0.18) * 0.10 + (locker ? -0.25 : -0.65), dist = locker ? 2.4 : 3.6;
     const fx = d[0] * Math.cos(ang) + r[0] * Math.sin(ang), fz = d[1] * Math.cos(ang) + r[1] * Math.sin(ang);   // direction from hero to camera, swept around his front
-    const side = wide ? -0.9 : 0;   // desktop: menu panel sits on the left, so frame the hero right of centre
+    const side = wide ? 1.25 : 0;   // desktop: menu panel sits on the left, so frame the hero right of centre
     cam.tPos.set(p.x + fx * dist + r[0] * side, p.y + (locker ? 1.25 : 1.35), p.z + fz * dist + r[1] * side);
     cam.tLook.set(p.x + r[0] * side, p.y + (locker ? (wide ? 0.95 : 0.55) : (wide ? 0.9 : 0.35)), p.z + r[1] * side); k = 2;
   } else if (cam.mode === 'courses') {   // slow flyover of the whole course
@@ -384,7 +386,15 @@ function updateCamera(dt) {
 const clock = new THREE.Clock(); let time = 0;
 function loop() {
   requestAnimationFrame(loop);
-  const dt = Math.min(G.maxDt || 0.05, clock.getDelta()); time += dt;
+  const rawDt=clock.getDelta(), dt = Math.min(G.maxDt || 0.05, rawDt); time += dt;
+  // Ignore background/paused frames; resolution changes never alter simulation time.
+  if(!document.hidden && rawDt>.004 && rawDt<.1){frameAverage=frameAverage*.96+rawDt*.04;frameSamples++;
+    if(frameSamples>90 && time-lastResolutionChange>2){const budget=1/(G.settings.quality==='low'?60:45);const old=resolutionScale;
+      if(frameAverage>budget*1.15)resolutionScale=Math.max(.65,resolutionScale-.08);
+      else if(frameAverage<budget*.82)resolutionScale=Math.min(1,resolutionScale+.04);
+      if(old!==resolutionScale){resize();lastResolutionChange=time;}
+    }
+  }
   if (!course) return;
   if (G.phase === 'intro') { G.introT += dt; if (G.introT > 4.7 || G.inbox.length) nextTurn(); }
   if (G.inbox.length && G.phase === 'aim' && G.mode === 'online') applyRemoteThrow(G.inbox.shift());
@@ -410,7 +420,7 @@ function loop() {
   }
   updateCamera(dt);
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : p ? p.char.group.position : cam.look;
-  course.update(dt, time, focus);
+  course.update(dt, time, focus, camera.position);
   contactShadow.visible=G.settings.quality==='high' && !!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   if(post) post.render(); else renderer.render(scene, camera);
@@ -525,5 +535,5 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
 }, 60);
