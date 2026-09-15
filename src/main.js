@@ -446,10 +446,14 @@ function updateCamera(dt) {
 
 // ---------- main loop ----------
 const clock = new THREE.Clock(); let time = 0;
+// Open the game with ?fps=1 on a phone to read the real frame rate; the only way to certify the mobile targets.
+const fpsTag = new URLSearchParams(location.search).has('fps') ? document.body.appendChild(Object.assign(document.createElement('div'), { style: 'position:fixed;left:8px;bottom:8px;z-index:99;padding:4px 8px;border-radius:8px;background:rgba(0,0,0,.6);color:#fff;font:600 12px/1.4 system-ui;pointer-events:none' })) : null;
+let fpsNext = 0;
 function loop() {
   requestAnimationFrame(loop);
   const rawDt=clock.getDelta(), dt = Math.min(G.maxDt || 0.05, rawDt); time += dt;
   // Ignore background/paused frames; resolution changes never alter simulation time.
+  if(fpsTag&&performance.now()>fpsNext){fpsNext=performance.now()+500;fpsTag.textContent=`${Math.round(1/frameAverage)} fps · ${G.settings.quality==='low'?'Lite':'Full'} · ${Math.round(renderer.getPixelRatio()*100)/100}x · ${innerWidth}×${innerHeight}`;}
   if(!document.hidden && rawDt>.004 && rawDt<.1){frameAverage=frameAverage*.96+rawDt*.04;frameSamples++;
     if(frameSamples>90 && time-lastResolutionChange>2){const budget=1/(G.settings.quality==='low'?60:45);const old=resolutionScale;
       if(frameAverage>budget*1.15)resolutionScale=Math.max(.65,resolutionScale-.08);
