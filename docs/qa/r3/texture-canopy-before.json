@@ -1,0 +1,30 @@
+[
+  {
+    "quality": "low",
+    "treeTriangles": 2041388,
+    "treeDraws": 263,
+    "renderer": {
+      "frame": 22,
+      "calls": 113,
+      "triangles": 858086,
+      "points": 0,
+      "lines": 83
+    },
+    "geometryCount": 73,
+    "errors": []
+  },
+  {
+    "quality": "high",
+    "treeTriangles": 3657212,
+    "treeDraws": 263,
+    "renderer": {
+      "frame": 50,
+      "calls": 92,
+      "triangles": 1095914,
+      "points": 0,
+      "lines": 83
+    },
+    "geometryCount": 51,
+    "errors": []
+  }
+]

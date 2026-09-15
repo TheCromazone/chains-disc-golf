@@ -313,8 +313,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   };
 
   const trunkMat = paintDetail(toonMaterial({ color: '#986541' }), 'bark');
-  const leafMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff' }), windClock), 'leaf');
-  const pineMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff' }), windClock), 'pine');
+  const leafMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff', vertexColors: true }), windClock), 'leaf');
+  const pineMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff', vertexColors: true }), windClock), 'pine');
   const blob = (r, detail, amp) => {
     // Indexed round surfaces retain smooth vertex normals after the contour is shaped.
     const g=new THREE.SphereGeometry(r,detail===1?12:18,detail===1?7:12),p=g.attributes.position;
@@ -326,18 +326,30 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   };
   const shift = (g, x, y, z) => g.translate(x, y, z);
   const pineTrunk = shift(new THREE.CylinderGeometry(0.16, 0.34, 6, 7), 0, 3, 0);
-  // One gently scalloped crown replaces three identical geometric cone tiers.
-  const crownProfile = [[0,3.15],[1.15,3.2],[2.22,3.55],[2.34,3.95],[2.08,4.5],[1.73,5.12],
-    [1.98,5.18],[1.97,5.58],[1.65,6.18],[1.33,6.85],[1.57,6.94],[1.49,7.37],
-    [1.14,8.1],[.84,8.85],[.98,8.92],[.72,9.48],[.39,10.12],[0,11.05]];
+  // Inset frond tiers overlap inside the existing pine envelope.
+  const crownProfile = [[0,3.2],[1.3,3.35],[2.26,3.65],[1.46,4.7],
+    [2.04,4.75],[1.30,5.8],[1.76,5.85],[1.05,6.9],
+    [1.43,6.95],[.81,7.95],[1.12,8.0],[.56,8.9],
+    [.78,8.95],[.32,9.8],[.43,9.85],[0,11.05]];
   const pineLeaf = new THREE.LatheGeometry(crownProfile.map(p => new THREE.Vector2(...p)), 18);
   const crownPos = pineLeaf.attributes.position;
   for (let i=0; i<crownPos.count; i++) {
     const x=crownPos.getX(i), z=crownPos.getZ(i), y=crownPos.getY(i), a=Math.atan2(z,x);
-    const shape = 1 + Math.sin(a*5+y*1.3)*.065 + Math.sin(a*3-y)*.035;
+    const shape = .94 + Math.sin(a*7+y*1.3)*.045 + Math.sin(a*3-y)*.015;
     crownPos.setXYZ(i,x*shape,y,z*shape);
   }
   pineLeaf.computeVertexNormals();
+  const shadeCrown = (g, lightness = 1) => {
+    const n=g.attributes.normal, c=new Float32Array(n.count*3);
+    for(let i=0;i<n.count;i++) {
+      // Painted overlap shading follows each lobe, giving sheltered undersides volume.
+      // No screen-space pass or extra material; merged crowns remain one instanced draw.
+      const gain=(.64 + .36 * smooth(-.30,.75,n.getY(i))) * lightness;
+      c[i*3]=gain; c[i*3+1]=gain; c[i*3+2]=gain;
+    }
+    g.setAttribute('color',new THREE.BufferAttribute(c,3));return g;
+  };
+  shadeCrown(pineLeaf);
   const pineVariants = [pineLeaf];
   for(let variant=1;variant<3;variant++) {
     const crown=pineLeaf.clone(), p=crown.attributes.position;
@@ -347,12 +359,31 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       const inset=.90+.1*Math.sin(y*(variant===1?1.9:1.25)+a*variant)**2;
       p.setXYZ(i,x*inset,y,z*(variant===1?.94:1));
     }
-    crown.computeVertexNormals();pineVariants.push(crown);
+    crown.computeVertexNormals();shadeCrown(crown);pineVariants.push(crown);
   }
   const decTrunk = mergeGeometries([shift(new THREE.CylinderGeometry(0.2, 0.4, 4.2, 7), 0, 2.1, 0), shift(new THREE.CylinderGeometry(0.08, 0.16, 2.6, 5).rotateZ(0.6), 0.9, 4.2, 0.2), shift(new THREE.CylinderGeometry(0.08, 0.16, 2.4, 5).rotateZ(-0.7).rotateY(1.2), -0.8, 4.1, -0.4)]);
-  const bd = quality === 'low' ? 1 : 2;   // ponytail: blob detail is the main triangle cost on phones
-  const decLeaf = mergeGeometries([shift(blob(2.6, bd, .10).scale(1,.88,1),0,5.45,0),shift(blob(2.15,bd,.10),.2,7.05,.1),shift(blob(1.9,bd,.10),1.65,5.9,.6),shift(blob(1.85,bd,.10),-1.65,5.8,-.6)]);
-  const bushGeo = blob(1, 1, 0.6).scale(1, 0.75, 1).translate(0, 0.5, 0);
+  // Twelve overlapping leaf masses replace four broad smooth balloons. Total extent
+  // stays inside the previous crown; tree collision envelopes and placement are unchanged.
+  // Lite uses 48 triangles per mass (576 total, identical to its prior four spheres).
+  const leafLobes = [
+    [-1.48,4.8,-.45,1.25,.93], [.95,4.75,-1.0,1.30,.96],
+    [1.95,5.2,.48,1.22,.99], [-1.88,5.55,.55,1.20,1],
+    [-.92,6.15,-1.0,1.48,.97], [.85,6.2,-.68,1.46,1.02],
+    [1.68,6.45,.62,1.22,1.02], [-.15,6.0,1.08,1.43,1],
+    [-1.3,6.95,.55,1.27,1.02], [-.75,7.75,-.3,1.17,1.03],
+    [.95,7.70,.10,1.22,1.03], [.05,7.92,.62,1.18,1.02],
+  ];
+  const decLeaf=mergeGeometries(leafLobes.map(([x,y,z,r,gain],idx)=>{
+    const g=new THREE.SphereGeometry(r,quality==='low'?8:12,quality==='low'?4:7);
+    const p=g.attributes.position;
+    for(let i=0;i<p.count;i++) {
+      const px=p.getX(i),py=p.getY(i),pz=p.getZ(i),a=Math.atan2(pz,px);
+      const inset=.94+.045*Math.sin(a*5+idx+py*2);
+      p.setXYZ(i,px*inset,py*(.80+idx%3*.045),pz*inset);
+    }
+    g.computeVertexNormals();shadeCrown(g,gain);return g.translate(x,y,z);
+  }));
+  const bushGeo = shadeCrown(blob(1, 1, 0.6).scale(1, 0.75, 1).translate(0, 0.5, 0));
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
   const inst = (geo, mat, spots, colorFn, shadow = true) => {
     const cells=new Map();
