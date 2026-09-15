@@ -25,14 +25,14 @@ const G = {
   net: null, lobby: [], gesture: { power: 0, lateral: 0 }, previewDirty: true, lastPreview: 0, inbox: [],
   avatar: { ...DEFAULT_AVATAR }, courseId: 'pine',
 };
-try { Object.assign(G.avatar, JSON.parse(localStorage.getItem('chains.avatar') || '{}')); G.courseId = localStorage.getItem('chains.course') || 'pine'; } catch { /* private mode */ }
+try { const saved=JSON.parse(localStorage.getItem('chains.avatar') || '{}');Object.assign(G.avatar,saved);if(saved.glasses==null&&saved.shades)G.avatar.glasses='sport'; G.courseId = localStorage.getItem('chains.course') || 'pine'; } catch { /* private mode */ }
 const saveLocal = (k, v) => { try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch { /* ignore */ } };
 const strHash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
 
 // ---------- renderer / scene ----------
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.66;
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping; renderer.toneMappingExposure = 1;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
@@ -66,11 +66,18 @@ const netSend = msg => { if (G.mode !== 'online' || !G.net) return; G.net.isHost
 // ---------- players ----------
 function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerId = null, avatar = null }, i) {
   // bots and unnamed humans get a deterministic random look (same on every online client) in their player colour
-  const char = createCharacter(avatar ? { ...avatar, jersey: color } : randomAvatar(makeRng(strHash(name) + i * 97), { jersey: color, name }));
+  const appearance = avatar ? { ...avatar, jersey: color } : randomAvatar(makeRng(strHash(name) + i * 97), { jersey: color, name });
+  const char = createCharacter({ ...appearance, lod: i > 0 });
   scene.add(char.group);
   const marker = new THREE.Mesh(new THREE.RingGeometry(0.27, 0.4, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false }));
   marker.visible = false; scene.add(marker);
-  return { name, color, isBot, difficulty, peerId, scores: [], strokes: 0, done: false, lie: [0, 0, 0], lieDist: 0, char, marker, discMesh: null, discId: null };
+  return { name, color, isBot, difficulty, peerId, appearance, lod: i > 0, scores: [], strokes: 0, done: false, lie: [0, 0, 0], lieDist: 0, char, marker, discMesh: null, discId: null };
+}
+function setPlayerDetail(p, lod) {
+  if (p.lod === lod || G.settings.quality === 'low') return;
+  const next = createCharacter({ ...p.appearance, lod });
+  next.group.position.copy(p.char.group.position); next.group.rotation.copy(p.char.group.rotation);
+  scene.remove(p.char.group); p.char.dispose(); p.char = next; p.lod = lod; scene.add(next.group);
 }
 function ensureDisc(p, discId) {
   if (p.discId === discId && p.discMesh) return;
@@ -81,6 +88,32 @@ function clearPlayers() { for (const p of G.players) { scene.remove(p.char.group
 
 // ---------- course + hero (menu avatar) ----------
 let hero = null;
+// A calm creator stage uses the same actor, camera and renderer as the course.
+const stageCanvas=document.createElement('canvas');stageCanvas.width=4;stageCanvas.height=256;
+const stageInk=stageCanvas.getContext('2d'),stageGradient=stageInk.createLinearGradient(0,0,0,256);
+stageGradient.addColorStop(0,'#bcecf3');stageGradient.addColorStop(.6,'#e8faf7');stageGradient.addColorStop(1,'#c9eae4');stageInk.fillStyle=stageGradient;stageInk.fillRect(0,0,4,256);
+const stageBackground=new THREE.CanvasTexture(stageCanvas);stageBackground.colorSpace=THREE.SRGBColorSpace;
+const stage=new THREE.Group(); scene.add(stage); stage.visible=false;
+const podium=new THREE.Mesh(new THREE.CylinderGeometry(.92,1.04,.07,64),new THREE.MeshToonMaterial({color:'#ffffff'}));stage.add(podium);
+const podiumRing=new THREE.Mesh(new THREE.TorusGeometry(1.04,.025,8,64).rotateX(Math.PI/2),new THREE.MeshBasicMaterial({color:'#55c5d5'}));podiumRing.position.y=.005;stage.add(podiumRing);
+const heroBlob=new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({map:contactShadow.material.map,transparent:true,depthWrite:false,opacity:.5}));heroBlob.position.y=.038;stage.add(heroBlob);
+const studioFill=new THREE.HemisphereLight('#ffffff','#d0e8df',1.5);scene.add(studioFill);studioFill.visible=false;
+let cameraOffset=null;
+function frameInterface() {
+  const staged=cam.mode==='menu'||cam.mode==='locker';
+  stage.visible=staged;studioFill.visible=staged;
+  course.group.visible=!staged;if(course.sky)course.sky.visible=!staged;
+  scene.background=staged?stageBackground:null;
+  if(staged&&hero)stage.position.copy(hero.group.position).add(new THREE.Vector3(0,-.04,0));
+  let offset=0;
+  if(camera.aspect<1.2){
+    const panel=staged?document.querySelector(cam.mode==='locker'?'#locker .panel':'#menu .panel'):document.getElementById('controls');
+    const bottom=panel?.getBoundingClientRect().top||innerHeight;
+    if(bottom>80&&bottom<innerHeight)offset=(innerHeight-bottom-80)/2;
+  }
+  const key=`${innerWidth}:${innerHeight}:${offset}`;
+  if(cameraOffset!==key){cameraOffset=key;if(offset)camera.setViewOffset(innerWidth,innerHeight,0,offset,innerWidth,innerHeight);else camera.clearViewOffset();}
+}
 const LAYOUTS = COURSES.map(courseLayout);
 function placeHero() {
   const h = holes[0], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]);
@@ -94,9 +127,9 @@ async function applyCourse(id) {
   const def = courseById(id); if (course && course.def.id === def.id && course.quality === G.settings.quality) return;
   const first = !course; if (!first) { UI.fade(true); await sleep(340); }
   course?.dispose(); post?.dispose(); post = null;
-  effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
-  if (effects) { post = effects.postprocessing(renderer,scene,camera); resize(); }
-  const hdri = effects ? await effects.loadSky(renderer, asset('skies', def.id)) : null;
+  // Authored toon palette is the default in both qualities. Legacy effects stay available offline.
+  effects = null;
+  const hdri = null;
   course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, hdri });
   world = course.world; holes = course.holes; course.setHole(0);
   G.courseId = def.id; saveLocal('chains.course', def.id); updateHub();
@@ -151,6 +184,7 @@ function nextTurn() {
   setupTurn(G.players.indexOf(next));
 }
 function setupTurn(idx) {
+  G.players.forEach((p,i)=>setPlayerDetail(p,i!==idx));
   const p = G.players[idx]; G.cur = idx;
   const lie = p.lie, dist = distToBasket(lie[0], lie[2]);
   G.aim.yaw = Math.atan2(basketPos()[1] - lie[2], basketPos()[0] - lie[0]); G.aim.pitch = 0;
@@ -228,6 +262,8 @@ function updateFlight(dt) {
   if (i >= n - 1 && f.t > n / 60 + 0.6) { G.flight = null; resolveThrow(f.pi, f.result); }
 }
 function onFlightEvent(e) {
+  if (e === 'chains' || e === 'drop') { sfx[e === 'drop' ? 'drop' : 'chains'](G.flight?.params.power ?? .6); UI.toast('Chains!', 'Right in the heart!', 1600); return; }
+  if ((e === 'chainout' || e === 'band' || e === 'rim') && !G.flight?.result.holed && !G.flight?.missReaction) { if(G.flight)G.flight.missReaction=true;sfx.ohh(); }
   const m = { land: () => sfx.thud(), skip: () => sfx.skip(), tree: () => { sfx.tree(); UI.toast('Tree!', '', 900); }, branch: () => { sfx.leaves(); UI.toast('Kicked by a branch', '', 900); }, chains: () => sfx.chains(), drop: () => sfx.drop(), chainout: () => { sfx.chainout(); UI.toast('Chain out!', 'too hard', 1200); }, band: () => { sfx.band(); UI.toast('Off the band', '', 900); }, pole: () => sfx.pole(), rim: () => { sfx.band(); UI.toast('Off the rim', '', 900); }, splash: () => sfx.splash(), roll: () => sfx.roll(), flop: () => sfx.thud(0.5), ob: () => sfx.bad() };
   m[e]?.();
 }
@@ -240,14 +276,17 @@ function resolveThrow(pi, r) {
     p.char.react?.(p.strokes<h.par?'celebrate':p.strokes>h.par?'slump':'idle_weight');
     title = UI.scoreName(p.strokes, h.par); sub = `${p.name} · ${p.strokes} throw${p.strokes > 1 ? 's' : ''}`;
     sfx.fanfare(p.strokes === 1 ? 'ace' : p.strokes - h.par <= -2 ? 'eagle' : p.strokes - h.par === -1 ? 'birdie' : 'par');
+    sfx.applause();
   } else if (r.ob) { p.strokes++; p.lie = r.lie; title = 'Out of bounds'; sub = '+1 penalty · play from where it went out'; }
   else { p.lie = r.rest; title = r.thrown < 1 ? 'Dropped it' : `${Math.round(r.thrown)} m`; sub = `${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to the basket`; }
+  if (!r.holed && !r.ob && r.thrown > 8 && r.dist < Math.max(8, p.lieDist * .35)) { title = 'Nice shot!'; sfx.applause(); }
   if (!p.done && p.strokes >= h.par + 5) { p.done = true; p.scores[G.holeIdx] = p.strokes + 1; title = 'Picked up'; sub = 'max score for the hole'; }
   p.lieDist = distToBasket(p.lie[0], p.lie[2]);
   p.marker.position.set(p.lie[0], world.height(p.lie[0], p.lie[2]) + 0.04, p.lie[2]); p.marker.visible = !p.done;
   if (p.done) setTimeout(() => { if (p.done) p.discMesh.visible = false; }, 2500);
   UI.toast(title, sub, 2000); UI.setHud({ dist: p.lieDist });
   G.phase = 'result'; cam.mode = 'result';
+  updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
   setTimeout(() => { if (G.phase === 'result') { UI.fade(true); setTimeout(() => { nextTurn(); UI.fade(false); }, 320); } }, 2000);
 }
 function endHole() {
@@ -324,16 +363,19 @@ function updatePreview() {
 // ---------- camera ----------
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 function updateCamera(dt) {
+  if (document.body.dataset.phase !== G.phase) document.body.dataset.phase = G.phase;
+  frameInterface();
   const h = holes[G.holeIdx] || holes[0];
   let k = 5;
   if (cam.mode === 'menu' || cam.mode === 'locker') {   // hero shot of the avatar on tee 1, slow sway
     const h0 = holes[0], t = performance.now() / 1000, d = [h0.basket[0] - h0.tee[0], h0.basket[1] - h0.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
     const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2, locker = cam.mode === 'locker';
-    const ang = Math.sin(t * 0.18) * 0.10 + (locker ? -0.25 : -0.65), dist = locker ? 2.4 : 3.6;
+    const faceEdit=locker && document.querySelector('.locker-tabs [aria-selected="true"]')?.dataset.category==='face';
+    const ang = Math.sin(t * 0.18) * 0.04 + (locker ? -.10 : -.26), dist = faceEdit ? 1.85 : 3.25;
     const fx = d[0] * Math.cos(ang) + r[0] * Math.sin(ang), fz = d[1] * Math.cos(ang) + r[1] * Math.sin(ang);   // direction from hero to camera, swept around his front
     const side = wide ? 1.25 : 0;   // desktop: menu panel sits on the left, so frame the hero right of centre
-    cam.tPos.set(p.x + fx * dist + r[0] * side, p.y + (locker ? 1.25 : 1.35), p.z + fz * dist + r[1] * side);
-    cam.tLook.set(p.x + r[0] * side, p.y + (locker ? (wide ? 0.95 : 0.55) : (wide ? 0.9 : 0.35)), p.z + r[1] * side); k = 2;
+    cam.tPos.set(p.x + fx * dist + r[0] * side, p.y + (faceEdit ? 1.42 : 1.35), p.z + fz * dist + r[1] * side);
+    cam.tLook.set(p.x + r[0] * side, p.y + (faceEdit ? 1.38 : .86), p.z + r[1] * side); k = 4;
   } else if (cam.mode === 'courses') {   // slow flyover of the whole course
     const t = performance.now() / 1000 * 0.06, cx = holes.reduce((a, h) => a + h.basket[0], 0) / holes.length, cz = holes.reduce((a, h) => a + h.basket[1], 0) / holes.length;
     cam.tPos.set(cx + Math.cos(t) * 170, world.height(cx, cz) + 95, cz + Math.sin(t) * 170); cam.tLook.set(cx, world.height(cx, cz), cz); k = 1.5;
@@ -352,19 +394,20 @@ function updateCamera(dt) {
   } else if (cam.mode === 'aim' || (cam.mode === 'result' && !G.flight)) {
     const p = curP(); if (!p) return;
     const d = aimDir(), r = rightOf(d), lie = p.char.group.position;
-    if (G.overview) {
+    if (G.overview && cam.mode !== 'result') {
       const dist = Math.max(20, distToBasket(lie.x, lie.z));
       const mx = (lie.x + basketPos()[0]) / 2, mz = (lie.z + basketPos()[1]) / 2;
       cam.tPos.set(mx - d[0] * dist * 0.22, world.height(mx, mz) + Math.max(45, dist * 0.95), mz - d[1] * dist * 0.22); cam.tLook.set(mx, world.height(mx, mz), mz); k = 4;
     } else if (cam.mode === 'result') {
-      const r=rightOf(d);cam.tPos.set(lie.x+d[0]*3.5+r[0]*1.7,lie.y+1.65,lie.z+d[1]*3.5+r[1]*1.7);
-      cam.tLook.set(lie.x,lie.y+1.1,lie.z); k=2.5;
+      const r=rightOf(d);cam.tPos.set(lie.x+d[0]*3.8+r[0]*.7,lie.y+1.45,lie.z+d[1]*3.8+r[1]*.7);
+      cam.tLook.set(lie.x,lie.y+.92,lie.z); k=5;
     }
     else {
       const pitchLift = G.aim.pitch * 0.06;
       const back = camera.aspect < 0.8 ? 5.6 : 4.8;
-      cam.tPos.set(lie.x - d[0] * back + r[0] * 0.75, lie.y + 2.3 + pitchLift, lie.z - d[1] * back + r[1] * 0.75);
-      cam.tLook.set(lie.x + d[0] * 16, lie.y + 0.4 + G.aim.pitch * 0.35, lie.z + d[1] * 16);
+      const portrait = camera.aspect < 1.2, ahead = portrait ? 10 : 16;
+      cam.tPos.set(lie.x - d[0] * back + r[0] * 0.75, lie.y + (portrait ? 3.1 : 2.3) + pitchLift, lie.z - d[1] * back + r[1] * 0.75);
+      cam.tLook.set(lie.x + d[0] * ahead, lie.y + (portrait ? -.3 : .4) + G.aim.pitch * .35, lie.z + d[1] * ahead);
     }
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
     const f = G.flight;
@@ -421,7 +464,7 @@ function loop() {
   updateCamera(dt);
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : p ? p.char.group.position : cam.look;
   course.update(dt, time, focus, camera.position);
-  contactShadow.visible=G.settings.quality==='high' && !!G.flight?.pos;
+  contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   if(post) post.render(); else renderer.render(scene, camera);
 }
@@ -439,7 +482,7 @@ $('btnScoreNext').onclick = () => { netSend({ t: 'next' }); advanceHole(); };
 $('btnScoreMenu').onclick = toMenu;
 UI.seg('holesSeg', v => G.settings.holes = v); UI.seg('diffSeg', v => G.settings.difficulty = v);
 $('qualSeg').querySelector(`[data-v="${G.settings.quality}"]`)?.classList.add('on'); $('qualSeg').querySelector(`[data-v="${G.settings.quality === 'low' ? 'high' : 'low'}"]`)?.classList.remove('on');
-UI.seg('qualSeg', async v => { G.settings.quality = v; resize(); await loadCourse(G.courseId); });
+UI.seg('qualSeg', async v => { G.settings.quality = v; resize(); await loadModels(renderer, v); await loadCourse(G.courseId); makeHero(); });
 document.addEventListener('pointerdown', unlock, { once: true, capture: true });
 
 const me = () => ({ name: G.avatar.name.trim() || 'You', avatar: G.avatar });
@@ -449,7 +492,7 @@ $('btnSolo').onclick = () => startGame({ mode: 'solo', holeCount: +G.settings.ho
 $('btnCourses').onclick = () => { UI.hide('menu'); UI.show('courses'); cam.mode = 'courses'; sfx.click(); UI.renderCourseCards(COURSES, LAYOUTS, G.courseId, async id => { sfx.click(); UI.hide('courses'); UI.show('menu'); cam.mode = 'menu'; await loadCourse(id); }, id => asset('courses', id)); };
 $('btnCoursesBack').onclick = () => { UI.hide('courses'); UI.show('menu'); cam.mode = 'menu'; };
 let heroTimer = null;
-const onAvatarChange = (k, v) => { G.avatar[k] = v; saveLocal('chains.avatar', G.avatar); updateHub(); if (k === 'name') return; clearTimeout(heroTimer); heroTimer = setTimeout(makeHero, 120); };
+const onAvatarChange = (k, v) => { G.avatar[k] = v; saveLocal('chains.avatar', G.avatar); updateHub(); if (k === 'name') return; if (['eyes','brows','nose','mouth','glasses','shades'].includes(k)) { hero?.setFace?.(G.avatar); return; } clearTimeout(heroTimer); heroTimer = setTimeout(makeHero, 120); };
 const openLocker = () => { UI.hide('menu'); UI.show('locker'); cam.mode = 'locker'; sfx.click(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); };
 $('btnLocker').onclick = openLocker;
 $('btnRandomAvatar').onclick = () => { G.avatar = randomAvatar(Math.random, { name: G.avatar.name }); saveLocal('chains.avatar', G.avatar); makeHero(); updateHub(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); sfx.click(); };
@@ -534,7 +577,7 @@ $('btnLobbyStart').onclick = () => {
 setupInput({ sceneEl: canvas, padEl: $('pad'), getThrow: () => G.throwType, onAim, onGesture });
 setTimeout(async () => {
   await loadManifest();
-  await loadModels(renderer);
+  await loadModels(renderer, G.settings.quality);
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   UI.hide('loading'); loop();

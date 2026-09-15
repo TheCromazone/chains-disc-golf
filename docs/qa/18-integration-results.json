@@ -1,0 +1,51 @@
+{
+  "fullActor": {
+    "source": "glb",
+    "clips": [
+      "idle",
+      "practice",
+      "backhand",
+      "forehand",
+      "tomahawk",
+      "scoober",
+      "putt",
+      "celebrate",
+      "slump",
+      "walk"
+    ]
+  },
+  "manualSwipe": true,
+  "fullHole": {
+    "done": true,
+    "scores": [
+      5
+    ],
+    "source": "glb"
+  },
+  "feedbackFixture": {
+    "power": 0.48000000000000015,
+    "events": [
+      [
+        0.608,
+        "drop"
+      ]
+    ]
+  },
+  "feedbackTitle": "Birdie!",
+  "errors": [],
+  "emptyAssets": [
+    {
+      "quality": "low",
+      "source": "procedural",
+      "finite": true,
+      "points": 182
+    },
+    {
+      "quality": "high",
+      "source": "procedural",
+      "finite": true,
+      "points": 182
+    }
+  ],
+  "emptyErrors": []
+}
