@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 1,
+  "id": "chains-golfer",
+  "kind": "character",
+  "status": "runtime",
+  "provenance": {
+    "pipeline": "deterministic original Blender authoring",
+    "source": "tools/build-mii.py; tools/poses.json",
+    "referenceImage": "docs/qa/references/wii-golf.jpg",
+    "referenceURLs": [
+      "https://miiwiki.org/wiki/Wii_Sports/gallery",
+      "https://miiwiki.org/wiki/Nintendo_Switch_Sports/gallery"
+    ],
+    "policy": "Original geometry and ink paths; reference composition and proportion only; no Nintendo artwork embedded in runtime."
+  },
+  "files": {
+    "sourceModel": "art/blender/golfer-mii-source.glb",
+    "mainModel": "assets/models/golfer.glb",
+    "runtimeModel": "assets/models/golfer.glb",
+    "lodModel": "assets/models/golfer-lod.glb",
+    "catalogPng": "docs/qa/09-character-high-front.png"
+  },
+  "budget": {
+    "runtimeTriangles": 10800,
+    "runtimeBytes": 466036,
+    "lodTriangles": 3230,
+    "lodBytes": 160840,
+    "materials": 9,
+    "textures": 1,
+    "skinnedMeshes": 10,
+    "bones": 11
+  },
+  "rig": {
+    "skeletonId": "ChainsRig-eleven-v1",
+    "rootBone": "root",
+    "actorHeightMeters": 1.7,
+    "upAxis": "Y",
+    "forwardAxis": "-Z",
+    "maxSkinInfluences": 4,
+    "sockets": [
+      {
+        "role": "root",
+        "name": "root"
+      },
+      {
+        "role": "hips",
+        "name": "root"
+      },
+      {
+        "role": "head",
+        "name": "head"
+      },
+      {
+        "role": "left-hand",
+        "name": "elL"
+      },
+      {
+        "role": "right-hand",
+        "name": "disc_socket"
+      },
+      {
+        "role": "back",
+        "name": "spine"
+      },
+      {
+        "role": "left-foot",
+        "name": "knL"
+      },
+      {
+        "role": "right-foot",
+        "name": "knR"
+      }
+    ],
+    "actualMaxSkinInfluences": 1
+  },
+  "actions": [
+    {
+      "id": "backhand",
+      "role": "backhand",
+      "file": "assets/models/golfer-backhand.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "tools/poses.json + tools/build-mii.py"
+    },
+    {
+      "id": "celebrate",
+      "role": "celebrate",
+      "file": "assets/models/golfer-celebrate.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 2.4,
+      "contactEvents": [],
+      "source": "tools/poses.json + tools/build-mii.py"
+    },
+    {
+      "id": "forehand",
+      "role": "forehand",
+      "file": "assets/models/golfer-forehand.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "tools/poses.json + tools/build-mii.py"
+    },
+    {
+      "id": "idle",
+      "role": "idle",
+      "file": "assets/models/golfer-idle.glb",
+      "loop": true,
+      "rootMotion": "in-place",
+      "durationSeconds": 4,
+      "contactEvents": [],
+      "source": "tools/poses.json + tools/build-mii.py"
+    },
+    {
+      "id": "practice",
+      "role": "practice",
+      "file": "assets/models/golfer-practice.glb",
+      "loop": true,
+      "rootMotion": "in-place",
+      "durationSeconds": 2.4,
+      "contactEvents": [],
+      "source": "tools/poses.json + tools/build-mii.py"
+    },
+    {
+      "id": "putt",
+      "role": "putt",
+      "file": "assets/models/golfer-putt.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "tools/poses.json + tools/build-mii.py"
+    },
+    {
+      "id": "scoober",
+      "role": "scoober",
+      "file": "assets/models/golfer-scoober.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "tools/poses.json + tools/build-mii.py"
+    },
+    {
+      "id": "slump",
+      "role": "slump",
+      "file": "assets/models/golfer-slump.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 2.4,
+      "contactEvents": [],
+      "source": "tools/poses.json + tools/build-mii.py"
+    },
+    {
+      "id": "tomahawk",
+      "role": "tomahawk",
+      "file": "assets/models/golfer-tomahawk.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "tools/poses.json + tools/build-mii.py"
+    },
+    {
+      "id": "walk",
+      "role": "walk",
+      "file": "assets/models/golfer-walk.glb",
+      "loop": true,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [],
+      "source": "tools/poses.json + tools/build-mii.py"
+    }
+  ],
+  "equipment": {
+    "separateFromMainModel": true,
+    "slots": [
+      {
+        "id": "headgear",
+        "supported": true,
+        "asset": "assets/models/golfer.glb",
+        "socket": "head"
+      },
+      {
+        "id": "vestment",
+        "supported": false,
+        "asset": null,
+        "socket": null
+      },
+      {
+        "id": "gloves",
+        "supported": false,
+        "asset": null,
+        "socket": null
+      },
+      {
+        "id": "leggings",
+        "supported": false,
+        "asset": null,
+        "socket": null
+      },
+      {
+        "id": "boots",
+        "supported": false,
+        "asset": null,
+        "socket": null
+      },
+      {
+        "id": "main-hand",
+        "supported": true,
+        "asset": "assets/models/disc.glb",
+        "socket": "disc_socket"
+      },
+      {
+        "id": "offhand",
+        "supported": false,
+        "asset": null,
+        "socket": null
+      },
+      {
+        "id": "back-ranged",
+        "supported": false,
+        "asset": null,
+        "socket": null
+      }
+    ]
+  },
+  "collision": {
+    "navigation": {
+      "shape": "none",
+      "reason": "Player visual follows authoritative lie; disc physics unchanged"
+    },
+    "hurtboxes": []
+  },
+  "catalog": {
+    "cardImage": "docs/qa/09-character-high-front.png",
+    "inspectorRoute": "/docs/qa/character-inspector.html",
+    "controls": [
+      "action-select",
+      "restart",
+      "play-pause",
+      "turn-90",
+      "face-change",
+      "headgear-toggle",
+      "drag-rotate",
+      "equipment-toggle"
+    ],
+    "cardCanvasCount": 0,
+    "inspectorCanvasCount": 1
+  },
+  "verification": {
+    "focusedTests": false,
+    "build": false,
+    "lint": false,
+    "fullTestsRun": false,
+    "fullTestsPassedOrBaselineDocumented": false,
+    "browserDesktop": false,
+    "browserNarrow": false,
+    "consoleClean": false,
+    "scroll": false,
+    "dragRotation": false,
+    "allActions": false,
+    "equipmentOffArtifactFree": false
+  },
+  "scopeOverrides": [
+    "User sports roles replace generic combat roles run/attack/hit/dodge/death.",
+    "Inspector serves QA rather than a product asset catalog.",
+    "Jersey, gloves, shorts and shoes are permanent body regions recolored by material; headwear separately addressable.",
+    "Physical Android/iPhone frame rates still owed.",
+    "Independent critic has not declared a blind win."
+  ]
+}

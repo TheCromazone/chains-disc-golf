@@ -1,0 +1,65 @@
+Warning: No mesh data to join
+Info: Saved as "golfer-mii-source.blend"
+INFO Draco mesh compression is available, use library at C:\Users\matth\.codex\tools\blender\blender-4.5.9-windows-x64\4.5\scripts\addons_core\io_scene_gltf2\extern_draco.dll
+23:44:43 | INFO: Starting glTF 2.0 export
+23:44:43 | INFO: Extracting primitive: Sphere
+23:44:43 | INFO: Primitives created: 7
+23:44:43 | INFO: Extracting primitive: Sphere.031
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.020
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.021
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.029
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.018
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.035
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.037
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.033
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Torus.003
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Finished glTF 2.0 export in 0.5260987281799316 s
+
+CHAINS_EXPORT golfer-mii-source {'triangles': 10800, 'meshCount': 10, 'bytes': 578308}
+Info: Applied modifier was not first, result may not be as expected
+Info: Applied modifier was not first, result may not be as expected
+Info: Applied modifier was not first, result may not be as expected
+Info: Applied modifier was not first, result may not be as expected
+Info: Applied modifier was not first, result may not be as expected
+Info: Applied modifier was not first, result may not be as expected
+Info: Applied modifier was not first, result may not be as expected
+Info: Applied modifier was not first, result may not be as expected
+Info: Applied modifier was not first, result may not be as expected
+Info: Applied modifier was not first, result may not be as expected
+Info: Saved as "golfer-lod-source.blend"
+23:44:43 | INFO: Starting glTF 2.0 export
+23:44:43 | INFO: Extracting primitive: Sphere
+23:44:43 | INFO: Primitives created: 7
+23:44:43 | INFO: Extracting primitive: Sphere.031
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.020
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.021
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.029
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.018
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.035
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.037
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Sphere.033
+23:44:43 | INFO: Primitives created: 1
+23:44:43 | INFO: Extracting primitive: Torus.003
+23:44:43 | INFO: Primitives created: 1
+23:44:44 | INFO: Finished glTF 2.0 export in 0.43407368659973145 s
+
+CHAINS_EXPORT golfer-lod-source {'triangles': 3230, 'meshCount': 10, 'bytes': 273112}
+Blender 4.5.9 LTS (hash 8bf95cbd38d1 built 2026-04-21 01:33:45)
+
+Blender quit

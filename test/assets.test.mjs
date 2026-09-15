@@ -11,15 +11,24 @@ const joints=['root','spine','head','shR','elR','shL','elL','hipR','knR','hipL',
 for(const [name,path] of Object.entries(manifest.models)){
   const bin=await readFile(new URL(path,root));assert.equal(bin.readUInt32LE(0),0x46546c67);assert.equal(bin.readUInt32LE(4),2);assert.equal(bin.readUInt32LE(8),bin.length);
   const gltf=JSON.parse(bin.subarray(20,20+bin.readUInt32LE(12)).toString());
-  assert(gltf.extensionsRequired.includes('KHR_draco_mesh_compression'),name+' Draco');
-  const triangles=gltf.meshes.reduce((n,m)=>n+m.primitives.reduce((a,p)=>a+gltf.accessors[p.indices].count/3,0),0);
-  if(name==='golfer'){
+  const triangles=(gltf.meshes||[]).reduce((n,m)=>n+m.primitives.reduce((a,p)=>a+gltf.accessors[p.indices].count/3,0),0);
+  if(name==='golfer'||name==='golfer_lod'){
     assert(triangles<12000,'golfer triangle budget');
+    assert(bin.length<(name==='golfer'?480000:180000),'body/LOD byte budget');
+    assert.equal(gltf.animations?.length||0,0,'body does not duplicate animation clips');
     const actual=[...new Set(gltf.skins.flatMap(s=>s.joints.map(i=>gltf.nodes[i].name)))].sort();assert.deepEqual(actual,[...joints].sort());
     for(const slot of ['skin','hair','jersey','trim','shorts','shoes','headwear'])assert(gltf.materials.some(m=>m.name===slot),slot);
-    for(const clip of ['backhand','forehand','tomahawk','scoober','putt','idle_weight','idle_look','idle_practice','celebrate','slump'])assert(gltf.animations.some(a=>a.name===clip),clip);
-    for(const clip of gltf.animations.filter(a=>['backhand','forehand','tomahawk','scoober','putt'].includes(a.name)))assert(Math.abs(Math.max(...clip.samplers.map(s=>gltf.accessors[s.input].max[0]))-1)<.02,'one-second normalized throw');
-  } else {assert(gltf.extensionsRequired.includes('KHR_texture_basisu'),name+' KTX2');assert.equal(gltf.images.length,3,name+' baked PBR maps');}
+  } else if(name.startsWith('golfer_')) {
+    assert.equal(gltf.meshes?.length||0,0,'animation-only GLB has zero meshes');
+    assert.equal(gltf.materials?.length||0,0,'animation-only GLB has zero materials');
+    assert.equal(gltf.textures?.length||0,0,'animation-only GLB has zero textures');
+    assert.equal(gltf.animations.length,1,'one clip per file');
+    assert.equal(gltf.animations[0].name,name.slice(7));
+    assert(bin.length<20000,'clip byte budget');
+    for(const bone of joints)assert(gltf.nodes.some(n=>n.name===bone),'clip keeps '+bone);
+    if(['backhand','forehand','tomahawk','scoober','putt'].includes(name.slice(7)))assert(Math.abs(Math.max(...gltf.animations[0].samplers.map(s=>gltf.accessors[s.input].max[0]))-1)<.02,'one-second normalized throw');
+    for(const accessor of gltf.accessors){assert(accessor.count>0,'nonempty accessor');assert(accessor.bufferView<gltf.bufferViews.length,'valid buffer view');}
+  } else {assert(gltf.extensionsRequired.includes('KHR_draco_mesh_compression'),name+' Draco');assert(gltf.extensionsRequired.includes('KHR_texture_basisu'),name+' KTX2');assert.equal(gltf.images.length,3,name+' baked PBR maps');}
   console.log(name,triangles,'triangles',bin.length,'bytes');
 }
 console.log('Asset manifest OK:',entries,'entries,',bytes,'bytes (initial load uses a subset)');

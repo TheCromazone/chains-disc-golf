@@ -1,0 +1,150 @@
+[
+  {
+    "quality": "low",
+    "errors": [],
+    "source": "procedural",
+    "clips": [
+      "idle",
+      "practice",
+      "backhand",
+      "forehand",
+      "tomahawk",
+      "scoober",
+      "putt",
+      "celebrate",
+      "slump",
+      "walk"
+    ],
+    "bones": [
+      "root",
+      "spine",
+      "head",
+      "shR",
+      "elR",
+      "shL",
+      "elL",
+      "hipR",
+      "knR",
+      "hipL",
+      "knL"
+    ],
+    "swaps": true,
+    "changed": true,
+    "finite": [
+      {
+        "clip": "idle",
+        "finite": true
+      },
+      {
+        "clip": "practice",
+        "finite": true
+      },
+      {
+        "clip": "backhand",
+        "finite": true
+      },
+      {
+        "clip": "forehand",
+        "finite": true
+      },
+      {
+        "clip": "tomahawk",
+        "finite": true
+      },
+      {
+        "clip": "scoober",
+        "finite": true
+      },
+      {
+        "clip": "putt",
+        "finite": true
+      },
+      {
+        "clip": "celebrate",
+        "finite": true
+      },
+      {
+        "clip": "slump",
+        "finite": true
+      },
+      {
+        "clip": "walk",
+        "finite": true
+      }
+    ]
+  },
+  {
+    "quality": "high",
+    "errors": [],
+    "source": "glb",
+    "clips": [
+      "idle",
+      "practice",
+      "backhand",
+      "forehand",
+      "tomahawk",
+      "scoober",
+      "putt",
+      "celebrate",
+      "slump",
+      "walk"
+    ],
+    "bones": [
+      "root",
+      "spine",
+      "head",
+      "shR",
+      "elR",
+      "shL",
+      "elL",
+      "hipR",
+      "knR",
+      "hipL",
+      "knL"
+    ],
+    "swaps": true,
+    "changed": true,
+    "finite": [
+      {
+        "clip": "idle",
+        "finite": true
+      },
+      {
+        "clip": "practice",
+        "finite": true
+      },
+      {
+        "clip": "backhand",
+        "finite": true
+      },
+      {
+        "clip": "forehand",
+        "finite": true
+      },
+      {
+        "clip": "tomahawk",
+        "finite": true
+      },
+      {
+        "clip": "scoober",
+        "finite": true
+      },
+      {
+        "clip": "putt",
+        "finite": true
+      },
+      {
+        "clip": "celebrate",
+        "finite": true
+      },
+      {
+        "clip": "slump",
+        "finite": true
+      },
+      {
+        "clip": "walk",
+        "finite": true
+      }
+    ]
+  }
+]

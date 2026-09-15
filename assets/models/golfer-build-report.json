@@ -1,0 +1,12 @@
+{
+  "golfer-mii-source": {
+    "triangles": 10800,
+    "meshCount": 10,
+    "bytes": 578308
+  },
+  "golfer-lod-source": {
+    "triangles": 3230,
+    "meshCount": 10,
+    "bytes": 273112
+  }
+}

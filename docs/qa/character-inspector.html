@@ -1,0 +1,24 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chains character inspector</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<style>body{margin:0;background:#dcf3ef;color:#174f55;font:15px system-ui}canvas{display:block;width:100%;height:72vh}nav{padding:14px;display:flex;gap:8px;flex-wrap:wrap}button,select{font:inherit;padding:8px;border:1px solid #76bab3;background:#fff;border-radius:6px}output{padding:14px;display:block}</style>
+<canvas id="view"></canvas><nav><select id="action" aria-label="Animation"></select><button id="restart">Restart</button><button id="pause">Pause</button><button id="turn">Turn 90 degrees</button><button id="face">Change face</button><button id="hat">Headwear on/off</button></nav><output id="info"></output>
+<script type="module">
+import * as THREE from 'three';import {createCharacter,DEFAULT_AVATAR} from '../../src/player.js';import {loadManifest} from '../../src/assets.js';import {loadModels,modelStatus} from '../../src/models.js';import {drawFaceAtlas} from '../../src/face-parts.js';
+// asset() URLs are relative to the root; use a base URL before loading any assets.
+const base=document.createElement('base');base.href='/';document.head.append(base);
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('view'),antialias:true,alpha:true});renderer.setPixelRatio(1);renderer.setSize(innerWidth,innerHeight*.72,false);
+renderer.outputColorSpace=THREE.SRGBColorSpace;const scene=new THREE.Scene();scene.background=new THREE.Color('#dcf3ef');
+const camera=new THREE.PerspectiveCamera(35,innerWidth/(innerHeight*.72),.1,40);camera.position.set(0,1.03,-3.45);camera.lookAt(0,.88,0);
+scene.add(new THREE.HemisphereLight('#ffffff','#b0cabe',2));const sun=new THREE.DirectionalLight('#fff9dc',2.2);sun.position.set(-3,5,-3);scene.add(sun);
+await loadManifest();const quality=new URLSearchParams(location.search).get('quality')||'full';await loadModels(renderer,quality);
+let avatar={...DEFAULT_AVATAR},actor=createCharacter(avatar);scene.add(actor.group);
+const actions=['idle','practice','backhand','forehand','tomahawk','scoober','putt','celebrate','slump','walk'];const select=document.getElementById('action');actions.forEach(id=>{const o=document.createElement('option');o.textContent=id;select.append(o);});
+let time=0,paused=false;function start(){time=0;const id=select.value;if(['celebrate','slump'].includes(id))actor.react?.(id);else if(['idle','practice','walk'].includes(id)){actor.setPhase(null);actor.play?.(id);}else actor.setThrow(id);}
+select.onchange=start;document.getElementById('restart').onclick=start;document.getElementById('pause').onclick=()=>{paused=!paused;};document.getElementById('turn').onclick=()=>actor.group.rotation.y+=Math.PI/2;
+document.getElementById('face').onclick=()=>{avatar={...avatar,eyes:avatar.eyes==='round'?'happy':'round',mouth:avatar.mouth==='smile'?'grin':'smile',glasses:avatar.glasses==='none'?'round':'none'};actor.setFace(avatar);};
+document.getElementById('hat').onclick=()=>{scene.remove(actor.group);actor.dispose();avatar.headwear=avatar.headwear==='none'?'cap':'none';actor=createCharacter(avatar);scene.add(actor.group);};
+let dragX=null;const canvas=document.getElementById('view');canvas.style.touchAction='pan-y';canvas.onpointerdown=e=>{dragX=e.clientX;canvas.setPointerCapture(e.pointerId);};canvas.onpointermove=e=>{if(dragX!==null){actor.group.rotation.y+=(e.clientX-dragX)*.012;dragX=e.clientX;}};canvas.onpointerup=canvas.onpointercancel=()=>{dragX=null;};
+document.getElementById('info').textContent=JSON.stringify({source:actor.source,quality,clips:actor.clips,bones:Object.keys(actor.joints),modelStatus});
+window.characterQA={actor,renderer,scene,avatar,drawFaceAtlas,start,select,ready:true};
+let last=performance.now();function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!paused){time+=dt;if(!['idle','practice','walk','celebrate','slump'].includes(select.value))actor.setPhase(Math.min(1,time/1.05));actor.update(dt);}renderer.render(scene,camera);requestAnimationFrame(frame);}requestAnimationFrame(frame);
+</script>

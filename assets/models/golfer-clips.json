@@ -1,0 +1,71 @@
+{
+  "skeleton": "ChainsRig eleven-joint v1",
+  "clips": {
+    "backhand": {
+      "file": "assets/models/golfer-backhand.glb",
+      "bytes": 14632,
+      "duration": 1,
+      "meshes": 0
+    },
+    "celebrate": {
+      "file": "assets/models/golfer-celebrate.glb",
+      "bytes": 14316,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "forehand": {
+      "file": "assets/models/golfer-forehand.glb",
+      "bytes": 14764,
+      "duration": 1,
+      "meshes": 0
+    },
+    "idle": {
+      "file": "assets/models/golfer-idle.glb",
+      "bytes": 16260,
+      "duration": 4,
+      "meshes": 0
+    },
+    "practice": {
+      "file": "assets/models/golfer-practice.glb",
+      "bytes": 12296,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "putt": {
+      "file": "assets/models/golfer-putt.glb",
+      "bytes": 13956,
+      "duration": 1,
+      "meshes": 0
+    },
+    "scoober": {
+      "file": "assets/models/golfer-scoober.glb",
+      "bytes": 14900,
+      "duration": 1,
+      "meshes": 0
+    },
+    "slump": {
+      "file": "assets/models/golfer-slump.glb",
+      "bytes": 13436,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "tomahawk": {
+      "file": "assets/models/golfer-tomahawk.glb",
+      "bytes": 14904,
+      "duration": 1,
+      "meshes": 0
+    },
+    "walk": {
+      "file": "assets/models/golfer-walk.glb",
+      "bytes": 10928,
+      "duration": 1,
+      "meshes": 0
+    }
+  },
+  "golfer.glb": {
+    "bytes": 466036
+  },
+  "golfer-lod.glb": {
+    "bytes": 160840
+  }
+}
