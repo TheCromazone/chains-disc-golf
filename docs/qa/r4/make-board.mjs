@@ -1,0 +1,11 @@
+import {writeFile} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);const {chromium}=require(process.env.PLAYWRIGHT_MODULE);
+const stage=process.env.CANOPY_STAGE||'v1';
+const portrait=process.env.CANOPY_VIEW==='portrait', boardName=stage+(portrait?'-portrait':'');
+const tee=portrait?'tee':'tee-landscape', y=portrait?-145:0;
+const choices=[['A','reference-tee.png',-34],['B',`${stage}-high-${tee}.png`,y],['C',`${stage}-low-${tee}.png`,y],['D','reference-tee.png',-34],['E','reference-flyover.png',-34],['F',`${stage}-high-flyover.png`,0]];
+let html='<style>body{margin:0;background:#e8e8e8;font:16px Arial;padding:16px}.grid{display:grid;grid-template-columns:430px 430px;gap:12px}figure{margin:0}figcaption{padding:8px;background:white}.crop{height:180px;background-size:430px auto;background-repeat:no-repeat;background-color:#e8e8e8}</style><div class="grid">';
+for(const [label,file,y]of choices)html+=`<figure><figcaption>${label}</figcaption><div class="crop" style="background-image:url(${file});background-position:0 ${y}px"></div></figure>`;
+html+='</div>';await writeFile(new URL(`${boardName}-board.html`,import.meta.url),html);
+const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:904,height:692}});await page.goto(`http://localhost:8093/docs/qa/r4/${boardName}-board.html`);await page.screenshot({path:`docs/qa/r4/${boardName}-board.png`});await browser.close();

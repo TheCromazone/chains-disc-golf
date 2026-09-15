@@ -1,0 +1,191 @@
+{
+  "baseline": "c15b0ee",
+  "unchanged": [
+    "src/main.js",
+    "src/physics.js",
+    "src/throw-poses.js",
+    "src/player.js",
+    "src/gltf-player.js",
+    "src/materials.js",
+    "src/ui.js",
+    "src/ui.css",
+    "src/net.js",
+    "src/models.js",
+    "assets/manifest.json"
+  ],
+  "terrainAnd3154CollidersUnchanged": true,
+  "canopy": [
+    {
+      "quality": "low",
+      "view": "tee",
+      "camera": [
+        -198.21213926947104,
+        2.98151281412559,
+        -155.5981420494165
+      ],
+      "instancedTriangles": 1911104,
+      "batches": 332,
+      "render": {
+        "frame": 40,
+        "calls": 121,
+        "triangles": 831914,
+        "points": 0,
+        "lines": 83
+      },
+      "collisionCount": 3154,
+      "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+      "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+      "errors": []
+    },
+    {
+      "quality": "low",
+      "view": "tee-landscape",
+      "camera": [
+        -198.21108611668677,
+        2.2473060501830218,
+        -154.86446261040211
+      ],
+      "instancedTriangles": 1911104,
+      "batches": 332,
+      "render": {
+        "frame": 62,
+        "calls": 198,
+        "triangles": 981542,
+        "points": 0,
+        "lines": 83
+      },
+      "collisionCount": 3154,
+      "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+      "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+      "errors": []
+    },
+    {
+      "quality": "low",
+      "view": "flyover",
+      "camera": [
+        -197.5193896709144,
+        4.61275170954122,
+        -149.3432233179647
+      ],
+      "instancedTriangles": 1911104,
+      "batches": 332,
+      "render": {
+        "frame": 82,
+        "calls": 144,
+        "triangles": 900866,
+        "points": 0,
+        "lines": 83
+      },
+      "collisionCount": 3154,
+      "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+      "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+      "errors": []
+    },
+    {
+      "quality": "high",
+      "view": "tee",
+      "camera": [
+        -198.21220281387906,
+        2.9815791645983727,
+        -155.5984870650919
+      ],
+      "instancedTriangles": 1911104,
+      "batches": 332,
+      "render": {
+        "frame": 73,
+        "calls": 100,
+        "triangles": 822782,
+        "points": 0,
+        "lines": 83
+      },
+      "collisionCount": 3154,
+      "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+      "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+      "errors": []
+    },
+    {
+      "quality": "high",
+      "view": "tee-landscape",
+      "camera": [
+        -198.21106329154063,
+        2.232780706925797,
+        -154.84993882629152
+      ],
+      "instancedTriangles": 1911104,
+      "batches": 332,
+      "render": {
+        "frame": 97,
+        "calls": 176,
+        "triangles": 972362,
+        "points": 0,
+        "lines": 83
+      },
+      "collisionCount": 3154,
+      "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+      "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+      "errors": []
+    },
+    {
+      "quality": "high",
+      "view": "flyover",
+      "camera": [
+        -197.5193896709144,
+        4.61275170954122,
+        -149.3432233179647
+      ],
+      "instancedTriangles": 1911104,
+      "batches": 332,
+      "render": {
+        "frame": 118,
+        "calls": 152,
+        "triangles": 906650,
+        "points": 0,
+        "lines": 83
+      },
+      "collisionCount": 3154,
+      "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+      "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+      "errors": []
+    }
+  ],
+  "startup": [
+    {
+      "viewport": "360x740",
+      "encoded": 720033,
+      "transfer": 731433,
+      "models": 0
+    },
+    {
+      "viewport": "430x932",
+      "encoded": 720033,
+      "transfer": 731433,
+      "models": 0
+    },
+    {
+      "viewport": "812x375",
+      "encoded": 2159603,
+      "transfer": 2181503,
+      "models": 32
+    },
+    {
+      "viewport": "568x320",
+      "encoded": 720033,
+      "transfer": 731433,
+      "models": 0
+    },
+    {
+      "viewport": "768x1024",
+      "encoded": 2159603,
+      "transfer": 2181503,
+      "models": 32
+    },
+    {
+      "viewport": "1366x768",
+      "encoded": 2159603,
+      "transfer": 2181503,
+      "models": 32
+    }
+  ],
+  "allSixLayoutsPass": true,
+  "physicalDeviceFps": "Pending user overlay readings; desktop readouts excluded."
+}

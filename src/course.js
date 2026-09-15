@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
+import { canopyGeometry } from './canopies.js';
 import { modelParts, addModel } from './models.js';
 import { windMaterial, windTime, toonMaterial, cartoonSky, paintDetail, paintTerrain } from './materials.js';
 
@@ -326,19 +327,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   };
   const shift = (g, x, y, z) => g.translate(x, y, z);
   const pineTrunk = shift(new THREE.CylinderGeometry(0.16, 0.34, 6, 7), 0, 3, 0);
-  // Inset frond tiers overlap inside the existing pine envelope.
-  const crownProfile = [[0,3.2],[1.3,3.35],[2.26,3.65],[1.46,4.7],
-    [2.04,4.75],[1.30,5.8],[1.76,5.85],[1.05,6.9],
-    [1.43,6.95],[.81,7.95],[1.12,8.0],[.56,8.9],
-    [.78,8.95],[.32,9.8],[.43,9.85],[0,11.05]];
-  const pineLeaf = new THREE.LatheGeometry(crownProfile.map(p => new THREE.Vector2(...p)), 18);
-  const crownPos = pineLeaf.attributes.position;
-  for (let i=0; i<crownPos.count; i++) {
-    const x=crownPos.getX(i), z=crownPos.getZ(i), y=crownPos.getY(i), a=Math.atan2(z,x);
-    const shape = .94 + Math.sin(a*7+y*1.3)*.045 + Math.sin(a*3-y)*.015;
-    crownPos.setXYZ(i,x*shape,y,z*shape);
-  }
-  pineLeaf.computeVertexNormals();
+  // Blender crowns share the existing wind material, instance transforms and cells.
+  const pineVariants = [0,1,2].map(variant => canopyGeometry('pine',variant));
   const shadeCrown = (g, lightness = 1) => {
     const n=g.attributes.normal, c=new Float32Array(n.count*3);
     for(let i=0;i<n.count;i++) {
@@ -349,40 +339,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     }
     g.setAttribute('color',new THREE.BufferAttribute(c,3));return g;
   };
-  shadeCrown(pineLeaf);
-  const pineVariants = [pineLeaf];
-  for(let variant=1;variant<3;variant++) {
-    const crown=pineLeaf.clone(), p=crown.attributes.position;
-    for(let i=0;i<p.count;i++) {
-      const x=p.getX(i), y=p.getY(i), z=p.getZ(i), a=Math.atan2(z,x);
-      // Only inset the crown; never enlarge the existing obstacle envelope.
-      const inset=.90+.1*Math.sin(y*(variant===1?1.9:1.25)+a*variant)**2;
-      p.setXYZ(i,x*inset,y,z*(variant===1?.94:1));
-    }
-    crown.computeVertexNormals();shadeCrown(crown);pineVariants.push(crown);
-  }
   const decTrunk = mergeGeometries([shift(new THREE.CylinderGeometry(0.2, 0.4, 4.2, 7), 0, 2.1, 0), shift(new THREE.CylinderGeometry(0.08, 0.16, 2.6, 5).rotateZ(0.6), 0.9, 4.2, 0.2), shift(new THREE.CylinderGeometry(0.08, 0.16, 2.4, 5).rotateZ(-0.7).rotateY(1.2), -0.8, 4.1, -0.4)]);
-  // Twelve overlapping leaf masses replace four broad smooth balloons. Total extent
-  // stays inside the previous crown; tree collision envelopes and placement are unchanged.
-  // Lite uses 48 triangles per mass (576 total, identical to its prior four spheres).
-  const leafLobes = [
-    [-1.48,4.8,-.45,1.25,.93], [.95,4.75,-1.0,1.30,.96],
-    [1.95,5.2,.48,1.22,.99], [-1.88,5.55,.55,1.20,1],
-    [-.92,6.15,-1.0,1.48,.97], [.85,6.2,-.68,1.46,1.02],
-    [1.68,6.45,.62,1.22,1.02], [-.15,6.0,1.08,1.43,1],
-    [-1.3,6.95,.55,1.27,1.02], [-.75,7.75,-.3,1.17,1.03],
-    [.95,7.70,.10,1.22,1.03], [.05,7.92,.62,1.18,1.02],
-  ];
-  const decLeaf=mergeGeometries(leafLobes.map(([x,y,z,r,gain],idx)=>{
-    const g=new THREE.SphereGeometry(r,quality==='low'?8:12,quality==='low'?4:7);
-    const p=g.attributes.position;
-    for(let i=0;i<p.count;i++) {
-      const px=p.getX(i),py=p.getY(i),pz=p.getZ(i),a=Math.atan2(pz,px);
-      const inset=.94+.045*Math.sin(a*5+idx+py*2);
-      p.setXYZ(i,px*inset,py*(.80+idx%3*.045),pz*inset);
-    }
-    g.computeVertexNormals();shadeCrown(g,gain);return g.translate(x,y,z);
-  }));
+  const decVariants = [0,1,2].map(variant => canopyGeometry('deciduous',variant));
   const bushGeo = shadeCrown(blob(1, 1, 0.6).scale(1, 0.75, 1).translate(0, 0.5, 0));
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
   const inst = (geo, mat, spots, colorFn, shadow = true) => {
@@ -399,7 +357,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const col = new THREE.Color();
   const importedInstances = (name, spots, shadow = true) => {
     // Lite retains its existing foliage geometry budget.
-    // Keep imported foliage infrastructure available for art experiments; this style uses clean primitives.
+    // Keep imported foliage infrastructure available; authored embedded crowns also work with empty assets.
     return false; /*
     const parts = modelParts(name); if (!parts) return false;
     for (const part of parts) inst(part.geometry, windMaterial(part.material, windClock, name === 'grass'), spots, null, shadow);
@@ -411,7 +369,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
   if (!importedInstances('deciduous', decSpots)) {
     inst(decTrunk, trunkMat, decSpots, null, false);
-    inst(decLeaf, leafMat, decSpots, s => col.setHSL(def.leafHue + (noise(s.x/22 + 9, s.z/22) - 0.5) * 0.07, 0.5, 0.30 + noise(s.z/24 + 4, s.x/24) * 0.18, THREE.SRGBColorSpace));
+    for(let variant=0;variant<3;variant++) inst(decVariants[variant], leafMat, decSpots.filter(s=>Math.floor(noise(s.x*.37+13,s.z*.37+5)*3)===variant), s => col.setHSL(def.leafHue + (noise(s.x/22 + 9, s.z/22) - 0.5) * 0.07, 0.5, 0.30 + noise(s.z/24 + 4, s.x/24) * 0.18, THREE.SRGBColorSpace));
   }
   if (!importedInstances('bush', bushes, false)) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
   // Fine crossed-alpha grass is deliberately retired in both modes.

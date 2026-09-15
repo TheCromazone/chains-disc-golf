@@ -1,0 +1,278 @@
+[
+  {
+    "quality": "low",
+    "empty": false,
+    "course": "pine",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 224,
+    "bad": [],
+    "render": {
+      "frame": 29,
+      "calls": 46,
+      "triangles": 19756,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "low",
+    "empty": false,
+    "course": "meadow",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 164,
+    "bad": [],
+    "render": {
+      "frame": 80,
+      "calls": 46,
+      "triangles": 19756,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "low",
+    "empty": false,
+    "course": "lake",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 222,
+    "bad": [],
+    "render": {
+      "frame": 131,
+      "calls": 46,
+      "triangles": 19756,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "low",
+    "empty": true,
+    "course": "pine",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 224,
+    "bad": [],
+    "render": {
+      "frame": 30,
+      "calls": 46,
+      "triangles": 19756,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "low",
+    "empty": true,
+    "course": "meadow",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 164,
+    "bad": [],
+    "render": {
+      "frame": 83,
+      "calls": 46,
+      "triangles": 19756,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "low",
+    "empty": true,
+    "course": "lake",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 222,
+    "bad": [],
+    "render": {
+      "frame": 135,
+      "calls": 46,
+      "triangles": 19756,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "high",
+    "empty": false,
+    "course": "pine",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 224,
+    "bad": [],
+    "render": {
+      "frame": 58,
+      "calls": 24,
+      "triangles": 10272,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "high",
+    "empty": false,
+    "course": "meadow",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 164,
+    "bad": [],
+    "render": {
+      "frame": 109,
+      "calls": 24,
+      "triangles": 10272,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "high",
+    "empty": false,
+    "course": "lake",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 222,
+    "bad": [],
+    "render": {
+      "frame": 157,
+      "calls": 24,
+      "triangles": 10272,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "high",
+    "empty": true,
+    "course": "pine",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 224,
+    "bad": [],
+    "render": {
+      "frame": 52,
+      "calls": 46,
+      "triangles": 19756,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "high",
+    "empty": true,
+    "course": "meadow",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 164,
+    "bad": [],
+    "render": {
+      "frame": 104,
+      "calls": 46,
+      "triangles": 19756,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  },
+  {
+    "quality": "high",
+    "empty": true,
+    "course": "lake",
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2",
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "groups": 222,
+    "bad": [],
+    "render": {
+      "frame": 157,
+      "calls": 46,
+      "triangles": 19756,
+      "points": 0,
+      "lines": 0
+    },
+    "errors": []
+  }
+]

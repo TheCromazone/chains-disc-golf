@@ -1,0 +1,263 @@
+{
+  "reason": "Remove redundant current-round media; preserve baseline/final screenshots, all six throw sheets, critic boards and diagnostic evidence",
+  "count": 64,
+  "bytes": 24406808.0,
+  "files": [
+    {
+      "Name": "after-clubhouse-1366.png",
+      "Length": 278224
+    },
+    {
+      "Name": "after-clubhouse-360.png",
+      "Length": 173678
+    },
+    {
+      "Name": "after-clubhouse-430.png",
+      "Length": 214515
+    },
+    {
+      "Name": "after-clubhouse-568.png",
+      "Length": 118407
+    },
+    {
+      "Name": "after-clubhouse-768.png",
+      "Length": 247968
+    },
+    {
+      "Name": "after-clubhouse-812.png",
+      "Length": 163671
+    },
+    {
+      "Name": "after-feedback-430.png",
+      "Length": 318768
+    },
+    {
+      "Name": "after-hud-1366.png",
+      "Length": 849213
+    },
+    {
+      "Name": "after-hud-360.png",
+      "Length": 221621
+    },
+    {
+      "Name": "after-hud-568.png",
+      "Length": 176463
+    },
+    {
+      "Name": "after-hud-768.png",
+      "Length": 644020
+    },
+    {
+      "Name": "after-hud-812.png",
+      "Length": 293909
+    },
+    {
+      "Name": "after-locker-1366.png",
+      "Length": 262264
+    },
+    {
+      "Name": "after-locker-360.png",
+      "Length": 160808
+    },
+    {
+      "Name": "after-locker-430.png",
+      "Length": 204658
+    },
+    {
+      "Name": "after-locker-568.png",
+      "Length": 109494
+    },
+    {
+      "Name": "after-locker-768.png",
+      "Length": 261640
+    },
+    {
+      "Name": "after-locker-812.png",
+      "Length": 153850
+    },
+    {
+      "Name": "diagnostic-2.png",
+      "Length": 300677
+    },
+    {
+      "Name": "v1-board.html",
+      "Length": 1484084
+    },
+    {
+      "Name": "v1-high-flyover.png",
+      "Length": 309157
+    },
+    {
+      "Name": "v1-high-tee.png",
+      "Length": 335402
+    },
+    {
+      "Name": "v1-low-flyover.png",
+      "Length": 309167
+    },
+    {
+      "Name": "v1-low-tee.png",
+      "Length": 334661
+    },
+    {
+      "Name": "v2-board.html",
+      "Length": 1484956
+    },
+    {
+      "Name": "v2-clean-board.html",
+      "Length": 1312220
+    },
+    {
+      "Name": "v2-clean-board.png",
+      "Length": 566108
+    },
+    {
+      "Name": "v2-clean-high-flyover.png",
+      "Length": 295279
+    },
+    {
+      "Name": "v2-clean-high-tee-landscape.png",
+      "Length": 277822
+    },
+    {
+      "Name": "v2-clean-high-tee.png",
+      "Length": 324015
+    },
+    {
+      "Name": "v2-clean-low-flyover.png",
+      "Length": 294946
+    },
+    {
+      "Name": "v2-clean-low-tee-landscape.png",
+      "Length": 277227
+    },
+    {
+      "Name": "v2-clean-low-tee.png",
+      "Length": 322966
+    },
+    {
+      "Name": "v2-high-flyover.png",
+      "Length": 309356
+    },
+    {
+      "Name": "v2-high-tee.png",
+      "Length": 335754
+    },
+    {
+      "Name": "v2-low-flyover.png",
+      "Length": 309611
+    },
+    {
+      "Name": "v2-low-tee.png",
+      "Length": 334765
+    },
+    {
+      "Name": "v3-board.html",
+      "Length": 1324436
+    },
+    {
+      "Name": "v3-high-flyover.png",
+      "Length": 298374
+    },
+    {
+      "Name": "v3-high-tee-landscape.png",
+      "Length": 280695
+    },
+    {
+      "Name": "v3-low-flyover.png",
+      "Length": 298541
+    },
+    {
+      "Name": "v3-low-tee-landscape.png",
+      "Length": 280425
+    },
+    {
+      "Name": "v4-board.html",
+      "Length": 1322660
+    },
+    {
+      "Name": "v4-high-flyover.png",
+      "Length": 297663
+    },
+    {
+      "Name": "v4-high-tee-landscape.png",
+      "Length": 280342
+    },
+    {
+      "Name": "v4-low-flyover.png",
+      "Length": 298278
+    },
+    {
+      "Name": "v4-low-tee-landscape.png",
+      "Length": 280153
+    },
+    {
+      "Name": "v4-portrait-board.html",
+      "Length": 1440978
+    },
+    {
+      "Name": "v5-board.html",
+      "Length": 1191
+    },
+    {
+      "Name": "v5-high-flyover.png",
+      "Length": 300681
+    },
+    {
+      "Name": "v5-high-tee-landscape.png",
+      "Length": 282772
+    },
+    {
+      "Name": "v5-high-tee.png",
+      "Length": 326459
+    },
+    {
+      "Name": "v5-low-flyover.png",
+      "Length": 300753
+    },
+    {
+      "Name": "v5-low-tee-landscape.png",
+      "Length": 282329
+    },
+    {
+      "Name": "v5-low-tee.png",
+      "Length": 325453
+    },
+    {
+      "Name": "v5-portrait-board.html",
+      "Length": 1177
+    },
+    {
+      "Name": "v6-board.html",
+      "Length": 1191
+    },
+    {
+      "Name": "v6-high-flyover.png",
+      "Length": 298855
+    },
+    {
+      "Name": "v6-high-tee-landscape.png",
+      "Length": 281461
+    },
+    {
+      "Name": "v6-high-tee.png",
+      "Length": 325259
+    },
+    {
+      "Name": "v6-low-flyover.png",
+      "Length": 298826
+    },
+    {
+      "Name": "v6-low-tee-landscape.png",
+      "Length": 280858
+    },
+    {
+      "Name": "v6-low-tee.png",
+      "Length": 324477
+    },
+    {
+      "Name": "v6-portrait-board.html",
+      "Length": 1177
+    }
+  ]
+}

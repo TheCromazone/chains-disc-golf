@@ -1,0 +1,1286 @@
+[
+  {
+    "quality": "low",
+    "view": "tee",
+    "camera": [
+      -198.2121055758348,
+      2.9814770976243383,
+      -155.59795619389052
+    ],
+    "instancedTriangles": 1673064,
+    "batches": 332,
+    "render": {
+      "frame": 39,
+      "calls": 122,
+      "triangles": 791434,
+      "points": 0,
+      "lines": 83
+    },
+    "collisionCount": 3154,
+    "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+    "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/?fps=1",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1446,
+        "transfer": 1746
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 36751,
+        "transfer": 37051
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      }
+    ]
+  },
+  {
+    "quality": "low",
+    "view": "tee-landscape",
+    "camera": [
+      -198.2110631992985,
+      2.232780611408486,
+      -154.8499383298095
+    ],
+    "instancedTriangles": 1673064,
+    "batches": 332,
+    "render": {
+      "frame": 65,
+      "calls": 197,
+      "triangles": 928442,
+      "points": 0,
+      "lines": 83
+    },
+    "collisionCount": 3154,
+    "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+    "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/?fps=1",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1446,
+        "transfer": 1746
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 36751,
+        "transfer": 37051
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      }
+    ]
+  },
+  {
+    "quality": "low",
+    "view": "flyover",
+    "camera": [
+      -197.5193896709144,
+      4.61275170954122,
+      -149.3432233179647
+    ],
+    "instancedTriangles": 1673064,
+    "batches": 332,
+    "render": {
+      "frame": 89,
+      "calls": 144,
+      "triangles": 850906,
+      "points": 0,
+      "lines": 83
+    },
+    "collisionCount": 3154,
+    "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+    "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/?fps=1",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1446,
+        "transfer": 1746
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 36751,
+        "transfer": 37051
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      }
+    ]
+  },
+  {
+    "quality": "high",
+    "view": "tee",
+    "camera": [
+      -198.21220280617845,
+      2.9815791645983727,
+      -155.59848706706225
+    ],
+    "instancedTriangles": 1673064,
+    "batches": 332,
+    "render": {
+      "frame": 72,
+      "calls": 101,
+      "triangles": 782302,
+      "points": 0,
+      "lines": 83
+    },
+    "collisionCount": 3154,
+    "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+    "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/?fps=1",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1446,
+        "transfer": 1746
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 36751,
+        "transfer": 37051
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      }
+    ]
+  },
+  {
+    "quality": "high",
+    "view": "tee-landscape",
+    "camera": [
+      -198.21106332185482,
+      2.2327807394950305,
+      -154.8499389958762
+    ],
+    "instancedTriangles": 1673064,
+    "batches": 332,
+    "render": {
+      "frame": 97,
+      "calls": 176,
+      "triangles": 919310,
+      "points": 0,
+      "lines": 83
+    },
+    "collisionCount": 3154,
+    "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+    "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/?fps=1",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1446,
+        "transfer": 1746
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 36751,
+        "transfer": 37051
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      }
+    ]
+  },
+  {
+    "quality": "high",
+    "view": "flyover",
+    "camera": [
+      -197.5193896709144,
+      4.61275170954122,
+      -149.3432233179647
+    ],
+    "instancedTriangles": 1673064,
+    "batches": 332,
+    "render": {
+      "frame": 118,
+      "calls": 152,
+      "triangles": 856690,
+      "points": 0,
+      "lines": 83
+    },
+    "collisionCount": 3154,
+    "terrainHash": "b1d01b65269e38bd13932799b5c5e3082fbea0971b4bd20afb74bb0f06fcb186",
+    "collisionHash": "ba6218f4f8e3ebc5b1fd38a32934d8d26a621d8e39b1475f6a78f67014f01804",
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/?fps=1",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1446,
+        "transfer": 1746
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 36751,
+        "transfer": 37051
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      }
+    ]
+  }
+]

@@ -25,6 +25,15 @@
     "androidMeasuredFpsFull": null,
     "iphoneMeasuredFpsLite": null,
     "iphoneMeasuredFpsFull": null,
-    "conclusion": "No physical browser debugging connection available. Paired iPhone Bluetooth/audio endpoints do not expose Safari or frame timing. Physical Android and iPhone measurements remain owed."
+    "conclusion": "The original discovery found no physical browser debugging connection. Round four awaits user-provided readings from the ?fps=1 overlay; this manual method does not require a debugging connection. All four physical-device values remain unmeasured until those readings arrive.",
+    "manualMeasurement": {
+      "status": "awaiting_user_readings",
+      "urlQuery": "?fps=1",
+      "course": "Pine Hollow",
+      "hole": 1,
+      "source": "Physical Android and iPhone overlay readings supplied by the user",
+      "minimumFpsBeforeOptimization": { "Lite": 55, "Full": 40 },
+      "desktopReadoutsExcluded": true
+    }
   }
 }

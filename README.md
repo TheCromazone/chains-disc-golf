@@ -110,9 +110,20 @@ The asset test checks manifest files, GLB structure, Draco/KTX2 extensions, the 
 
 Round-three QA: **83 manifest entries**, all ten throws pass handedness and flight regressions, a real pointer swipe and a complete Full-quality hole pass, and empty-assets play works in both qualities. No JavaScript errors in integration checks. The six viewport overlap audit, including the open ten-entry throw sheet, includes 360×740, 430×932, 812×375, 568×320, 768×1024 and 1366×768. The previous PeerJS transport verification remains applicable: protocol source and message shapes were preserved.
 
-The art pass brings Lite startup below **2 MB**, including CDN code (see the current byte ledger in [the art-pass report](docs/qa/r3/REPORT.md)). Disc stamps are 6.6–18.7 KB; normal maps are 256px JPEGs. **60 fps Lite / 45 fps Full on mid-range Android and iPhone 12 remain physical-device targets, not certified results.** Desktop Chromium does not establish mobile GPU or Safari performance.
+The art pass brings Lite startup below **2 MB**, including CDN code (see the current byte ledger in [the canopy report](docs/qa/r4/REPORT.md)). Disc stamps are 6.6–18.7 KB; normal maps are 256px JPEGs. **60 fps Lite / 45 fps Full on mid-range Android and iPhone 12 remain physical-device targets, not certified results.** Desktop Chromium does not establish mobile GPU or Safari performance.
 
-See [current QA](docs/qa/r3/REPORT.md), [overlap and startup results](docs/qa/r3/after-browser-results.json), and [decisions](docs/decisions.md). Current before/after images live in `docs/qa/r3/`; 43.97 MB of historical captures were pruned from the checkout and remain in Git history.
+See [current canopy QA](docs/qa/r4/REPORT.md), [overlap and startup results](docs/qa/r4/after-browser-results.json), [round-three QA](docs/qa/r3/REPORT.md), and [decisions](docs/decisions.md). Round four closes the critic's cohesive-canopy defect in portrait and flyover views; its remaining named gap is ground lighting, outside that round. Lite transfers **731 KB**, within the same 2 MB startup budget. Before/after images live in `docs/qa/r4/`; 43.97 MB of historical captures were pruned previously and remain in Git history.
+
+### Physical phone readings
+
+Open the game with `?fps=1`, play **Pine Hollow hole one**, and read the overlay in each quality. These four results are pending user readings from the physical phones; desktop screenshots do not populate this table.
+
+| Device | Lite FPS | Full FPS |
+|---|---:|---:|
+| Android | Pending | Pending |
+| iPhone | Pending | Pending |
+
+The [device record](docs/qa/r3/sound-device-detection.json) retains nulls until readings arrive. A result below **55 FPS Lite** or **40 FPS Full** triggers optimization of that phone's resolution scaling and foliage budget. The existing 60/45 FPS targets remain aspirational until measured.
 
 ## Rebuild art (optional authoring tools)
 
@@ -124,6 +135,7 @@ python tools/split-golfer-clips.py
 # Rebuild the current authored motion set after rebuilding the body:
 node tools/extract-poses.mjs
 blender --background --python tools/author-golfer-clips.py
+blender --background --python tools/author-canopies.py
 python tools/texture-pack.py
 node tools/build-face-atlas.mjs
 ```
@@ -131,6 +143,8 @@ node tools/build-face-atlas.mjs
 The golfer body is **466,036 bytes / 10,800 triangles**; the distant LOD is **160,840 bytes / 3,230 triangles**. Thirty independent animation GLBs contain no mesh, material or texture payload: ten throws and five shared actions for each hand. Left-handed clips use positive scales, so jersey numbers stay readable. The eleven bone names remain unchanged. `tools/build-face-atlas.mjs` builds deterministic flat face parts and compresses them with Khronos `toktx`; the runtime retains its generated atlas fallback. Legacy model and Unity authoring tools remain in the repository.
 
 Twelve original 256px painted JPEG detail tiles add 147.6 KB across all materials. The toon ramp and palette remain; skin and fabric follow the actor, while terrain blends fairway, rough, green and sand. See [texture provenance](art/textures/r3/prompts.json) and [motion authoring](docs/qa/r3/animation-authoring.md).
+
+Six compact Blender crown variants use baked vertex occlusion and authored smooth normals: 528 triangles per pine and 576 per deciduous tree. The 49.3 KB embedded geometry retains instancing, wind deformation, 64 m groups and existing collision radii, and works with an empty asset manifest. Dense source meshes and the optimized shells are preserved in `art/blender/canopies-r4.blend`.
 
 ### Sound recordings — conditional generation skipped
 

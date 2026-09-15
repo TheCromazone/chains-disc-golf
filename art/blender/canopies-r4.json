@@ -1,0 +1,143 @@
+{
+  "authoring": "Blender closed irregular shells; 3 shells per crown",
+  "bake": "Per-vertex BVH raycasts: 64 cosine-weighted surface hemisphere + 64 sky hemisphere",
+  "normals": "Transferred from a coherent whole-crown envelope; custom split normals in Blender",
+  "outer_shell": "Deciduous: dense64x32 latitude source; Blender geometry-error decimation to480triangles",
+  "ao_response": ".22 + .78 * visibility ** 2.25; fully exposed vertices remain neutral1.0",
+  "ao_filter": "Primary outer shell only: four distance-weighted adjacency passes before response curve",
+  "quantization": "Y-up coordinates 1/2048 metre; signed8-bit normals; grayscale vertex AO8-bit",
+  "crowns": {
+    "pine0": {
+      "vertices": 270,
+      "triangles": 528,
+      "shells": 3,
+      "bytes": 5868,
+      "aoMin": 0.2196078431372549,
+      "aoMax": 1.0,
+      "bounds": [
+        [
+          -1.8626883029937744,
+          2.279916763305664
+        ],
+        [
+          3.4093122482299805,
+          10.619999885559082
+        ],
+        [
+          -2.2626755237579346,
+          1.9771277904510498
+        ]
+      ]
+    },
+    "pine1": {
+      "vertices": 270,
+      "triangles": 528,
+      "shells": 3,
+      "bytes": 5868,
+      "aoMin": 0.2196078431372549,
+      "aoMax": 1.0,
+      "bounds": [
+        [
+          -2.065641403198242,
+          1.8477585315704346
+        ],
+        [
+          3.446847438812256,
+          10.949999809265137
+        ],
+        [
+          -1.785225749015808,
+          2.029737949371338
+        ]
+      ]
+    },
+    "pine2": {
+      "vertices": 270,
+      "triangles": 528,
+      "shells": 3,
+      "bytes": 5868,
+      "aoMin": 0.2196078431372549,
+      "aoMax": 1.0,
+      "bounds": [
+        [
+          -2.2760560512542725,
+          1.7461199760437012
+        ],
+        [
+          3.498056411743164,
+          10.800000190734863
+        ],
+        [
+          -2.162364959716797,
+          2.0674855709075928
+        ]
+      ]
+    },
+    "deciduous0": {
+      "vertices": 294,
+      "triangles": 576,
+      "shells": 3,
+      "bytes": 6396,
+      "aoMin": 0.2196078431372549,
+      "aoMax": 0.9921568627450981,
+      "bounds": [
+        [
+          -2.755807638168335,
+          3.091715097427368
+        ],
+        [
+          4.349999904632568,
+          8.609030723571777
+        ],
+        [
+          -2.6207375526428223,
+          2.5635242462158203
+        ]
+      ]
+    },
+    "deciduous1": {
+      "vertices": 294,
+      "triangles": 576,
+      "shells": 3,
+      "bytes": 6396,
+      "aoMin": 0.2196078431372549,
+      "aoMax": 0.9921568627450981,
+      "bounds": [
+        [
+          -2.496835231781006,
+          2.761476516723633
+        ],
+        [
+          4.349999904632568,
+          9.009246826171875
+        ],
+        [
+          -2.8884406089782715,
+          3.0785491466522217
+        ]
+      ]
+    },
+    "deciduous2": {
+      "vertices": 294,
+      "triangles": 576,
+      "shells": 3,
+      "bytes": 6396,
+      "aoMin": 0.2196078431372549,
+      "aoMax": 0.996078431372549,
+      "bounds": [
+        [
+          -2.798729658126831,
+          2.404146671295166
+        ],
+        [
+          4.449999809265137,
+          8.856308937072754
+        ],
+        [
+          -2.4312357902526855,
+          2.695526123046875
+        ]
+      ]
+    }
+  }
+}

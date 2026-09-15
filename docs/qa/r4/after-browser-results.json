@@ -1,0 +1,3898 @@
+[
+  {
+    "width": 360,
+    "height": 740,
+    "result": {
+      "vw": 360,
+      "vh": 740,
+      "res": [
+        "hub[15] ov:- off:- clipped:-",
+        "courses[5] ov:- off:- clipped:-",
+        "locker[17] ov:- off:- clipped:-",
+        "locker-bottom[17] ov:- off:- clipped:-",
+        "setup[9] ov:- off:- clipped:-",
+        "online[6] ov:- off:- clipped:-",
+        "help[1] ov:- off:- clipped:-",
+        "help-bottom[2] ov:- off:- clipped:-",
+        "hud[6] ov:- off:- clipped:-",
+        "ten-throw-sheet[15] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [
+      "[.WebGL-0x30ac001b0200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "[.WebGL-0x30ac001b0200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "[.WebGL-0x30ac001b0200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "[.WebGL-0x30ac001b0200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+    ],
+    "startup": [
+      {
+        "url": "http://localhost:8093/",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1597,
+        "transfer": 1897
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 49305,
+        "transfer": 49605
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 12261,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 34625,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 46590,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 15224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 36577,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3683,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2646,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 10017,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "bytes": 1597,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12365,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 9757,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 19594,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "bytes": 439,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5133,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4996,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "bytes": 12113,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2411,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "bytes": 49305,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "bytes": 27977,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "bytes": 2782,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "bytes": 18359,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow_toon.jpg",
+        "bytes": 17864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake_toon.jpg",
+        "bytes": 20399,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/rough.jpg",
+        "bytes": 16074,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/fairway.jpg",
+        "bytes": 16050,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/green.jpg",
+        "bytes": 11890,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/sand.jpg",
+        "bytes": 12554,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/bark.jpg",
+        "bytes": 10784,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/deciduous.jpg",
+        "bytes": 12437,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/pine.jpg",
+        "bytes": 13435,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/tee.jpg",
+        "bytes": 19516,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/metal.jpg",
+        "bytes": 6513,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/water.jpg",
+        "bytes": 7246,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "result": {
+      "vw": 430,
+      "vh": 932,
+      "res": [
+        "hub[15] ov:- off:- clipped:-",
+        "courses[5] ov:- off:- clipped:-",
+        "locker[17] ov:- off:- clipped:-",
+        "setup[9] ov:- off:- clipped:-",
+        "online[6] ov:- off:- clipped:-",
+        "help[2] ov:- off:- clipped:-",
+        "hud[6] ov:- off:- clipped:-",
+        "ten-throw-sheet[15] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1597,
+        "transfer": 1897
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 49305,
+        "transfer": 49605
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 12261,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 34625,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 46590,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 15224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 36577,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 10017,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2646,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "bytes": 1597,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12365,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 9757,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 19594,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3683,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4996,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5133,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "bytes": 439,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2411,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "bytes": 49305,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "bytes": 12113,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "bytes": 27977,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "bytes": 2782,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "bytes": 18359,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow_toon.jpg",
+        "bytes": 17864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake_toon.jpg",
+        "bytes": 20399,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/fairway.jpg",
+        "bytes": 16050,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/rough.jpg",
+        "bytes": 16074,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/green.jpg",
+        "bytes": 11890,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/sand.jpg",
+        "bytes": 12554,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/bark.jpg",
+        "bytes": 10784,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/deciduous.jpg",
+        "bytes": 12437,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/pine.jpg",
+        "bytes": 13435,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/tee.jpg",
+        "bytes": 19516,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/metal.jpg",
+        "bytes": 6513,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/water.jpg",
+        "bytes": 7246,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "width": 812,
+    "height": 375,
+    "result": {
+      "vw": 812,
+      "vh": 375,
+      "res": [
+        "hub[7] ov:- off:- clipped:-",
+        "hub-bottom[14] ov:- off:- clipped:-",
+        "courses[3] ov:- off:- clipped:-",
+        "courses-bottom[5] ov:- off:- clipped:-",
+        "locker[16] ov:- off:- clipped:-",
+        "locker-bottom[16] ov:- off:- clipped:-",
+        "setup[9] ov:- off:- clipped:-",
+        "setup-bottom[9] ov:- off:- clipped:-",
+        "online[6] ov:- off:- clipped:-",
+        "online-bottom[6] ov:- off:- clipped:-",
+        "help[1] ov:- off:- clipped:-",
+        "help-bottom[2] ov:- off:- clipped:-",
+        "hud[6] ov:- off:- clipped:-",
+        "ten-throw-sheet[15] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[1] ov:- off:- clipped:-",
+        "score-bottom[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1597,
+        "transfer": 1897
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 49305,
+        "transfer": 49605
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer.glb",
+        "encoded": 466036,
+        "transfer": 466336
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-lod.glb",
+        "encoded": 160840,
+        "transfer": 161140
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "encoded": 21388,
+        "transfer": 21688
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "encoded": 14804,
+        "transfer": 15104
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "encoded": 18880,
+        "transfer": 19180
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io.glb",
+        "encoded": 18884,
+        "transfer": 19184
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi.glb",
+        "encoded": 18884,
+        "transfer": 19184
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "encoded": 18860,
+        "transfer": 19160
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io.glb",
+        "encoded": 18864,
+        "transfer": 19164
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi.glb",
+        "encoded": 18864,
+        "transfer": 19164
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade.glb",
+        "encoded": 18872,
+        "transfer": 19172
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "encoded": 17024,
+        "transfer": 17324
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "encoded": 18176,
+        "transfer": 18476
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "encoded": 16708,
+        "transfer": 17008
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle_left.glb",
+        "encoded": 21392,
+        "transfer": 21692
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "encoded": 12532,
+        "transfer": 12832
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice_left.glb",
+        "encoded": 14808,
+        "transfer": 15108
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_left.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io_left.glb",
+        "encoded": 18880,
+        "transfer": 19180
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_left.glb",
+        "encoded": 18864,
+        "transfer": 19164
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi_left.glb",
+        "encoded": 18880,
+        "transfer": 19180
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io_left.glb",
+        "encoded": 18868,
+        "transfer": 19168
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi_left.glb",
+        "encoded": 18868,
+        "transfer": 19168
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk_left.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober_left.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade_left.glb",
+        "encoded": 18872,
+        "transfer": 19172
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt_left.glb",
+        "encoded": 17028,
+        "transfer": 17328
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate_left.glb",
+        "encoded": 18172,
+        "transfer": 18472
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk_left.glb",
+        "encoded": 12536,
+        "transfer": 12836
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump_left.glb",
+        "encoded": 16716,
+        "transfer": 17016
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "encoded": 10466,
+        "transfer": 10766
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "encoded": 15826,
+        "transfer": 16126
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "encoded": 245398,
+        "transfer": 245698
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 12261,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 34625,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 46590,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 15224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 36577,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 10017,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3683,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2646,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 19594,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12365,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "bytes": 1597,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 9757,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5133,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "bytes": 439,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4996,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "bytes": 12113,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2411,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "bytes": 49305,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-lod.glb",
+        "bytes": 160840,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer.glb",
+        "bytes": 466036,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "bytes": 21388,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "bytes": 14804,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "bytes": 18880,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io.glb",
+        "bytes": 18884,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi.glb",
+        "bytes": 18884,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io.glb",
+        "bytes": 18864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "bytes": 18860,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi.glb",
+        "bytes": 18864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade.glb",
+        "bytes": 18872,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "bytes": 17024,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "bytes": 18176,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "bytes": 16708,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle_left.glb",
+        "bytes": 21392,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "bytes": 12532,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice_left.glb",
+        "bytes": 14808,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_left.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io_left.glb",
+        "bytes": 18880,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_left.glb",
+        "bytes": 18864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi_left.glb",
+        "bytes": 18880,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io_left.glb",
+        "bytes": 18868,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi_left.glb",
+        "bytes": 18868,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk_left.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober_left.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade_left.glb",
+        "bytes": 18872,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt_left.glb",
+        "bytes": 17028,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate_left.glb",
+        "bytes": 18172,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk_left.glb",
+        "bytes": 12536,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump_left.glb",
+        "bytes": 16716,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "bytes": 10466,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "bytes": 57529,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "bytes": 527333,
+        "status": 200
+      },
+      {
+        "url": "blob:http://localhost:8093/76d2f89e-5eac-4ac6-b8bb-1efb430beb10",
+        "bytes": 68915,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "bytes": 27977,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "bytes": 18359,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "bytes": 2782,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow_toon.jpg",
+        "bytes": 17864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake_toon.jpg",
+        "bytes": 20399,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/fairway.jpg",
+        "bytes": 16050,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/bark.jpg",
+        "bytes": 10784,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/deciduous.jpg",
+        "bytes": 12437,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/rough.jpg",
+        "bytes": 16074,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/green.jpg",
+        "bytes": 11890,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/sand.jpg",
+        "bytes": 12554,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/pine.jpg",
+        "bytes": 13435,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/metal.jpg",
+        "bytes": 6513,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/tee.jpg",
+        "bytes": 19516,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/water.jpg",
+        "bytes": 7246,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "width": 568,
+    "height": 320,
+    "result": {
+      "vw": 568,
+      "vh": 320,
+      "res": [
+        "hub[7] ov:- off:- clipped:-",
+        "hub-bottom[12] ov:- off:- clipped:-",
+        "courses[3] ov:- off:- clipped:-",
+        "courses-bottom[4] ov:- off:- clipped:-",
+        "locker[16] ov:- off:- clipped:-",
+        "locker-bottom[16] ov:- off:- clipped:-",
+        "setup[7] ov:- off:- clipped:-",
+        "setup-bottom[9] ov:- off:- clipped:-",
+        "online[5] ov:- off:- clipped:-",
+        "online-bottom[6] ov:- off:- clipped:-",
+        "help[1] ov:- off:- clipped:-",
+        "help-bottom[2] ov:- off:- clipped:-",
+        "hud[6] ov:- off:- clipped:-",
+        "ten-throw-sheet[15] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[1] ov:- off:- clipped:-",
+        "score-bottom[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1597,
+        "transfer": 1897
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 49305,
+        "transfer": 49605
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 12261,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 34625,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 46590,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 15224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 36577,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 10017,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3683,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2646,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 19594,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12365,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "bytes": 1597,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 9757,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4996,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5133,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "bytes": 12113,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "bytes": 439,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2411,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "bytes": 49305,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "bytes": 27977,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "bytes": 2782,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "bytes": 18359,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow_toon.jpg",
+        "bytes": 17864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake_toon.jpg",
+        "bytes": 20399,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/rough.jpg",
+        "bytes": 16074,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/fairway.jpg",
+        "bytes": 16050,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/bark.jpg",
+        "bytes": 10784,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/sand.jpg",
+        "bytes": 12554,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/green.jpg",
+        "bytes": 11890,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/deciduous.jpg",
+        "bytes": 12437,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/tee.jpg",
+        "bytes": 19516,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/pine.jpg",
+        "bytes": 13435,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/metal.jpg",
+        "bytes": 6513,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/water.jpg",
+        "bytes": 7246,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "result": {
+      "vw": 768,
+      "vh": 1024,
+      "res": [
+        "hub[15] ov:- off:- clipped:-",
+        "courses[5] ov:- off:- clipped:-",
+        "locker[17] ov:- off:- clipped:-",
+        "setup[9] ov:- off:- clipped:-",
+        "online[6] ov:- off:- clipped:-",
+        "help[2] ov:- off:- clipped:-",
+        "hud[6] ov:- off:- clipped:-",
+        "ten-throw-sheet[15] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1597,
+        "transfer": 1897
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 49305,
+        "transfer": 49605
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer.glb",
+        "encoded": 466036,
+        "transfer": 466336
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-lod.glb",
+        "encoded": 160840,
+        "transfer": 161140
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "encoded": 21388,
+        "transfer": 21688
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "encoded": 18880,
+        "transfer": 19180
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "encoded": 14804,
+        "transfer": 15104
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io.glb",
+        "encoded": 18884,
+        "transfer": 19184
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi.glb",
+        "encoded": 18884,
+        "transfer": 19184
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "encoded": 18860,
+        "transfer": 19160
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io.glb",
+        "encoded": 18864,
+        "transfer": 19164
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi.glb",
+        "encoded": 18864,
+        "transfer": 19164
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade.glb",
+        "encoded": 18872,
+        "transfer": 19172
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "encoded": 17024,
+        "transfer": 17324
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "encoded": 18176,
+        "transfer": 18476
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "encoded": 12532,
+        "transfer": 12832
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "encoded": 16708,
+        "transfer": 17008
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice_left.glb",
+        "encoded": 14808,
+        "transfer": 15108
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle_left.glb",
+        "encoded": 21392,
+        "transfer": 21692
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_left.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io_left.glb",
+        "encoded": 18880,
+        "transfer": 19180
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi_left.glb",
+        "encoded": 18880,
+        "transfer": 19180
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_left.glb",
+        "encoded": 18864,
+        "transfer": 19164
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io_left.glb",
+        "encoded": 18868,
+        "transfer": 19168
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi_left.glb",
+        "encoded": 18868,
+        "transfer": 19168
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk_left.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober_left.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade_left.glb",
+        "encoded": 18872,
+        "transfer": 19172
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt_left.glb",
+        "encoded": 17028,
+        "transfer": 17328
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate_left.glb",
+        "encoded": 18172,
+        "transfer": 18472
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump_left.glb",
+        "encoded": 16716,
+        "transfer": 17016
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk_left.glb",
+        "encoded": 12536,
+        "transfer": 12836
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "encoded": 10466,
+        "transfer": 10766
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "encoded": 15826,
+        "transfer": 16126
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "encoded": 245398,
+        "transfer": 245698
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 12261,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 34625,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 46590,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 15224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 10017,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 36577,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3683,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2646,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 19594,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12365,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4996,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "bytes": 439,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "bytes": 1597,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2411,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "bytes": 12113,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5133,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 9757,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "bytes": 49305,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "bytes": 21388,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "bytes": 18880,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "bytes": 14804,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io.glb",
+        "bytes": 18884,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi.glb",
+        "bytes": 18884,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "bytes": 18860,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io.glb",
+        "bytes": 18864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi.glb",
+        "bytes": 18864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade.glb",
+        "bytes": 18872,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "bytes": 17024,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "bytes": 18176,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "bytes": 12532,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "bytes": 16708,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice_left.glb",
+        "bytes": 14808,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle_left.glb",
+        "bytes": 21392,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_left.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io_left.glb",
+        "bytes": 18880,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi_left.glb",
+        "bytes": 18880,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_left.glb",
+        "bytes": 18864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io_left.glb",
+        "bytes": 18868,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi_left.glb",
+        "bytes": 18868,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk_left.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade_left.glb",
+        "bytes": 18872,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober_left.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt_left.glb",
+        "bytes": 17028,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate_left.glb",
+        "bytes": 18172,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump_left.glb",
+        "bytes": 16716,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk_left.glb",
+        "bytes": 12536,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "bytes": 10466,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "bytes": 57529,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "bytes": 527333,
+        "status": 200
+      },
+      {
+        "url": "blob:http://localhost:8093/a9ef1741-2e4d-4bbb-89b3-d666c42aa7f1",
+        "bytes": 68915,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "bytes": 27977,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "bytes": 18359,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "bytes": 2782,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow_toon.jpg",
+        "bytes": 17864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake_toon.jpg",
+        "bytes": 20399,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/fairway.jpg",
+        "bytes": 16050,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/rough.jpg",
+        "bytes": 16074,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/green.jpg",
+        "bytes": 11890,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/sand.jpg",
+        "bytes": 12554,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/bark.jpg",
+        "bytes": 10784,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/deciduous.jpg",
+        "bytes": 12437,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/pine.jpg",
+        "bytes": 13435,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/tee.jpg",
+        "bytes": 19516,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/metal.jpg",
+        "bytes": 6513,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/water.jpg",
+        "bytes": 7246,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "width": 1366,
+    "height": 768,
+    "result": {
+      "vw": 1366,
+      "vh": 768,
+      "res": [
+        "hub[15] ov:- off:- clipped:-",
+        "courses[5] ov:- off:- clipped:-",
+        "locker[17] ov:- off:- clipped:-",
+        "setup[9] ov:- off:- clipped:-",
+        "online[6] ov:- off:- clipped:-",
+        "help[2] ov:- off:- clipped:-",
+        "hud[6] ov:- off:- clipped:-",
+        "ten-throw-sheet[15] ov:- off:- clipped:-",
+        "leave-dialog[3] ov:- off:- clipped:-",
+        "score[3] ov:- off:- clipped:-"
+      ]
+    },
+    "errors": [],
+    "startup": [
+      {
+        "url": "http://localhost:8093/",
+        "encoded": 12261,
+        "transfer": 12561
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "encoded": 34625,
+        "transfer": 34925
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "encoded": 46590,
+        "transfer": 46890
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "encoded": 26357,
+        "transfer": 26657
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "encoded": 36577,
+        "transfer": 36877
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "encoded": 263272,
+        "transfer": 263572
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "encoded": 15224,
+        "transfer": 15524
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "encoded": 10017,
+        "transfer": 10317
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "encoded": 1151,
+        "transfer": 1451
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "encoded": 3683,
+        "transfer": 3983
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "encoded": 3158,
+        "transfer": 3458
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "encoded": 3055,
+        "transfer": 3355
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "encoded": 2646,
+        "transfer": 2946
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "encoded": 2586,
+        "transfer": 2886
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "encoded": 12365,
+        "transfer": 12665
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "encoded": 19594,
+        "transfer": 19894
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "encoded": 1597,
+        "transfer": 1897
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "encoded": 9757,
+        "transfer": 10057
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "encoded": 7223,
+        "transfer": 7523
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "encoded": 5133,
+        "transfer": 5433
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "encoded": 4996,
+        "transfer": 5296
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "encoded": 12113,
+        "transfer": 12413
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "encoded": 439,
+        "transfer": 739
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "encoded": 24295,
+        "transfer": 24595
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "encoded": 4317,
+        "transfer": 4617
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "encoded": 7200,
+        "transfer": 7500
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "encoded": 2403,
+        "transfer": 2703
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "encoded": 2411,
+        "transfer": 2711
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "encoded": 49305,
+        "transfer": 49605
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "encoded": 844,
+        "transfer": 1144
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "encoded": 16903,
+        "transfer": 17203
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "encoded": 581,
+        "transfer": 881
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "encoded": 5554,
+        "transfer": 5854
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "encoded": 4027,
+        "transfer": 4327
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer.glb",
+        "encoded": 466036,
+        "transfer": 466336
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-lod.glb",
+        "encoded": 160840,
+        "transfer": 161140
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "encoded": 21388,
+        "transfer": 21688
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "encoded": 14804,
+        "transfer": 15104
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "encoded": 18880,
+        "transfer": 19180
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io.glb",
+        "encoded": 18884,
+        "transfer": 19184
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi.glb",
+        "encoded": 18884,
+        "transfer": 19184
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "encoded": 18860,
+        "transfer": 19160
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io.glb",
+        "encoded": 18864,
+        "transfer": 19164
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi.glb",
+        "encoded": 18864,
+        "transfer": 19164
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade.glb",
+        "encoded": 18872,
+        "transfer": 19172
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "encoded": 17024,
+        "transfer": 17324
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "encoded": 18176,
+        "transfer": 18476
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle_left.glb",
+        "encoded": 21392,
+        "transfer": 21692
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "encoded": 16708,
+        "transfer": 17008
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "encoded": 12532,
+        "transfer": 12832
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice_left.glb",
+        "encoded": 14808,
+        "transfer": 15108
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_left.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io_left.glb",
+        "encoded": 18880,
+        "transfer": 19180
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi_left.glb",
+        "encoded": 18880,
+        "transfer": 19180
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io_left.glb",
+        "encoded": 18868,
+        "transfer": 19168
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_left.glb",
+        "encoded": 18864,
+        "transfer": 19164
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi_left.glb",
+        "encoded": 18868,
+        "transfer": 19168
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk_left.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober_left.glb",
+        "encoded": 18876,
+        "transfer": 19176
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade_left.glb",
+        "encoded": 18872,
+        "transfer": 19172
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate_left.glb",
+        "encoded": 18172,
+        "transfer": 18472
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump_left.glb",
+        "encoded": 16716,
+        "transfer": 17016
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt_left.glb",
+        "encoded": 17028,
+        "transfer": 17328
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk_left.glb",
+        "encoded": 12536,
+        "transfer": 12836
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "encoded": 10466,
+        "transfer": 10766
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "encoded": 15826,
+        "transfer": 16126
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "encoded": 245398,
+        "transfer": 245698
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "encoded": 27977,
+        "transfer": 28277
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "encoded": 18656,
+        "transfer": 18956
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782,
+        "transfer": 3082
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359,
+        "transfer": 18659
+      }
+    ],
+    "requests": [
+      {
+        "url": "http://localhost:8093/",
+        "bytes": 12261,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.css",
+        "bytes": 34625,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/main.js",
+        "bytes": 46590,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/physics.js",
+        "bytes": 15224,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/course.js",
+        "bytes": 36577,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/player.js",
+        "bytes": 10017,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/assets.js",
+        "bytes": 1151,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/models.js",
+        "bytes": 3683,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/disc.js",
+        "bytes": 3158,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/input.js",
+        "bytes": 3055,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/bot.js",
+        "bytes": 2646,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/net.js",
+        "bytes": 2586,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/audio.js",
+        "bytes": 12365,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/ui.js",
+        "bytes": 19594,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopies.js",
+        "bytes": 1597,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/face-parts.js",
+        "bytes": 5133,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/materials.js",
+        "bytes": 9757,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/gltf-player.js",
+        "bytes": 4996,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/throw-poses.js",
+        "bytes": 12113,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/icons.js",
+        "bytes": 2411,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/character-material.js",
+        "bytes": 439,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/src/canopy-data.js",
+        "bytes": 49305,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DRACOLoader.js",
+        "bytes": 13699,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/KTX2Loader.js",
+        "bytes": 27164,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "bytes": 31768,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "bytes": 110273,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+        "bytes": 92865,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/SkeletonUtils.js",
+        "bytes": 8802,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/math/ColorSpaces.js",
+        "bytes": 2462,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/zstddec.module.js",
+        "bytes": 39754,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/WorkerPool.js",
+        "bytes": 1712,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/ktx-parse.module.js",
+        "bytes": 19440,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "bytes": 1314681,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle.glb",
+        "bytes": 21388,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer.glb",
+        "bytes": 466036,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-lod.glb",
+        "bytes": 160840,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice.glb",
+        "bytes": 14804,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand.glb",
+        "bytes": 18880,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io.glb",
+        "bytes": 18884,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi.glb",
+        "bytes": 18884,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand.glb",
+        "bytes": 18860,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io.glb",
+        "bytes": 18864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi.glb",
+        "bytes": 18864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade.glb",
+        "bytes": 18872,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt.glb",
+        "bytes": 17024,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate.glb",
+        "bytes": 18176,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-idle_left.glb",
+        "bytes": 21392,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump.glb",
+        "bytes": 16708,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk.glb",
+        "bytes": 12532,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-practice_left.glb",
+        "bytes": 14808,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_left.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_oi_left.glb",
+        "bytes": 18880,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-backhand_io_left.glb",
+        "bytes": 18880,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_io_left.glb",
+        "bytes": 18868,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_left.glb",
+        "bytes": 18864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-forehand_oi_left.glb",
+        "bytes": 18868,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-tomahawk_left.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-scoober_left.glb",
+        "bytes": 18876,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-celebrate_left.glb",
+        "bytes": 18172,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-slump_left.glb",
+        "bytes": 16716,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-putt_left.glb",
+        "bytes": 17028,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-blade_left.glb",
+        "bytes": 18872,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/models/golfer-walk_left.glb",
+        "bytes": 12536,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/appearance/face-parts.ktx2",
+        "bytes": 10466,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.js",
+        "bytes": 57529,
+        "status": 200
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/basis_transcoder.wasm",
+        "bytes": 527333,
+        "status": 200
+      },
+      {
+        "url": "blob:http://localhost:8093/e880a059-7094-4b76-9b1a-c10ca13a758b",
+        "bytes": 68915,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/pine_toon.jpg",
+        "bytes": 27977,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/discs/driver.png",
+        "bytes": 18656,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "bytes": 2782,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "bytes": 18359,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/manifest.json",
+        "bytes": 4027,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/meadow_toon.jpg",
+        "bytes": 17864,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/courses/lake_toon.jpg",
+        "bytes": 20399,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/fairway.jpg",
+        "bytes": 16050,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/rough.jpg",
+        "bytes": 16074,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/green.jpg",
+        "bytes": 11890,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/sand.jpg",
+        "bytes": 12554,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/bark.jpg",
+        "bytes": 10784,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/deciduous.jpg",
+        "bytes": 12437,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/pine.jpg",
+        "bytes": 13435,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/tee.jpg",
+        "bytes": 19516,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/metal.jpg",
+        "bytes": 6513,
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8093/assets/textures/r3/water.jpg",
+        "bytes": 7246,
+        "status": 200
+      }
+    ]
+  }
+]
