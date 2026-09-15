@@ -163,7 +163,7 @@ function setupTurn(idx) {
   UI.setHud({ dist, circle: dist <= 10, playerName: p.name, throwNo: p.strokes === 0 ? 'Tee shot' : `Throw ${p.strokes + 1}` });
   updateWindHud();
   UI.setPower(0); G.gesture = { power: 0, lateral: 0 }; G.previewDirty = true;
-  G.phase = 'aim'; cam.mode = 'aim'; G.overview = false; $('btnOverview').classList.remove('on');
+  G.phase = 'aim'; cam.mode = 'aim'; G.overview = false; $('btnOverview').classList.remove('on'); $('btnOverview').setAttribute('aria-pressed', 'false');
   if (p.isBot) { UI.setControlsEnabled(false); preview.visible = false; if (iControl(p)) botTurn(p); else UI.waiting(`${p.name} is throwing…`); }
   else if (isMine(p)) { UI.setControlsEnabled(true); UI.waiting(null); preview.visible = true; if (G.mode === 'local' && G.players.filter(q => !q.isBot).length > 1) UI.toast(`${p.name}'s throw`, `${Math.round(dist)} m to the basket`, 1600); }
   else { UI.setControlsEnabled(false); preview.visible = false; UI.waiting(`${p.name} is throwing…`); }
@@ -431,9 +431,9 @@ function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.sel
 function pickDisc(id) { if (G.phase !== 'aim') return; G.discId = id; UI.selectDisc(id); ensureDisc(curP(), id); curP().discMesh.visible = true; G.previewDirty = true; sfx.click(); }
 UI.buildThrowButtons(pickThrow); UI.buildDiscChips(pickDisc);
 $('btnTarget').onclick = () => { if (G.phase === 'aim') { const l = curP().lie; G.aim.yaw = Math.atan2(basketPos()[1] - l[2], basketPos()[0] - l[0]); G.aim.pitch = 0; G.previewDirty = true; sfx.click(); } };
-$('btnOverview').onclick = () => { if (G.phase !== 'aim') return; G.overview = !G.overview; $('btnOverview').classList.toggle('on', G.overview); sfx.click(); };
-$('btnMute').onclick = () => { setMuted(!isMuted()); $('btnMute').textContent = isMuted() ? '🔇' : '🔊'; };
-$('btnMenu').onclick = () => { if (confirm('Leave this round?')) toMenu(); };
+$('btnOverview').onclick = () => { if (G.phase !== 'aim') return; G.overview = !G.overview; $('btnOverview').classList.toggle('on', G.overview); $('btnOverview').setAttribute('aria-pressed', String(G.overview)); sfx.click(); };
+$('btnMute').onclick = () => { setMuted(!isMuted()); UI.setSoundMuted(isMuted()); };
+$('btnMenu').onclick = async () => { if (await UI.confirmLeave()) toMenu(); };
 $('btnHelp').onclick = () => { UI.hide('menu'); UI.show('help'); }; $('btnHelpClose').onclick = () => { UI.hide('help'); UI.show('menu'); };
 $('btnScoreNext').onclick = () => { netSend({ t: 'next' }); advanceHole(); };
 $('btnScoreMenu').onclick = toMenu;
@@ -503,23 +503,26 @@ function onNet(ev) {
 }
 $('btnCreate').onclick = async () => {
   const name = $('onlineName').value.trim() || 'Host';
+  UI.onlineError(); UI.setConnecting('btnCreate', true);
   try {
-    G.net = createNet(); $('btnCreate').textContent = 'Connecting…';
+    G.net = createNet();
     const code = await G.net.host(name, onNet);
     G.lobby = [{ name, peerId: G.net.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code; renderLobby();
     UI.hide('onlineChoice'); UI.show('lobby');
-  } catch (e) { alert('Could not create a room: ' + (e.message || e)); G.net = null; }
-  $('btnCreate').textContent = 'Create a room';
+  } catch (e) { UI.onlineError('Could not create a room: ' + (e.message || e)); G.net = null; }
+  UI.setConnecting('btnCreate', false);
 };
 $('btnJoin').onclick = async () => {
   const name = $('onlineName').value.trim() || 'Guest', code = $('joinCode').value.trim().toUpperCase();
-  if (code.length !== 4) return alert('Enter the 4-letter room code');
+  UI.onlineError();
+  if (code.length !== 4) { UI.onlineError('Enter the four-letter room code to join your friends.'); $('joinCode').focus(); return; }
+  UI.setConnecting('btnJoin', true);
   try {
-    G.net = createNet(); $('btnJoin').textContent = '…';
+    G.net = createNet();
     await G.net.join(code, name, onNet, { ...G.avatar, name });
     $('roomCode').textContent = code; G.lobby = []; renderLobby(); UI.hide('onlineChoice'); UI.show('lobby');
-  } catch (e) { alert('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
-  $('btnJoin').textContent = 'Join';
+  } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
+  UI.setConnecting('btnJoin', false);
 };
 $('btnLobbyBot').onclick = () => { if (G.lobby.length < 6) { G.lobby.push({ name: BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], isBot: true }); renderLobby(); G.net.broadcast({ t: 'lobby', players: G.lobby, code: G.net.code }); } };
 $('btnLobbyStart').onclick = () => {

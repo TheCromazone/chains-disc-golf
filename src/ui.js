@@ -1,9 +1,25 @@
 // Thin DOM helpers for the HUD and menus.
 import { DISCS, THROWS } from './physics.js';
+import { icon } from './icons.js';
+
+for (const el of document.querySelectorAll('[data-icon]')) el.innerHTML = icon(el.dataset.icon);
+const pressed = (button, on) => { button.classList.toggle('on', on); button.setAttribute('aria-pressed', String(on)); };
+const escapeText = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const $ = id => document.getElementById(id);
 export const show = id => $(id).classList.remove('hidden');
 export const hide = id => $(id).classList.add('hidden');
+export function confirmLeave() {
+  const dialog = $('leaveDialog');
+  if (dialog.open) return Promise.resolve(false);
+  return new Promise(resolve => { dialog.returnValue = 'cancel'; dialog.addEventListener('close', () => resolve(dialog.returnValue === 'leave'), { once: true }); dialog.showModal(); });
+}
+export function onlineError(text = '') { $('onlineError').textContent = text; $('onlineError').classList.toggle('hidden', !text); }
+export function setConnecting(id, busy) {
+  const b = $(id), label = b.querySelector('span:last-child');
+  b.disabled = busy; b.setAttribute('aria-busy', String(busy));
+  label.textContent = busy ? 'Connecting…' : id === 'btnCreate' ? 'Create a room' : 'Join';
+}
 
 let toastTimer = null;
 export function toast(title, sub = '', ms = 1800) {
@@ -16,8 +32,9 @@ export function fade(on) { $('fade').classList.toggle('on', on); }
 export function setPower(p) { $('powerFill').style.transform = `scaleY(${Math.max(0, Math.min(1, p)).toFixed(3)})`; $('powerLabel').textContent = p > 0 ? `${Math.round(p * 100)}%` : 'POWER'; }
 export function setHint(throwType, sub) {
   const t = THROWS[throwType];
-  const arrows = { backhand: '→', forehand: '←', tomahawk: '↓', scoober: '↖', putt: '↑' };
-  $('hintArrow').textContent = arrows[throwType]; $('hintText').textContent = `${t.name.toUpperCase()} · ${t.hint}`;
+  const angles = { backhand: 0, forehand: 180, tomahawk: 90, scoober: -135, putt: -90 };
+  $('hintArrow').innerHTML = icon('arrow'); $('hintArrow').style.transform = `rotate(${angles[throwType]}deg)`;
+  $('hintText').textContent = `${t.name.toUpperCase()} · ${t.hint}`;
   if (sub !== undefined) $('hintSub').textContent = sub;
 }
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
@@ -32,17 +49,18 @@ export function setHud({ hole, par, len, dist, playerName, throwNo, windText, wi
 }
 export function buildThrowButtons(onPick) {
   const row = $('throwRow'); row.innerHTML = '';
-  for (const [id, t] of Object.entries(THROWS)) { const b = document.createElement('button'); b.dataset.id = id; b.innerHTML = `<span>${t.icon}</span>${t.name}`; b.onclick = () => onPick(id); row.appendChild(b); }
+  for (const [id, t] of Object.entries(THROWS)) { const b = document.createElement('button'); b.dataset.id = id; b.innerHTML = `${icon(id)}<span>${t.name}</span>`; b.title = `${t.name}: ${t.hint}`; b.onclick = () => onPick(id); row.appendChild(b); }
 }
 export function buildDiscChips(onPick) {
   const row = $('discRow'); row.innerHTML = '';
   for (const d of DISCS) { const b = document.createElement('button'); b.dataset.id = d.id; b.innerHTML = `<i class="dot" style="background:${d.color}"></i>${d.id === 'driver' ? 'Driver' : d.id === 'fairway' ? 'Fairway' : d.id === 'mid' ? 'Midrange' : 'Putter'} <span class="muted">${d.speed}|${d.glide}|${d.turn}|${d.fade}</span>`; b.onclick = () => onPick(d.id); row.appendChild(b); }
 }
-export function selectThrow(id) { for (const b of $('throwRow').children) b.classList.toggle('on', b.dataset.id === id); setHint(id); }
-export function selectDisc(id) { for (const b of $('discRow').children) b.classList.toggle('on', b.dataset.id === id); }
-export function setControlsEnabled(on) { $('controls').style.opacity = on ? 1 : 0.35; $('controls').style.pointerEvents = on ? 'auto' : 'none'; $('pad').style.opacity = on ? 1 : 0.5; }
+export function selectThrow(id) { for (const b of $('throwRow').children) pressed(b, b.dataset.id === id); setHint(id); }
+export function selectDisc(id) { for (const b of $('discRow').children) pressed(b, b.dataset.id === id); }
+export function setControlsEnabled(on) { $('controls').style.opacity = on ? 1 : 0.35; $('controls').style.pointerEvents = on ? 'auto' : 'none'; for (const b of $('controls').querySelectorAll('button')) b.disabled = !on; $('pad').style.opacity = on ? 1 : 0.5; }
+export function setSoundMuted(muted) { const b = $('btnMute'); b.classList.toggle('muted-sound', muted); b.setAttribute('aria-pressed', String(muted)); b.title = muted ? 'Unmute sound' : 'Mute sound'; b.setAttribute('aria-label', b.title); }
 export function waiting(text) { if (text) { $('waiting').textContent = text; show('waiting'); } else hide('waiting'); }
-export function seg(id, onChange) { const el = $(id); for (const b of el.children) b.onclick = () => { for (const c of el.children) c.classList.toggle('on', c === b); onChange(b.dataset.v); }; return el.querySelector('.on').dataset.v; }
+export function seg(id, onChange) { const el = $(id); for (const b of el.children) { pressed(b, b.classList.contains('on')); b.onclick = () => { for (const c of el.children) pressed(c, c === b); onChange(b.dataset.v); }; } return el.querySelector('.on').dataset.v; }
 
 // ---- hub menu: course cards with a mini map, locker room editor ----
 export function courseMapSVG(def, holes) {
@@ -63,7 +81,8 @@ export function renderCourseCards(courses, layouts, selectedId, onPick, imgFor) 
   courses.forEach((c, i) => {
     const st = courseStats(layouts[i]), b = document.createElement('button'); b.className = 'ccard' + (c.id === selectedId ? ' on' : '');
     const img = imgFor?.(c.id);
-    b.innerHTML = `<div class="cmap">${img ? `<img src="${img}" alt="">` : courseMapSVG(c, layouts[i])}</div><div class="cinfo"><b>${c.name}</b><span class="muted">${c.tag}</span><span class="muted">Par ${st.par} · ${st.len} m · wind ×${c.wind}</span></div><span class="chev">${c.id === selectedId ? '✓' : '›'}</span>`;
+    pressed(b, c.id === selectedId);
+    b.innerHTML = `<div class="cmap">${img ? `<img src="${img}" alt="">` : courseMapSVG(c, layouts[i])}</div><div class="cinfo"><span class="eyebrow">${c.tag}</span><b>${c.name}</b><span class="muted">Par ${st.par} · ${st.len} m · wind ×${c.wind}</span></div><span class="chev">${icon(c.id === selectedId ? 'check' : 'chevron')}</span>`;
     b.onclick = () => onPick(c.id); list.appendChild(b);
   });
 }
@@ -78,13 +97,13 @@ export function renderLocker(avatar, opts, onChange) {
   $('avName').oninput = e => onChange('name', e.target.value);
   const row = (key, inner) => { const d = document.createElement('div'); d.className = 'opt'; d.innerHTML = `<span>${AV_LABELS[key]}</span>`; d.appendChild(inner); box.appendChild(d); };
   for (const key of ['skin', 'hair', 'hairColor', 'headwear', 'headwearColor', 'jersey', 'accent', 'number', 'shorts', 'shoes', 'build', 'shades']) {
-    if (key === 'number') { const inp = document.createElement('input'); inp.type = 'number'; inp.min = 0; inp.max = 99; inp.value = avatar.number; inp.oninput = e => onChange('number', Math.max(0, Math.min(99, +e.target.value || 0))); row(key, inp); continue; }
+    if (key === 'number') { const inp = document.createElement('input'); inp.type = 'number'; inp.setAttribute('aria-label', 'Jersey number'); inp.min = 0; inp.max = 99; inp.value = avatar.number; inp.oninput = e => onChange('number', Math.max(0, Math.min(99, +e.target.value || 0))); row(key, inp); continue; }
     const vals = key === 'shades' ? [true, false] : opts[key], colors = typeof vals[0] === 'string' && vals[0][0] === '#';
     const wrap = document.createElement('div'); wrap.className = colors ? 'sw-row' : 'seg';
     for (const v of vals) {
-      const b = document.createElement('button'); b.classList.toggle('on', avatar[key] === v);
-      if (colors) { b.style.background = v; b.title = v; } else b.textContent = key === 'shades' ? (v ? 'On' : 'Off') : v[0].toUpperCase() + v.slice(1);
-      b.onclick = () => { for (const c of wrap.children) c.classList.toggle('on', c === b); onChange(key, v); };
+      const b = document.createElement('button'); pressed(b, avatar[key] === v);
+      if (colors) { b.style.background = v; b.title = `${AV_LABELS[key]} ${v}`; b.setAttribute('aria-label', b.title); } else { b.textContent = key === 'shades' ? (v ? 'On' : 'Off') : v[0].toUpperCase() + v.slice(1); b.setAttribute('aria-label', `${AV_LABELS[key]}: ${b.textContent}`); }
+      b.onclick = () => { for (const c of wrap.children) pressed(c, c === b); onChange(key, v); };
       wrap.appendChild(b);
     }
     row(key, wrap);
@@ -100,11 +119,11 @@ export function renderScorecard({ players, holes, holeIdx, final, isHost, online
   const totals = players.map(p => { let s = 0, par = 0; played.forEach((h, i) => { if (p.scores[i] != null) { s += p.scores[i]; par += h.par; } }); return { p, s, toPar: s - par }; });
   const sorted = [...totals].sort((a, b) => a.toPar - b.toPar);
   $('scoreTitle').textContent = final ? 'Final results' : `Hole ${holeIdx + 1} complete`;
-  $('scoreStand').innerHTML = sorted.map((t, i) => `<div class="stand ${final && i === 0 ? 'win' : ''}"><span>${final && i === 0 ? '🏆 ' : ''}${t.p.name}${t.p.isBot ? ' <span class="muted">bot</span>' : ''}</span><b>${t.s} <span class="muted">(${t.toPar > 0 ? '+' : ''}${t.toPar})</span></b></div>`).join('');
+  $('scoreStand').innerHTML = sorted.map((t, i) => `<div class="stand ${final && i === 0 ? 'win' : ''}"><span class="standing-name"><span class="rank">${final && i === 0 ? icon('trophy') : String(i + 1).padStart(2, '0')}</span><span>${escapeText(t.p.name)}${t.p.isBot ? ' <span class="muted">bot</span>' : ''}</span></span><b>${t.s} <span class="muted">(${t.toPar > 0 ? '+' : ''}${t.toPar})</span></b></div>`).join('');
   let html = `<tr><th></th>${holes.map((h, i) => `<th>${i + 1}<div class="muted">${h.par}</div></th>`).join('')}<th>Tot</th></tr>`;
   for (const t of totals) html += `<tr><td class="name" style="color:${t.p.color}">${t.p.name}</td>${holes.map((h, i) => { const s = t.p.scores[i]; return s == null ? `<td>–</td>` : `<td class="s${Math.max(-3, Math.min(4, s - h.par))} ${i === holeIdx ? 'cur' : ''}">${s}</td>`; }).join('')}<td><b>${t.s}</b></td></tr>`;
   $('scoreTable').innerHTML = html;
-  $('btnScoreNext').textContent = final ? 'Play again' : 'Next hole';
+  $('btnScoreNext').innerHTML = `${final ? 'Play again' : 'Next hole'}${icon('arrow')}`;
   const hostOk = !online || isHost;
   $('btnScoreNext').classList.toggle('hidden', !hostOk); $('scoreWait').classList.toggle('hidden', hostOk);
   hide('hud'); show('score');   // the card replaces the live HUD instead of stacking on it

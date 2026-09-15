@@ -73,3 +73,6 @@ Additional screenshots: `06-hub-<width>x<height>.jpg`, [manual swipe](06-manual-
 - Unity 6000.6.0f1: three course JPEGs and three half-float HDR EXRs; [batch render log](unity-render.log). Unity is used only offline.
 
 The generated course-selection art remains the menu default. Unity course renders use stand-in vegetation and are supplied as secondary art; the exported Unity HDR panoramas drive Full lighting/backgrounds.
+# Subsequent UI refinement
+
+The clubhouse, controls, course cards and dialogs were refined after this milestone audit. See [UI report](07-ui-report.md), [updated six-size overlap results](07-overlap-results.json) and [state diagnostics](07-state-results.json).

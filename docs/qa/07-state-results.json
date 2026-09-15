@@ -1,0 +1,36 @@
+{
+  "validation": {
+    "visible": true,
+    "message": "Enter the four-letter room code to join your friends.",
+    "focused": "joinCode"
+  },
+  "busy": [
+    {
+      "id": "btnCreate",
+      "disabled": true,
+      "ariaBusy": "true",
+      "iconCount": 1,
+      "label": "Connecting…"
+    },
+    {
+      "id": "btnCreate",
+      "restored": true,
+      "iconCount": 1,
+      "label": "Create a room"
+    },
+    {
+      "id": "btnJoin",
+      "disabled": true,
+      "ariaBusy": "true",
+      "iconCount": 1,
+      "label": "Connecting…"
+    },
+    {
+      "id": "btnJoin",
+      "restored": true,
+      "iconCount": 1,
+      "label": "Join"
+    }
+  ],
+  "failedResources": []
+}

@@ -9,7 +9,8 @@ const audit = name => {
       if(/auto|scroll|hidden|clip/.test(s.overflowX)){r.left=Math.max(r.left,b.left);r.right=Math.min(r.right,b.right);}
       if(/auto|scroll|hidden|clip/.test(s.overflowY)){r.top=Math.max(r.top,b.top);r.bottom=Math.min(r.bottom,b.bottom);}}
     r.width=Math.max(0,r.right-r.left);r.height=Math.max(0,r.bottom-r.top);return r; };
-  const els = [...document.querySelectorAll(sel)].filter(e => vis(e) && R(e).width > 0 && R(e).height > 0);
+  const modal = document.querySelector('dialog[open]');
+  const els = [...document.querySelectorAll(sel)].filter(e => (!modal || modal.contains(e)) && vis(e) && R(e).width > 0 && R(e).height > 0);
   const out = [], off = [];
   for (let i = 0; i < els.length; i++) { const a = els[i], ra = R(a);
     if (!a.closest('.overlay .panel') && (ra.left < -1 || ra.top < -1 || ra.right > innerWidth + 1 || ra.bottom > innerHeight + 1)) off.push(idOf(a));
@@ -31,5 +32,6 @@ await new Promise(r => setTimeout(r, 300)); C.G.introT = 10;
 for (let i = 0; i < 40 && C.G.phase !== 'aim'; i++) await new Promise(r => setTimeout(r, 100));
 $('waiting').textContent = 'Ricky is thinking…'; $('waiting').classList.remove('hidden');
 res.push(audit('hud')); $('waiting').classList.add('hidden');
+if ($('leaveDialog')) { $('leaveDialog').showModal(); res.push(audit('leave-dialog')); $('leaveDialog').close(); }
 const UI = await import('/src/ui.js'); UI.renderScorecard({ players: C.G.players, holes: C.holes.slice(0, 3), holeIdx: 0, final: false, isHost: true, online: false }); sweep('score','score');
 JSON.stringify({ vw: innerWidth, vh: innerHeight, res: res.map(r => `${r.name}[${r.n}] ov:${r.overlaps.join('; ') || '-'} off:${r.offscreen.join(',') || '-'} clipped:${r.clippedLabels.join(',') || '-'}`) }, null, 1)

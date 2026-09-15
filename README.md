@@ -6,7 +6,7 @@ Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc a
 
 ## Play
 
-- **Quick round** — you vs two bots (easy / medium / hard).
+- **Play round** — you vs two bots (easy / medium / hard).
 - **Pass & play** — up to six people on one phone, plus optional bots.
 - **Online room** — one player creates a room and shares a 4-letter code; friends join from their own phones. Peer-to-peer over [PeerJS](https://peerjs.com/), no server to run.
 
@@ -19,6 +19,12 @@ Three courses, three or nine holes each:
 **Locker room** — name, skin, hair, headwear, jersey and trim colours, number, shorts, shoes, build, shades. Your avatar stands on the tee behind the main menu and shows up in every mode, including online rooms (each player's look travels with them).
 
 Works on phones (touch) and desktop (mouse). Add it to your home screen for a full-screen app.
+
+### Game interface
+
+The clubhouse, course picker, locker room and live HUD share a forest-and-gold visual system, local SVG icons and tactile buttons. Course cards use the generated hero artwork. Equipment choices have persistent selected states; sound icons crossfade, flight controls disable during throws, and leaving a round uses an in-game confirmation. Online validation appears beside the room controls.
+
+Styles live in `src/ui.css`, with no external fonts or UI framework. Keyboard focus and reduced-motion styles are included. See the [UI refinement report and screenshots](docs/qa/07-ui-report.md); all six viewport overlap audits pass after this update.
 
 ## Rules implemented
 
@@ -101,7 +107,7 @@ The asset test checks manifest files, GLB structure, Draco/KTX2 extensions, the 
 
 Final QA: **39 manifest entries load with HTTP 200**, physics passes unchanged, a full hole completes against bots, a manual swipe advances play, and PeerJS transports all five existing message types. No console errors in the normal asset-enabled build. Six viewport audits pass, including scrolled panel bottoms: 360×740, 430×932, 812×375, 568×320, 768×1024 and 1366×768.
 
-Measured startup transfer: **4.55 MB Lite / 4.82 MB with Full**, including CDN code and decoders. The complete manifest totals 8.27 MB, loaded selectively. **60 fps Lite / 45 fps Full on mid-range Android and iPhone 12 remain physical-device targets, not certified results.** Desktop Chromium on an RTX 5090 passes; this does not establish mobile GPU or Safari performance.
+Measured startup transfer at milestone 6: **4.55 MB Lite / 4.82 MB with Full**, including CDN code and decoders. The later UI refinement replaces the inline CSS with a 22.3 KB stylesheet and 2.1 KB icon module in local encoded-transfer measurements. The complete manifest totals 8.27 MB, loaded selectively. **60 fps Lite / 45 fps Full on mid-range Android and iPhone 12 remain physical-device targets, not certified results.** Desktop Chromium on an RTX 5090 passes; this does not establish mobile GPU or Safari performance.
 
 See [QA report](docs/qa/REPORT.md), [budget data](docs/qa/budget-results.json), [overlap results](docs/qa/overlap-results.json), and [decisions](docs/decisions.md). Milestone before/after screenshots are in `docs/qa/`.
 

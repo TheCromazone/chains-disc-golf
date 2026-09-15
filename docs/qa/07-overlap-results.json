@@ -1,0 +1,111 @@
+[
+  {
+    "vw": 430,
+    "vh": 932,
+    "res": [
+      "hub[15] ov:- off:- clipped:-",
+      "courses[5] ov:- off:- clipped:-",
+      "locker[30] ov:- off:- clipped:-",
+      "locker-bottom[30] ov:- off:- clipped:-",
+      "setup[9] ov:- off:- clipped:-",
+      "online[6] ov:- off:- clipped:-",
+      "help[2] ov:- off:- clipped:-",
+      "hud[20] ov:- off:- clipped:-",
+      "leave-dialog[3] ov:- off:- clipped:-",
+      "score[3] ov:- off:- clipped:-"
+    ]
+  },
+  {
+    "vw": 360,
+    "vh": 740,
+    "res": [
+      "hub[15] ov:- off:- clipped:-",
+      "courses[5] ov:- off:- clipped:-",
+      "locker[23] ov:- off:- clipped:-",
+      "locker-bottom[21] ov:- off:- clipped:-",
+      "setup[9] ov:- off:- clipped:-",
+      "online[6] ov:- off:- clipped:-",
+      "help[1] ov:- off:- clipped:-",
+      "help-bottom[2] ov:- off:- clipped:-",
+      "hud[20] ov:- off:- clipped:-",
+      "leave-dialog[3] ov:- off:- clipped:-",
+      "score[3] ov:- off:- clipped:-"
+    ]
+  },
+  {
+    "vw": 812,
+    "vh": 375,
+    "res": [
+      "hub[7] ov:- off:- clipped:-",
+      "hub-bottom[14] ov:- off:- clipped:-",
+      "courses[3] ov:- off:- clipped:-",
+      "courses-bottom[5] ov:- off:- clipped:-",
+      "locker[17] ov:- off:- clipped:-",
+      "locker-bottom[21] ov:- off:- clipped:-",
+      "setup[9] ov:- off:- clipped:-",
+      "setup-bottom[9] ov:- off:- clipped:-",
+      "online[6] ov:- off:- clipped:-",
+      "online-bottom[6] ov:- off:- clipped:-",
+      "help[1] ov:- off:- clipped:-",
+      "help-bottom[2] ov:- off:- clipped:-",
+      "hud[20] ov:- off:- clipped:-",
+      "leave-dialog[3] ov:- off:- clipped:-",
+      "score[1] ov:- off:- clipped:-",
+      "score-bottom[3] ov:- off:- clipped:-"
+    ]
+  },
+  {
+    "vw": 568,
+    "vh": 320,
+    "res": [
+      "hub[7] ov:- off:- clipped:-",
+      "hub-bottom[12] ov:- off:- clipped:-",
+      "courses[3] ov:- off:- clipped:-",
+      "courses-bottom[4] ov:- off:- clipped:-",
+      "locker[11] ov:- off:- clipped:-",
+      "locker-bottom[13] ov:- off:- clipped:-",
+      "setup[7] ov:- off:- clipped:-",
+      "setup-bottom[9] ov:- off:- clipped:-",
+      "online[5] ov:- off:- clipped:-",
+      "online-bottom[6] ov:- off:- clipped:-",
+      "help[1] ov:- off:- clipped:-",
+      "help-bottom[2] ov:- off:- clipped:-",
+      "hud[20] ov:- off:- clipped:-",
+      "leave-dialog[3] ov:- off:- clipped:-",
+      "score[1] ov:- off:- clipped:-",
+      "score-bottom[3] ov:- off:- clipped:-"
+    ]
+  },
+  {
+    "vw": 768,
+    "vh": 1024,
+    "res": [
+      "hub[15] ov:- off:- clipped:-",
+      "courses[5] ov:- off:- clipped:-",
+      "locker[38] ov:- off:- clipped:-",
+      "locker-bottom[30] ov:- off:- clipped:-",
+      "setup[9] ov:- off:- clipped:-",
+      "online[6] ov:- off:- clipped:-",
+      "help[2] ov:- off:- clipped:-",
+      "hud[20] ov:- off:- clipped:-",
+      "leave-dialog[3] ov:- off:- clipped:-",
+      "score[3] ov:- off:- clipped:-"
+    ]
+  },
+  {
+    "vw": 1366,
+    "vh": 768,
+    "res": [
+      "hub[15] ov:- off:- clipped:-",
+      "courses[5] ov:- off:- clipped:-",
+      "locker[48] ov:- off:- clipped:-",
+      "locker-bottom[48] ov:- off:- clipped:-",
+      "setup[9] ov:- off:- clipped:-",
+      "online[6] ov:- off:- clipped:-",
+      "help[2] ov:- off:- clipped:-",
+      "hud[20] ov:- off:- clipped:-",
+      "leave-dialog[3] ov:- off:- clipped:-",
+      "score[3] ov:- off:- clipped:-"
+    ]
+  }
+]

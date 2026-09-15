@@ -64,3 +64,13 @@
 - A complete post-upgrade Pine hole finishes (You 4, Ricky 3, Paige 2). Diagnostic human throws use bot planning and faster presentation; a separate real 98% swipe works and advances through bot turns. PeerJS host/guest transports all five message types bidirectionally. A separate empty-assets copy boots and simulates in both qualities (one expected missing-manifest 404).
 - Desktop 430×932 samples on RTX 5090 average 173–180 fps, but these do not certify Android/iPhone performance. Physical-device 60/45 fps targets remain unverified and are explicitly listed in README and QA report.
 - Before/after and machine-readable results are indexed in docs/qa/REPORT.md. README now covers graphics, budgets, fallback, authoring tools and minimal static deployment.
+
+## UI refinement — clubhouse and field equipment
+
+- Replaced the accumulated inline glass/matte overrides with `src/ui.css`: deep forest surfaces, warm ivory typography and gold primary actions. The main action now reads “Play round,” with its bot mode underneath. Course cards use panoramic artwork with a dark text scrim. Existing mode IDs and click paths remain intact.
+- Added one local currentColor SVG icon set for menus, throws, sound and navigation. No icon font, external font or UI framework is loaded. Local encoded transfers measured 22,340 bytes for CSS and 2,089 bytes for icons; the art manifest is unchanged.
+- Applied 150 ms press feedback, scale 0.96, concentric panel/button radii, persistent selected cues, visible keyboard focus and reduced-motion overrides. Removed backdrop filtering from live UI surfaces. Sound uses two crossfading icons and an accessible changing label.
+- Throw/disc controls now set native disabled states during flight; segmented choices and swatches expose aria-pressed. Settings groups use labelled groups rather than labels containing multiple buttons. The locker room retains every existing option and storage key.
+- Replaced browser confirm/alert UI with a native HTML dialog styled as part of the game and inline room errors. The leave dialog defaults to Keep playing, restores focus, and accepts an explicit Leave round action. Connection buttons preserve icons, expose busy state and disable during their own requests. Online payload shapes remain unchanged.
+- Six viewport audits pass, including panel scroll bottoms and the new leave dialog. A real 66% backhand swipe advances through bots to the next human turn; selected and disabled states work. Physics and asset tests pass. No Chromium console warnings/errors or failed resources in final diagnostics. Physical mobile performance and slowed Animations-panel replay were not verified in this UI pass.
+- Before/after and detailed verification: `docs/qa/07-ui-report.md`.
