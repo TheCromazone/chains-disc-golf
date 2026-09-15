@@ -1,0 +1,6 @@
+{
+  "note": "Working-tree image pruning only; Git history is unchanged.",
+  "recoverableGitCommit": "d8d7b4b",
+  "historicalImageBytes": 43971015.0,
+  "historicalImageCount": 214
+}

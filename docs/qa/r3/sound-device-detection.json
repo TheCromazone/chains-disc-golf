@@ -1,0 +1,30 @@
+{
+  "checkedAtLocalDate": "2026-09-15",
+  "sound": {
+    "generator": "tools/generate-sfx.py",
+    "environmentKeyPresent": false,
+    "resolvedKeyPresentIncludingNearestEnvFiles": false,
+    "generatorPromptCount": 12,
+    "manifestSfxCount": 0,
+    "action": "Conditional generation skipped; existing synthesis and audio code unchanged."
+  },
+  "devices": {
+    "adbOnPath": false,
+    "androidSdkDefaultAdbPresent": false,
+    "ideviceIdOnPath": false,
+    "ideviceinfoOnPath": false,
+    "iproxyOnPath": false,
+    "usbmuxdOnPath": false,
+    "appleMobileDeviceSupportDefaultFoldersPresent": false,
+    "appleMobileDeviceOrUsbmuxOrAdbServices": [],
+    "matchingUsbOrWpdOrAdbEndpoints": 0,
+    "iphoneBluetoothAndAudioEndpoints": 7,
+    "listeningDebugPortsChecked": [5037, 9222, 9223, 27753, 8100],
+    "listeningDebugPortsFound": [],
+    "androidMeasuredFpsLite": null,
+    "androidMeasuredFpsFull": null,
+    "iphoneMeasuredFpsLite": null,
+    "iphoneMeasuredFpsFull": null,
+    "conclusion": "No physical browser debugging connection available. Paired iPhone Bluetooth/audio endpoints do not expose Safari or frame timing. Physical Android and iPhone measurements remain owed."
+  }
+}
