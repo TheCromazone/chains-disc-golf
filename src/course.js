@@ -152,7 +152,25 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const group = new THREE.Group(); scene.add(group);
 
   // --- height field ---
-  const baseH = (x, z) => def.hills * (2.2 * noise(x / 70 + 100, z / 70 + 100) + 0.9 * noise(x / 24 + 50, z / 24 + 50) + 3.5 * noise(x / 230 + 7, z / 230 + 7) - 3.3);
+  // Authored broad landforms live in the same height function used by terrain vertices,
+  // lies, normals, pond levels and disc collisions. This is real course elevation.
+  const landforms = holes.map(h => {
+    const dx=h.basket[0]-h.tee[0], dz=h.basket[1]-h.tee[1], length=Math.hypot(dx,dz);
+    return { x:h.tee[0],z:h.tee[1],dx:dx/length,dz:dz/length,length,side:h.idx%2?-1:1 };
+  });
+  const landformGain=def.id==='meadow'?1.1:def.id==='lake'?.75:1;
+  const baseH = (x, z) => {
+    let relief=0;
+    for(const f of landforms) {
+      const px=x-f.x,pz=z-f.z,along=px*f.dx+pz*f.dz,across=-px*f.dz+pz*f.dx;
+      const ridge=((along-f.length*.79)/(f.length*.32))**2+((across-f.side*7)/30)**2;
+      const hollow=((along-f.length*.27)/(f.length*.23))**2+(across/25)**2;
+      const shoulder=((along-f.length*.55)/(f.length*.29))**2+((across-f.side*15)/13)**2;
+      const swale=((along-f.length*.61)/(f.length*.29))**2+((across+f.side*12)/10)**2;
+      relief+=6.4*Math.exp(-ridge)-1.8*Math.exp(-hollow)+3.8*Math.exp(-shoulder)-2.3*Math.exp(-swale);
+    }
+    return relief*landformGain+def.hills*(2.2*noise(x/70+100,z/70+100)+.9*noise(x/24+50,z/24+50)+3.5*noise(x/230+7,z/230+7)-3.3);
+  };
   for (const p of ponds) p.level = baseH(p.x, p.z) - 0.3;
   const flats = holes.flatMap(h => [h.tee, h.basket]).map(p => ({ x: p[0], z: p[1], h: baseH(p[0], p[1]) }));
   const height = (x, z) => {
@@ -177,15 +195,38 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const splats = new Float32Array(geo.attributes.position.count * 2);
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
   const cFair = new THREE.Color(def.grass[0]), cRough = new THREE.Color(def.grass[1]), cDark = new THREE.Color(def.grass[2]), cSand = new THREE.Color(def.grass[3]), tmp = new THREE.Color();
+  const cCollar=new THREE.Color('#397c36'), cGreen=new THREE.Color('#afd66a'), cFringe=new THREE.Color('#357b36'), cut=new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i), y = height(x, z); pos.setY(i, y);
     const fi = fairwayInfo(holes, x, z);
     const n1 = noise(x / 9 + 3, z / 9 + 3), n2 = noise(x / 40 + 9, z / 40 + 9);
-    // Broad bands stay legible on a phone; no photographic grit or muddy dirt splat.
-    const edge = fi.d + (n2 - .5) * 1.2;
-    tmp.copy(cFair).lerp(cRough, smooth(6 * def.fairwayW, 9 * def.fairwayW, edge)).lerp(cDark, smooth(20, 44, fi.d) * .35);
-    const stripe = Math.floor(fi.t * (fi.hole?.len || 90) / 6) % 2;
-    if (edge < 7 * def.fairwayW) tmp.multiplyScalar(stripe ? .94 : 1.04);
+    // Scalloped fairway, a dark first-cut collar and an isolated putting green form a
+    // readable route even when the phone camera sees very little lateral ground.
+    const phase = fi.t * Math.PI * 4;
+    const width = (2.0 + smooth(.06,.22,fi.t) * 1.7 + Math.sin(phase - .6) * .6 + Math.sin(phase * 1.8) * .25) * def.fairwayW;
+    const edge = fi.d + (n2 - .5) * .8;
+    const fair = 1 - smooth(width, width + .55, edge);
+    const collar = 1 - smooth(width + 1.05, width + 1.8, edge);
+    tmp.copy(cRough).lerp(cDark, .12 + n2 * .18);
+    tmp.lerp(cCollar, collar);
+    const stripe = Math.floor(fi.t * (fi.hole?.len || 90) / 5) % 2;
+    cut.copy(cFair).multiplyScalar(stripe ? .84 : 1.13);
+    tmp.lerp(cut, fair);
+    if(fi.hole) {
+      const bx=x-fi.hole.basket[0], bz=z-fi.hole.basket[1], green=Math.hypot(bx,bz*.88);
+      const greenMask=1-smooth(5.7,6.25,green);
+      tmp.lerp(cGreen,greenMask);
+      const fringe=smooth(5.7,6.1,green)*(1-smooth(6.5,7.25,green));
+      tmp.lerp(cFringe,fringe*.8);
+      // Broad exposed pale earth on the low shoulder describes the landing-area shape.
+      // It is a visual soil bank, not a new hazard or separate collision surface.
+      const dx=fi.hole.basket[0]-fi.hole.tee[0],dz=fi.hole.basket[1]-fi.hole.tee[1],length=Math.hypot(dx,dz);
+      const px=x-fi.hole.tee[0],pz=z-fi.hole.tee[1],along=(px*dx+pz*dz)/length,across=(-px*dz+pz*dx)/length;
+      const side=fi.hole.idx%2?-1:1;
+      const soil=((along-length*.76)/(length*.14))**2+((across+side*8.8)/(4.8+Math.sin(along*.19)*.8))**2;
+      const soilMask=(1-smooth(.72,1.08,soil))*smooth(width+.35,width+1.2,edge);
+      tmp.lerp(cSand,soilMask*.96);
+    }
     for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 2.2) tmp.lerp(cSand, smooth(2.2, 1.1, e) * 0.7); }
     splats[i*2] = smooth(4, 0, fi.d) * smooth(.1, .3, fi.t) * (1-smooth(.7,.95,fi.t)) * .42;
     for (const p of ponds) { const e=((x-p.x)/p.rx)**2+((z-p.z)/p.rz)**2; splats[i*2+1]=Math.max(splats[i*2+1],smooth(2.2,1.25,e)); }
@@ -193,8 +234,37 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3)); geo.computeVertexNormals();
+  // Broad terrain normals otherwise fall inside one toon band. Bake a six-value
+  // directional ramp into the vertex colours so shoulders and swales stay readable.
+  // No texture, screen-space occlusion, extra pass, or collision approximation.
+  const terrainNormals=geo.attributes.normal;
+  for(let i=0;i<pos.count;i++) {
+    const light=terrainNormals.getX(i)*.55+terrainNormals.getY(i)*.70+terrainNormals.getZ(i)*.45;
+    const band=Math.round(smooth(.28,.90,light)*5)/5;
+    const gain=.40+band*.85;
+    colors[i*3]*=gain;colors[i*3+1]*=gain;colors[i*3+2]*=gain;
+  }
   const terrain = new THREE.Mesh(geo, toonMaterial({ vertexColors: true }));
   terrain.receiveShadow = true; group.add(terrain);
+
+  // Non-playable distant hills break the horizon into broad asymmetric layers. Their
+  // inner edge is outside every in-bounds point; the playable height field is untouched.
+  const hillPositions=[], hillColors=[], hillIndices=[], hillSegments=96;
+  const hillPalette=['#74aa86','#81b39b','#a1cbcb'].map(c=>new THREE.Color(c));
+  for(let ring=0;ring<3;ring++) for(let i=0;i<=hillSegments;i++) {
+    const angle=i/hillSegments*Math.PI*2;
+    const ridge=28+Math.sin(angle*3+.7)*15+Math.sin(angle*7-1.2)*6;
+    const radius=[350,505+Math.sin(angle*4)*25,850][ring];
+    const y=ring===0?-8:ring===1?ridge:10;
+    hillPositions.push(Math.cos(angle)*radius,y,Math.sin(angle)*radius);
+    const color=hillPalette[ring];hillColors.push(color.r,color.g,color.b);
+  }
+  for(let ring=0;ring<2;ring++) for(let i=0;i<hillSegments;i++) {
+    const a=ring*(hillSegments+1)+i,b=a+hillSegments+1;hillIndices.push(a,a+1,b,b,a+1,b+1);
+  }
+  const hillGeometry=new THREE.BufferGeometry();hillGeometry.setAttribute('position',new THREE.Float32BufferAttribute(hillPositions,3));
+  hillGeometry.setAttribute('color',new THREE.Float32BufferAttribute(hillColors,3));hillGeometry.setIndex(hillIndices);
+  group.add(new THREE.Mesh(hillGeometry,new THREE.MeshBasicMaterial({vertexColors:true,fog:false,side:THREE.DoubleSide})));
 
   // --- trees ---
   const trees = [], bushes = [], tufts = [];
@@ -204,12 +274,21 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const fi = fairwayInfo(holes, x, z);
     const halfW = (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW;
     let skip = fi.d < halfW;
+    const route=fi.hole, routeDx=route.basket[0]-route.tee[0], routeDz=route.basket[1]-route.tee[1];
+    const side=((x-route.tee[0])*-routeDz+(z-route.tee[1])*routeDx)/Math.hypot(routeDx,routeDz);
+    // Each tee opens on one side into a broad clearing. The other side retains a
+    // guardian grove; trees and their collision records are generated together below.
+    const openSide=route.idx%2?-1:1;
+    const clearing=smooth(.78,.51,fi.t)*smooth(halfW+28,halfW+4,fi.d);
+    if(side*openSide>0 && clearing>.22) skip=true;
+    if(fi.t<.16 && fi.d<halfW+15) skip=true;
     for (const p of ponds) if (((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) skip = true;
     for (const f of flats) if (Math.hypot(x - f.x, z - f.z) < 7) skip = true;
     const edge = Math.min(W / 2 - Math.abs(x), H / 2 - Math.abs(z));
-    const prob = edge < 25 ? 0.85 : (fi.d < halfW + 8 ? 0.14 : 0.62) * def.trees;
+    const grove=.12+1.35*smooth(.32,.70,noise(x/21+3,z/21+11));
+    const prob = edge < 25 ? 0.85 : (fi.d < halfW + 8 ? 0.14 : 0.62) * def.trees * grove;
     if (!skip && rng() < prob) {
-      const s = 0.8 + rng() * 0.55, pine = noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine;
+      const s = 0.8 + rng() * 0.55, guardian=side*openSide<0 && fi.t>.18 && fi.t<.52 && fi.d<halfW+12, pine = !guardian && noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine;
       const y = height(x, z), rot = rng() * Math.PI * 2;
       (pine ? pineSpots : decSpots).push({ x, y, z, s, rot });
       trees.push(pine ? { x, y, z, r: 0.3 * s, h: 6 * s, fy: 7 * s, fr: 2.3 * s } : { x, y, z, r: 0.34 * s, h: 4 * s, fy: 5.8 * s, fr: 3.4 * s });
@@ -231,7 +310,15 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
 
   const trunkMat = toonMaterial({ color: '#986541' });
   const leafMat = windMaterial(toonMaterial({ color: '#ffffff' }), windClock);
-  const blob = (r, detail, amp) => { const g = new THREE.IcosahedronGeometry(r, detail); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const k = 1 + (noise(x * 1.3 + 40, y * 1.3 + z * 0.7 + 40) - 0.5) * amp; p.setXYZ(i, x * k, y * k, z * k); } g.computeVertexNormals(); return g; };
+  const blob = (r, detail, amp) => {
+    // Indexed round surfaces retain smooth vertex normals after the contour is shaped.
+    const g=new THREE.SphereGeometry(r,detail===1?12:18,detail===1?7:12),p=g.attributes.position;
+    for(let i=0;i<p.count;i++) {
+      const x=p.getX(i),y=p.getY(i),z=p.getZ(i),k=1+(noise(x*1.3+40,y*1.3+z*.7+40)-.5)*amp;
+      p.setXYZ(i,x*k,y*k,z*k);
+    }
+    g.computeVertexNormals();return g;
+  };
   const shift = (g, x, y, z) => g.translate(x, y, z);
   const pineTrunk = shift(new THREE.CylinderGeometry(0.16, 0.34, 6, 7), 0, 3, 0);
   // One gently scalloped crown replaces three identical geometric cone tiers.
@@ -246,9 +333,20 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     crownPos.setXYZ(i,x*shape,y,z*shape);
   }
   pineLeaf.computeVertexNormals();
+  const pineVariants = [pineLeaf];
+  for(let variant=1;variant<3;variant++) {
+    const crown=pineLeaf.clone(), p=crown.attributes.position;
+    for(let i=0;i<p.count;i++) {
+      const x=p.getX(i), y=p.getY(i), z=p.getZ(i), a=Math.atan2(z,x);
+      // Only inset the crown; never enlarge the existing obstacle envelope.
+      const inset=.90+.1*Math.sin(y*(variant===1?1.9:1.25)+a*variant)**2;
+      p.setXYZ(i,x*inset,y,z*(variant===1?.94:1));
+    }
+    crown.computeVertexNormals();pineVariants.push(crown);
+  }
   const decTrunk = mergeGeometries([shift(new THREE.CylinderGeometry(0.2, 0.4, 4.2, 7), 0, 2.1, 0), shift(new THREE.CylinderGeometry(0.08, 0.16, 2.6, 5).rotateZ(0.6), 0.9, 4.2, 0.2), shift(new THREE.CylinderGeometry(0.08, 0.16, 2.4, 5).rotateZ(-0.7).rotateY(1.2), -0.8, 4.1, -0.4)]);
   const bd = quality === 'low' ? 1 : 2;   // ponytail: blob detail is the main triangle cost on phones
-  const decLeaf = mergeGeometries([shift(blob(3.3, bd, 0.12).scale(1, 0.85, 1), 0, 5.8, 0), shift(blob(2.2, bd, 0.12), 1.6, 6.9, 1.0), shift(blob(2.0, bd, 0.12), -1.5, 6.5, -1.2)]);
+  const decLeaf = mergeGeometries([shift(blob(2.6, bd, .10).scale(1,.88,1),0,5.45,0),shift(blob(2.15,bd,.10),.2,7.05,.1),shift(blob(1.9,bd,.10),1.65,5.9,.6),shift(blob(1.85,bd,.10),-1.65,5.8,-.6)]);
   const bushGeo = blob(1, 1, 0.6).scale(1, 0.75, 1).translate(0, 0.5, 0);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
   const inst = (geo, mat, spots, colorFn, shadow = true) => {
@@ -273,11 +371,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   };
   if (!importedInstances('pine', pineSpots)) {
     inst(pineTrunk, trunkMat, pineSpots, null, false);
-    inst(pineLeaf, leafMat, pineSpots, s => col.setHSL(0.33 + (noise(s.x, s.z) - 0.5) * 0.06, 0.48, 0.29 + noise(s.z, s.x) * 0.10, THREE.SRGBColorSpace));
+    for(let variant=0;variant<3;variant++) inst(pineVariants[variant], leafMat, pineSpots.filter(s=>Math.floor(noise(s.x*.37+13,s.z*.37+5)*3)===variant), s => col.setHSL(.32 + noise(s.x/24,s.z/24)*.045, .42 + noise(s.x/31+5,s.z/31)*.12, .25 + noise(s.x/22,s.z/22)*.16, THREE.SRGBColorSpace));
   }
   if (!importedInstances('deciduous', decSpots)) {
     inst(decTrunk, trunkMat, decSpots, null, false);
-    inst(decLeaf, leafMat, decSpots, s => col.setHSL(def.leafHue + (noise(s.x + 9, s.z) - 0.5) * 0.045, 0.53, 0.34 + noise(s.z + 4, s.x) * 0.11, THREE.SRGBColorSpace));
+    inst(decLeaf, leafMat, decSpots, s => col.setHSL(def.leafHue + (noise(s.x/22 + 9, s.z/22) - 0.5) * 0.07, 0.5, 0.30 + noise(s.z/24 + 4, s.x/24) * 0.18, THREE.SRGBColorSpace));
   }
   if (!importedInstances('bush', bushes, false)) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
   // Fine crossed-alpha grass is deliberately retired in both modes.
@@ -301,7 +399,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const metal = toonMaterial({ color: '#e5f3f3' });
   const yellow = toonMaterial({ color: '#ffca26' });
   const basketGeo = makeBasketGeometry();
-  const baskets = [];
+  const baskets = [], destinationMarkers = [];
   for (const h of holes) {
     const yaw = Math.atan2(-(h.way[1][0] - h.tee[0]), -(h.way[1][1] - h.tee[1]));
     const pad = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.14, 3.2), concrete);
@@ -321,6 +419,16 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     flag.position.set(0, 1.62, 0); flag.rotation.y = yaw; b.add(flag);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.06, 12), concrete); base.position.y = 0.03; b.add(base);
     group.add(b); baskets.push(b);
+    // A graphic flag remains readable from the tee without enlarging the physical basket.
+    const markerCanvas=document.createElement('canvas');markerCanvas.width=128;markerCanvas.height=160;
+    const ink=markerCanvas.getContext('2d');ink.fillStyle='#ffffff';ink.beginPath();ink.arc(64,62,55,0,Math.PI*2);ink.fill();
+    ink.fillStyle='#ffc928';ink.beginPath();ink.arc(64,62,47,0,Math.PI*2);ink.fill();
+    ink.beginPath();ink.moveTo(43,105);ink.lineTo(85,105);ink.lineTo(64,143);ink.fill();
+    ink.fillStyle='#174b58';ink.font='900 61px system-ui';ink.textAlign='center';ink.textBaseline='middle';ink.fillText(String(h.idx+1),64,64);
+    const markerMap=new THREE.CanvasTexture(markerCanvas);markerMap.colorSpace=THREE.SRGBColorSpace;
+    const destination=new THREE.Sprite(new THREE.SpriteMaterial({map:markerMap,depthWrite:false,fog:false}));
+    destination.position.set(h.basket[0],h.basketY+4,h.basket[1]);destination.scale.set(2,2.5,1);destination.visible=false;
+    group.add(destination);destinationMarkers.push(destination);
     void yellow;
   }
 
@@ -377,9 +485,14 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     shadowParts.forEach(g => g.dispose());
   }
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes };
-  const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; };
+  const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; destinationMarkers.forEach((m,j)=>m.visible=j===i); };
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
+    if(view) for(const marker of destinationMarkers) if(marker.visible) {
+      const distance=Math.hypot(view.x-marker.position.x,view.z-marker.position.z), size=clamp(distance*.065,1.2,7);
+      marker.scale.set(size,size*1.25,1);marker.material.opacity=smooth(7,17,distance);
+      marker.position.y=height(marker.position.x,marker.position.z)+2.7+size*.6;
+    }
     windClock.value=t; cloudGroup.position.x = Math.sin(t * .006) * 5;
     if (focus) { sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 180); }
   };
@@ -389,7 +502,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
-  return { def, quality, world, holes, group, terrain, update, setHole, sunDir, baskets, dispose };
+  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose };
 }
 
 function makeBasketGeometry() {
