@@ -13,3 +13,8 @@ art/unity/Assets/*.unity*
 docs/qa/empty-site/
 art/unity/ProjectSettings/*.asset
 art/unity/ProjectSettings/SceneTemplateSettings.json
+.impeccable/
+# package caches and local credentials
+__pycache__/
+.env
+.env.local

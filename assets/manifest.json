@@ -1,20 +1,21 @@
 {
   "textures": {
     "grass": "textures/grass.jpg",
-    "grass_normal": "textures/grass_normal.png",
+    "grass_normal": "textures/grass_normal.jpg",
     "bark": "textures/bark.jpg",
     "concrete": "textures/concrete.jpg",
     "tuft": "textures/tuft.png",
-    "water_normal": "textures/water_normal.png",
+    "water_normal": "textures/water_normal.jpg",
     "jersey_pattern": "textures/jersey_pattern.png",
     "skin_normal": "textures/skin_normal.png",
     "dirt": "textures/dirt.jpg",
-    "sand": "textures/sand.jpg"
+    "sand": "textures/sand.jpg",
+    "face_parts": "appearance/face-parts.ktx2"
   },
   "courses": {
-    "pine": "courses/pine.jpg",
-    "meadow": "courses/meadow.jpg",
-    "lake": "courses/lake.jpg"
+    "pine": "courses/pine_toon.jpg",
+    "meadow": "courses/meadow_toon.jpg",
+    "lake": "courses/lake_toon.jpg"
   },
   "discs": {
     "driver": "discs/driver.png",
@@ -43,7 +44,18 @@
     "pine": "models/pine.glb",
     "deciduous": "models/deciduous.glb",
     "bush": "models/bush.glb",
-    "grass": "models/grass.glb"
+    "grass": "models/grass.glb",
+    "golfer_lod": "models/golfer-lod.glb",
+    "golfer_idle": "models/golfer-idle.glb",
+    "golfer_practice": "models/golfer-practice.glb",
+    "golfer_backhand": "models/golfer-backhand.glb",
+    "golfer_forehand": "models/golfer-forehand.glb",
+    "golfer_tomahawk": "models/golfer-tomahawk.glb",
+    "golfer_scoober": "models/golfer-scoober.glb",
+    "golfer_putt": "models/golfer-putt.glb",
+    "golfer_celebrate": "models/golfer-celebrate.glb",
+    "golfer_slump": "models/golfer-slump.glb",
+    "golfer_walk": "models/golfer-walk.glb"
   },
   "skies": {
     "pine": "skies/pine.exr",
