@@ -2,6 +2,24 @@ import * as THREE from 'three';
 import { texture } from './assets.js';
 export const windTime = { value: 0 };
 
+// A tiny nearest-filtered light ramp gives every solid the same clear, three-tone language.
+// Shared across courses/characters; no image requests, environment maps, or PBR response.
+const ramp = new THREE.DataTexture(new Uint8Array([115, 192, 255]), 3, 1, THREE.RedFormat);
+ramp.minFilter = ramp.magFilter = THREE.NearestFilter;
+ramp.generateMipmaps = false; ramp.needsUpdate = true; ramp.__shared = true;
+export function toonMaterial(options = {}) {
+  return new THREE.MeshToonMaterial({ gradientMap: ramp, ...options });
+}
+
+export function cartoonSky() {
+  return new THREE.Mesh(new THREE.SphereGeometry(1100, 32, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    uniforms: { horizon: { value: new THREE.Color('#d6f4fa') }, zenith: { value: new THREE.Color('#329ce9') } },
+    vertexShader: 'varying vec3 vDirection;void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader: 'uniform vec3 horizon;uniform vec3 zenith;varying vec3 vDirection;void main(){float h=clamp(normalize(vDirection).y,0.,1.);gl_FragColor=vec4(mix(horizon,zenith,smoothstep(0.,.72,h)),1.);\n#include <colorspace_fragment>\n}',
+  }));
+}
+
 export function terrainSplat(material, geometry, weights) {
   const dirt=texture('dirt'),sand=texture('sand'); if(!dirt||!sand)return;
   geometry.setAttribute('splat',new THREE.BufferAttribute(weights,2));

@@ -1,11 +1,10 @@
 // Procedural 9-hole wooded course: seeded terrain, fairway corridors, instanced trees (with physics
 // colliders), ponds, tee pads, baskets, sky + sun. Exposes the `world` object the physics needs.
 import * as THREE from 'three';
-import { Sky } from 'three/addons/objects/Sky.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
 import { modelParts, addModel } from './models.js';
-import { terrainSplat, windMaterial, windTime } from './materials.js';
+import { windMaterial, windTime, toonMaterial, cartoonSky } from './materials.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
@@ -14,15 +13,15 @@ export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
-    hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#9ccc57', '#5f8a34', '#3f6425', '#b5a875'], leafHue: 0.25,
+    hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#91d646', '#48b439', '#298a3c', '#f5dfa4'], leafHue: 0.25,
     sun: [40, 130], sky: [4, 2.2], sunColor: '#fff1d6', fog: ['#c6d9e6', 0.0032], hemi: ['#cfe3ff', '#4d6b2e'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
-    hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#c4c95c', '#8fa33c', '#6b7f2c', '#c9b57a'], leafHue: 0.19,
+    hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#b3de55', '#69bd42', '#379a43', '#f4dd9e'], leafHue: 0.19,
     sun: [21, 245], sky: [7, 1.4], sunColor: '#ffd39a', fog: ['#e2cfae', 0.0026], hemi: ['#ffd9b0', '#6b6a2e'], water: '#4a7f8f' },
   { id: 'lake', name: 'Lakeshore Links', tag: 'Water on five holes', blurb: 'Morning light off the lake. Carries, wraps and island greens; every pond is out of bounds.', seed: 41,
     len: [92, 118, 80, 134, 100, 74, 126, 96, 110], dog: { 2: 1, 5: -1, 7: 1 }, ponds: { 0: 'right', 2: 'front', 4: 'carry', 6: 'right', 8: 'front' },
-    hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#8fcf6a', '#4f8a3c', '#3a6a2c', '#cfc39a'], leafHue: 0.3,
+    hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#9adb58', '#4dbb56', '#268e49', '#ffe3ac'], leafHue: 0.3,
     sun: [55, 95], sky: [2.5, 3], sunColor: '#fff8ec', fog: ['#d6e6ee', 0.0028], hemi: ['#dbeeff', '#4d7a3e'], water: '#2a7fa8' },
 ];
 export const courseById = id => COURSES.find(c => c.id === id) || COURSES[0];
@@ -182,19 +181,19 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const x = pos.getX(i), z = pos.getZ(i), y = height(x, z); pos.setY(i, y);
     const fi = fairwayInfo(holes, x, z);
     const n1 = noise(x / 9 + 3, z / 9 + 3), n2 = noise(x / 40 + 9, z / 40 + 9);
-    tmp.copy(cFair).lerp(cRough, smooth(5, 12, fi.d + (n1 - 0.5) * 3)).lerp(cDark, smooth(18, 40, fi.d) * 0.5);
-    tmp.lerp(cSand, (n2 > 0.72 ? (n2 - 0.72) * 2 : 0));
+    // Broad bands stay legible on a phone; no photographic grit or muddy dirt splat.
+    const edge = fi.d + (n2 - .5) * 1.2;
+    tmp.copy(cFair).lerp(cRough, smooth(6 * def.fairwayW, 9 * def.fairwayW, edge)).lerp(cDark, smooth(20, 44, fi.d) * .35);
+    const stripe = Math.floor(fi.t * (fi.hole?.len || 90) / 6) % 2;
+    if (edge < 7 * def.fairwayW) tmp.multiplyScalar(stripe ? .94 : 1.04);
     for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 2.2) tmp.lerp(cSand, smooth(2.2, 1.1, e) * 0.7); }
     splats[i*2] = smooth(4, 0, fi.d) * smooth(.1, .3, fi.t) * (1-smooth(.7,.95,fi.t)) * .42;
     for (const p of ponds) { const e=((x-p.x)/p.rx)**2+((z-p.z)/p.rz)**2; splats[i*2+1]=Math.max(splats[i*2+1],smooth(2.2,1.25,e)); }
-    tmp.multiplyScalar(0.85 + n1 * 0.3);
-    if (quality !== 'low') tmp.lerp(new THREE.Color('#b6bf9e'), .38);
+
     colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3)); geo.computeVertexNormals();
-  const terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: texture('grass', { repeat: [260, 200] }) || grassTexture(rng), normalMap: texture('grass_normal', { repeat: [260, 200], srgb: false }), vertexColors: true, roughness: 0.95, metalness: 0 }));
-  terrain.material.normalScale.set(.22,.22);
-  if (quality !== 'low') { terrainSplat(terrain.material, geo, splats); terrain.material.normalScale.set(.28,.28); }
+  const terrain = new THREE.Mesh(geo, toonMaterial({ vertexColors: true }));
   terrain.receiveShadow = true; group.add(terrain);
 
   // --- trees ---
@@ -230,16 +229,15 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     return lastList;
   };
 
-  const bark = texture('bark', { repeat: [1, 3] });
-  const trunkMat = new THREE.MeshStandardMaterial({ color: bark ? '#ffffff' : '#5b4a35', map: bark, roughness: 0.95 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9, flatShading: false });
+  const trunkMat = toonMaterial({ color: '#986541' });
+  const leafMat = toonMaterial({ color: '#ffffff' });
   const blob = (r, detail, amp) => { const g = new THREE.IcosahedronGeometry(r, detail); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const k = 1 + (noise(x * 1.3 + 40, y * 1.3 + z * 0.7 + 40) - 0.5) * amp; p.setXYZ(i, x * k, y * k, z * k); } g.computeVertexNormals(); return g; };
   const shift = (g, x, y, z) => g.translate(x, y, z);
   const pineTrunk = shift(new THREE.CylinderGeometry(0.16, 0.34, 6, 7), 0, 3, 0);
-  const pineLeaf = mergeGeometries([shift(new THREE.ConeGeometry(2.4, 4.2, 9), 0, 5, 0), shift(new THREE.ConeGeometry(1.9, 3.8, 9), 0, 7.4, 0), shift(new THREE.ConeGeometry(1.3, 3.2, 9), 0, 9.5, 0)]);
+  const pineLeaf = mergeGeometries([shift(new THREE.ConeGeometry(2.4, 4.2, 20), 0, 5, 0), shift(new THREE.ConeGeometry(1.9, 3.8, 20), 0, 7.4, 0), shift(new THREE.ConeGeometry(1.3, 3.2, 20), 0, 9.5, 0)]);
   const decTrunk = mergeGeometries([shift(new THREE.CylinderGeometry(0.2, 0.4, 4.2, 7), 0, 2.1, 0), shift(new THREE.CylinderGeometry(0.08, 0.16, 2.6, 5).rotateZ(0.6), 0.9, 4.2, 0.2), shift(new THREE.CylinderGeometry(0.08, 0.16, 2.4, 5).rotateZ(-0.7).rotateY(1.2), -0.8, 4.1, -0.4)]);
   const bd = quality === 'low' ? 1 : 2;   // ponytail: blob detail is the main triangle cost on phones
-  const decLeaf = mergeGeometries([shift(blob(3.3, bd, 0.5).scale(1, 0.85, 1), 0, 5.8, 0), shift(blob(2.2, bd, 0.5), 1.6, 6.9, 1.0), shift(blob(2.0, bd, 0.5), -1.5, 6.5, -1.2)]);
+  const decLeaf = mergeGeometries([shift(blob(3.3, bd, 0.12).scale(1, 0.85, 1), 0, 5.8, 0), shift(blob(2.2, bd, 0.12), 1.6, 6.9, 1.0), shift(blob(2.0, bd, 0.12), -1.5, 6.5, -1.2)]);
   const bushGeo = blob(1, 1, 0.6).scale(1, 0.75, 1).translate(0, 0.5, 0);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
   const inst = (geo, mat, spots, colorFn, shadow = true) => {
@@ -256,40 +254,41 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const col = new THREE.Color();
   const importedInstances = (name, spots, shadow = true) => {
     // Lite retains its existing foliage geometry budget.
-    if (quality === 'low') return false;
+    // Keep imported foliage infrastructure available for art experiments; this style uses clean primitives.
+    return false; /*
     const parts = modelParts(name); if (!parts) return false;
     for (const part of parts) inst(part.geometry, windMaterial(part.material, windClock, name === 'grass'), spots, null, shadow);
-    return true;
+    return true; */
   };
   if (!importedInstances('pine', pineSpots)) {
     inst(pineTrunk, trunkMat, pineSpots, null, false);
-    inst(pineLeaf, leafMat, pineSpots, s => col.setHSL(0.33 + (noise(s.x, s.z) - 0.5) * 0.06, 0.45, 0.2 + noise(s.z, s.x) * 0.1, THREE.SRGBColorSpace));
+    inst(pineLeaf, leafMat, pineSpots, s => col.setHSL(0.33 + (noise(s.x, s.z) - 0.5) * 0.06, 0.64, 0.34 + noise(s.z, s.x) * 0.08, THREE.SRGBColorSpace));
   }
   if (!importedInstances('deciduous', decSpots)) {
     inst(decTrunk, trunkMat, decSpots, null, false);
-    inst(decLeaf, leafMat, decSpots, s => col.setHSL(def.leafHue + (noise(s.x + 9, s.z) - 0.5) * 0.1, 0.55, 0.3 + noise(s.z + 4, s.x) * 0.14, THREE.SRGBColorSpace));
+    inst(decLeaf, leafMat, decSpots, s => col.setHSL(def.leafHue + (noise(s.x + 9, s.z) - 0.5) * 0.1, 0.68, 0.39 + noise(s.z + 4, s.x) * 0.08, THREE.SRGBColorSpace));
   }
   if (!importedInstances('bush', bushes, false)) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
-  // grass tufts: crossed quads
-  const tuftGeo = mergeGeometries([new THREE.PlaneGeometry(1, 0.8).translate(0, 0.4, 0), new THREE.PlaneGeometry(1, 0.8).translate(0, 0.4, 0).rotateY(Math.PI / 2)]);
-  const tuftMat = new THREE.MeshStandardMaterial({ map: texture('tuft') || bladeTexture(), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 1 });
-  if (quality !== 'low' && !importedInstances('grass', tufts, false)) inst(tuftGeo, tuftMat, tufts, null, false);
+  // Fine crossed-alpha grass is deliberately retired in both modes.
 
   // --- water ---
-  const waterNormal = texture('water_normal', { repeat: [4, 4], srgb: false }) || waterNormalTexture(noise);
-  const waterMat = new THREE.MeshStandardMaterial({ color: def.water, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.88, normalMap: waterNormal, normalScale: new THREE.Vector2(0.35, 0.35) });
+  // Opaque candy-blue water and broad white ripple marks avoid reflected-sky noise.
+  const waterMat = toonMaterial({ color: '#46cbe7' });
+  const rippleMat = new THREE.MeshBasicMaterial({ color: '#d9fbff', transparent: true, opacity: .65, depthWrite: false });
   for (const p of ponds) {
-    const shape = new THREE.CircleGeometry(1,56);
-    const sd = new THREE.Vector3().setFromSphericalCoords(1,THREE.MathUtils.degToRad(90-def.sun[0]),THREE.MathUtils.degToRad(def.sun[1]));
-    const wm = effects ? effects.reflectiveWater(shape,waterNormal,def,sd) : new THREE.Mesh(shape, waterMat);
-    if(effects) waters.push(wm);
-    wm.rotation.x = -Math.PI / 2; wm.scale.set(p.rx * 1.25, p.rz * 1.25, 1); wm.position.set(p.x, p.level, p.z); wm.receiveShadow = true; group.add(wm);
+    const wm = new THREE.Mesh(new THREE.CircleGeometry(1, 56), waterMat);
+    wm.rotation.x = -Math.PI / 2; wm.scale.set(p.rx * 1.25, p.rz * 1.25, 1); wm.position.set(p.x, p.level, p.z); group.add(wm);
+    for (let i = 0; i < 3; i++) {
+      const ripple = new THREE.Mesh(new THREE.RingGeometry(1.9 + i * .2, 1.96 + i * .2, 28, 1, .2, 1.8), rippleMat);
+      ripple.rotation.x = -Math.PI / 2; ripple.scale.set(1.6, .6, 1);
+      ripple.position.set(p.x - 3 + i * 3, p.level + .025, p.z - 3 + i * 2); group.add(ripple);
+    }
   }
 
   // --- tee pads, signs, baskets ---
-  const concrete = new THREE.MeshStandardMaterial({ map: texture('concrete') || concreteTexture(rng), roughness: 0.9 });
-  const metal = new THREE.MeshStandardMaterial({ color: '#d5d9dd', metalness: 0.9, roughness: 0.3 });
-  const yellow = new THREE.MeshStandardMaterial({ color: '#f2c318', roughness: 0.6 });
+  const concrete = toonMaterial({ color: '#e6e5ca' });
+  const metal = toonMaterial({ color: '#e5f3f3' });
+  const yellow = toonMaterial({ color: '#ffca26' });
   const basketGeo = makeBasketGeometry();
   const baskets = [];
   for (const h of holes) {
@@ -302,12 +301,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     board.position.y = 1.35; board.castShadow = true; sign.add(board);
     const sx = h.tee[0] + Math.cos(yaw) * 2.4 - Math.sin(yaw) * 2.6, sz = h.tee[1] - Math.sin(yaw) * 2.4 - Math.cos(yaw) * 2.6;   // right of and behind the pad
     sign.position.set(sx, height(sx, sz), sz); sign.rotation.y = yaw + Math.PI; group.add(sign);
-    const signModel = addModel(sign, 'tee_sign');
+    const signModel = null;
     if (signModel) { post.visible = false; board.scale.set(.85, .65, 1); board.position.set(0, 1.30, -.08); board.rotation.y = Math.PI; }
     const b = new THREE.Group(); b.position.set(h.basket[0], h.basketY, h.basket[1]);
     const bm = new THREE.Mesh(basketGeo, metal); bm.castShadow = true; b.add(bm);
-    if (addModel(b, 'basket')) bm.visible = false;
-    const flag = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, 0.03), new THREE.MeshStandardMaterial({ map: textTexture([String(h.idx + 1)], { w: 128, h: 96, bg: '#f2c318', font: 'bold 70px system-ui, sans-serif' }) }));
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(.285, .285, .12, 28, 1, true), yellow); band.position.y = 1.34; b.add(band);
+    const flag = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, 0.03), toonMaterial({ map: textTexture([String(h.idx + 1)], { w: 128, h: 96, bg: '#f2c318', font: 'bold 70px system-ui, sans-serif' }) }));
     flag.position.set(0, 1.62, 0); flag.rotation.y = yaw; b.add(flag);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.06, 12), concrete); base.position.y = 0.03; b.add(base);
     group.add(b); baskets.push(b);
@@ -315,33 +314,58 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
 
   // --- sky, lights, fog ---
-  const sky = new Sky(); sky.scale.setScalar(20000);
-  const su = sky.material.uniforms; su.turbidity.value = def.sky[0]; su.rayleigh.value = def.sky[1]; su.mieCoefficient.value = 0.004; su.mieDirectionalG.value = 0.8;
-  const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1]));
-  su.sunPosition.value.copy(sunDir);
-  const pmrem = new THREE.PMREMGenerator(renderer); const envScene = new THREE.Scene(); envScene.add(sky);
-  const envRT = hdri?.target || pmrem.fromScene(envScene); scene.environment = envRT.texture; scene.environmentIntensity = quality === 'low' ? 1 : .32; envScene.remove(sky); scene.add(sky); pmrem.dispose();
-  if(hdri){sky.visible=false;scene.background=hdri.texture;}
-  scene.fog = new THREE.FogExp2(def.fog[0], def.fog[1]);
-  const sun = new THREE.DirectionalLight(def.sunColor, quality === 'low' ? 2.3 : 3.1); sun.castShadow = true;
+  const sky = cartoonSky(); scene.add(sky);
+  const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(50), THREE.MathUtils.degToRad(130));
+  scene.environment = null; scene.background = null;
+  scene.fog = new THREE.Fog('#c4edf5', 100, 360);
+  const sun = new THREE.DirectionalLight('#fff7e5', 1.65); sun.castShadow = false;
   const sm = quality === 'low' ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
   const sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -42; sc2.right = sc2.top = 42; sc2.near = 1; sc2.far = 400;
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
   scene.add(sun); scene.add(sun.target);
-  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], quality === 'low' ? 1.15 : .65); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight('#ffffff', '#abc987', 1.7); scene.add(hemi);
 
-  const atmosphere = effects?.atmosphere(group,def,holes);
+  // Soft graphic clouds are part of the base style, including Lite.
+  const cloudGeo = new THREE.SphereGeometry(1, 12, 8);
+  const cloudMat = new THREE.MeshBasicMaterial({ color: '#ffffff', fog: false });
+  const cloudGroup = new THREE.Group(); group.add(cloudGroup);
+  const cloudRng = makeRng(seed + 540);
+  for (let i = 0; i < 24; i++) {
+    const x = (cloudRng() - .5) * 950, z = (cloudRng() - .5) * 780, y = 65 + cloudRng() * 45;
+    for (let j = 0; j < 4; j++) {
+      const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+      cloud.position.set(x + j * 10, y + (j === 1 ? 4 : 0), z);
+      cloud.scale.set(14, j === 1 ? 9 : 6, 7); cloudGroup.add(cloud);
+    }
+  }
+  // One merged transparent mesh: soft tree grounding without a shadow-map pass.
+  const shadowParts = [];
+  for (const t of trees) {
+    const disk = new THREE.CircleGeometry(t.fr * .95, 12).rotateX(-Math.PI / 2);
+    const positions = disk.attributes.position, alpha = new Float32Array(positions.count);
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i) + t.x + .4, z = positions.getZ(i) + t.z + .25;
+      positions.setXYZ(i, x, height(x, z) + .045, z); alpha[i] = i === 0 ? .23 : 0;
+    }
+    disk.setAttribute('shadowAlpha', new THREE.BufferAttribute(alpha, 1)); shadowParts.push(disk);
+  }
+  if (shadowParts.length) {
+    const shadowMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false,
+      vertexShader: 'attribute float shadowAlpha;varying float vAlpha;void main(){vAlpha=shadowAlpha;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+      fragmentShader: 'varying float vAlpha;void main(){gl_FragColor=vec4(.07,.22,.1,vAlpha);}' });
+    const shadows = new THREE.Mesh(mergeGeometries(shadowParts), shadowMat); shadows.renderOrder = 1; group.add(shadows);
+    shadowParts.forEach(g => g.dispose());
+  }
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes };
   const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; };
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
-    windClock.value=t; atmosphere?.update(t); for(const w of waters) w.material.uniforms.time.value=t*.55;
-    waterNormal.offset.x = t * 0.02; waterNormal.offset.y = t * 0.013;
+    windClock.value=t; cloudGroup.position.x = Math.sin(t * .006) * 5;
     if (focus) { sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 180); }
   };
   const dispose = () => {   // tear down so another course can be built into the same scene
     for(const w of waters)w.userData.dispose?.();
-    scene.remove(group, sky, sun, sun.target, hemi); scene.fog = null; scene.environment = null; scene.background = null; envRT.dispose(); hdri?.texture.dispose();
+    scene.remove(group, sky, sun, sun.target, hemi); scene.fog = null; scene.environment = null; scene.background = null; hdri?.target.dispose(); hdri?.texture.dispose();
     group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };

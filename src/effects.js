@@ -16,7 +16,9 @@ export async function loadSky(renderer, url) {
   } catch {return null;}
 }
 
-export function postprocessing(renderer, scene, camera) {
+export function postprocessing(renderer, scene, camera, { photographic = false } = {}) {
+  // The sports art direction has no SSAO/bloom. Retain the experiment explicitly opt-in.
+  if (!photographic) return { render: () => renderer.render(scene, camera), resize() {}, dispose() {} };
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   const ao = new SSAOPass(scene, camera, 512, 512); ao.kernelRadius = .4; ao.minDistance = .004; ao.maxDistance = .035;
