@@ -1,63 +1,195 @@
 {
   "skeleton": "ChainsRig eleven-joint v1",
+  "sampleHz": 50,
+  "phase": {
+    "windup": [
+      0,
+      0.5
+    ],
+    "release": 0.62,
+    "followThrough": [
+      0.5,
+      1
+    ]
+  },
   "clips": {
     "backhand": {
       "file": "assets/models/golfer-backhand.glb",
-      "bytes": 14632,
+      "bytes": 18880,
+      "duration": 1,
+      "meshes": 0
+    },
+    "backhand_io": {
+      "file": "assets/models/golfer-backhand_io.glb",
+      "bytes": 18884,
+      "duration": 1,
+      "meshes": 0
+    },
+    "backhand_io_left": {
+      "file": "assets/models/golfer-backhand_io_left.glb",
+      "bytes": 18880,
+      "duration": 1,
+      "meshes": 0
+    },
+    "backhand_left": {
+      "file": "assets/models/golfer-backhand_left.glb",
+      "bytes": 18876,
+      "duration": 1,
+      "meshes": 0
+    },
+    "backhand_oi": {
+      "file": "assets/models/golfer-backhand_oi.glb",
+      "bytes": 18884,
+      "duration": 1,
+      "meshes": 0
+    },
+    "backhand_oi_left": {
+      "file": "assets/models/golfer-backhand_oi_left.glb",
+      "bytes": 18880,
+      "duration": 1,
+      "meshes": 0
+    },
+    "blade": {
+      "file": "assets/models/golfer-blade.glb",
+      "bytes": 18872,
+      "duration": 1,
+      "meshes": 0
+    },
+    "blade_left": {
+      "file": "assets/models/golfer-blade_left.glb",
+      "bytes": 18872,
       "duration": 1,
       "meshes": 0
     },
     "celebrate": {
       "file": "assets/models/golfer-celebrate.glb",
-      "bytes": 14316,
+      "bytes": 18176,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "celebrate_left": {
+      "file": "assets/models/golfer-celebrate_left.glb",
+      "bytes": 18172,
       "duration": 2.4,
       "meshes": 0
     },
     "forehand": {
       "file": "assets/models/golfer-forehand.glb",
-      "bytes": 14764,
+      "bytes": 18860,
+      "duration": 1,
+      "meshes": 0
+    },
+    "forehand_io": {
+      "file": "assets/models/golfer-forehand_io.glb",
+      "bytes": 18864,
+      "duration": 1,
+      "meshes": 0
+    },
+    "forehand_io_left": {
+      "file": "assets/models/golfer-forehand_io_left.glb",
+      "bytes": 18868,
+      "duration": 1,
+      "meshes": 0
+    },
+    "forehand_left": {
+      "file": "assets/models/golfer-forehand_left.glb",
+      "bytes": 18864,
+      "duration": 1,
+      "meshes": 0
+    },
+    "forehand_oi": {
+      "file": "assets/models/golfer-forehand_oi.glb",
+      "bytes": 18864,
+      "duration": 1,
+      "meshes": 0
+    },
+    "forehand_oi_left": {
+      "file": "assets/models/golfer-forehand_oi_left.glb",
+      "bytes": 18868,
       "duration": 1,
       "meshes": 0
     },
     "idle": {
       "file": "assets/models/golfer-idle.glb",
-      "bytes": 16260,
+      "bytes": 21388,
+      "duration": 4,
+      "meshes": 0
+    },
+    "idle_left": {
+      "file": "assets/models/golfer-idle_left.glb",
+      "bytes": 21392,
       "duration": 4,
       "meshes": 0
     },
     "practice": {
       "file": "assets/models/golfer-practice.glb",
-      "bytes": 12296,
+      "bytes": 14804,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "practice_left": {
+      "file": "assets/models/golfer-practice_left.glb",
+      "bytes": 14808,
       "duration": 2.4,
       "meshes": 0
     },
     "putt": {
       "file": "assets/models/golfer-putt.glb",
-      "bytes": 13956,
+      "bytes": 17024,
+      "duration": 1,
+      "meshes": 0
+    },
+    "putt_left": {
+      "file": "assets/models/golfer-putt_left.glb",
+      "bytes": 17028,
       "duration": 1,
       "meshes": 0
     },
     "scoober": {
       "file": "assets/models/golfer-scoober.glb",
-      "bytes": 14900,
+      "bytes": 18876,
+      "duration": 1,
+      "meshes": 0
+    },
+    "scoober_left": {
+      "file": "assets/models/golfer-scoober_left.glb",
+      "bytes": 18876,
       "duration": 1,
       "meshes": 0
     },
     "slump": {
       "file": "assets/models/golfer-slump.glb",
-      "bytes": 13436,
+      "bytes": 16708,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "slump_left": {
+      "file": "assets/models/golfer-slump_left.glb",
+      "bytes": 16716,
       "duration": 2.4,
       "meshes": 0
     },
     "tomahawk": {
       "file": "assets/models/golfer-tomahawk.glb",
-      "bytes": 14904,
+      "bytes": 18876,
+      "duration": 1,
+      "meshes": 0
+    },
+    "tomahawk_left": {
+      "file": "assets/models/golfer-tomahawk_left.glb",
+      "bytes": 18876,
       "duration": 1,
       "meshes": 0
     },
     "walk": {
       "file": "assets/models/golfer-walk.glb",
-      "bytes": 10928,
+      "bytes": 12532,
+      "duration": 1,
+      "meshes": 0
+    },
+    "walk_left": {
+      "file": "assets/models/golfer-walk_left.glb",
+      "bytes": 12536,
       "duration": 1,
       "meshes": 0
     }

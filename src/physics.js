@@ -97,7 +97,8 @@ export function step(s, w, dt = DT) {
       const fd = q * CD / MASS; a[0] -= vh[0] * fd; a[1] -= vh[1] * fd; a[2] -= vh[2] * fd;
       // gyroscopic roll: turn above stable speed, fade below
       const vs = stableSpeed(d), ex = (sp - vs) / vs;
-      let roll = th.flip;
+      // Overhand turnover mirrors with the thrower's spin, just like turn/fade.
+      let roll = th.flip * (s.spin / th.spin);
       if (ex > 0) roll += s.spin * (0.05 + (-d.turn) * 0.3) * Math.min(ex, 1.0);
       const fadeK = clamp((vs * 1.3 - sp) / vs, 0, 1);            // fade blends in early, dominates when slow
       roll -= s.spin * (0.45 + d.fade * 0.5) * fadeK * clamp((s.n[1] - 0.55) / 0.45, 0, 1);   // stops banking past ~55°

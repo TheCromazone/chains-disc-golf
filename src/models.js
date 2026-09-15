@@ -15,7 +15,8 @@ export async function loadModels(renderer, quality = 'full') {
   if (quality === 'lite' || quality === 'low') { modelStatus.golfer = 'procedural · Lite'; return; }
   // Props use the clean procedural art. Only the actor is downloaded, by quality.
   const bodyName = quality === 'full' || quality === 'high' ? 'golfer' : 'golfer_lod';
-  const clipNames = ['idle','practice','backhand','forehand','tomahawk','scoober','putt','celebrate','slump','walk'];
+  const baseClips = ['idle','practice','backhand','backhand_io','backhand_oi','forehand','forehand_io','forehand_oi','tomahawk','scoober','blade','putt','celebrate','slump','walk'];
+  const clipNames = [...baseClips,...baseClips.map(n=>n+'_left')];
   const names = [...new Set([bodyName, 'golfer_lod']), ...clipNames.map(n=>'golfer_'+n)];
   if (!names.some(n => asset('models', n))) return;
   const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/');

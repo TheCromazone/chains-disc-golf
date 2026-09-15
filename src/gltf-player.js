@@ -34,11 +34,12 @@ export function createGLTFCharacter(avatar) {
   const printGeo = new THREE.PlaneGeometry(.25, .25);
   const printMat = new THREE.MeshBasicMaterial({ map: print, transparent: true, depthWrite: false }); owned.add(printMat);
   for (const side of [-1, 1]) { const badge = new THREE.Mesh(printGeo, printMat); badge.position.set(0, .20, side * .155); badge.rotation.y = side < 0 ? Math.PI : 0; joints.spine.add(badge); }
-  const hand = new THREE.Group(); hand.name = 'disc_socket'; hand.position.set(0, -.205, 0); joints.elR.add(hand);
-  const build = { slim: .93, athletic: 1, broad: 1.1 }[avatar.build] || 1; actor.scale.x *= build; if (avatar.hand === 'left') actor.scale.x *= -1;   // ponytail: mirrored rig; swap for exported left-handed clips so the jersey print reads forward
+  const hand = new THREE.Group(); hand.name = 'disc_socket'; hand.position.set(0, -.205, 0); joints[avatar.hand === 'left' ? 'elL' : 'elR'].add(hand);
+  const build = { slim: .93, athletic: 1, broad: 1.1 }[avatar.build] || 1; actor.scale.x *= build;
+  const handed = name => avatar.hand === 'left' && actions.has(name+'_left') ? name+'_left' : name;
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map(src.animations.map(c => [c.name, mixer.clipAction(c)]));
-  let phase = null, throwType = 'backhand', active = null, time = Math.random() * 8, mood = null, previous = null, blend = 1, frameDt = 0, locomotion = null;
+  let phase = null, throwType = handed('backhand'), active = null, time = Math.random() * 8, mood = null, previous = null, blend = 1, frameDt = 0, locomotion = null;
   function sample(name, at) {
     const action = actions.get(name); if (!action) return;
     if (active !== action) { previous?.stop(); previous=active; active=action; blend=phase===null?0:1; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished=true; action.play(); }
@@ -47,14 +48,14 @@ export function createGLTFCharacter(avatar) {
   }
   const api = {
     group, hand, joints, avatar, source: 'glb', clips: [...actions.keys()], faceParts: face.parts, setFace: face.setFace,
-    setThrow(t) { throwType = actions.has(t) ? t : actions.has(t.split('_')[0]) ? t.split('_')[0] : t === 'blade' ? 'forehand' : 'backhand'; }, setPhase(p) { phase = p; if (p !== null) mood = null; }, getPhase() { return phase; },
-    react(kind) { mood = { name: kind, t: 0 }; phase = null; },
+    setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; }, getPhase() { return phase; },
+    react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion=name;phase=null;mood=null;time=0; } },
     update(dt) {
       frameDt=dt; time += dt;
       if (phase !== null) { const a = actions.get(throwType); sample(throwType, phase * (a?.getClip().duration || 1)); }
       else if (mood) { mood.t += dt; sample(mood.name, mood.t); if (mood.t >= (actions.get(mood.name)?.getClip().duration || 2.4)) mood = null; }
-      else { const name = locomotion || (Math.floor(time / 8) % 3 === 2 ? 'practice' : 'idle'); sample(name, time % (actions.get(name)?.getClip().duration || 4)); }
+      else { const name = handed(locomotion || (Math.floor(time / 8) % 3 === 2 ? 'practice' : 'idle')); sample(name, time % (actions.get(name)?.getClip().duration || 4)); }
       actor.updateMatrixWorld(true);
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); },

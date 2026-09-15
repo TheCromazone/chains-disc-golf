@@ -5,8 +5,8 @@
   "status": "runtime",
   "provenance": {
     "pipeline": "deterministic original Blender authoring",
-    "source": "tools/build-mii.py; tools/poses.json",
-    "referenceImage": "docs/qa/references/wii-golf.jpg",
+    "source": "tools/author-golfer-clips.py; src/throw-poses.js; tools/poses.json",
+    "referenceImage": "docs/qa/r3/animation-front.jpg",
     "referenceURLs": [
       "https://miiwiki.org/wiki/Wii_Sports/gallery",
       "https://miiwiki.org/wiki/Nintendo_Switch_Sports/gallery"
@@ -18,7 +18,8 @@
     "mainModel": "assets/models/golfer.glb",
     "runtimeModel": "assets/models/golfer.glb",
     "lodModel": "assets/models/golfer-lod.glb",
-    "catalogPng": "docs/qa/09-character-high-front.png"
+    "catalogPng": "docs/qa/r3/animation-front.jpg",
+    "animationSource": "art/blender/golfer-motion-r3.blend"
   },
   "budget": {
     "runtimeTriangles": 10800,
@@ -71,7 +72,8 @@
         "name": "knR"
       }
     ],
-    "actualMaxSkinInfluences": 1
+    "actualMaxSkinInfluences": 1,
+    "handedness": "Separate exported mirrored animation clips; all actor and bone scales remain positive"
   },
   "actions": [
     {
@@ -87,7 +89,120 @@
           "normalizedTime": 0.62
         }
       ],
-      "source": "tools/poses.json + tools/build-mii.py"
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "backhand_io",
+      "role": "backhand_io",
+      "file": "assets/models/golfer-backhand_io.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "backhand_io_left",
+      "role": "backhand_io",
+      "file": "assets/models/golfer-backhand_io_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
+    },
+    {
+      "id": "backhand_left",
+      "role": "backhand",
+      "file": "assets/models/golfer-backhand_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
+    },
+    {
+      "id": "backhand_oi",
+      "role": "backhand_oi",
+      "file": "assets/models/golfer-backhand_oi.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "backhand_oi_left",
+      "role": "backhand_oi",
+      "file": "assets/models/golfer-backhand_oi_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
+    },
+    {
+      "id": "blade",
+      "role": "blade",
+      "file": "assets/models/golfer-blade.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "blade_left",
+      "role": "blade",
+      "file": "assets/models/golfer-blade_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
     },
     {
       "id": "celebrate",
@@ -97,7 +212,19 @@
       "rootMotion": "in-place",
       "durationSeconds": 2.4,
       "contactEvents": [],
-      "source": "tools/poses.json + tools/build-mii.py"
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "celebrate_left",
+      "role": "celebrate",
+      "file": "assets/models/golfer-celebrate_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 2.4,
+      "contactEvents": [],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
     },
     {
       "id": "forehand",
@@ -112,7 +239,88 @@
           "normalizedTime": 0.62
         }
       ],
-      "source": "tools/poses.json + tools/build-mii.py"
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "forehand_io",
+      "role": "forehand_io",
+      "file": "assets/models/golfer-forehand_io.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "forehand_io_left",
+      "role": "forehand_io",
+      "file": "assets/models/golfer-forehand_io_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
+    },
+    {
+      "id": "forehand_left",
+      "role": "forehand",
+      "file": "assets/models/golfer-forehand_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
+    },
+    {
+      "id": "forehand_oi",
+      "role": "forehand_oi",
+      "file": "assets/models/golfer-forehand_oi.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "forehand_oi_left",
+      "role": "forehand_oi",
+      "file": "assets/models/golfer-forehand_oi_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
     },
     {
       "id": "idle",
@@ -122,7 +330,19 @@
       "rootMotion": "in-place",
       "durationSeconds": 4,
       "contactEvents": [],
-      "source": "tools/poses.json + tools/build-mii.py"
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "idle_left",
+      "role": "idle",
+      "file": "assets/models/golfer-idle_left.glb",
+      "loop": true,
+      "rootMotion": "in-place",
+      "durationSeconds": 4,
+      "contactEvents": [],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
     },
     {
       "id": "practice",
@@ -132,7 +352,19 @@
       "rootMotion": "in-place",
       "durationSeconds": 2.4,
       "contactEvents": [],
-      "source": "tools/poses.json + tools/build-mii.py"
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "practice_left",
+      "role": "practice",
+      "file": "assets/models/golfer-practice_left.glb",
+      "loop": true,
+      "rootMotion": "in-place",
+      "durationSeconds": 2.4,
+      "contactEvents": [],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
     },
     {
       "id": "putt",
@@ -147,7 +379,24 @@
           "normalizedTime": 0.62
         }
       ],
-      "source": "tools/poses.json + tools/build-mii.py"
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "putt_left",
+      "role": "putt",
+      "file": "assets/models/golfer-putt_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
     },
     {
       "id": "scoober",
@@ -162,7 +411,24 @@
           "normalizedTime": 0.62
         }
       ],
-      "source": "tools/poses.json + tools/build-mii.py"
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "scoober_left",
+      "role": "scoober",
+      "file": "assets/models/golfer-scoober_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
     },
     {
       "id": "slump",
@@ -172,7 +438,19 @@
       "rootMotion": "in-place",
       "durationSeconds": 2.4,
       "contactEvents": [],
-      "source": "tools/poses.json + tools/build-mii.py"
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "slump_left",
+      "role": "slump",
+      "file": "assets/models/golfer-slump_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 2.4,
+      "contactEvents": [],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
     },
     {
       "id": "tomahawk",
@@ -187,7 +465,24 @@
           "normalizedTime": 0.62
         }
       ],
-      "source": "tools/poses.json + tools/build-mii.py"
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "tomahawk_left",
+      "role": "tomahawk",
+      "file": "assets/models/golfer-tomahawk_left.glb",
+      "loop": false,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [
+        {
+          "name": "disc-release",
+          "normalizedTime": 0.62
+        }
+      ],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
     },
     {
       "id": "walk",
@@ -197,7 +492,19 @@
       "rootMotion": "in-place",
       "durationSeconds": 1,
       "contactEvents": [],
-      "source": "tools/poses.json + tools/build-mii.py"
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "right"
+    },
+    {
+      "id": "walk_left",
+      "role": "walk",
+      "file": "assets/models/golfer-walk_left.glb",
+      "loop": true,
+      "rootMotion": "in-place",
+      "durationSeconds": 1,
+      "contactEvents": [],
+      "source": "src/throw-poses.js + tools/author-golfer-clips.py",
+      "hand": "left"
     }
   ],
   "equipment": {
@@ -261,8 +568,8 @@
     "hurtboxes": []
   },
   "catalog": {
-    "cardImage": "docs/qa/09-character-high-front.png",
-    "inspectorRoute": "/docs/qa/character-inspector.html",
+    "cardImage": "docs/qa/r3/animation-front.jpg",
+    "inspectorRoute": "/docs/qa/r3/motion-inspector.html",
     "controls": [
       "action-select",
       "restart",

@@ -1,6 +1,6 @@
 // Run: node test/physics.test.mjs
 import assert from 'node:assert/strict';
-import { simulate, flatWorld, discById } from '../src/physics.js';
+import { simulate, flatWorld, discById, THROWS } from '../src/physics.js';
 
 const w = flatWorld({ x: 0, y: 0, z: -100 });
 const throwIt = (o) => simulate({ pos: [0, 1.2, 0], dir: [0, -1], power: 1, throwType: 'backhand', disc: discById('driver'), ...o }, w, { record: true }).result;
@@ -60,4 +60,24 @@ for (const t of ['tomahawk', 'scoober']) {
   console.log(t, r.thrown.toFixed(1), 'm, x', r.rest[0].toFixed(1), 'maxH', r.maxH.toFixed(1));
   assert(r.thrown > 15, `${t} too short`);
 }
-console.log('physics OK');
+// All ten authored motions retain finite flight and mirror under handedness,
+// including the overhand turnover rate (not only the initial release bank).
+assert.equal(Object.keys(THROWS).length, 10);
+for (const throwType of Object.keys(THROWS)) {
+  for (const power of [0.4, 1]) {
+    const params = { throwType, power, hyzer: 9 };
+    const right = throwIt(params), left = throwIt({ ...params, lefty: true });
+    for (const r of [right, left]) {
+      assert([...r.rest, r.thrown, r.maxH, r.airTime].every(Number.isFinite), `${throwType}: finite flight`);
+      assert(r.thrown > 0 && r.airTime < 25, `${throwType}: lands before timeout`);
+    }
+    assert(Math.abs(right.rest[0] + left.rest[0]) < 1e-6, `${throwType}: mirrored lateral finish`);
+    assert(Math.abs(right.rest[2] - left.rest[2]) < 1e-6, `${throwType}: equal forward finish`);
+    assert(Math.abs(right.maxH - left.maxH) < 1e-6, `${throwType}: equal height`);
+    assert(Math.abs(right.airTime - left.airTime) < 1e-6, `${throwType}: equal flight time`);
+  }
+}
+const fhIO = throwIt({ throwType: 'forehand_io' }), fhOI = throwIt({ throwType: 'forehand_oi' });
+assert(fhIO.rest[0] > fh.rest[0] + 2, 'IO forehand finishes further right than flat');
+assert(fhOI.rest[0] < fh.rest[0] - 3, 'OI forehand finishes left of flat');
+console.log('physics OK — ten throws, both hands, two powers');

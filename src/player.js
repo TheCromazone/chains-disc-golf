@@ -28,68 +28,7 @@ export function randomAvatar(rng = Math.random, overrides = {}) {
   return { ...DEFAULT_AVATAR, ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([k,v])=>[k,pick(v)])), skin: pick(AVATAR_OPTIONS.skin), hair: pick(AVATAR_OPTIONS.hair), hairColor: pick(AVATAR_OPTIONS.hairColor), jersey, accent: pick(AVATAR_OPTIONS.accent.filter(c => c !== jersey)), shorts: pick(AVATAR_OPTIONS.shorts), shoes: pick(AVATAR_OPTIONS.shoes), headwear: pick(AVATAR_OPTIONS.headwear), headwearColor: pick(AVATAR_OPTIONS.headwearColor), number: Math.floor(rng() * 99) + 1, shades: rng() < 0.5, build: pick(AVATAR_OPTIONS.build), hand: rng() < 0.12 ? 'left' : 'right', ...overrides };
 }
 
-const JOINTS = ['root', 'spine', 'head', 'shR', 'elR', 'shL', 'elL', 'hipR', 'knR', 'hipL', 'knL'];
-const IDLE = { root: [0, 0, 0], spine: [0.04, 0, 0], head: [0, 0, 0], shR: [0.85, 0, 0.3], elR: [1.35, 0, 0], shL: [0.15, 0, -0.2], elL: [0.4, 0, 0], hipR: [0, 0, 0.04], knR: [-0.05, 0, 0], hipL: [0, 0, -0.04], knL: [-0.05, 0, 0], rootY: 0 };
-
-const K = {
-  backhand: [
-    { t: 0,    root: [0, 0.55, 0], spine: [0.06, 0.1, 0], head: [0, -0.5, 0], shR: [0.95, 0.15, -0.2], elR: [1.2, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 0.5,  root: [0, 2.0, 0], spine: [0.12, 0.35, 0.08], head: [0, -1.2, 0], shR: [0.15, -0.55, -1.45], elR: [0.25, 0, 0], shL: [0.35, 0, -1.0], elL: [0.6, 0, 0], hipR: [0.45, 0, 0.1], knR: [-0.35, 0, 0], hipL: [-0.3, 0, -0.08], knL: [-0.5, 0, 0], rootY: -0.04 },
-    { t: 0.62, root: [0, 0.75, 0], spine: [0.05, -0.15, 0], head: [0, -0.6, 0], shR: [0.05, 0.82, 1.45], elR: [0.08, 0, 0], shL: [0.5, 0, -0.85], elL: [0.9, 0, 0], hipR: [-0.15, 0, 0.1], knR: [-0.25, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.2, 0, 0], rootY: -0.03 },
-    { t: 0.8,  root: [0, -0.35, 0], spine: [0.05, -0.35, -0.08], head: [0, 0.1, 0], shR: [0.1, -0.5, -1.3], elR: [0.35, 0, 0], shL: [0.1, 0, -0.55], elL: [0.5, 0, 0], hipR: [-0.45, 0, 0.12], knR: [-0.55, 0, 0], hipL: [0.15, 0, -0.05], knL: [-0.15, 0, 0], rootY: 0 },
-    { t: 1,    root: [0, -0.45, 0], spine: [0.05, 0, 0], head: [0, 0.2, 0], shR: [0.35, 0, 0.3], elR: [0.4, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-  ],
-  forehand: [
-    { t: 0,    root: [0, 0.15, 0], spine: [0.05, 0, 0], head: [0, -0.15, 0], shR: [0.4, 0, 0.5], elR: [1.5, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 0.5,  root: [0, -0.35, 0], spine: [0.1, -0.2, 0.15], head: [0, 0.3, 0], shR: [-0.7, 0.3, 0.9], elR: [1.8, 0, 0], shL: [0.7, 0, -0.6], elL: [0.9, 0, 0], hipR: [-0.3, 0, 0.12], knR: [-0.55, 0, 0], hipL: [0.45, 0, -0.05], knL: [-0.35, 0, 0], rootY: -0.1 },
-    { t: 0.62, root: [0, 0.2, 0], spine: [0.05, 0.2, 0.05], head: [0, -0.2, 0], shR: [1.15, 0, 0.55], elR: [0.15, 0, 0], shL: [0.4, 0, -0.8], elL: [0.9, 0, 0], hipR: [-0.15, 0, 0.1], knR: [-0.3, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.2, 0, 0], rootY: -0.04 },
-    { t: 0.8,  root: [0, 0.6, 0], spine: [0.1, 0.4, -0.1], head: [0, -0.5, 0], shR: [1.3, 0, -0.7], elR: [0.6, 0, 0], shL: [0.1, 0, -0.5], elL: [0.5, 0, 0], hipR: [-0.5, 0, 0.15], knR: [-0.6, 0, 0], hipL: [0.1, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 1,    root: [0, 0.5, 0], spine: [0.05, 0, 0], head: [0, -0.3, 0], shR: [0.4, 0, 0.3], elR: [0.5, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-  ],
-  tomahawk: [
-    { t: 0,    root: [0, -0.3, 0], spine: [0.05, 0, 0], head: [0, 0.3, 0], shR: [0.9, 0, 0.35], elR: [1.4, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 0.5,  root: [0, -0.7, 0], spine: [-0.25, -0.2, 0.1], head: [0, 0.6, 0], shR: [-2.5, 0, 0.6], elR: [1.1, 0, 0], shL: [1.4, 0, -0.5], elL: [0.4, 0, 0], hipR: [-0.2, 0, 0.1], knR: [-0.4, 0, 0], hipL: [0.7, 0, -0.05], knL: [-0.9, 0, 0], rootY: -0.06 },
-    { t: 0.62, root: [0, 0.25, 0], spine: [0.25, 0.2, 0], head: [0, -0.1, 0], shR: [2.2, 0, 0.2], elR: [0.15, 0, 0], shL: [0.4, 0, -0.9], elL: [0.9, 0, 0], hipR: [-0.5, 0, 0.1], knR: [-0.3, 0, 0], hipL: [0.35, 0, -0.05], knL: [-0.25, 0, 0], rootY: -0.03 },
-    { t: 0.8,  root: [0, 0.5, 0], spine: [0.55, 0.3, 0], head: [0.3, -0.2, 0], shR: [1.0, 0, -0.6], elR: [0.5, 0, 0], shL: [0.1, 0, -0.5], elL: [0.5, 0, 0], hipR: [-0.7, 0, 0.15], knR: [-0.6, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.3, 0, 0], rootY: -0.05 },
-    { t: 1,    root: [0, 0.4, 0], spine: [0.1, 0, 0], head: [0, 0, 0], shR: [0.4, 0, 0.3], elR: [0.5, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-  ],
-  scoober: [
-    { t: 0,    root: [0, 0.1, 0], spine: [0.05, 0, 0], head: [0, -0.1, 0], shR: [0.5, 0, 0.5], elR: [1.4, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 0.5,  root: [0, -0.4, 0], spine: [0.2, -0.2, 0.2], head: [0, 0.4, 0], shR: [-0.5, 0.2, 0.75], elR: [1.4, 0, 0], shL: [0.6, 0, -0.6], elL: [0.9, 0, 0], hipR: [-0.2, 0, 0.12], knR: [-0.5, 0, 0], hipL: [0.4, 0, -0.05], knL: [-0.4, 0, 0], rootY: -0.1 },
-    { t: 0.62, root: [0, 0.15, 0], spine: [-0.05, 0.2, -0.05], head: [0, -0.1, 0], shR: [1.6, 0, -0.3], elR: [0.8, 0, 0], shL: [0.3, 0, -0.8], elL: [0.9, 0, 0], hipR: [-0.2, 0, 0.1], knR: [-0.3, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.2, 0, 0], rootY: -0.02 },
-    { t: 0.8,  root: [0, 0.5, 0], spine: [-0.15, 0.4, -0.15], head: [0, -0.4, 0], shR: [2.3, 0, -0.9], elR: [1.1, 0, 0], shL: [0.1, 0, -0.5], elL: [0.5, 0, 0], hipR: [-0.4, 0, 0.15], knR: [-0.5, 0, 0], hipL: [0.1, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 1,    root: [0, 0.4, 0], spine: [0.05, 0, 0], head: [0, -0.2, 0], shR: [0.4, 0, 0.3], elR: [0.5, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-  ],
-  blade: [
-    { t: 0,    root: [0, 0.15, 0], spine: [0.05, 0, 0], head: [0, -0.15, 0], shR: [0.4, 0, 0.5], elR: [1.5, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 0.5,  root: [0, -0.5, 0], spine: [-0.1, -0.25, 0.15], head: [0, 0.4, 0], shR: [-1.2, 0.3, 1.5], elR: [1.7, 0, 0], shL: [0.7, 0, -0.6], elL: [0.9, 0, 0], hipR: [-0.3, 0, 0.12], knR: [-0.55, 0, 0], hipL: [0.45, 0, -0.05], knL: [-0.35, 0, 0], rootY: -0.05 },
-    { t: 0.62, root: [0, 0.15, 0], spine: [0.15, 0.2, -0.05], head: [0, -0.2, 0], shR: [1.9, 0.2, 1.1], elR: [0.2, 0, 0], shL: [0.4, 0, -0.8], elL: [0.9, 0, 0], hipR: [-0.15, 0, 0.1], knR: [-0.3, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.2, 0, 0], rootY: -0.02 },
-    { t: 0.8,  root: [0, 0.55, 0], spine: [0.3, 0.4, -0.2], head: [0, -0.5, 0], shR: [2.2, 0, -0.6], elR: [0.6, 0, 0], shL: [0.1, 0, -0.5], elL: [0.5, 0, 0], hipR: [-0.5, 0, 0.15], knR: [-0.6, 0, 0], hipL: [0.1, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 1,    root: [0, 0.5, 0], spine: [0.05, 0, 0], head: [0, -0.3, 0], shR: [0.4, 0, 0.3], elR: [0.5, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-  ],
-  putt: [
-    { t: 0,    root: [0, 0, 0], spine: [0.15, 0, 0], head: [-0.1, 0, 0], shR: [0.7, 0, 0.2], elR: [1.7, 0, 0], shL: [0.3, 0, -0.6], elL: [0.4, 0, 0], hipR: [0.25, 0, 0.05], knR: [-0.5, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.5, 0, 0], rootY: -0.1 },
-    { t: 0.5,  root: [0, 0, 0], spine: [0.28, 0, 0], head: [-0.2, 0, 0], shR: [0.45, 0, 0.25], elR: [2.0, 0, 0], shL: [0.35, 0, -0.8], elL: [0.4, 0, 0], hipR: [0.4, 0, 0.05], knR: [-0.8, 0, 0], hipL: [0.4, 0, -0.05], knL: [-0.8, 0, 0], rootY: -0.17 },
-    { t: 0.62, root: [0, 0, 0], spine: [0.05, 0, 0], head: [-0.05, 0, 0], shR: [1.5, 0, 0.1], elR: [0.15, 0, 0], shL: [0.3, 0, -0.7], elL: [0.4, 0, 0], hipR: [-0.25, 0, 0.05], knR: [-0.35, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.25, 0, 0], rootY: -0.03 },
-    { t: 0.8,  root: [0, 0, 0], spine: [-0.05, 0, 0], head: [0, 0, 0], shR: [1.95, 0, 0.1], elR: [0.1, 0, 0], shL: [0.2, 0, -0.6], elL: [0.4, 0, 0], hipR: [-0.7, 0, 0.05], knR: [-0.2, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.15, 0, 0], rootY: 0 },
-    { t: 1,    root: [0, 0, 0], spine: [0.05, 0, 0], head: [0, 0, 0], shR: [1.2, 0, 0.2], elR: [0.4, 0, 0], shL: [0.15, 0, -0.3], elL: [0.4, 0, 0], hipR: [-0.35, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0.15, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-  ],
-};
-
-// Left-handers are the same motion reflected: swap sides, negate the yaw and roll of every joint.
-const MIRROR = { shR: 'shL', shL: 'shR', elR: 'elL', elL: 'elR', hipR: 'hipL', hipL: 'hipR', knR: 'knL', knL: 'knR' };
-const mirrorPose = t => { const m = { rootY: t.rootY }; for (const j of JOINTS) { const v = t[MIRROR[j] || j]; m[j] = [v[0], -v[1], -v[2]]; } return m; };
-const keysFor = t => K[t] || K[t.split('_')[0]] || K.backhand;
-function poseAt(keys, phase) {
-  let a = keys[0], b = keys[keys.length - 1];
-  for (let i = 0; i < keys.length - 1; i++) if (phase >= keys[i].t && phase <= keys[i + 1].t) { a = keys[i]; b = keys[i + 1]; break; }
-  let u = b.t === a.t ? 0 : (phase - a.t) / (b.t - a.t);
-  u = u * u * (3 - 2 * u);
-  const out = {};
-  for (const j of JOINTS) { const pa = a[j] || IDLE[j], pb = b[j] || IDLE[j]; out[j] = [pa[0] + (pb[0] - pa[0]) * u, pa[1] + (pb[1] - pa[1]) * u, pa[2] + (pb[2] - pa[2]) * u]; }
-  out.rootY = (a.rootY || 0) + ((b.rootY || 0) - (a.rootY || 0)) * u;
-  return out;
-}
+import { JOINTS, IDLE, K, mirrorPose, keysFor, poseAt } from './throw-poses.js';
 
 export function createCharacter(opts = {}) {
   const a = { ...DEFAULT_AVATAR, ...(opts.color ? { jersey: opts.color } : {}), ...(opts.skin ? { skin: opts.skin } : {}), ...(opts.cap ? { headwearColor: opts.cap } : {}), ...opts };
@@ -137,6 +76,7 @@ export function createCharacter(opts = {}) {
   for(const [name,j] of Object.entries(joints))j.name=name;
   g.traverse(o=>{if(o.isMesh)o.castShadow=true;});
 
+  const motionEuler = new THREE.Euler(), motionA = new THREE.Quaternion(), motionB = new THREE.Quaternion();
   const cur = {}; for (const j of JOINTS) cur[j] = [...IDLE[j]]; cur.rootY = 0;
   let throwType = 'backhand', phase = null, time = Math.random() * 10, mood = null, locomotion = null;
   const apply = () => { for (const j of JOINTS) joints[j].rotation.set(cur[j][0], cur[j][1], cur[j][2]); root.position.y = ROOT_Y + cur.rootY; };
@@ -160,10 +100,19 @@ export function createCharacter(opts = {}) {
         if(mood) { mood.t+=dt;const strength=Math.sin(Math.min(1,mood.t/2.4)*Math.PI);if(mood.name==='celebrate'){target.shR[0]=2.9*strength;target.shL[0]=2.9*strength;target.elR[0]=.4;target.elL[0]=.4;target.rootY=.1*strength;}else{target.spine[0]=.28*strength;target.head[0]=.35*strength;target.shR[0]=.1;}if(mood.t>=2.4)mood=null; }
       } else target = poseAt(keysFor(throwType), phase);
       if (lefty) target = mirrorPose(target);
-      const k = 1 - Math.exp(-(phase === null ? 7 : 30) * dt);
+      const k = phase === null ? 1 - Math.exp(-7 * dt) : 1; // phase is already eased by the shared key sampler
       for (const j of JOINTS) for (let i = 0; i < 3; i++) cur[j][i] += (target[j][i] - cur[j][i]) * k;
       cur.rootY += (target.rootY - cur.rootY) * k;
       apply();
+      if (phase !== null) {
+        // Blender bakes the same eased Euler poses at 50 Hz; glTF interpolates quaternions.
+        // Sample that exact contract in Lite so fast release frames do not drift between rigs.
+        const frame=THREE.MathUtils.clamp(phase,0,1)*50,lo=Math.floor(frame),u=frame-lo;
+        let a0=poseAt(keysFor(throwType),lo/50),a1=poseAt(keysFor(throwType),Math.min(50,lo+1)/50);
+        if(lefty){a0=mirrorPose(a0);a1=mirrorPose(a1);}
+        for(const j of JOINTS){motionA.setFromEuler(motionEuler.fromArray([...a0[j],'XYZ']));motionB.setFromEuler(motionEuler.fromArray([...a1[j],'XYZ']));joints[j].quaternion.copy(motionA).slerp(motionB,u);}
+        root.position.y=ROOT_Y+a0.rootY+(a1.rootY-a0.rootY)*u;
+      }
     },
     faceDir(dx, dz) { g.rotation.y = Math.atan2(-dx, -dz); },
     dispose() { face.dispose(); g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); for(const m of materials)m.dispose(); },

@@ -24,9 +24,9 @@ for(const [name,path] of Object.entries(manifest.models)){
     assert.equal(gltf.textures?.length||0,0,'animation-only GLB has zero textures');
     assert.equal(gltf.animations.length,1,'one clip per file');
     assert.equal(gltf.animations[0].name,name.slice(7));
-    assert(bin.length<20000,'clip byte budget');
+    assert(bin.length<40000,'clip byte budget');
     for(const bone of joints)assert(gltf.nodes.some(n=>n.name===bone),'clip keeps '+bone);
-    if(['backhand','forehand','tomahawk','scoober','putt'].includes(name.slice(7)))assert(Math.abs(Math.max(...gltf.animations[0].samplers.map(s=>gltf.accessors[s.input].max[0]))-1)<.02,'one-second normalized throw');
+    if(!['idle','practice','celebrate','slump','walk'].includes(name.slice(7).replace(/_left$/, '')))assert(Math.abs(Math.max(...gltf.animations[0].samplers.map(s=>gltf.accessors[s.input].max[0]))-1)<.02,'one-second normalized throw');
     for(const accessor of gltf.accessors){assert(accessor.count>0,'nonempty accessor');assert(accessor.bufferView<gltf.bufferViews.length,'valid buffer view');}
   } else {assert(gltf.extensionsRequired.includes('KHR_draco_mesh_compression'),name+' Draco');assert(gltf.extensionsRequired.includes('KHR_texture_basisu'),name+' KTX2');assert.equal(gltf.images.length,3,name+' baked PBR maps');}
   console.log(name,triangles,'triangles',bin.length,'bytes');

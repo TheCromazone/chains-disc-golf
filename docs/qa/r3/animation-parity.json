@@ -1,0 +1,225 @@
+{
+  "errors": [],
+  "report": [
+    {
+      "hand": "right",
+      "id": "backhand",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000005582393121963496,
+      "maxQuaternionError": 0.000023291839883865517,
+      "positiveScale": true,
+      "socketParent": "elR"
+    },
+    {
+      "hand": "right",
+      "id": "backhand_io",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000005283603645684801,
+      "maxQuaternionError": 0.000020582518928058402,
+      "positiveScale": true,
+      "socketParent": "elR"
+    },
+    {
+      "hand": "right",
+      "id": "backhand_oi",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000005945646402344119,
+      "maxQuaternionError": 0.00002637723443976725,
+      "positiveScale": true,
+      "socketParent": "elR"
+    },
+    {
+      "hand": "right",
+      "id": "forehand",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.00000642012009463836,
+      "maxQuaternionError": 0.000022654152848661235,
+      "positiveScale": true,
+      "socketParent": "elR"
+    },
+    {
+      "hand": "right",
+      "id": "forehand_io",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000006319640897901066,
+      "maxQuaternionError": 0.000020123723448839392,
+      "positiveScale": true,
+      "socketParent": "elR"
+    },
+    {
+      "hand": "right",
+      "id": "forehand_oi",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.0000065689471100714946,
+      "maxQuaternionError": 0.000025435578198840236,
+      "positiveScale": true,
+      "socketParent": "elR"
+    },
+    {
+      "hand": "right",
+      "id": "blade",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000007969437056437949,
+      "maxQuaternionError": 0.00002848660914686607,
+      "positiveScale": true,
+      "socketParent": "elR"
+    },
+    {
+      "hand": "right",
+      "id": "tomahawk",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.00000413726220303098,
+      "maxQuaternionError": 0.00001806444996896306,
+      "positiveScale": true,
+      "socketParent": "elR"
+    },
+    {
+      "hand": "right",
+      "id": "scoober",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000010192745913038135,
+      "maxQuaternionError": 0.000027125239971642623,
+      "positiveScale": true,
+      "socketParent": "elR"
+    },
+    {
+      "hand": "right",
+      "id": "putt",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.0000022736755200188034,
+      "maxQuaternionError": 0.0000096909887299379,
+      "positiveScale": true,
+      "socketParent": "elR"
+    },
+    {
+      "hand": "left",
+      "id": "backhand",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000005582393121963496,
+      "maxQuaternionError": 0.000023291839883865517,
+      "positiveScale": true,
+      "socketParent": "elL"
+    },
+    {
+      "hand": "left",
+      "id": "backhand_io",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000005283603645684801,
+      "maxQuaternionError": 0.000020582518928058402,
+      "positiveScale": true,
+      "socketParent": "elL"
+    },
+    {
+      "hand": "left",
+      "id": "backhand_oi",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000005945646402344119,
+      "maxQuaternionError": 0.00002637723443976725,
+      "positiveScale": true,
+      "socketParent": "elL"
+    },
+    {
+      "hand": "left",
+      "id": "forehand",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.00000642012009463836,
+      "maxQuaternionError": 0.000022654152848661235,
+      "positiveScale": true,
+      "socketParent": "elL"
+    },
+    {
+      "hand": "left",
+      "id": "forehand_io",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000006319640897901066,
+      "maxQuaternionError": 0.000020123723448839392,
+      "positiveScale": true,
+      "socketParent": "elL"
+    },
+    {
+      "hand": "left",
+      "id": "forehand_oi",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.0000065689471100714946,
+      "maxQuaternionError": 0.000025435578198840236,
+      "positiveScale": true,
+      "socketParent": "elL"
+    },
+    {
+      "hand": "left",
+      "id": "blade",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000007969437056437949,
+      "maxQuaternionError": 0.00002848660914686607,
+      "positiveScale": true,
+      "socketParent": "elL"
+    },
+    {
+      "hand": "left",
+      "id": "tomahawk",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.00000413726220303098,
+      "maxQuaternionError": 0.00001806444996896306,
+      "positiveScale": true,
+      "socketParent": "elL"
+    },
+    {
+      "hand": "left",
+      "id": "scoober",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.000010192745913038135,
+      "maxQuaternionError": 0.000027125239971642623,
+      "positiveScale": true,
+      "socketParent": "elL"
+    },
+    {
+      "hand": "left",
+      "id": "putt",
+      "fullSource": "glb",
+      "liteSource": "procedural",
+      "clipPresent": true,
+      "maxPositionError": 0.0000022736755200188034,
+      "maxQuaternionError": 0.0000096909887299379,
+      "positiveScale": true,
+      "socketParent": "elL"
+    }
+  ]
+}
