@@ -10,7 +10,7 @@ export function unlock() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
   ctx = new AC();
-  master = ctx.createGain(); master.gain.value = VOL;
+  master = ctx.createGain(); master.gain.value = muted ? 0 : VOL;
   const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -20; lim.knee.value = 10; lim.ratio.value = 12; lim.attack.value = 0.002; lim.release.value = 0.12;
   master.connect(lim); lim.connect(ctx.destination);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
@@ -71,15 +71,15 @@ const chainCascade = (t0, hits, loud) => {  // N link collisions, dense then spa
 export const sfx = {
   whoosh(power = 1) { if (!ctx) return; if (play('whoosh', { gain: 0.5 + power * 0.5, rate: 0.9 + power * 0.25 })) return;
     burst(0.4 + power * 0.55, { f0: 900 + power * 1500, f1: 220, q: 0.7, gain: 0.1 + power * 0.22, attack: 0.012, lfo: [rnd(17, 26), 0.35] }); },
-  chains() { if (!ctx) return; if (play('chains')) return;
+  chains(power = 0.6) { if (!ctx) return; if (play(power < 0.35 ? 'chains_soft' : power > 0.75 ? 'chains_fast' : 'chains_medium') || play('chains')) return;
     const t0 = now(); burst(0.05, { f0: 2600, f1: 1100, q: 0.5, gain: 0.45, t0 });
     const len = chainCascade(t0, Math.round(rnd(20, 30)), 0.22); trayDrop(t0 + Math.max(0.2, len * 0.8)); },
-  drop() { if (!ctx) return; if (play('chains', { gain: 0.6 })) return; const t0 = now(); chainCascade(t0, 6, 0.12); trayDrop(t0 + 0.08, 1.1); },
+  drop() { if (!ctx) return; if (play('tray') || play('chains', { gain: 0.6 })) return; const t0 = now(); chainCascade(t0, 6, 0.12); trayDrop(t0 + 0.08, 1.1); },
   chainout() { if (!ctx) return; if (play('chainout')) return; const t0 = now(); burst(0.04, { f0: 3000, f1: 1500, q: 0.5, gain: 0.35, t0 }); chainCascade(t0, 9, 0.2); },
   band() { if (!ctx) return; if (play('band')) return; const t0 = now();
     burst(0.05, { f0: 1800, f1: 600, q: 0.5, gain: 0.35, t0 }); ring(rnd(820, 980), [1, 1.58, 2.32, 3.1], [1, 0.5, 0.3, 0.15], 0.32, 0.3, { t0, send: 0.45 }); partial(170, 0.12, 0.16, { f1: 90, t0 }); chainCascade(t0 + 0.02, 4, 0.08); },
   pole() { if (!ctx) return; if (play('band', { rate: 0.7 })) return; const t0 = now(); burst(0.04, { f0: 1200, f1: 500, q: 0.6, gain: 0.3, t0 }); ring(rnd(480, 560), [1, 2.76, 5.4], [1, 0.35, 0.15], 0.22, 0.3, { t0, send: 0.4 }); },
-  thud(k = 1) { if (!ctx) return; if (play('thud', { gain: k, rate: rnd(0.9, 1.1) })) return; const t0 = now();
+  thud(k = 1) { if (!ctx) return; if (play('grass', {gain:k}) || play('thud', { gain: k, rate: rnd(0.9, 1.1) })) return; const t0 = now();
     partial(105, 0.16, 0.34 * k, { f1: 48, t0 }); burst(0.09, { f0: 420, f1: 120, q: 0.7, gain: 0.3 * k, type: 'lowpass', t0 }); burst(0.24, { f0: 2600, f1: 1500, q: 0.4, gain: 0.07 * k, type: 'highpass', t0: t0 + 0.01, attack: 0.02 }); },
   skip() { if (!ctx) return; if (play('skip')) return; const t0 = now(); burst(0.07, { f0: 800, f1: 300, q: 0.7, gain: 0.22, t0 }); partial(150, 0.07, 0.18, { f1: 70, t0 }); burst(0.14, { f0: 3000, f1: 1800, q: 0.4, gain: 0.05, type: 'highpass', t0 }); },
   tree() { if (!ctx) return; if (play('tree')) return; const t0 = now();
@@ -92,7 +92,12 @@ export const sfx = {
     for (let i = 0; i < 6; i++) partial(rnd(1400, 3600), 0.03, 0.04, { f1: 900, t0: t0 + rnd(0.12, 0.55) }); },
   roll() { if (!ctx) return; if (play('roll')) return; burst(0.9, { f0: 320, f1: 140, q: 0.5, gain: 0.2, type: 'lowpass', attack: 0.03, lfo: [rnd(4, 7), 0.6] }); },
   click() { if (!ctx) return; if (play('click', { gain: 0.6 })) return; partial(2300, 0.03, 0.05, { f1: 1600 }); burst(0.012, { f0: 4200, q: 1.5, gain: 0.04 }); },
-  fanfare(kind) { if (!ctx) return; if (play('fanfare_' + kind)) return;
+  applause() { if (!ctx) return; if (play('applause')) return;
+    for (let i=0;i<24;i++) burst(.065, {f0:rnd(900,1900),gain:rnd(.04,.11),t0:now()+i*.055+rnd(0,.035),send:.3}); },
+  ohh() { if (!ctx) return; if (play('ohh')) return;
+    // Wordless descending vowel fallback; never represented as a recording.
+    for (const f of [190,238,285]) partial(f,1.3,.035,{f1:f*.66,type:'triangle',send:.45,attack:.12}); },
+  fanfare(kind) { if (!ctx) return; if ((['birdie','eagle','ace'].includes(kind) && play('birdie_jingle')) || play('fanfare_' + kind)) return;
     const seq = kind === 'ace' ? [523, 659, 784, 1047, 1319] : kind === 'eagle' ? [523, 659, 784, 1047] : kind === 'birdie' ? [659, 784, 1047] : [523, 659];
     seq.forEach((f, i) => { const t0 = now() + i * 0.12; partial(f, 0.4, 0.13, { t0, send: 0.5 }); partial(f * 4, 0.07, 0.03, { t0, send: 0.3 }); }); },  // marimba-ish
   bad() { if (!ctx) return; if (play('bad')) return; partial(230, 0.35, 0.1, { f1: 140, type: 'triangle', send: 0.3 }); },
@@ -125,11 +130,11 @@ async function loadSamples() {
   try {
     const m = await fetch('assets/manifest.json').then(r => r.ok ? r.json() : null);
     if (!m?.sfx) return;
-    await Promise.all(Object.entries(m.sfx).map(async ([name, url]) => {
+    await Promise.allSettled(Object.entries(m.sfx).map(async ([name, url]) => {
       const buf = await fetch('assets/' + url).then(r => r.ok ? r.arrayBuffer() : null); if (!buf) return;
       samples[name] = await ctx.decodeAudioData(buf);
     }));
-  } catch (e) { console.warn('sfx samples', e); }
+  } catch { /* Optional recordings retain their synth fallback independently. */ }
 }
 function play(name, { gain = 1, rate = 1, loop = false, send = 0.25 } = {}) {
   const b = samples[name]; if (!b) return false;
