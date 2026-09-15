@@ -36,10 +36,11 @@ export function createGLTFCharacter(avatar) {
   const build = { slim: .93, athletic: 1, broad: 1.1 }[avatar.build] || 1; actor.scale.x *= build;
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map(src.animations.map(c => [c.name, mixer.clipAction(c)]));
-  let phase = null, throwType = 'backhand', active = null, time = Math.random() * 8, mood = null;
+  let phase = null, throwType = 'backhand', active = null, time = Math.random() * 8, mood = null, previous = null, blend = 1, frameDt = 0;
   function sample(name, at) {
     const action = actions.get(name); if (!action) return;
-    if (active !== action) { active?.stop(); active = action; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
+    if (active !== action) { previous?.stop(); previous=active; active=action; blend=phase===null?0:1; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished=true; action.play(); }
+    blend=Math.min(1,blend+frameDt/.22); active.setEffectiveWeight(blend); previous?.setEffectiveWeight(1-blend); if(blend===1){previous?.stop();previous=null;}
     action.paused = true; action.time = THREE.MathUtils.clamp(at, 0, action.getClip().duration - .00001); mixer.update(0);
   }
   const api = {
@@ -47,7 +48,7 @@ export function createGLTFCharacter(avatar) {
     setThrow(t) { throwType = t; }, setPhase(p) { phase = p; if (p !== null) mood = null; }, getPhase() { return phase; },
     react(kind) { mood = { name: kind, t: 0 }; phase = null; },
     update(dt) {
-      time += dt;
+      frameDt=dt; time += dt;
       if (phase !== null) { const a = actions.get(throwType); sample(throwType, phase * (a?.getClip().duration || 1)); }
       else if (mood) { mood.t += dt; sample(mood.name, mood.t); if (mood.t >= (actions.get(mood.name)?.getClip().duration || 2.4)) mood = null; }
       else { const names = ['idle_weight', 'idle_look', 'idle_weight', 'idle_practice']; const name = names[Math.floor(time / 4) % names.length]; sample(name, time % 4); }

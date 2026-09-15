@@ -211,7 +211,9 @@ function launchNow() {
 }
 function updateFlight(dt) {
   const f = G.flight, p = G.players[f.pi], n = f.traj.length;
-  f.t += dt;
+  const chainAt=f.events.find(e=>e[1]==='chains')?.[0];
+  f.playbackRate=chainAt!==undefined && f.t>chainAt-.15 && f.t<chainAt+.40 ? .28 : 1;
+  dt*=f.playbackRate; f.t += dt;
   const fi = f.t * 60, i = Math.min(Math.floor(fi), n - 1), a = f.traj[i], b = f.traj[Math.min(i + 1, n - 1)], u = Math.min(1, fi - i);
   const pos = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
   const nn = [a[3] + (b[3] - a[3]) * u, a[4] + (b[4] - a[4]) * u, a[5] + (b[5] - a[5]) * u];
@@ -232,6 +234,7 @@ function resolveThrow(pi, r) {
   let title, sub;
   if (r.holed) {
     p.done = true; p.scores[G.holeIdx] = p.strokes;
+    p.char.react?.(p.strokes<h.par?'celebrate':p.strokes>h.par?'slump':'idle_weight');
     title = UI.scoreName(p.strokes, h.par); sub = `${p.name} · ${p.strokes} throw${p.strokes > 1 ? 's' : ''}`;
     sfx.fanfare(p.strokes === 1 ? 'ace' : p.strokes - h.par <= -2 ? 'eagle' : p.strokes - h.par === -1 ? 'birdie' : 'par');
   } else if (r.ob) { p.strokes++; p.lie = r.lie; title = 'Out of bounds'; sub = '+1 penalty · play from where it went out'; }
@@ -333,12 +336,15 @@ function updateCamera(dt) {
     cam.tPos.set(cx + Math.cos(t) * 170, world.height(cx, cz) + 95, cz + Math.sin(t) * 170); cam.tLook.set(cx, world.height(cx, cz), cz); k = 1.5;
   } else if (cam.mode === 'intro') {
     const d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
-    const u = ease(Math.min(1, G.introT / 3.4));
-    _v.set(h.basket[0] - d[0] * 18, h.basketY + 26, h.basket[1] - d[1] * 18);   // start above, behind the basket looking back at the tee
-    _v2.set(h.tee[0] - d[0] * 6, h.teeY + 3.2, h.tee[1] - d[1] * 6);
-    cam.pos.lerpVectors(_v, _v2, u);
-    _v.set(h.tee[0], h.teeY + 1, h.tee[1]); _v2.set(h.basket[0], h.basketY + 1, h.basket[1]);
-    cam.look.lerpVectors(_v, _v2, u);
+    const orbit=Math.min(1,G.introT/1.25), u=ease(Math.max(0,Math.min(1,(G.introT-1.25)/3.35)));
+    const r=rightOf(d), angle=-.75+orbit*.9;
+    const start=new THREE.Vector3(h.basket[0]+d[0]*Math.cos(angle)*7+r[0]*Math.sin(angle)*7,h.basketY+3.1,h.basket[1]+d[1]*Math.cos(angle)*7+r[1]*Math.sin(angle)*7);
+    const end=new THREE.Vector3(h.tee[0]-d[0]*5.6,h.teeY+2.3,h.tee[1]-d[1]*5.6);
+    cam.pos.lerpVectors(start,end,u); cam.pos.y+=Math.sin(u*Math.PI)*Math.min(14,L*.13);
+    cam.pos.y=Math.max(cam.pos.y,world.height(cam.pos.x,cam.pos.z)+1.6);
+    _v.set(h.basket[0],h.basketY+1.0,h.basket[1]);
+    _v2.set(h.tee[0]+d[0]*16,h.teeY+.5,h.tee[1]+d[1]*16);
+    cam.look.lerpVectors(_v,_v2,u);
     camera.position.copy(cam.pos); camera.lookAt(cam.look); return;
   } else if (cam.mode === 'aim' || (cam.mode === 'result' && !G.flight)) {
     const p = curP(); if (!p) return;
@@ -347,7 +353,10 @@ function updateCamera(dt) {
       const dist = Math.max(20, distToBasket(lie.x, lie.z));
       const mx = (lie.x + basketPos()[0]) / 2, mz = (lie.z + basketPos()[1]) / 2;
       cam.tPos.set(mx - d[0] * dist * 0.22, world.height(mx, mz) + Math.max(45, dist * 0.95), mz - d[1] * dist * 0.22); cam.tLook.set(mx, world.height(mx, mz), mz); k = 4;
-    } else if (cam.mode === 'result') { k = 2.5; }
+    } else if (cam.mode === 'result') {
+      const r=rightOf(d);cam.tPos.set(lie.x+d[0]*3.5+r[0]*1.7,lie.y+1.65,lie.z+d[1]*3.5+r[1]*1.7);
+      cam.tLook.set(lie.x,lie.y+1.1,lie.z); k=2.5;
+    }
     else {
       const pitchLift = G.aim.pitch * 0.06;
       const back = camera.aspect < 0.8 ? 5.6 : 4.8;
@@ -359,7 +368,7 @@ function updateCamera(dt) {
     if (f && f.pos) {
       _v3.set(f.hv[0], 0, f.hv[2]); if (_v3.lengthSq() > 1e-6) cam.lastHv.copy(_v3.normalize());
       const hv = cam.lastHv, sp = Math.hypot(f.hv[0], f.hv[2]) * 60;
-      const back = 5.5 + Math.min(4, sp * 0.12);
+      const back = f.playbackRate<1 ? 2.1 : 5.5 + Math.min(4, sp * 0.12);
       cam.tPos.set(f.pos[0] - hv.x * back, f.pos[1] + 2.4, f.pos[2] - hv.z * back); cam.tLook.set(f.pos[0], f.pos[1] + 0.2, f.pos[2]); k = 6;
       cam.tPos.y = Math.max(cam.tPos.y, world.height(cam.tPos.x, cam.tPos.z) + 1.7);
     }
@@ -376,10 +385,10 @@ function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(G.maxDt || 0.05, clock.getDelta()); time += dt;
   if (!course) return;
-  if (G.phase === 'intro') { G.introT += dt; if (G.introT > 3.5 || G.inbox.length) nextTurn(); }
+  if (G.phase === 'intro') { G.introT += dt; if (G.introT > 4.7 || G.inbox.length) nextTurn(); }
   if (G.inbox.length && G.phase === 'aim' && G.mode === 'online') applyRemoteThrow(G.inbox.shift());
   if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
-  if (G.phase === 'release' && G.pending) {
+  if (G.pending && (G.phase === 'release' || G.phase === 'flight' || G.phase === 'result')) {
     G.releaseT += dt; const p = G.players[G.pending.pi];
     const ph = 0.5 + Math.min(0.5, G.releaseT / 0.7 * 0.5); p.char.setPhase(ph);
     if (!G.pending.fired && ph >= 0.62) { G.pending.fired = true; launchNow(); }

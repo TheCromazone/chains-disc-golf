@@ -37,3 +37,11 @@
 - Water uses 256px planar reflection targets, refreshed every third visible nearby render. Full lighting reduces ambient fill to preserve form.
 - Graphics changes now rebuild the course and dispose the previous composer. Corrected the existing menu-camera/sign collision.
 - Browser compiled Full on all three courses without errors; physics passes. Before: 02-models-after.png. After: 03-rendering-after.png. Device performance remains for milestone 6.
+
+## Milestone 4 — animation and camera
+
+- GLB AnimationMixer actions are authoritative when present, including all five throws, weight shift, fairway look, practice swing, celebration and slump. Procedural pose tables remain solely for empty-assets fallback.
+- Idle transitions blend over 220 ms; windup remains directly scrubbed through phase 0–0.5. Follow-through now finishes after launch changes the game phase to flight (the previous loop stopped at release).
+- Hole introductions orbit the basket then rise and travel back to the tee in 4.7 seconds. Result cameras frame the golfer; birdie or better triggers celebration and bogey or worse triggers slump.
+- Chain contacts play at 28% presentation speed from 150 ms before to 400 ms after impact. Simulation samples, event times and online message shapes are unchanged.
+- All five clips sampled at phases 0/.25/.5/.62/.8/1 with finite, distinct bone rotations. Runtime throw finishes follow-through; no console errors. Physics passes. Before: 03-rendering-after.png. After: 04-intro-after.png.
