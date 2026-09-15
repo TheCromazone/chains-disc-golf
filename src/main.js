@@ -408,7 +408,7 @@ function updateCamera(dt) {
     cam.pos.y=Math.max(cam.pos.y,world.height(cam.pos.x,cam.pos.z)+1.6);
     _v.set(h.basket[0],h.basketY+1.0,h.basket[1]);
     _v2.set(h.tee[0]+d[0]*16,h.teeY+.5,h.tee[1]+d[1]*16);
-    cam.look.lerpVectors(_v,_v2,u);
+    cam.look.lerpVectors(_v,_v2,ease(Math.max(0,(u-.55)/.45)));   // hold the basket in frame while flying back; a linear blend pointed straight down at grass mid-flight
     camera.position.copy(cam.pos); camera.lookAt(cam.look); return;
   } else if (cam.mode === 'aim' || (cam.mode === 'result' && !G.flight)) {
     const p = curP(); if (!p) return;
