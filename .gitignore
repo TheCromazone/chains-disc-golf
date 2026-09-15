@@ -4,3 +4,9 @@ Thumbs.db
 .claude/
 *.blend1
 art/processed/
+art/unity/Library/
+art/unity/Temp/
+art/unity/Logs/
+art/unity/obj/
+art/unity/UserSettings/
+art/unity/Assets/*.unity*

@@ -6,6 +6,14 @@ import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Water } from 'three/addons/objects/Water.js';
+import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+
+export async function loadSky(renderer, url) {
+  if(!url)return null;
+  try { const texture=await new EXRLoader().loadAsync(url);texture.mapping=THREE.EquirectangularReflectionMapping;
+    const generator=new THREE.PMREMGenerator(renderer),target=generator.fromEquirectangular(texture);generator.dispose();return {texture,target};
+  } catch {return null;}
+}
 
 export function postprocessing(renderer, scene, camera) {
   const composer = new EffectComposer(renderer);

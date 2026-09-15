@@ -45,3 +45,11 @@
 - Hole introductions orbit the basket then rise and travel back to the tee in 4.7 seconds. Result cameras frame the golfer; birdie or better triggers celebration and bogey or worse triggers slump.
 - Chain contacts play at 28% presentation speed from 150 ms before to 400 ms after impact. Simulation samples, event times and online message shapes are unchanged.
 - All five clips sampled at phases 0/.25/.5/.62/.8/1 with finite, distinct bone rotations. Runtime throw finishes follow-through; no console errors. Physics passes. Before: 03-rendering-after.png. After: 04-intro-after.png.
+
+## Milestone 5 — Unity offline art
+
+- Unity 6000.6.0f1 batch renderer completed three 1280×960 JPEG course views and three 1024×512 half-float EXR HDR panoramas. Full loads the selected panorama and builds a PMREM reflection environment; Lite keeps the analytic sky.
+- Course geometry input is sampled from the actual web height field, tree colliders, ponds and hole positions. Unity uses inexpensive stand-in trees for the offline overview; generated hero art remains the menu default. Engine renders are available in manifest.renders.
+- Reproducible Unity editor source and sampled layout are in art/unity. Generated Library, temporary scenes and editor caches are excluded from Git and deployment. No Unity player or WebGL build is shipped.
+- Browser verified a 1024-wide half-float HDR background with reflection environment and no errors. Unity batch returned success (docs/qa/unity-render.log).
+- Before: 03-rendering-after.png. After: 05-unity-sky-after.png. Render outputs are assets/courses/*_unity.jpg and assets/skies/*.exr.

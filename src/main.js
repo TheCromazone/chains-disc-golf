@@ -94,7 +94,8 @@ async function loadCourse(id) {
   course?.dispose(); post?.dispose(); post = null;
   effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
   if (effects) { post = effects.postprocessing(renderer,scene,camera); resize(); }
-  course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects });
+  const hdri = effects ? await effects.loadSky(renderer, asset('skies', def.id)) : null;
+  course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, hdri });
   world = course.world; holes = course.holes; course.setHole(0);
   G.courseId = def.id; saveLocal('chains.course', def.id); updateHub();
   if (hero) placeHero();

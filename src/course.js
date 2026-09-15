@@ -144,7 +144,7 @@ export function fairwayInfo(holes, x, z) { // nearest fairway polyline: distance
 }
 
 // ---------- main build ----------
-export function buildCourse(scene, renderer, { course: def = COURSES[0], quality = 'high', effects = null } = {}) {
+export function buildCourse(scene, renderer, { course: def = COURSES[0], quality = 'high', effects = null, hdri = null } = {}) {
   const seed = def.seed;
   const windClock = { value: 0 }, waters = [];
   const noise = makeNoise(seed), rng = makeRng(seed * 7919 + 13);
@@ -314,7 +314,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1]));
   su.sunPosition.value.copy(sunDir);
   const pmrem = new THREE.PMREMGenerator(renderer); const envScene = new THREE.Scene(); envScene.add(sky);
-  const envRT = pmrem.fromScene(envScene); scene.environment = envRT.texture; scene.environmentIntensity = quality === 'low' ? 1 : .32; envScene.remove(sky); scene.add(sky); pmrem.dispose();
+  const envRT = hdri?.target || pmrem.fromScene(envScene); scene.environment = envRT.texture; scene.environmentIntensity = quality === 'low' ? 1 : .32; envScene.remove(sky); scene.add(sky); pmrem.dispose();
+  if(hdri){sky.visible=false;scene.background=hdri.texture;}
   scene.fog = new THREE.FogExp2(def.fog[0], def.fog[1]);
   const sun = new THREE.DirectionalLight(def.sunColor, quality === 'low' ? 2.3 : 3.1); sun.castShadow = true;
   const sm = quality === 'low' ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
@@ -332,7 +333,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if (focus) { sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 180); }
   };
   const dispose = () => {   // tear down so another course can be built into the same scene
-    scene.remove(group, sky, sun, sun.target, hemi); scene.fog = null; scene.environment = null; envRT.dispose();
+    scene.remove(group, sky, sun, sun.target, hemi); scene.fog = null; scene.environment = null; scene.background = null; envRT.dispose(); hdri?.texture.dispose();
     group.traverse(o => { if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };

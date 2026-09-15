@@ -44,5 +44,15 @@
     "deciduous": "models/deciduous.glb",
     "bush": "models/bush.glb",
     "grass": "models/grass.glb"
+  },
+  "skies": {
+    "pine": "skies/pine.exr",
+    "meadow": "skies/meadow.exr",
+    "lake": "skies/lake.exr"
+  },
+  "renders": {
+    "pine": "courses/pine_unity.jpg",
+    "meadow": "courses/meadow_unity.jpg",
+    "lake": "courses/lake_unity.jpg"
   }
 }
