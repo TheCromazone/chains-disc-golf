@@ -1,7 +1,7 @@
 /* Chains / resort sports: clean aqua, coral actions, refractive white glass. */
 :root {
   --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
-  --pad-h: clamp(170px, 29vh, 270px); --accent: #087d9c; --ink: #12374e;
+  --pad-h: 120px; --accent: #087d9c; --ink: #12374e;
   --text: #153a50; --muted: #426378; --border: #ffffffa6;
   --surface: linear-gradient(145deg, #ffffffb8, #e4f7ff94); --ease: cubic-bezier(.2, 0, 0, 1);
 }
@@ -239,7 +239,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 
 /* Mii creator: one part family at a time, with the live figure above the tray. */
 .overlay.locker .panel { max-height: 56vh; width: min(440px, 100%); padding: 16px; gap: 10px; }
-.locker-preview-label { position: absolute; top: calc(20px + var(--sat)); left: 22px; color: #fff; font-size: 22px; font-weight: 800; text-shadow: 0 2px 6px #126a9070; }
+.locker-preview-label { position: absolute; top: calc(20px + var(--sat)); left: 22px; color: #153a50; font-size: 22px; font-weight: 800; text-shadow: 0 1px 0 #ffffff9c; }
 .locker-preview-label span { display: block; margin-top: 3px; font-size: 11px; font-weight: 600; letter-spacing: .5px; }
 #avOpts { gap: 10px; }
 .locker-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -283,3 +283,13 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 @media (prefers-reduced-motion: reduce) { #toast.show { transform: translate(-50%, -8px); } }
 
 .ccard .cinfo b, .ccard .chev { color: #fff; }
+
+/* Recover the portrait fairway without hiding equipment behind extra taps. */
+@media (orientation: portrait) {
+  :root { --pad-h: 120px; }
+  #pad { gap: 4px; padding-top: 14px; padding-bottom: calc(10px + var(--sab)); }
+  #hintArrow { width: 44px; height: 32px; }
+  #hintArrow .icon { width: 30px; height: 30px; stroke-width: 2; }
+  #hintText { font-size: 11px; letter-spacing: .35px; }
+  #hintSub { max-width: 100%; font-size: 10px; line-height: 1.3; }
+}
