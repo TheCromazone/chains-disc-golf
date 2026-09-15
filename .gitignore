@@ -18,3 +18,7 @@ art/unity/ProjectSettings/SceneTemplateSettings.json
 __pycache__/
 .env
 .env.local
+# Reproducible QA intermediates; retain the final video, boards and JSON reports.
+docs/qa/r3/animation-frames.json
+docs/qa/r3/animation-parity-run.txt
+docs/qa/r3/page@*.webm

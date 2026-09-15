@@ -17,7 +17,7 @@ const audit = name => {
     for (let j = i + 1; j < els.length; j++) { const b = els[j]; if (a.contains(b) || b.contains(a)) continue; const rb = R(b);
       const ox = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left), oy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
       if (ox > 2 && oy > 2) out.push(`${idOf(a)} x ${idOf(b)} (${Math.round(ox)}x${Math.round(oy)})`); } }
-  return { name, n: els.length, overlaps: out, offscreen: off, clippedLabels: els.filter(e=>e.tagName==='BUTTON' && e.scrollHeight>e.clientHeight+2).map(idOf) };
+  return { name, n: els.length, overlaps: out, offscreen: off, clippedLabels: els.filter(e=>e.tagName==='BUTTON' && (e.scrollHeight>e.clientHeight+2 || e.scrollWidth>e.clientWidth+2)).map(idOf) };
 };
 const res = [];
 const sweep=(name,id)=>{res.push(audit(name));const panel=$(id).querySelector('.panel');if(panel&&panel.scrollHeight>panel.clientHeight+2){panel.scrollTop=panel.scrollHeight;res.push(audit(name+'-bottom'));panel.scrollTop=0;}};
@@ -32,6 +32,11 @@ await new Promise(r => setTimeout(r, 300)); C.G.introT = 10;
 for (let i = 0; i < 40 && C.G.phase !== 'aim'; i++) await new Promise(r => setTimeout(r, 100));
 $('waiting').textContent = 'Ricky is thinking…'; $('waiting').classList.remove('hidden');
 res.push(audit('hud')); $('waiting').classList.add('hidden');
+const throws = [...$('throwRow').querySelectorAll('button')];
+if(throws.length !== 10) throw new Error(`Expected ten throw choices, got ${throws.length}`);
+$('btnThrowPicker').click(); res.push(audit('ten-throw-sheet'));
+if($('throwRow').classList.contains('hidden')) throw new Error('Throw sheet did not open');
+$('btnThrowPicker').click();
 if ($('leaveDialog')) { $('leaveDialog').showModal(); res.push(audit('leave-dialog')); $('leaveDialog').close(); }
 const UI = await import('/src/ui.js'); UI.renderScorecard({ players: C.G.players, holes: C.holes.slice(0, 3), holeIdx: 0, final: false, isHost: true, online: false }); sweep('score','score');
 JSON.stringify({ vw: innerWidth, vh: innerHeight, res: res.map(r => `${r.name}[${r.n}] ov:${r.overlaps.join('; ') || '-'} off:${r.offscreen.join(',') || '-'} clipped:${r.clippedLabels.join(',') || '-'}`) }, null, 1)

@@ -1,0 +1,71 @@
+{
+  "fullActor": {
+    "source": "glb",
+    "clips": [
+      "idle",
+      "practice",
+      "backhand",
+      "backhand_io",
+      "backhand_oi",
+      "forehand",
+      "forehand_io",
+      "forehand_oi",
+      "tomahawk",
+      "scoober",
+      "blade",
+      "putt",
+      "celebrate",
+      "slump",
+      "walk",
+      "idle_left",
+      "practice_left",
+      "backhand_left",
+      "backhand_io_left",
+      "backhand_oi_left",
+      "forehand_left",
+      "forehand_io_left",
+      "forehand_oi_left",
+      "tomahawk_left",
+      "scoober_left",
+      "blade_left",
+      "putt_left",
+      "celebrate_left",
+      "slump_left",
+      "walk_left"
+    ]
+  },
+  "manualSwipe": true,
+  "fullHole": {
+    "done": true,
+    "scores": [
+      4
+    ],
+    "source": "glb"
+  },
+  "feedbackFixture": {
+    "power": 0.48000000000000015,
+    "events": [
+      [
+        0.608,
+        "drop"
+      ]
+    ]
+  },
+  "feedbackTitle": "Birdie!",
+  "errors": [],
+  "emptyAssets": [
+    {
+      "quality": "low",
+      "source": "procedural",
+      "finite": true,
+      "points": 182
+    },
+    {
+      "quality": "high",
+      "source": "procedural",
+      "finite": true,
+      "points": 182
+    }
+  ],
+  "emptyErrors": []
+}

@@ -27,6 +27,9 @@ for (const [width,height] of sizes) {
   await page.evaluate(()=>{document.getElementById('score').classList.add('hidden');document.getElementById('hud').classList.remove('hidden');window.__chains.G.phase='aim';window.__chains.cam.mode='aim';window.__chains.G.introT=10;});
   await page.waitForTimeout(3000);
   await page.screenshot({path:fileURLToPath(new URL(`${prefix}-hud-${width}.png`,dir))});
+  await page.locator('#btnThrowPicker').click();
+  await page.screenshot({path:fileURLToPath(new URL(`${prefix}-ten-throws-${width}.png`,dir))});
+  await page.locator('#btnThrowPicker').click();
   if (width===430) { await page.evaluate(async()=>{const ui=await import('/src/ui.js');ui.toast('Chains!','Birdie · one under par',10000);}); await page.screenshot({path:fileURLToPath(new URL(`${prefix}-feedback-${width}.png`,dir))}); }
   results.push({width,height,result,errors,startup,requests});
   await context.close();
@@ -34,3 +37,4 @@ for (const [width,height] of sizes) {
 await writeFile(new URL(`${prefix}-browser-results.json`,dir),JSON.stringify(results,null,2));
 await browser.close();
 console.log(JSON.stringify(results.map(({width,height,result,errors,startup})=>({width,height,result,errors,localEncoded:startup.reduce((s,r)=>s+r.encoded,0)})),null,2));
+if(results.some(r=>r.result.res.some(s=>!s.endsWith('ov:- off:- clipped:-')) || r.errors.some(s=>!s.includes('GPU stall due to ReadPixels')))) process.exitCode=1;

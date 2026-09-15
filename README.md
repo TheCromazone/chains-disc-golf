@@ -2,7 +2,7 @@
 
 Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc and a throw type, then swipe in the throw pad: the swipe direction must match the throw (backhand →, forehand ←, tomahawk ↓, scoober ↖, putt ↑), the swipe length sets the power bar, and a slightly lower or higher swipe adds hyzer or anhyzer. Discs fly with a real turn/fade model, skip, roll, kick off trees, chain out, and splash into ponds.
 
-![Chains clubhouse](docs/qa/19-clubhouse-430.png)
+![Chains clubhouse](docs/qa/r3/after-clubhouse-430.png)
 
 ## Play
 
@@ -24,7 +24,7 @@ Works on phones (touch) and desktop (mouse). Add it to your home screen for a fu
 
 The clubhouse, course picker, locker room and HUD share white/cyan frosted glass, coral actions, local SVG icons and tactile buttons. Course cards show the actual toon course. The live HUD uses a compact score strip and equipment pickers. Sound icons crossfade, flight controls disable during throws, and leaving a round uses an in-game confirmation. Online validation appears beside the room controls.
 
-Styles live in `src/ui.css`, with no external fonts or UI framework. Keyboard focus and reduced-motion styles are included. See the [art-pass report and screenshots](docs/qa/18-REPORT.md); all six viewport overlap audits pass after this update.
+Styles live in `src/ui.css`, with no external fonts or UI framework. Keyboard focus and reduced-motion styles are included. See the [art-pass report and screenshots](docs/qa/r3/REPORT.md); all six viewport overlap audits pass after this update.
 
 ## Rules implemented
 
@@ -101,17 +101,18 @@ Run the checks:
 ```bash
 node test/physics.test.mjs
 node test/assets.test.mjs
+node test/animation.test.mjs
 node test/feedback.test.mjs
 python test/sfx-normalization.py
 ```
 
 The asset test checks manifest files, GLB structure, Draco/KTX2 extensions, the golfer triangle budget, bone/material names and animation clips.
 
-Art-pass QA: **51 manifest entries**, unchanged physics passes, a real pointer swipe and a complete Full-quality hole pass, and empty-assets play works in both qualities. No JavaScript errors in integration checks. The six viewport overlap audit includes 360×740, 430×932, 812×375, 568×320, 768×1024 and 1366×768. The previous PeerJS transport verification remains applicable: protocol source and message shapes were preserved.
+Round-three QA: **83 manifest entries**, all ten throws pass handedness and flight regressions, a real pointer swipe and a complete Full-quality hole pass, and empty-assets play works in both qualities. No JavaScript errors in integration checks. The six viewport overlap audit, including the open ten-entry throw sheet, includes 360×740, 430×932, 812×375, 568×320, 768×1024 and 1366×768. The previous PeerJS transport verification remains applicable: protocol source and message shapes were preserved.
 
-The art pass brings Lite startup below **2 MB**, including CDN code (see the current byte ledger in [the art-pass report](docs/qa/18-REPORT.md)). Disc stamps are 6.6–18.7 KB; normal maps are 256px JPEGs. **60 fps Lite / 45 fps Full on mid-range Android and iPhone 12 remain physical-device targets, not certified results.** Desktop Chromium does not establish mobile GPU or Safari performance.
+The art pass brings Lite startup below **2 MB**, including CDN code (see the current byte ledger in [the art-pass report](docs/qa/r3/REPORT.md)). Disc stamps are 6.6–18.7 KB; normal maps are 256px JPEGs. **60 fps Lite / 45 fps Full on mid-range Android and iPhone 12 remain physical-device targets, not certified results.** Desktop Chromium does not establish mobile GPU or Safari performance.
 
-See [QA report](docs/qa/REPORT.md), [budget data](docs/qa/budget-results.json), [overlap results](docs/qa/overlap-results.json), and [decisions](docs/decisions.md). Milestone before/after screenshots are in `docs/qa/`.
+See [current QA](docs/qa/r3/REPORT.md), [overlap and startup results](docs/qa/r3/after-browser-results.json), and [decisions](docs/decisions.md). Current before/after images live in `docs/qa/r3/`; 43.97 MB of historical captures were pruned from the checkout and remain in Git history.
 
 ## Rebuild art (optional authoring tools)
 
@@ -120,12 +121,18 @@ The web game needs none of these tools. Blender sources live in `art/blender/`; 
 ```bash
 blender --background --python tools/build-mii.py
 python tools/split-golfer-clips.py
+# Rebuild the current authored motion set after rebuilding the body:
+node tools/extract-poses.mjs
+blender --background --python tools/author-golfer-clips.py
+python tools/texture-pack.py
 node tools/build-face-atlas.mjs
 ```
 
-The golfer body is **466,036 bytes / 10,800 triangles**; the distant LOD is **160,840 bytes / 3,230 triangles**. Ten independent animation GLBs contain no mesh, material or texture payload. The eleven bone names remain unchanged. `tools/build-face-atlas.mjs` builds deterministic flat face parts and compresses them with Khronos `toktx`; the runtime retains its generated atlas fallback. Legacy model and Unity authoring tools remain in the repository.
+The golfer body is **466,036 bytes / 10,800 triangles**; the distant LOD is **160,840 bytes / 3,230 triangles**. Thirty independent animation GLBs contain no mesh, material or texture payload: ten throws and five shared actions for each hand. Left-handed clips use positive scales, so jersey numbers stay readable. The eleven bone names remain unchanged. `tools/build-face-atlas.mjs` builds deterministic flat face parts and compresses them with Khronos `toktx`; the runtime retains its generated atlas fallback. Legacy model and Unity authoring tools remain in the repository.
 
-### Sound recordings — still outstanding
+Twelve original 256px painted JPEG detail tiles add 147.6 KB across all materials. The toon ramp and palette remain; skin and fabric follow the actor, while terrain blends fairway, rough, green and sand. See [texture provenance](art/textures/r3/prompts.json) and [motion authoring](docs/qa/r3/animation-authoring.md).
+
+### Sound recordings — conditional generation skipped
 
 `python tools/generate-sfx.py` uses the ElevenLabs sound-effects API to generate twelve effects, normalizes each to −6 dBFS, and publishes `manifest.sfx` only after the full set succeeds. It requires `ELEVENLABS_API_KEY` and ffmpeg. The credential was unavailable during this pass, so **no ElevenLabs recordings have been generated and `sfx` is still empty**. Synthesis supplies chains, applause, a descending miss reaction and reward notes until recordings are available. The normalization test uses a synthetic fixture, not a claimed generated recording.
 

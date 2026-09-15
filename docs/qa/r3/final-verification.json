@@ -1,0 +1,61 @@
+{
+  "viewports": [
+    {
+      "viewport": [
+        360,
+        740
+      ],
+      "quality": "Lite",
+      "encodedStartupBytes": 670430,
+      "transferStartupBytes": 681230
+    },
+    {
+      "viewport": [
+        430,
+        932
+      ],
+      "quality": "Lite",
+      "encodedStartupBytes": 670430,
+      "transferStartupBytes": 681230
+    },
+    {
+      "viewport": [
+        812,
+        375
+      ],
+      "quality": "Full",
+      "encodedStartupBytes": 2110000,
+      "transferStartupBytes": 2131300
+    },
+    {
+      "viewport": [
+        568,
+        320
+      ],
+      "quality": "Lite",
+      "encodedStartupBytes": 670430,
+      "transferStartupBytes": 681230
+    },
+    {
+      "viewport": [
+        768,
+        1024
+      ],
+      "quality": "Full",
+      "encodedStartupBytes": 2110000,
+      "transferStartupBytes": 2131300
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "quality": "Full",
+      "encodedStartupBytes": 2110000,
+      "transferStartupBytes": 2131300
+    }
+  ],
+  "maxRuntimeJointPositionErrorMeters": 1.0192745913038135e-05,
+  "bodyAndLodUnchanged": true,
+  "storageAndNetworkModulesUnchangedSinceReview": true
+}

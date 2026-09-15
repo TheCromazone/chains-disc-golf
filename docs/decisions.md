@@ -143,3 +143,9 @@
 - Addressed the remaining canopy-volume finding with smaller overlapping deciduous masses, inset pine frond tiers and darker sheltered undersides on the existing toon materials. Tree placement, collision envelopes, playable terrain and downloadable assets remain unchanged. The new visual extents fit within the previous crowns.
 - Kept Lite deciduous geometry at 576 triangles per crown and the same draw batches. Whole-scene instanced triangles decreased 5.5% in Lite and increased 3.3% in Full; these counts are not phone frame-rate measurements.
 - A new independent critic prefers this revision to its before image but still selects Switch Sports. Its largest remaining gap is the repeated spherical-clump appearance versus a cohesive leafy mass. The requested reference-beating quality target remains unmet; reviewed improvements and remaining limits are preserved without inventing a win.
+
+### Final verification
+
+- All six viewports pass with all ten throw choices open, no clipped labels and no overlapping/offscreen controls. The final startup ledger is Lite 670,430 encoded / 681,230 transferred bytes, Full 2,110,000 / 2,131,300 bytes, including exposed CDN timings. Lite downloads no GLB or Basis decoder at startup.
+- Final physics, exported-animation, support, asset, feedback, normalizer-fixture and Full/empty-assets integration checks pass. Real pointer input completes a Full hole. The largest measured Full/Lite joint-position difference is 0.0102 mm. No application/shader errors; screenshot-induced Chromium ReadPixels warnings remain visible in the raw evidence.
+- Verified the body/LOD hashes and storage/network/UI modules are unchanged since the preserved review commit. The authored Blender source is saved with Blender compression (718,804 bytes); the source retains thirty actions and eleven bones. The final report explicitly retains the unmet reference-win target and four missing physical-device FPS measurements.
