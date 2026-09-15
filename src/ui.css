@@ -236,3 +236,37 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   button:active:not(:disabled) { transform: none; }
   #pad.bad { animation: none; border-color: #ff7272; }
 }
+
+/* Mii creator: one part family at a time, with the live figure above the tray. */
+.overlay.locker .panel { max-height: 56vh; width: min(440px, 100%); padding: 16px; gap: 10px; }
+.locker-preview-label { position: absolute; top: calc(20px + var(--sat)); left: 22px; color: #fff; font-size: 22px; font-weight: 800; text-shadow: 0 2px 6px #126a9070; }
+.locker-preview-label span { display: block; margin-top: 3px; font-size: 11px; font-weight: 600; letter-spacing: .5px; }
+#avOpts { gap: 10px; }
+.locker-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.locker-tabs button { border-radius: 9px; min-height: 43px; padding: 8px 5px; font-size: 12px; }
+.locker-tabs button.on { background: #0a89b5cf; color: white; border-color: #b8f0ff; box-shadow: inset 0 1px #b9efff, 0 3px 0 #08719138; }
+.locker-parts { min-height: 108px; }
+.face-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.face-tabs button { flex: 1; min-width: 0; padding: 6px 3px; min-height: 36px; font-size: 10px; border-radius: 7px; }
+.face-tabs button.on { color: #05658b; border-color: #39a6c9; background: #d2f4ffb0; }
+.opt { border-color: #1f6b8618; margin-bottom: 9px; }
+.opt:last-child { margin-bottom: 0; }
+.opt > span { font-size: 10px; letter-spacing: .8px; }
+.choice-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.choice-grid button { flex-direction: column; min-height: 46px; padding: 7px 3px; font-size: 10px; border-radius: 9px; gap: 1px; }
+.choice-grid button.on { background: #c6efffd0; box-shadow: inset 0 0 0 1px #269bc4, inset 0 1px #fff; }
+.face-choice { width: 46px; height: 40px; color: #263d50; }
+.sw-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 9px; padding: 3px; }
+.sw-row button { width: 100%; height: 38px; min-height: 38px; background: linear-gradient(140deg, #ffffff38, transparent), var(--swatch); border-color: #ffffffbd; border-radius: 9px; }
+.sw-row button.on { border-color: white; outline-color: #087baf; box-shadow: inset 0 -3px 5px #0001; }
+#btnLockerDone { min-height: 44px; }
+@media (min-width: 900px) {
+  .overlay.locker .panel { max-height: calc(100% - 60px); }
+  .locker-preview-label { left: auto; right: 5vw; top: 32px; text-align: right; }
+}
+@media (max-height: 520px) and (min-aspect-ratio: 5/4) {
+  .overlay.locker .panel { max-height: 100%; width: min(400px, 55%); }
+  .locker-preview-label { left: auto; right: 18px; top: 16px; font-size: 18px; text-align: right; }
+  .choice-grid button { min-height: 40px; }
+}
+

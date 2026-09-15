@@ -91,23 +91,60 @@ export function setHub({ name, jersey, course, holes, img }) {
   if (jersey) $('hubSwatch').style.background = `linear-gradient(160deg, ${jersey}, ${jersey} 60%, rgba(0,0,0,0.35))`;
   if (course) { const st = courseStats(holes); $('hubCourse').textContent = course.name; $('hubCourseSub').textContent = `Par ${st.par} · ${st.len} m · ${course.tag.toLowerCase()}`; $('hubMap').innerHTML = img ? `<img src="${img}" alt="">` : courseMapSVG(course, holes); }
 }
-const AV_LABELS = { skin: 'Skin', hair: 'Hair', hairColor: 'Hair colour', headwear: 'Headwear', headwearColor: 'Headwear colour', jersey: 'Jersey', accent: 'Trim', number: 'Number', shorts: 'Shorts', shoes: 'Shoes', build: 'Build', shades: 'Shades' };
+const AV_LABELS = { skin: 'Skin tone', hair: 'Hair shape', hairColor: 'Hair colour', headwear: 'Headwear', headwearColor: 'Headwear colour', jersey: 'Shirt', accent: 'Trim', number: 'Number', shorts: 'Shorts', shoes: 'Shoes', build: 'Body', shades: 'Shades', eyes: 'Eyes', brows: 'Brows', nose: 'Nose', mouth: 'Mouth', glasses: 'Glasses' };
+const AV_GROUPS = { face: ['eyes', 'brows', 'nose', 'mouth', 'glasses'], hair: ['hair', 'hairColor', 'headwear', 'headwearColor'], outfit: ['jersey', 'accent', 'number', 'shorts', 'shoes'], body: ['skin', 'build'] };
+let lockerCategory = 'face', faceCategory = 'eyes';
+// Small visual choice cards echo the decal vocabulary. The live 3D figure is the authority.
+function faceChoice(key, value, index) {
+  const n = index % 4;
+  const eye = n === 2 ? '<path d="M12 23q4-7 8 0m10 0q4-7 8 0"/>' : `<ellipse cx="16" cy="22" rx="${n === 3 ? 4 : 2.5}" ry="${n === 1 ? 5 : 3}" fill="currentColor"/><ellipse cx="34" cy="22" rx="${n === 3 ? 4 : 2.5}" ry="${n === 1 ? 5 : 3}" fill="currentColor"/>`;
+  const parts = {
+    eyes: eye,
+    brows: `<path d="M11 ${n === 2 ? 21 : 18}q5 ${n === 2 ? -7 : n === 0 ? -3 : 0} 10 0m8 0q5 ${n === 2 ? -7 : n === 0 ? -3 : 0} 10 0" stroke-width="${n === 3 ? 4 : 2.5}"/>`,
+    nose: n === 0 ? '<circle cx="25" cy="25" r="3" fill="currentColor"/>' : n === 2 ? '<path d="m27 17-6 13h8"/>' : `<ellipse cx="25" cy="25" rx="${n === 1 ? 5 : 7}" ry="5"/>`,
+    mouth: n === 3 ? '<ellipse cx="25" cy="28" rx="5" ry="7"/>' : `<path d="M15 25q10 ${n === 2 ? 0 : n === 1 ? 15 : 9} 20 0${n === 1 ? 'z' : ''}"/>`,
+    glasses: n === 0 ? '<path d="m15 15 20 20m0-20L15 35" opacity=".4"/>' : `<${n === 1 ? 'circle cx="15" cy="24" r="8"' : 'rect x="7" y="17" width="16" height="13" rx="3"'}/><${n === 1 ? 'circle cx="35" cy="24" r="8"' : 'rect x="27" y="17" width="16" height="13" rx="3"'}/><path d="M23 22h4"/>`
+  };
+  return `<svg class="face-choice" viewBox="0 0 50 44" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${parts[key] || ''}</svg><span>${escapeText(value[0].toUpperCase() + value.slice(1))}</span>`;
+}
 export function renderLocker(avatar, opts, onChange) {
   const box = $('avOpts'); box.innerHTML = ''; $('avName').value = avatar.name;
   $('avName').oninput = e => onChange('name', e.target.value);
-  const row = (key, inner) => { const d = document.createElement('div'); d.className = 'opt'; d.innerHTML = `<span>${AV_LABELS[key]}</span>`; d.appendChild(inner); box.appendChild(d); };
-  for (const key of ['skin', 'hair', 'hairColor', 'headwear', 'headwearColor', 'jersey', 'accent', 'number', 'shorts', 'shoes', 'build', 'shades']) {
-    if (key === 'number') { const inp = document.createElement('input'); inp.type = 'number'; inp.setAttribute('aria-label', 'Jersey number'); inp.min = 0; inp.max = 99; inp.value = avatar.number; inp.oninput = e => onChange('number', Math.max(0, Math.min(99, +e.target.value || 0))); row(key, inp); continue; }
-    const vals = key === 'shades' ? [true, false] : opts[key], colors = typeof vals[0] === 'string' && vals[0][0] === '#';
-    const wrap = document.createElement('div'); wrap.className = colors ? 'sw-row' : 'seg';
-    for (const v of vals) {
-      const b = document.createElement('button'); pressed(b, avatar[key] === v);
-      if (colors) { b.style.background = v; b.title = `${AV_LABELS[key]} ${v}`; b.setAttribute('aria-label', b.title); } else { b.textContent = key === 'shades' ? (v ? 'On' : 'Off') : v[0].toUpperCase() + v.slice(1); b.setAttribute('aria-label', `${AV_LABELS[key]}: ${b.textContent}`); }
-      b.onclick = () => { for (const c of wrap.children) pressed(c, c === b); onChange(key, v); };
-      wrap.appendChild(b);
+  const tabs = document.createElement('div'); tabs.className = 'locker-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Appearance categories');
+  const content = document.createElement('div'); content.id = 'lockerParts'; content.className = 'locker-parts'; content.setAttribute('role', 'tabpanel');
+  box.append(tabs, content);
+  const row = (key, inner) => { const d = document.createElement('div'); d.className = 'opt'; d.innerHTML = `<span>${AV_LABELS[key]}</span>`; d.appendChild(inner); content.appendChild(d); };
+  function draw() {
+    content.innerHTML = ''; content.setAttribute('aria-labelledby', `locker-tab-${lockerCategory}`);
+    for (const b of tabs.children) { const selected = b.dataset.category === lockerCategory; b.classList.toggle('on', selected); b.setAttribute('aria-selected', String(selected)); b.tabIndex = selected ? 0 : -1; }
+    let keys = AV_GROUPS[lockerCategory];
+    if (lockerCategory === 'face') {
+      const parts = document.createElement('div'); parts.className = 'face-tabs'; parts.setAttribute('role', 'group'); parts.setAttribute('aria-label', 'Face parts');
+      keys.filter(k => opts[k]).forEach(k => { const b = document.createElement('button'); b.textContent = AV_LABELS[k]; pressed(b, faceCategory === k); b.onclick = () => { faceCategory = k; draw(); }; parts.append(b); });
+      content.append(parts); keys = [faceCategory];
     }
-    row(key, wrap);
+    for (const key of keys) {
+      if (key === 'number') { const inp = document.createElement('input'); inp.type = 'number'; inp.setAttribute('aria-label', 'Jersey number'); inp.min = 0; inp.max = 99; inp.value = avatar.number; inp.oninput = e => { avatar.number = Math.max(0, Math.min(99, +e.target.value || 0)); onChange('number', avatar.number); }; row(key, inp); continue; }
+      const vals = opts[key]; if (!vals?.length) continue;
+      const colors = typeof vals[0] === 'string' && vals[0][0] === '#';
+      const wrap = document.createElement('div'); wrap.className = colors ? 'sw-row' : 'choice-grid'; wrap.setAttribute('role', 'group'); wrap.setAttribute('aria-label', AV_LABELS[key]);
+      vals.forEach((v, index) => {
+        const b = document.createElement('button'); pressed(b, avatar[key] === v);
+        const label = `${AV_LABELS[key]}: ${v}`; b.title = label; b.setAttribute('aria-label', label);
+        if (colors) b.style.setProperty('--swatch', v);
+        else if (AV_GROUPS.face.includes(key)) b.innerHTML = faceChoice(key, v, index);
+        else b.textContent = v[0].toUpperCase() + v.slice(1);
+        b.onclick = () => { for (const c of wrap.children) pressed(c, c === b); avatar[key] = v; onChange(key, v); };
+        wrap.appendChild(b);
+      });
+      row(key, wrap);
+    }
   }
+  for (const [category, title] of Object.entries({ face: 'Face', hair: 'Hair', outfit: 'Outfit', body: 'Body' })) {
+    const b = document.createElement('button'); b.id = `locker-tab-${category}`; b.dataset.category = category; b.textContent = title; b.setAttribute('role', 'tab'); b.setAttribute('aria-controls', 'lockerParts'); b.onclick = () => { lockerCategory = category; draw(); }; tabs.append(b);
+    b.onkeydown = e => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return; e.preventDefault(); const list = [...tabs.children], i = list.indexOf(b); const next = e.key === 'Home' ? list[0] : e.key === 'End' ? list.at(-1) : list[(i + (e.key === 'ArrowRight' ? 1 : -1) + list.length) % list.length]; next.click(); next.focus(); };
+  }
+  draw();
 }
 
 export const scoreName = (strokes, par) => {
