@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { cloneModel } from './models.js';
 import { createFaceParts } from './face-parts.js';
 import { characterRamp } from './character-material.js';
+import { paintDetail } from './materials.js';
 
 export function createGLTFCharacter(avatar) {
   const src = cloneModel(avatar.lod ? 'golfer_lod' : 'golfer'); if (!src) return null;
@@ -17,7 +18,7 @@ export function createGLTFCharacter(avatar) {
     const tint = m => {
       const n = new THREE.MeshToonMaterial({ color:m.color, gradientMap:characterRamp }); owned.add(n);
       const key = m.name.replace(/\.\d+$/, ''); if (colors[key]) n.color.set(colors[key]);
-      n.__shared = false; return n;
+      n.__shared = false; return ['skin','jersey'].includes(key) ? paintDetail(n,key) : n;
     };
     o.material = Array.isArray(o.material) ? o.material.map(tint) : tint(o.material);
     o.receiveShadow = false;

@@ -38,14 +38,19 @@ export function terrainSplat(material, geometry, weights) {
 }
 
 // ---------- painted detail ----------
-// Wii-style surfaces are flat colour plus a faint hand-painted grain. These tiles are drawn on a
-// canvas at boot (grey 128 = no change) so nothing is requested; a mid-grey tile listed in the
-// manifest as textures.<kind>_detail replaces the canvas one.
-// ponytail: canvas grain now, painted tiles from the asset pass later.
+// Original painted256pxJPEG detail tiles modulate the bright palette without PBR.
+// A missing manifest entry uses deterministic canvas grain; grey128 means no change.
 const PAINT = {   // strength ≈ peak luminance swing of the fine grain; broad mottling is a third of it
+  jersey:   { tile: .13, strength: .14, mode: 'local', marks: [] },
+  skin:     { tile: .24, strength: .055, mode: 'local', marks: [] },
+  rough:    { tile: 1.7, strength: .52, mode: 'ground', marks: [] },
+  green:    { tile: 1.2, strength: .28, mode: 'ground', marks: [] },
+  sand:     { tile: 3.0, strength: .42, mode: 'ground', marks: [] },
+  pine:     { tile: 4.0, strength: .90, mode: 'leaf', marks: [] },
+  metal:    { tile: .30, strength: .25, mode: 'vertical', marks: [] },
   grass:    { tile: 2.2, strength: .16, mode: 'ground', marks: [{ n: 420, amp: 60, w: [14, 30], h: [8, 16], alpha: .5 }, { n: 1500, amp: 128, w: [2.5, 4.5], h: [10, 22], tilt: .6 }] },
-  leaf:     { tile: 2.0, strength: .18, mode: 'leaf',   marks: [{ n: 300, amp: 110, w: [12, 24], h: [9, 18], alpha: .7 }, { n: 800, amp: 90, w: [3.5, 7], h: [3.5, 7] }] },
-  bark:     { tile: 1.4, strength: .22, mode: 'vertical', marks: [{ n: 220, amp: 120, w: [3, 6], h: [30, 90], alpha: .8 }] },
+  leaf:     { tile: 5.0, strength: .90, mode: 'leaf',   marks: [{ n: 300, amp: 110, w: [12, 24], h: [9, 18], alpha: .7 }, { n: 800, amp: 90, w: [3.5, 7], h: [3.5, 7] }] },
+  bark:     { tile: 1.4, strength: .48, mode: 'vertical', marks: [{ n: 220, amp: 120, w: [3, 6], h: [30, 90], alpha: .8 }] },
   concrete: { tile: 1.0, strength: .09, mode: 'ground', marks: [{ n: 1400, amp: 120, w: [3, 6], h: [3, 6] }] },
   water:    { tile: 3.0, strength: .14, mode: 'ground', scroll: true, marks: [{ n: 360, amp: 120, w: [14, 36], h: [2, 4], alpha: .7 }] },
 };
@@ -68,17 +73,17 @@ function paintTile(kind) {
 }
 export function paintDetail(material, kind) {
   const P = PAINT[kind], prev = material.onBeforeCompile, prevKey = material.customProgramCacheKey;
-  const uv = P.mode === 'vertical' ? 'vec2(p.x * .7 + p.z * .7, p.y)' : 'p.xz';
+  const uv = P.mode === 'vertical' ? 'vec2(p.x * .7 + p.z * .7, p.y)' : P.mode === 'local' ? 'vec2(p.x + p.z * .35, p.y)' : 'p.xz';
   const grain = P.mode === 'leaf' ? `(texture2D(paintMap, puv).r + texture2D(paintMap, (p.xy + vec2(p.z * .4, 0.)) / ${P.tile.toFixed(3)}).r) * .5` : 'texture2D(paintMap, puv).r';
   material.onBeforeCompile = s => {
     prev.call(material, s);
     s.uniforms.paintMap = { value: paintTile(kind) }; s.uniforms.paintTime = windTime;
     s.vertexShader = 'varying vec3 vPaintPos;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-      #ifdef USE_INSTANCING
+      ${P.mode === 'local' ? 'vPaintPos = position; /* bind-pose coordinates follow skinning; no world-space swim */' : `#ifdef USE_INSTANCING
       vPaintPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.)).xyz;
       #else
       vPaintPos = (modelMatrix * vec4(transformed, 1.)).xyz;
-      #endif`);
+      #endif`}`);
     s.fragmentShader = 'uniform sampler2D paintMap;uniform float paintTime;varying vec3 vPaintPos;\n' + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { vec3 p = vPaintPos; vec2 puv = ${uv} / ${P.tile.toFixed(3)}${P.scroll ? ' + paintTime * vec2(.018, .011)' : ''};
         float grain = ${grain};
@@ -86,6 +91,32 @@ export function paintDetail(material, kind) {
         diffuseColor.rgb *= 1. + (grain - .5) * ${(2 * P.strength).toFixed(3)} + (broad - .5) * ${(0.7 * P.strength).toFixed(3)}; }`);
   };
   material.customProgramCacheKey = () => prevKey.call(material) + '|paint-' + kind;
+  return material;
+}
+
+// Blend four painted surface tiles using the same masks as the existing vertex palette.
+// This does not alter terrain height, bounds, collision, lie type, or friction.
+export function paintTerrain(material, geometry, weights) {
+  geometry.setAttribute('paintWeights', new THREE.BufferAttribute(weights, 3));
+  material.onBeforeCompile = s => {
+    s.uniforms.fairPaint = { value: paintTile('grass') };
+    s.uniforms.roughPaint = { value: paintTile('rough') };
+    s.uniforms.greenPaint = { value: paintTile('green') };
+    s.uniforms.sandPaint = { value: paintTile('sand') };
+    s.vertexShader = 'attribute vec3 paintWeights;varying vec3 vPaintWeights;varying vec2 vTileGround;\n' +
+      s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvPaintWeights=paintWeights;vTileGround=position.xz;');
+    s.fragmentShader = 'uniform sampler2D fairPaint;uniform sampler2D roughPaint;uniform sampler2D greenPaint;uniform sampler2D sandPaint;varying vec3 vPaintWeights;varying vec2 vTileGround;\n' +
+      s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        float fairDetail = (texture2D(fairPaint, vTileGround / 3.8).r - .5) * 2.30;
+        float roughDetail = (texture2D(roughPaint, vTileGround / 2.4).r - .5) * 2.20;
+        float greenDetail = (texture2D(greenPaint, vTileGround / 1.8).r - .5) * 1.40;
+        float sandDetail = (texture2D(sandPaint, vTileGround / 3.5).r - .5) * 1.80;
+        float detail = mix(roughDetail, fairDetail, vPaintWeights.x);
+        detail = mix(detail, greenDetail, vPaintWeights.y);
+        detail = mix(detail, sandDetail, vPaintWeights.z);
+        diffuseColor.rgb *= 1. + detail;`);
+  };
+  material.customProgramCacheKey = () => 'chains-painted-ground-v1';
   return material;
 }
 

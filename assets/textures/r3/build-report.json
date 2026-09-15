@@ -1,0 +1,125 @@
+{
+  "tiles": [
+    {
+      "name": "fairway",
+      "bytes": 16050,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 127.8,
+      "stddev": 9.03
+    },
+    {
+      "name": "rough",
+      "bytes": 16074,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 127.65,
+      "stddev": 11.58
+    },
+    {
+      "name": "green",
+      "bytes": 11890,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 127.79,
+      "stddev": 6.05
+    },
+    {
+      "name": "sand",
+      "bytes": 12554,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 128.43,
+      "stddev": 10.38
+    },
+    {
+      "name": "bark",
+      "bytes": 10784,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 128.18,
+      "stddev": 11.27
+    },
+    {
+      "name": "pine",
+      "bytes": 13435,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 127.81,
+      "stddev": 14.0
+    },
+    {
+      "name": "deciduous",
+      "bytes": 12437,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 128.43,
+      "stddev": 12.84
+    },
+    {
+      "name": "tee",
+      "bytes": 19516,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 128.22,
+      "stddev": 14.11
+    },
+    {
+      "name": "metal",
+      "bytes": 6513,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 128.08,
+      "stddev": 3.01
+    },
+    {
+      "name": "water",
+      "bytes": 7246,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 127.59,
+      "stddev": 5.97
+    },
+    {
+      "name": "jersey",
+      "bytes": 18359,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 127.9,
+      "stddev": 15.14
+    },
+    {
+      "name": "skin",
+      "bytes": 2782,
+      "size": [
+        256,
+        256
+      ],
+      "mean": 128.28,
+      "stddev": 1.75
+    }
+  ],
+  "totalBytes": 147640
+}

@@ -10,7 +10,19 @@
     "skin_normal": "textures/skin_normal.png",
     "dirt": "textures/dirt.jpg",
     "sand": "textures/sand.jpg",
-    "face_parts": "appearance/face-parts.ktx2"
+    "face_parts": "appearance/face-parts.ktx2",
+    "grass_detail": "textures/r3/fairway.jpg",
+    "rough_detail": "textures/r3/rough.jpg",
+    "green_detail": "textures/r3/green.jpg",
+    "sand_detail": "textures/r3/sand.jpg",
+    "bark_detail": "textures/r3/bark.jpg",
+    "pine_detail": "textures/r3/pine.jpg",
+    "leaf_detail": "textures/r3/deciduous.jpg",
+    "concrete_detail": "textures/r3/tee.jpg",
+    "metal_detail": "textures/r3/metal.jpg",
+    "water_detail": "textures/r3/water.jpg",
+    "jersey_detail": "textures/r3/jersey.jpg",
+    "skin_detail": "textures/r3/skin.jpg"
   },
   "courses": {
     "pine": "courses/pine_toon.jpg",

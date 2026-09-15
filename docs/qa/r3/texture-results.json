@@ -1,0 +1,571 @@
+[
+  {
+    "quality": "low",
+    "paintShaders": [
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/fairway.jpg",
+            "width": 256,
+            "height": 256
+          },
+          {
+            "url": "http://localhost:8093/assets/textures/r3/rough.jpg",
+            "width": 256,
+            "height": 256
+          },
+          {
+            "url": "http://localhost:8093/assets/textures/r3/green.jpg",
+            "width": 256,
+            "height": 256
+          },
+          {
+            "url": "http://localhost:8093/assets/textures/r3/sand.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": true
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/bark.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/pine.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/deciduous.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/water.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/tee.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/metal.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/metal.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      }
+    ],
+    "encodedBytes": 807394,
+    "detailRequests": [
+      {
+        "name": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/fairway.jpg",
+        "encoded": 16050
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/rough.jpg",
+        "encoded": 16074
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/bark.jpg",
+        "encoded": 10784
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/green.jpg",
+        "encoded": 11890
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/sand.jpg",
+        "encoded": 12554
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/deciduous.jpg",
+        "encoded": 12437
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/pine.jpg",
+        "encoded": 13435
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/tee.jpg",
+        "encoded": 19516
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/metal.jpg",
+        "encoded": 6513
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/water.jpg",
+        "encoded": 7246
+      }
+    ],
+    "startupBytes": 788644,
+    "empty": false,
+    "errors": []
+  },
+  {
+    "quality": "high",
+    "paintShaders": [
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/skin.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/fairway.jpg",
+            "width": 256,
+            "height": 256
+          },
+          {
+            "url": "http://localhost:8093/assets/textures/r3/rough.jpg",
+            "width": 256,
+            "height": 256
+          },
+          {
+            "url": "http://localhost:8093/assets/textures/r3/green.jpg",
+            "width": 256,
+            "height": 256
+          },
+          {
+            "url": "http://localhost:8093/assets/textures/r3/sand.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": true
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/bark.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/pine.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/deciduous.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/water.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/tee.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/metal.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "http://localhost:8093/assets/textures/r3/metal.jpg",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      }
+    ],
+    "encodedBytes": 2244540,
+    "detailRequests": [
+      {
+        "name": "http://localhost:8093/assets/textures/r3/skin.jpg",
+        "encoded": 2782
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/jersey.jpg",
+        "encoded": 18359
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/fairway.jpg",
+        "encoded": 16050
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/green.jpg",
+        "encoded": 11890
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/sand.jpg",
+        "encoded": 12554
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/rough.jpg",
+        "encoded": 16074
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/bark.jpg",
+        "encoded": 10784
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/deciduous.jpg",
+        "encoded": 12437
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/pine.jpg",
+        "encoded": 13435
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/tee.jpg",
+        "encoded": 19516
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/metal.jpg",
+        "encoded": 6513
+      },
+      {
+        "name": "http://localhost:8093/assets/textures/r3/water.jpg",
+        "encoded": 7246
+      }
+    ],
+    "startupBytes": 2225790,
+    "empty": false,
+    "errors": []
+  },
+  {
+    "quality": "low",
+    "paintShaders": [
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          },
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          },
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          },
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": true
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      },
+      {
+        "type": "MeshToonMaterial",
+        "maps": [
+          {
+            "url": "canvas",
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "ground": false
+      }
+    ],
+    "encodedBytes": 595444,
+    "detailRequests": [],
+    "startupBytes": 595444,
+    "empty": true,
+    "errors": []
+  }
+]

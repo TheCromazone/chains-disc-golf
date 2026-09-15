@@ -1,0 +1,81 @@
+{
+  "generator": "Built-in image_gen, one separate generation per material",
+  "generated": "2026-09-15",
+  "tiles": [
+    {
+      "name": "fairway",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Closely mown fairway grass with broad alternating mowing bands that repeat vertically, and tiny directional hand-painted clipped-grass marks. Bands subtly brighter and darker than a middle grey base. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a3c7-f3f1-74d0-8274-3371387f4ac7\\exec-e0587178-2849-4b11-a3de-767a57f3d957.png",
+      "generatedSha256": "d87b7f544ee78ed25a56a39a3854d209d8d7c1c7cfc992a194d15761e29da6ed",
+      "initialGeneratedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-70b71003-6c58-4a2a-86d3-0c7a71844772.png",
+      "initialGeneratedSha256": "45953c0a0395cb27f17c452c83ebe0da63578b89499b5d1648ede3491875ac6e",
+      "revisionPrompt": "Remove vertical bright/dark mowing stripes from DETAIL map; renderer already paints broad mowing bands. Even distribution of overlapping clipped-grass brush marks and irregular soft clumps readable at phone resolution. Neutral grayscale RGB128, mostly90\u2013166; seamless, no directional light, no rows, grids or labels."
+    },
+    {
+      "name": "rough",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Longer rough grass: overlapping soft tapered grass blades and tufts, hand-painted into a dense seamless overhead carpet, slightly varied clusters without isolated big features. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-48fd5ea3-b69b-485e-acc6-3fc42bffec6a.png",
+      "generatedSha256": "a5f9f557920b1adc93b6bd8cab6bba06ad55be99c90a1729160a3af962d2182e"
+    },
+    {
+      "name": "green",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Putting green: extremely fine short closely shaved grass, delicate rounded tiny marks, silky subtly mottled even surface, no large stripes or tufts. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-7cbe6b07-2eb9-4ee4-a559-4fa53e2f5fc0.png",
+      "generatedSha256": "6e1f291bc02cdba90719827cfed4a1070e30af5655c4fbef2091d00af65437c4"
+    },
+    {
+      "name": "sand",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Raked golf bunker sand: softly brushed fine grains and broad shallow curved rake ripples, elegant simple stylized painted sand. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-2cb6a442-7535-4448-879d-f30afe873e84.png",
+      "generatedSha256": "809cd5a0f4fb0cda91c398cd66e02165ec2f385816ffb12f3a9c349cc2a7e6d6"
+    },
+    {
+      "name": "bark",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Stylized tree bark: hand-painted long irregular vertical ribbons and short branching grooves, rounded chunk shapes, no knots or big isolated features. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-06f76064-d82b-46b2-a7ca-522d5057f037.png",
+      "generatedSha256": "e0be64cccdd5cca235dacd9bbeb2da72b8ab95eb8020d1ff1d3dd721ac86999c"
+    },
+    {
+      "name": "pine",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Pine canopy foliage: little soft triangular needle clusters overlapping in a shingled hand-painted surface, simple broad masses and delicate narrow strokes. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-9294e757-ee18-470a-a19f-9d04925e49d9.png",
+      "generatedSha256": "296d7ad1b58a1742ff656944ce3adde00ee83fed9c7d5cf2246d9556fb49ad9a"
+    },
+    {
+      "name": "deciduous",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Deciduous canopy foliage: overlapping small rounded leaf clusters, subtly scalloped soft painterly shapes, simple broad masses and delicate leaf strokes. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-b21d6e33-6be9-413e-94a6-1038b2c535d5.png",
+      "generatedSha256": "177cef351af8ada87e48e25371564066d024cab997db64cc32430e84a94d68d4"
+    },
+    {
+      "name": "tee",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Golf tee rubber: fine tightly packed hand-painted rounded rubber granules, clean surface, very restrained small dimples and no logos or wear marks. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-21b66e36-dc43-4ac1-b1f4-b4107bb99074.png",
+      "generatedSha256": "58190d6190302486a74da57562b94a1f858d2c6c04bec1bb6b425447555165f0"
+    },
+    {
+      "name": "metal",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Basket metal: clean softly brushed powder-coated metal, extremely subtle fine directional brush marks and restrained painted speckling. No rust, no strong highlights, no metallic reflections. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-7cce31ff-8dcf-4869-9ed3-8f728578bf8c.png",
+      "generatedSha256": "8288849914d37803ef59d15f59b024f1f41e4955b1325e2538e31908a220b24e"
+    },
+    {
+      "name": "water",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Calm water ripples: soft graceful looping elongated horizontal ripple lines, hand-painted gentle broken arcs, subtle broad undulation. No reflections of a sky or objects. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-180b64be-aa7b-4541-b780-6b3db9ac8387.png",
+      "generatedSha256": "d301bbca211e70bb1ae9bf8dc5acded6bf0cde71ddbccafab114eac209d172fc"
+    },
+    {
+      "name": "jersey",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Sports jersey fabric: delicate hand-painted interlocked knit stitches in a very fine even textile pattern, clean toy-like fabric surface with no seams and no folds. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-92523911-9f9b-4a1f-b593-cf473d3d2afc.png",
+      "generatedSha256": "681205b95afbe79edf3f5560c0830738f597ab5e9b21048defe2a9831bcdf790"
+    },
+    {
+      "name": "skin",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable diffuse detail texture for a bright Nintendo-like original sports game. Primary request: Toy golfer skin: smooth painted vinyl-like cartoon skin with almost imperceptible hand-painted soft mottling. NO pores, wrinkles, freckles, hair or realistic skin detail. Composition: square flat orthographic material tile filling the entire image, no perspective, no margin, no object or scene. Style: restrained polished hand-painted stylized game material, readable clean shapes. Color palette: neutral grayscale centered on middle grey RGB128, low contrast, all values mainly100\u00e2\u20ac\u201c156. Lighting: completely even diffuse color, no directional light, no baked shadow or vignette. Constraints: seamlessly repeating opposite edges; no text, letters, labels, frame, logos or watermark. This is ONE material texture, no collage or contact sheet.",
+      "generatedPath": "C:\\Users\\matth\\.codex\\generated_images\\01a0a40f-f23d-7bb0-bba6-54c3241c2665\\exec-451f8c1d-65fe-4d54-bb31-7c23bbbce41d.png",
+      "generatedSha256": "79f849a999d3ee8d0ad8d5dbfd86f5c0d1a6b7f2a17f6f1a7c7033bbbbd9f9af"
+    }
+  ]
+}

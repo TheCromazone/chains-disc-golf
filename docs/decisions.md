@@ -110,3 +110,16 @@
 - Physics and asset checks pass. Integration exercises a real pointer swipe, a complete Full hole and both empty-assets quality paths. All six overlap viewports are rerun after layout changes. The prior online message contracts and storage keys remain unchanged.
 - **Physical Android and iPhone frame rates are still owed.** Desktop Chromium screenshots and timing do not certify mobile GPU, touch latency or Safari behavior. Generated ElevenLabs recordings and a defensible all-pieces blind win are also still outstanding.
 - Final lighting refinement adds a six-value terrain-normal ramp without extra textures/passes or collision changes. Final six-viewport overlap audit passes. The last independent world comparison still selects the reference; the additional lighting refinement does not justify claiming that the overall art target has been met. The HUD is provisionally preferred for phone readability, subject to mismatched reference aspect ratios.
+
+## Round three — painted materials, authored throws and device evidence (2026-09-15)
+
+### Preserved review pass
+
+- Read and committed the inherited working tree first, as `c41d7a0`: detail-map slots, corrected procedural right-handed backhand/blade, ten throw presets, throwing-hand choice and waiting-player placement. Physics and asset tests passed before that commit.
+
+### Painted materials
+
+- Generated twelve separate original painted masters: fairway, rough, green, sand, bark, pine, deciduous, tee rubber, basket metal, water, jersey and skin. Ship neutral 256px JPEG detail maps (147,640 bytes total); retain 512px authoring masters and generation provenance. JPEG uses the existing shared texture loader and avoids adding a decoder to Lite.
+- Terrain blends the four ground detail maps with the existing fairway/green/soil masks. Pines and deciduous crowns have separate maps; props and both character rigs use their named slots. Skin/jersey use bind-pose coordinates so their texture follows the actor. The toon ramp, palette, terrain geometry and collision functions are preserved. An empty manifest still produces the procedural world and golfer.
+- Four independent texture reviews led to stronger readable marks, a regenerated fairway detail tile without doubled mowing stripes, and larger foliage clusters. The broad course mowing bands remain. The final critic still prefers Switch Sports; its biggest remaining gap is layered canopy volume and shaded overlap, which grayscale tile tuning cannot establish. No blind-win claim is made.
+- The runtime check samples all twelve maps across Pine and Lake, checks loaded 256px images and shader bindings, and captures both quality settings plus the empty-manifest fallback. Lite remains below 2 MB including exposed CDN resource timings. Current evidence and the critic's limits are in `docs/qa/r3/`.

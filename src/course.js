@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
 import { modelParts, addModel } from './models.js';
-import { windMaterial, windTime, toonMaterial, cartoonSky, paintDetail } from './materials.js';
+import { windMaterial, windTime, toonMaterial, cartoonSky, paintDetail, paintTerrain } from './materials.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
@@ -193,6 +193,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const segX = 260, segZ = 200;
   const geo = new THREE.PlaneGeometry(W, H, segX, segZ); geo.rotateX(-Math.PI / 2);
   const splats = new Float32Array(geo.attributes.position.count * 2);
+  const paintWeights = new Float32Array(geo.attributes.position.count * 3);
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
   const cFair = new THREE.Color(def.grass[0]), cRough = new THREE.Color(def.grass[1]), cDark = new THREE.Color(def.grass[2]), cSand = new THREE.Color(def.grass[3]), tmp = new THREE.Color();
   const cCollar=new THREE.Color('#397c36'), cGreen=new THREE.Color('#afd66a'), cFringe=new THREE.Color('#357b36'), cut=new THREE.Color();
@@ -206,6 +207,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const width = (2.0 + smooth(.06,.22,fi.t) * 1.7 + Math.sin(phase - .6) * .6 + Math.sin(phase * 1.8) * .25) * def.fairwayW;
     const edge = fi.d + (n2 - .5) * .8;
     const fair = 1 - smooth(width, width + .55, edge);
+    paintWeights[i*3] = fair;
     const collar = 1 - smooth(width + 1.05, width + 1.8, edge);
     tmp.copy(cRough).lerp(cDark, .12 + n2 * .18);
     tmp.lerp(cCollar, collar);
@@ -215,6 +217,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if(fi.hole) {
       const bx=x-fi.hole.basket[0], bz=z-fi.hole.basket[1], green=Math.hypot(bx,bz*.88);
       const greenMask=1-smooth(5.7,6.25,green);
+      paintWeights[i*3+1] = greenMask;
       tmp.lerp(cGreen,greenMask);
       const fringe=smooth(5.7,6.1,green)*(1-smooth(6.5,7.25,green));
       tmp.lerp(cFringe,fringe*.8);
@@ -226,10 +229,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       const soil=((along-length*.76)/(length*.14))**2+((across+side*8.8)/(4.8+Math.sin(along*.19)*.8))**2;
       const soilMask=(1-smooth(.72,1.08,soil))*smooth(width+.35,width+1.2,edge);
       tmp.lerp(cSand,soilMask*.96);
+      paintWeights[i*3+2] = soilMask;
     }
     for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 2.2) tmp.lerp(cSand, smooth(2.2, 1.1, e) * 0.7); }
     splats[i*2] = smooth(4, 0, fi.d) * smooth(.1, .3, fi.t) * (1-smooth(.7,.95,fi.t)) * .42;
-    for (const p of ponds) { const e=((x-p.x)/p.rx)**2+((z-p.z)/p.rz)**2; splats[i*2+1]=Math.max(splats[i*2+1],smooth(2.2,1.25,e)); }
+    for (const p of ponds) { const e=((x-p.x)/p.rx)**2+((z-p.z)/p.rz)**2; splats[i*2+1]=Math.max(splats[i*2+1],smooth(2.2,1.25,e)); paintWeights[i*3+2]=Math.max(paintWeights[i*3+2],smooth(2.2,1.25,e)); }
 
     colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
@@ -244,7 +248,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const gain=.40+band*.85;
     colors[i*3]*=gain;colors[i*3+1]*=gain;colors[i*3+2]*=gain;
   }
-  const terrain = new THREE.Mesh(geo, paintDetail(toonMaterial({ vertexColors: true }), 'grass'));
+  const terrain = new THREE.Mesh(geo, paintTerrain(toonMaterial({ vertexColors: true }), geo, paintWeights));
   terrain.receiveShadow = true; group.add(terrain);
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their
@@ -310,6 +314,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
 
   const trunkMat = paintDetail(toonMaterial({ color: '#986541' }), 'bark');
   const leafMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff' }), windClock), 'leaf');
+  const pineMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff' }), windClock), 'pine');
   const blob = (r, detail, amp) => {
     // Indexed round surfaces retain smooth vertex normals after the contour is shaped.
     const g=new THREE.SphereGeometry(r,detail===1?12:18,detail===1?7:12),p=g.attributes.position;
@@ -371,7 +376,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   };
   if (!importedInstances('pine', pineSpots)) {
     inst(pineTrunk, trunkMat, pineSpots, null, false);
-    for(let variant=0;variant<3;variant++) inst(pineVariants[variant], leafMat, pineSpots.filter(s=>Math.floor(noise(s.x*.37+13,s.z*.37+5)*3)===variant), s => col.setHSL(.32 + noise(s.x/24,s.z/24)*.045, .42 + noise(s.x/31+5,s.z/31)*.12, .25 + noise(s.x/22,s.z/22)*.16, THREE.SRGBColorSpace));
+    for(let variant=0;variant<3;variant++) inst(pineVariants[variant], pineMat, pineSpots.filter(s=>Math.floor(noise(s.x*.37+13,s.z*.37+5)*3)===variant), s => col.setHSL(.32 + noise(s.x/24,s.z/24)*.045, .42 + noise(s.x/31+5,s.z/31)*.12, .25 + noise(s.x/22,s.z/22)*.16, THREE.SRGBColorSpace));
   }
   if (!importedInstances('deciduous', decSpots)) {
     inst(decTrunk, trunkMat, decSpots, null, false);
@@ -395,9 +400,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
 
   // --- tee pads, signs, baskets ---
-  const concrete = paintDetail(toonMaterial({ color: '#e6e5ca' }), 'concrete');
-  const metal = toonMaterial({ color: '#e5f3f3' });
-  const yellow = toonMaterial({ color: '#ffca26' });
+  const concrete = paintDetail(toonMaterial({ color: '#74a899' }), 'concrete');
+  const metal = paintDetail(toonMaterial({ color: '#e5f3f3' }), 'metal');
+  const yellow = paintDetail(toonMaterial({ color: '#ffca26' }), 'metal');
   const basketGeo = makeBasketGeometry();
   const baskets = [], destinationMarkers = [];
   for (const h of holes) {

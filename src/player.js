@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { createGLTFCharacter } from './gltf-player.js';
 import { FACE_OPTIONS, FACE_DEFAULTS, createFaceParts } from './face-parts.js';
 import { characterRamp } from './character-material.js';
+import { paintDetail } from './materials.js';
 
 export const AVATAR_OPTIONS = {
   ...FACE_OPTIONS,
@@ -97,7 +98,7 @@ export function createCharacter(opts = {}) {
   const g = new THREE.Group();
   const materials = new Set();
   const std = c => { const m = new THREE.MeshToonMaterial({ color: c, gradientMap:characterRamp }); materials.add(m); return m; };
-  const skinM=std(a.skin), shirtM=std(a.jersey), accentM=std(a.accent), shortsM=std(a.shorts), shoeM=std(a.shoes), hairM=std(a.hairColor), hatM=std(a.headwearColor), gloveM=std('#ffffff'),soleM=std('#b6cbd6');
+  const skinM=paintDetail(std(a.skin),'skin'), shirtM=paintDetail(std(a.jersey),'jersey'), accentM=std(a.accent), shortsM=std(a.shorts), shoeM=std(a.shoes), hairM=std(a.hairColor), hatM=std(a.headwearColor), gloveM=std('#ffffff'),soleM=std('#b6cbd6');
   const ell = (parent, m, x,y,z, sx,sy,sz) => {const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,20,14),m);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);parent.add(mesh);return mesh;};
   const tube = (parent,m,x,y,z,r,len) => {const mesh=new THREE.Mesh(new THREE.CapsuleGeometry(r,len,4,12),m);mesh.position.set(x,y,z);parent.add(mesh);return mesh;};
   const joint = (parent,x,y,z) => {const o=new THREE.Group();o.position.set(x,y,z);parent.add(o);return o;};
