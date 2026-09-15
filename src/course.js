@@ -13,15 +13,15 @@ export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
-    hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#91d646', '#48b439', '#298a3c', '#f5dfa4'], leafHue: 0.25,
+    hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#75bd48', '#3f9842', '#29774a', '#f5dfa4'], leafHue: 0.29,
     sun: [40, 130], sky: [4, 2.2], sunColor: '#fff1d6', fog: ['#c6d9e6', 0.0032], hemi: ['#cfe3ff', '#4d6b2e'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
-    hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#b3de55', '#69bd42', '#379a43', '#f4dd9e'], leafHue: 0.19,
+    hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#8bc352', '#55a344', '#397e48', '#f4dd9e'], leafHue: 0.265,
     sun: [21, 245], sky: [7, 1.4], sunColor: '#ffd39a', fog: ['#e2cfae', 0.0026], hemi: ['#ffd9b0', '#6b6a2e'], water: '#4a7f8f' },
   { id: 'lake', name: 'Lakeshore Links', tag: 'Water on five holes', blurb: 'Morning light off the lake. Carries, wraps and island greens; every pond is out of bounds.', seed: 41,
     len: [92, 118, 80, 134, 100, 74, 126, 96, 110], dog: { 2: 1, 5: -1, 7: 1 }, ponds: { 0: 'right', 2: 'front', 4: 'carry', 6: 'right', 8: 'front' },
-    hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#9adb58', '#4dbb56', '#268e49', '#ffe3ac'], leafHue: 0.3,
+    hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#7dc65a', '#419f50', '#287a51', '#ffe3ac'], leafHue: 0.3,
     sun: [55, 95], sky: [2.5, 3], sunColor: '#fff8ec', fog: ['#d6e6ee', 0.0028], hemi: ['#dbeeff', '#4d7a3e'], water: '#2a7fa8' },
 ];
 export const courseById = id => COURSES.find(c => c.id === id) || COURSES[0];
@@ -230,11 +230,22 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   };
 
   const trunkMat = toonMaterial({ color: '#986541' });
-  const leafMat = toonMaterial({ color: '#ffffff' });
+  const leafMat = windMaterial(toonMaterial({ color: '#ffffff' }), windClock);
   const blob = (r, detail, amp) => { const g = new THREE.IcosahedronGeometry(r, detail); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const k = 1 + (noise(x * 1.3 + 40, y * 1.3 + z * 0.7 + 40) - 0.5) * amp; p.setXYZ(i, x * k, y * k, z * k); } g.computeVertexNormals(); return g; };
   const shift = (g, x, y, z) => g.translate(x, y, z);
   const pineTrunk = shift(new THREE.CylinderGeometry(0.16, 0.34, 6, 7), 0, 3, 0);
-  const pineLeaf = mergeGeometries([shift(new THREE.ConeGeometry(2.4, 4.2, 20), 0, 5, 0), shift(new THREE.ConeGeometry(1.9, 3.8, 20), 0, 7.4, 0), shift(new THREE.ConeGeometry(1.3, 3.2, 20), 0, 9.5, 0)]);
+  // One gently scalloped crown replaces three identical geometric cone tiers.
+  const crownProfile = [[0,3.15],[1.15,3.2],[2.22,3.55],[2.34,3.95],[2.08,4.5],[1.73,5.12],
+    [1.98,5.18],[1.97,5.58],[1.65,6.18],[1.33,6.85],[1.57,6.94],[1.49,7.37],
+    [1.14,8.1],[.84,8.85],[.98,8.92],[.72,9.48],[.39,10.12],[0,11.05]];
+  const pineLeaf = new THREE.LatheGeometry(crownProfile.map(p => new THREE.Vector2(...p)), 18);
+  const crownPos = pineLeaf.attributes.position;
+  for (let i=0; i<crownPos.count; i++) {
+    const x=crownPos.getX(i), z=crownPos.getZ(i), y=crownPos.getY(i), a=Math.atan2(z,x);
+    const shape = 1 + Math.sin(a*5+y*1.3)*.065 + Math.sin(a*3-y)*.035;
+    crownPos.setXYZ(i,x*shape,y,z*shape);
+  }
+  pineLeaf.computeVertexNormals();
   const decTrunk = mergeGeometries([shift(new THREE.CylinderGeometry(0.2, 0.4, 4.2, 7), 0, 2.1, 0), shift(new THREE.CylinderGeometry(0.08, 0.16, 2.6, 5).rotateZ(0.6), 0.9, 4.2, 0.2), shift(new THREE.CylinderGeometry(0.08, 0.16, 2.4, 5).rotateZ(-0.7).rotateY(1.2), -0.8, 4.1, -0.4)]);
   const bd = quality === 'low' ? 1 : 2;   // ponytail: blob detail is the main triangle cost on phones
   const decLeaf = mergeGeometries([shift(blob(3.3, bd, 0.12).scale(1, 0.85, 1), 0, 5.8, 0), shift(blob(2.2, bd, 0.12), 1.6, 6.9, 1.0), shift(blob(2.0, bd, 0.12), -1.5, 6.5, -1.2)]);
@@ -262,11 +273,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   };
   if (!importedInstances('pine', pineSpots)) {
     inst(pineTrunk, trunkMat, pineSpots, null, false);
-    inst(pineLeaf, leafMat, pineSpots, s => col.setHSL(0.33 + (noise(s.x, s.z) - 0.5) * 0.06, 0.64, 0.34 + noise(s.z, s.x) * 0.08, THREE.SRGBColorSpace));
+    inst(pineLeaf, leafMat, pineSpots, s => col.setHSL(0.33 + (noise(s.x, s.z) - 0.5) * 0.06, 0.48, 0.29 + noise(s.z, s.x) * 0.10, THREE.SRGBColorSpace));
   }
   if (!importedInstances('deciduous', decSpots)) {
     inst(decTrunk, trunkMat, decSpots, null, false);
-    inst(decLeaf, leafMat, decSpots, s => col.setHSL(def.leafHue + (noise(s.x + 9, s.z) - 0.5) * 0.1, 0.68, 0.39 + noise(s.z + 4, s.x) * 0.08, THREE.SRGBColorSpace));
+    inst(decLeaf, leafMat, decSpots, s => col.setHSL(def.leafHue + (noise(s.x + 9, s.z) - 0.5) * 0.045, 0.53, 0.34 + noise(s.z + 4, s.x) * 0.11, THREE.SRGBColorSpace));
   }
   if (!importedInstances('bush', bushes, false)) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
   // Fine crossed-alpha grass is deliberately retired in both modes.
@@ -317,13 +328,13 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const sky = cartoonSky(); scene.add(sky);
   const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(50), THREE.MathUtils.degToRad(130));
   scene.environment = null; scene.background = null;
-  scene.fog = new THREE.Fog('#c4edf5', 100, 360);
+  scene.fog = new THREE.Fog('#b5dfe5', 38, 235);
   const sun = new THREE.DirectionalLight('#fff7e5', 1.65); sun.castShadow = false;
   const sm = quality === 'low' ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
   const sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -42; sc2.right = sc2.top = 42; sc2.near = 1; sc2.far = 400;
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
   scene.add(sun); scene.add(sun.target);
-  const hemi = new THREE.HemisphereLight('#ffffff', '#abc987', 1.7); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight('#effaff', '#8fac75', 1.25); scene.add(hemi);
 
   // Soft graphic clouds are part of the base style, including Lite.
   const cloudGeo = new THREE.SphereGeometry(1, 12, 8);
@@ -338,21 +349,30 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       cloud.scale.set(14, j === 1 ? 9 : 6, 7); cloudGroup.add(cloud);
     }
   }
-  // One merged transparent mesh: soft tree grounding without a shadow-map pass.
+  // Feathered canopies pool shade around nearby trunks; distance fades them into the same haze.
+  // This merged ground-conforming mesh costs one draw, with no shadow map or image request.
   const shadowParts = [];
-  for (const t of trees) {
-    const disk = new THREE.CircleGeometry(t.fr * .95, 12).rotateX(-Math.PI / 2);
-    const positions = disk.attributes.position, alpha = new Float32Array(positions.count);
-    for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i) + t.x + .4, z = positions.getZ(i) + t.z + .25;
-      positions.setXYZ(i, x, height(x, z) + .045, z); alpha[i] = i === 0 ? .23 : 0;
+  const groundShadow = (cx, cz, rx, rz, strength) => {
+    const positions=[], alpha=[], indices=[], segments=20, rings=[0,.48,.82,1.2], opacity=[1,.76,.3,0];
+    for(let ring=0;ring<rings.length;ring++) for(let j=0;j<=segments;j++) {
+      const a=j/segments*Math.PI*2, x=cx+Math.cos(a)*rx*rings[ring], z=cz+Math.sin(a)*rz*rings[ring];
+      positions.push(x,height(x,z)+.05,z); alpha.push(strength*opacity[ring]);
     }
-    disk.setAttribute('shadowAlpha', new THREE.BufferAttribute(alpha, 1)); shadowParts.push(disk);
+    for(let ring=0;ring<rings.length-1;ring++) for(let j=0;j<segments;j++) {
+      const a=ring*(segments+1)+j,b=a+segments+1;indices.push(a,a+1,b,b,a+1,b+1);
+    }
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    g.setAttribute('shadowAlpha',new THREE.Float32BufferAttribute(alpha,1));g.setIndex(indices);shadowParts.push(g);
+  };
+  for(const t of trees) groundShadow(t.x+.9,t.z+.6,t.fr*1.35,t.fr*1.1,.42);
+  for(const h of holes) {
+    groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,.28);
+    groundShadow(h.basket[0]+.5,h.basket[1]+.3,.65,.85,.38);
   }
   if (shadowParts.length) {
     const shadowMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false,
-      vertexShader: 'attribute float shadowAlpha;varying float vAlpha;void main(){vAlpha=shadowAlpha;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-      fragmentShader: 'varying float vAlpha;void main(){gl_FragColor=vec4(.07,.22,.1,vAlpha);}' });
+      vertexShader: 'attribute float shadowAlpha;varying float vAlpha;varying float vDepth;void main(){vAlpha=shadowAlpha;vec4 mv=modelViewMatrix*vec4(position,1.);vDepth=-mv.z;gl_Position=projectionMatrix*mv;}',
+      fragmentShader: 'varying float vAlpha;varying float vDepth;void main(){float fade=1.-smoothstep(38.,170.,vDepth);gl_FragColor=vec4(.055,.16,.075,vAlpha*fade);}' });
     const shadows = new THREE.Mesh(mergeGeometries(shadowParts), shadowMat); shadows.renderOrder = 1; group.add(shadows);
     shadowParts.forEach(g => g.dispose());
   }
