@@ -16,6 +16,23 @@ const fh = throwIt({ throwType: 'forehand' });
 console.log('forehand', fh.thrown.toFixed(1), 'm, rest x', fh.rest[0].toFixed(1));
 assert(fh.rest[0] > 2, 'RHFH should fade right');
 
+// A left-hander's backhand is the righty's mirror image: same distance, fade to the other side.
+const lh = throwIt({ lefty: true });
+console.log('lefty backhand', lh.thrown.toFixed(1), 'm, rest x', lh.rest[0].toFixed(1));
+assert(Math.abs(lh.rest[0] + drive.rest[0]) < 0.5 && Math.abs(lh.thrown - drive.thrown) < 0.5, 'LHBH should mirror RHBH');
+
+// Inside-out and outside-in presets bend the same motion to opposite sides of a flat release.
+const io = throwIt({ throwType: 'backhand_io' }), oi = throwIt({ throwType: 'backhand_oi' });
+console.log('backhand io / oi rest x', io.rest[0].toFixed(1), '/', oi.rest[0].toFixed(1));
+assert(io.rest[0] < drive.rest[0] - 3, 'IO backhand should finish further left than flat');
+assert(oi.rest[0] > drive.rest[0] + 3, 'OI backhand should finish right of flat');
+
+// A blade knifes: shorter than a forehand and curving hard, never a long glide.
+const blade = throwIt({ throwType: 'blade' });
+console.log('blade', blade.thrown.toFixed(1), 'm, rest x', blade.rest[0].toFixed(1), 'maxH', blade.maxH.toFixed(1));
+assert(blade.thrown > 15 && blade.thrown < fh.thrown, `blade range ${blade.thrown}`);
+assert(Math.abs(blade.rest[0]) > 6, 'blade should curve hard');
+
 // Half power putter goes much shorter than a driver.
 const short = throwIt({ throwType: 'putt', disc: discById('putter'), power: 0.5 });
 console.log('half putt', short.thrown.toFixed(1), 'm');

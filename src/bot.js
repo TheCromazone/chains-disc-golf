@@ -6,12 +6,12 @@ const NOISE = { easy: { yaw: 7, power: 0.13, hyzer: 8 }, medium: { yaw: 3.5, pow
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
 const yieldFrame = () => new Promise(r => setTimeout(r, 0));
 
-export async function planBotThrow({ pos, world, difficulty = 'medium', wind }) {
+export async function planBotThrow({ pos, world, difficulty = 'medium', wind, lefty = false }) {
   const b = world.basket;
   const dx = b.x - pos[0], dz = b.z - pos[2], dist = Math.hypot(dx, dz);
   const dir = [dx / dist, dz / dist];
   const cands = [];
-  const base = { pos: [pos[0], pos[1] + 1.15, pos[2]], dir };
+  const base = { pos: [pos[0], pos[1] + 1.15, pos[2]], dir, lefty };
   if (dist <= 15) {
     const p0 = Math.min(1, 0.22 + dist * 0.072);
     for (const yaw of [-4, -2, 0, 2, 4]) for (const dp of [-0.1, -0.05, 0, 0.05, 0.1])

@@ -18,12 +18,13 @@ export const AVATAR_OPTIONS = {
   headwear: ['cap', 'backcap', 'beanie', 'visor', 'none'],
   headwearColor: ['#151820', '#ffffff', '#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#3d5a2a', '#6b2d2d'],
   build: ['slim', 'athletic', 'broad'],
+  hand: ['right', 'left'],
 };
-export const DEFAULT_AVATAR = { ...FACE_DEFAULTS, name: 'You', skin: '#d9a382', hair: 'short', hairColor: '#3b2a1c', jersey: '#ff4d3d', accent: '#ffffff', shorts: '#23262e', shoes: '#f1f1f1', headwear: 'none', headwearColor: '#151820', number: 7, shades: false, build: 'athletic' };
+export const DEFAULT_AVATAR = { hand: 'right', ...FACE_DEFAULTS, name: 'You', skin: '#d9a382', hair: 'short', hairColor: '#3b2a1c', jersey: '#ff4d3d', accent: '#ffffff', shorts: '#23262e', shoes: '#f1f1f1', headwear: 'none', headwearColor: '#151820', number: 7, shades: false, build: 'athletic' };
 export function randomAvatar(rng = Math.random, overrides = {}) {
   const pick = a => a[Math.floor(rng() * a.length)];
   const jersey = overrides.jersey || pick(AVATAR_OPTIONS.jersey);
-  return { ...DEFAULT_AVATAR, ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([k,v])=>[k,pick(v)])), skin: pick(AVATAR_OPTIONS.skin), hair: pick(AVATAR_OPTIONS.hair), hairColor: pick(AVATAR_OPTIONS.hairColor), jersey, accent: pick(AVATAR_OPTIONS.accent.filter(c => c !== jersey)), shorts: pick(AVATAR_OPTIONS.shorts), shoes: pick(AVATAR_OPTIONS.shoes), headwear: pick(AVATAR_OPTIONS.headwear), headwearColor: pick(AVATAR_OPTIONS.headwearColor), number: Math.floor(rng() * 99) + 1, shades: rng() < 0.5, build: pick(AVATAR_OPTIONS.build), ...overrides };
+  return { ...DEFAULT_AVATAR, ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([k,v])=>[k,pick(v)])), skin: pick(AVATAR_OPTIONS.skin), hair: pick(AVATAR_OPTIONS.hair), hairColor: pick(AVATAR_OPTIONS.hairColor), jersey, accent: pick(AVATAR_OPTIONS.accent.filter(c => c !== jersey)), shorts: pick(AVATAR_OPTIONS.shorts), shoes: pick(AVATAR_OPTIONS.shoes), headwear: pick(AVATAR_OPTIONS.headwear), headwearColor: pick(AVATAR_OPTIONS.headwearColor), number: Math.floor(rng() * 99) + 1, shades: rng() < 0.5, build: pick(AVATAR_OPTIONS.build), hand: rng() < 0.12 ? 'left' : 'right', ...overrides };
 }
 
 const JOINTS = ['root', 'spine', 'head', 'shR', 'elR', 'shL', 'elL', 'hipR', 'knR', 'hipL', 'knL'];
@@ -31,11 +32,11 @@ const IDLE = { root: [0, 0, 0], spine: [0.04, 0, 0], head: [0, 0, 0], shR: [0.85
 
 const K = {
   backhand: [
-    { t: 0,    root: [0, -0.7, 0], spine: [0.05, 0, 0], head: [0, 0.6, 0], shR: [0.9, 0, 0.35], elR: [1.3, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 0.5,  root: [0, -1.95, 0], spine: [0.12, -0.35, 0.05], head: [0, 1.35, 0], shR: [0.15, 0, 1.55], elR: [0.1, 0, 0], shL: [0.9, 0, -0.5], elL: [1.3, 0, 0], hipR: [-0.35, 0, 0.12], knR: [-0.55, 0, 0], hipL: [0.5, 0, -0.05], knL: [-0.4, 0, 0], rootY: -0.1 },
-    { t: 0.62, root: [0, -1.0, 0], spine: [0.05, 0.15, 0], head: [0, 0.8, 0], shR: [1.35, 0, -0.45], elR: [0.05, 0, 0], shL: [0.6, 0, -0.9], elL: [1.0, 0, 0], hipR: [-0.2, 0, 0.1], knR: [-0.3, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.15, 0, 0], rootY: -0.05 },
-    { t: 0.8,  root: [0, 0.35, 0], spine: [0, 0.35, -0.05], head: [0, 0.2, 0], shR: [1.1, 0, -1.2], elR: [0.3, 0, 0], shL: [0.1, 0, -0.6], elL: [0.6, 0, 0], hipR: [-0.55, 0, 0.15], knR: [-0.75, 0, 0], hipL: [0.1, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 1,    root: [0, 0.5, 0], spine: [0.05, 0, 0], head: [0, 0, 0], shR: [0.3, 0, 0.3], elR: [0.4, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
+    { t: 0,    root: [0, 0.55, 0], spine: [0.06, 0.1, 0], head: [0, -0.5, 0], shR: [0.95, 0.15, -0.2], elR: [1.2, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
+    { t: 0.5,  root: [0, 2.0, 0], spine: [0.12, 0.35, 0.08], head: [0, -1.2, 0], shR: [0.15, -0.55, -1.45], elR: [0.25, 0, 0], shL: [0.35, 0, -1.0], elL: [0.6, 0, 0], hipR: [0.45, 0, 0.1], knR: [-0.35, 0, 0], hipL: [-0.3, 0, -0.08], knL: [-0.5, 0, 0], rootY: -0.04 },
+    { t: 0.62, root: [0, 0.75, 0], spine: [0.05, -0.15, 0], head: [0, -0.6, 0], shR: [0.05, 0.82, 1.45], elR: [0.08, 0, 0], shL: [0.5, 0, -0.85], elL: [0.9, 0, 0], hipR: [-0.15, 0, 0.1], knR: [-0.25, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.2, 0, 0], rootY: -0.03 },
+    { t: 0.8,  root: [0, -0.35, 0], spine: [0.05, -0.35, -0.08], head: [0, 0.1, 0], shR: [0.1, -0.5, -1.3], elR: [0.35, 0, 0], shL: [0.1, 0, -0.55], elL: [0.5, 0, 0], hipR: [-0.45, 0, 0.12], knR: [-0.55, 0, 0], hipL: [0.15, 0, -0.05], knL: [-0.15, 0, 0], rootY: 0 },
+    { t: 1,    root: [0, -0.45, 0], spine: [0.05, 0, 0], head: [0, 0.2, 0], shR: [0.35, 0, 0.3], elR: [0.4, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
   ],
   forehand: [
     { t: 0,    root: [0, 0.15, 0], spine: [0.05, 0, 0], head: [0, -0.15, 0], shR: [0.4, 0, 0.5], elR: [1.5, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
@@ -58,6 +59,13 @@ const K = {
     { t: 0.8,  root: [0, 0.5, 0], spine: [-0.15, 0.4, -0.15], head: [0, -0.4, 0], shR: [2.3, 0, -0.9], elR: [1.1, 0, 0], shL: [0.1, 0, -0.5], elL: [0.5, 0, 0], hipR: [-0.4, 0, 0.15], knR: [-0.5, 0, 0], hipL: [0.1, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
     { t: 1,    root: [0, 0.4, 0], spine: [0.05, 0, 0], head: [0, -0.2, 0], shR: [0.4, 0, 0.3], elR: [0.5, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
   ],
+  blade: [
+    { t: 0,    root: [0, 0.15, 0], spine: [0.05, 0, 0], head: [0, -0.15, 0], shR: [0.4, 0, 0.5], elR: [1.5, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
+    { t: 0.5,  root: [0, -0.5, 0], spine: [-0.1, -0.25, 0.15], head: [0, 0.4, 0], shR: [-1.2, 0.3, 1.5], elR: [1.7, 0, 0], shL: [0.7, 0, -0.6], elL: [0.9, 0, 0], hipR: [-0.3, 0, 0.12], knR: [-0.55, 0, 0], hipL: [0.45, 0, -0.05], knL: [-0.35, 0, 0], rootY: -0.05 },
+    { t: 0.62, root: [0, 0.15, 0], spine: [0.15, 0.2, -0.05], head: [0, -0.2, 0], shR: [1.9, 0.2, 1.1], elR: [0.2, 0, 0], shL: [0.4, 0, -0.8], elL: [0.9, 0, 0], hipR: [-0.15, 0, 0.1], knR: [-0.3, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.2, 0, 0], rootY: -0.02 },
+    { t: 0.8,  root: [0, 0.55, 0], spine: [0.3, 0.4, -0.2], head: [0, -0.5, 0], shR: [2.2, 0, -0.6], elR: [0.6, 0, 0], shL: [0.1, 0, -0.5], elL: [0.5, 0, 0], hipR: [-0.5, 0, 0.15], knR: [-0.6, 0, 0], hipL: [0.1, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
+    { t: 1,    root: [0, 0.5, 0], spine: [0.05, 0, 0], head: [0, -0.3, 0], shR: [0.4, 0, 0.3], elR: [0.5, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
+  ],
   putt: [
     { t: 0,    root: [0, 0, 0], spine: [0.15, 0, 0], head: [-0.1, 0, 0], shR: [0.7, 0, 0.2], elR: [1.7, 0, 0], shL: [0.3, 0, -0.6], elL: [0.4, 0, 0], hipR: [0.25, 0, 0.05], knR: [-0.5, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.5, 0, 0], rootY: -0.1 },
     { t: 0.5,  root: [0, 0, 0], spine: [0.28, 0, 0], head: [-0.2, 0, 0], shR: [0.45, 0, 0.25], elR: [2.0, 0, 0], shL: [0.35, 0, -0.8], elL: [0.4, 0, 0], hipR: [0.4, 0, 0.05], knR: [-0.8, 0, 0], hipL: [0.4, 0, -0.05], knL: [-0.8, 0, 0], rootY: -0.17 },
@@ -67,6 +75,10 @@ const K = {
   ],
 };
 
+// Left-handers are the same motion reflected: swap sides, negate the yaw and roll of every joint.
+const MIRROR = { shR: 'shL', shL: 'shR', elR: 'elL', elL: 'elR', hipR: 'hipL', hipL: 'hipR', knR: 'knL', knL: 'knR' };
+const mirrorPose = t => { const m = { rootY: t.rootY }; for (const j of JOINTS) { const v = t[MIRROR[j] || j]; m[j] = [v[0], -v[1], -v[2]]; } return m; };
+const keysFor = t => K[t] || K[t.split('_')[0]] || K.backhand;
 function poseAt(keys, phase) {
   let a = keys[0], b = keys[keys.length - 1];
   for (let i = 0; i < keys.length - 1; i++) if (phase >= keys[i].t && phase <= keys[i + 1].t) { a = keys[i]; b = keys[i + 1]; break; }
@@ -117,7 +129,7 @@ export function createCharacter(opts = {}) {
     ell(hand,gloveM,0,0,-.012,.062,.065,.055);ell(hand,gloveM,-side*.05,.015,-.043,.028,.04,.031);
     return {shoulder,elbow,hand};
   };
-  const R=arm(1),L=arm(-1);
+  const R=arm(1),L=arm(-1),lefty=a.hand==='left';
   const leg=side=>{const hip=joint(root,side*.115,-.02,0),knee=joint(hip,0,-.26,0);tube(hip,shortsM,0,-.115,0,.070,.12);ell(knee,skinM,0,0,0,.046,.05,.046);tube(knee,skinM,0,-.13,0,.044,.15);ell(knee,soleM,0,-.333,-.052,.083,.027,.154);ell(knee,shoeM,0,-.285,-.052,.079,.063,.15);return {hip,knee};};
   const RL=leg(1),LL=leg(-1);
   const joints={root,spine,head:headG,shR:R.shoulder,elR:R.elbow,shL:L.shoulder,elL:L.elbow,hipR:RL.hip,knR:RL.knee,hipL:LL.hip,knL:LL.knee};
@@ -129,7 +141,7 @@ export function createCharacter(opts = {}) {
   const apply = () => { for (const j of JOINTS) joints[j].rotation.set(cur[j][0], cur[j][1], cur[j][2]); root.position.y = ROOT_Y + cur.rootY; };
 
   return {
-    group: g, hand: R.hand, joints, avatar: a, source: 'procedural', clips: ['idle','practice',...Object.keys(K),'celebrate','slump','walk'], faceParts: face.parts, setFace: face.setFace,
+    group: g, hand: lefty ? L.hand : R.hand, joints, avatar: a, source: 'procedural', clips: ['idle','practice',...Object.keys(K),'celebrate','slump','walk'], faceParts: face.parts, setFace: face.setFace,
     setThrow(t) { throwType = t; },
     setPhase(p) { phase = p; if(p!==null)mood=null; },                       // null = idle
     react(name) { mood={name,t:0};phase=null; },
@@ -145,7 +157,8 @@ export function createCharacter(opts = {}) {
         if(locomotion==='walk') { const step=Math.sin(time*Math.PI*2);target.hipR[0]=step*.45;target.hipL[0]=-step*.45;target.shR[0]=-step*.4;target.shL[0]=step*.4; }
         if(locomotion==='practice') { const swing=(Math.sin(time*Math.PI/1.2)+1)*.5;target.root[1]=-.35+swing*.55;target.shR[0]=.7+swing*.5;target.elR[0]=1.2-swing*.6; }
         if(mood) { mood.t+=dt;const strength=Math.sin(Math.min(1,mood.t/2.4)*Math.PI);if(mood.name==='celebrate'){target.shR[0]=2.9*strength;target.shL[0]=2.9*strength;target.elR[0]=.4;target.elL[0]=.4;target.rootY=.1*strength;}else{target.spine[0]=.28*strength;target.head[0]=.35*strength;target.shR[0]=.1;}if(mood.t>=2.4)mood=null; }
-      } else target = poseAt(K[throwType], phase);
+      } else target = poseAt(keysFor(throwType), phase);
+      if (lefty) target = mirrorPose(target);
       const k = 1 - Math.exp(-(phase === null ? 7 : 30) * dt);
       for (const j of JOINTS) for (let i = 0; i < 3; i++) cur[j][i] += (target[j][i] - cur[j][i]) * k;
       cur.rootY += (target.rootY - cur.rootY) * k;

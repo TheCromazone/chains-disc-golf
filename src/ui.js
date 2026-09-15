@@ -32,7 +32,7 @@ export function fade(on) { $('fade').classList.toggle('on', on); }
 export function setPower(p) { $('powerFill').style.transform = `scaleY(${Math.max(0, Math.min(1, p)).toFixed(3)})`; $('powerLabel').textContent = p > 0 ? `${Math.round(p * 100)}%` : 'POWER'; }
 export function setHint(throwType, sub) {
   const t = THROWS[throwType];
-  const angles = { backhand: 0, forehand: 180, tomahawk: 90, scoober: -135, putt: -90 };
+  const angles = { backhand: 0, backhand_io: 0, backhand_oi: 0, forehand: 180, forehand_io: 180, forehand_oi: 180, blade: 135, tomahawk: 90, scoober: -135, putt: -90 };
   $('hintArrow').innerHTML = icon('arrow'); $('hintArrow').style.transform = `rotate(${angles[throwType]}deg)`;
   $('pad').classList.remove('bad'); $('hintText').textContent = `${t.hint[0].toUpperCase()}${t.hint.slice(1)} to throw`;
   if (sub !== undefined) $('hintSub').textContent = sub;
@@ -132,8 +132,8 @@ export function setHub({ name, jersey, course, holes, img }) {
   if (jersey) $('hubSwatch').style.background = `linear-gradient(160deg, ${jersey}, ${jersey} 60%, rgba(0,0,0,0.35))`;
   if (course) { const st = courseStats(holes); $('hubCourse').textContent = course.name; $('hubCourseSub').textContent = `Par ${st.par} · ${st.len} m · ${course.tag.toLowerCase()}`; $('hubMap').innerHTML = img ? `<img src="${img}" alt="">` : courseMapSVG(course, holes); }
 }
-const AV_LABELS = { skin: 'Skin tone', hair: 'Hair shape', hairColor: 'Hair colour', headwear: 'Headwear', headwearColor: 'Headwear colour', jersey: 'Shirt', accent: 'Trim', number: 'Number', shorts: 'Shorts', shoes: 'Shoes', build: 'Body', shades: 'Shades', eyes: 'Eyes', brows: 'Brows', nose: 'Nose', mouth: 'Mouth', glasses: 'Glasses' };
-const AV_GROUPS = { face: ['eyes', 'brows', 'nose', 'mouth', 'glasses'], hair: ['hair', 'hairColor', 'headwear', 'headwearColor'], outfit: ['jersey', 'accent', 'number', 'shorts', 'shoes'], body: ['skin', 'build'] };
+const AV_LABELS = { skin: 'Skin tone', hair: 'Hair shape', hairColor: 'Hair colour', headwear: 'Headwear', headwearColor: 'Headwear colour', jersey: 'Shirt', accent: 'Trim', number: 'Number', shorts: 'Shorts', shoes: 'Shoes', build: 'Body', shades: 'Shades', eyes: 'Eyes', brows: 'Brows', nose: 'Nose', mouth: 'Mouth', glasses: 'Glasses', hand: 'Throwing hand' };
+const AV_GROUPS = { face: ['eyes', 'brows', 'nose', 'mouth', 'glasses'], hair: ['hair', 'hairColor', 'headwear', 'headwearColor'], outfit: ['jersey', 'accent', 'number', 'shorts', 'shoes'], body: ['skin', 'build', 'hand'] };
 let lockerCategory = 'face', faceCategory = 'eyes';
 // Small visual choice cards echo the decal vocabulary. The live 3D figure is the authority.
 function faceChoice(key, value, index) {

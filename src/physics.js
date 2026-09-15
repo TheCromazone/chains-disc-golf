@@ -14,9 +14,17 @@ export const DISCS = [
 export const discById = id => DISCS.find(d => d.id === id);
 
 // swipe/lat are screen-space (y down). latMode: what the perpendicular offset controls.
+const flat = (name, spin, maxSpeed, nose, swipe, hint) => ({ name, spin, maxSpeed, launch: 7, nose, bank: 0, liftMul: 1, dragMul: 1, flip: 0, swipe, lat: [0, 1], latMode: 'hyzer', hint });
+const BH = flat('Backhand', +1, 33, -3, [1, 0], 'swipe right →'), FH = flat('Forehand', -1, 30, -2, [-1, 0], 'swipe left ←');
+// preset = degrees of hyzer baked into the release: inside-out tilts toward the fade side, outside-in away from it.
 export const THROWS = {
-  backhand: { name: 'Backhand', icon: '↦', spin: +1, maxSpeed: 33, launch: 7,  nose: -3, bank: 0,   liftMul: 1,    dragMul: 1,   flip: 0,    swipe: [1, 0],  lat: [0, 1],  latMode: 'hyzer', hint: 'swipe right →' },
-  forehand: { name: 'Forehand', icon: '↤', spin: -1, maxSpeed: 30, launch: 7,  nose: -2, bank: 0,   liftMul: 1,    dragMul: 1,   flip: 0,    swipe: [-1, 0], lat: [0, 1],  latMode: 'hyzer', hint: 'swipe left ←' },
+  backhand: BH,
+  backhand_io: { ...BH, name: 'Backhand IO', preset: 22, hint: 'swipe right → · inside-out' },
+  backhand_oi: { ...BH, name: 'Backhand OI', preset: -22, hint: 'swipe right → · outside-in' },
+  forehand: FH,
+  forehand_io: { ...FH, name: 'Forehand IO', preset: 22, hint: 'swipe left ← · inside-out' },
+  forehand_oi: { ...FH, name: 'Forehand OI', preset: -22, hint: 'swipe left ← · outside-in' },
+  blade:    { ...FH, name: 'Blade', maxSpeed: 23, launch: 30, nose: 3, liftMul: 0.8, dragMul: 1.4, preset: -68, swipe: [-0.7071, 0.7071], lat: [0.7071, 0.7071], latMode: 'yaw', hint: 'swipe down-left ↙' },
   tomahawk: { name: 'Tomahawk', icon: '⤓', spin: -1, maxSpeed: 30, launch: 23, nose: 0,  bank: -85, liftMul: 0.85, dragMul: 1.2, flip: 1.2, swipe: [0, 1],  lat: [1, 0],  latMode: 'yaw',   hint: 'swipe down ↓' },
   scoober:  { name: 'Scoober',  icon: '⤴', spin: -1, maxSpeed: 22, launch: 30, nose: 8,  bank: 160, liftMul: 0.7,  dragMul: 1.3, flip: -1.9,  swipe: [-0.7071, -0.7071], lat: [0.7071, -0.7071], latMode: 'hyzer', hint: 'swipe up-left ↖' },
   putt:     { name: 'Putt',     icon: '⇡', spin: +1, maxSpeed: 14, launch: 12, nose: 7,  bank: 0,   liftMul: 1,    dragMul: 1,   flip: 0,    swipe: [0, -1], lat: [1, 0],  latMode: 'yaw',   hint: 'swipe up ↑' },
@@ -47,10 +55,11 @@ export function launch(p) {
   const pitch = la + th.nose * Math.PI / 180;
   let n = rotAxis([0, 1, 0], right, pitch);                               // nose up pitches normal backward
   const fwd = rotAxis(hdg, right, pitch);                                 // roll about the disc's own forward axis
-  const bank = th.bank - th.spin * (p.hyzer || 0);                        // hyzer = tilt toward the fade side
+  const side = p.lefty ? -1 : 1, spin = th.spin * side;                    // a left-hander's backhand spins the other way, so it fades the other way
+  const bank = th.bank * side - spin * ((p.hyzer || 0) + (th.preset || 0)); // hyzer = tilt toward the fade side
   n = rotAxis(n, fwd, bank * Math.PI / 180);
   return {
-    p: [p.pos[0], p.pos[1], p.pos[2]], v, n, spin: th.spin, spinRate: 4 + speed * 3,
+    p: [p.pos[0], p.pos[1], p.pos[2]], v, n, spin, spinRate: 4 + speed * 3,
     t: 0, mode: 'fly', throwType: p.throwType, disc, events: [], contacts: 0, restT: 0,
     lastIn: [p.pos[0], p.pos[1], p.pos[2]], lean: 0, chained: false, maxH: 0, start: [p.pos[0], p.pos[1], p.pos[2]],
   };

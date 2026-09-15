@@ -183,6 +183,24 @@ function nextTurn() {
   if (!next) next = alive.reduce((a, b) => (b.lieDist > a.lieDist ? b : a));
   setupTurn(G.players.indexOf(next));
 }
+// Everyone who has thrown stands at their own lie while they wait; nobody shares a spot with the thrower.
+function parkOthers(idx) {
+  const [bx, bz] = basketPos(), taken = [[G.players[idx].lie[0], G.players[idx].lie[2]]];
+  G.players.forEach((q, i) => {
+    if (i === idx || (q.strokes === 0 && !q.done)) return;   // players still to tee off keep their spot beside the pad
+    const d = [bx - q.lie[0], bz - q.lie[2]], L = Math.hypot(d[0], d[1]) || 1; d[0] /= L; d[1] /= L;
+    const r = rightOf(d);
+    let x = q.lie[0], z = q.lie[2];
+    // step out of the thrower's line: anyone standing within 1.6 m of the lie→basket segment moves to its side
+    const [ax, az] = taken[0], ex = bx - ax, ez = bz - az, EL = Math.hypot(ex, ez) || 1, rn = rightOf([ex / EL, ez / EL]);
+    const along = ((x - ax) * ex + (z - az) * ez) / EL, across = (x - ax) * rn[0] + (z - az) * rn[1];
+    if (along > -1 && along < EL + 1.5 && Math.abs(across) < 1.6) { const push = (across < 0 ? -1.8 : 1.8) - across; x += rn[0] * push; z += rn[1] * push; }
+    const x0 = x, z0 = z;
+    for (let k = 1; k < 8 && taken.some(([tx, tz]) => Math.hypot(tx - x, tz - z) < 1.1); k++) { x = x0 + r[0] * 1.3 * k; z = z0 + r[1] * 1.3 * k; }
+    taken.push([x, z]);
+    q.char.group.position.set(x, world.height(x, z), z); q.char.faceDir(d[0], d[1]); q.char.setPhase(null);
+  });
+}
 function setupTurn(idx) {
   G.players.forEach((p,i)=>setPlayerDetail(p,i!==idx));
   const p = G.players[idx]; G.cur = idx;
@@ -190,6 +208,7 @@ function setupTurn(idx) {
   G.aim.yaw = Math.atan2(basketPos()[1] - lie[2], basketPos()[0] - lie[0]); G.aim.pitch = 0;
   p.char.group.position.set(lie[0], world.height(lie[0], lie[2]), lie[2]);
   p.char.setPhase(null);
+  parkOthers(idx);
   p.marker.position.set(lie[0], world.height(lie[0], lie[2]) + 0.04, lie[2]); p.marker.visible = p.strokes > 0;
   // sensible default club for the distance (players can change it)
   if (dist > 62) { G.throwType = 'backhand'; G.discId = 'driver'; } else if (dist > 34) { G.throwType = 'backhand'; G.discId = 'fairway'; } else if (dist > 15) { G.throwType = 'backhand'; G.discId = 'mid'; } else { G.throwType = 'putt'; G.discId = 'putter'; }
@@ -205,7 +224,7 @@ function setupTurn(idx) {
 async function botTurn(p) {
   UI.waiting(`${p.name} is thinking…`);
   await sleep(700); if (curP() !== p || G.phase !== 'aim') return;
-  const plan = await planBotThrow({ pos: p.lie, world, difficulty: p.difficulty });
+  const plan = await planBotThrow({ pos: p.lie, world, difficulty: p.difficulty, lefty: p.appearance?.hand === 'left' });
   if (curP() !== p || G.phase !== 'aim') return;
   G.throwType = plan.throwType; G.discId = plan.discId; UI.selectThrow(G.throwType); UI.selectDisc(G.discId); ensureDisc(p, G.discId); p.discMesh.visible = true;
   G.aim.yaw = Math.atan2(plan.dir[1], plan.dir[0]);
@@ -237,7 +256,7 @@ function launchNow() {
   if (given) { params = given.params; sim = given; }
   else {
     const d = aimDir(), pos = [p.lie[0] + d[0] * 0.4, world.height(p.lie[0], p.lie[2]) + 1.15, p.lie[2] + d[1] * 0.4];   // same release point the preview and bots plan from
-    params = { throwType: G.throwType, discId: G.discId, power: o.power, hyzer: o.hyzer || 0, yawOffset: o.yawOffset || 0, launchOffset: o.launchOffset ?? G.aim.pitch, dir: d, pos };
+    params = { throwType: G.throwType, discId: G.discId, power: o.power, hyzer: o.hyzer || 0, yawOffset: o.yawOffset || 0, launchOffset: o.launchOffset ?? G.aim.pitch, dir: d, pos, lefty: p.appearance?.hand === 'left' };
     sim = runSim(params);
     netSend({ t: 'throw', pi, params, traj: sim.traj, events: sim.events, result: sim.result });
   }
@@ -255,7 +274,7 @@ function updateFlight(dt) {
   const pos = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
   const nn = [a[3] + (b[3] - a[3]) * u, a[4] + (b[4] - a[4]) * u, a[5] + (b[5] - a[5]) * u];
   f.spin += f.spinRate * dt; f.spinRate *= (1 - 0.12 * dt);
-  setDiscPose(p.discMesh, pos, nn, f.spin * THROWS[f.params.throwType].spin);
+  setDiscPose(p.discMesh, pos, nn, f.spin * THROWS[f.params.throwType].spin * (f.params.lefty ? -1 : 1));
   f.pos = pos; f.hv = [b[0] - a[0], 0, b[2] - a[2]];
   while (f.ei < f.events.length && f.events[f.ei][0] <= f.t) { onFlightEvent(f.events[f.ei][1]); f.ei++; }
   UI.setHud({ dist: Math.hypot(basketPos()[0] - pos[0], basketPos()[1] - pos[2]) });
@@ -342,7 +361,7 @@ function onGesture(g) {
 }
 function gestureParams(power, lateral) {
   const th = THROWS[G.throwType], p = curP();
-  const o = { throwType: G.throwType, discId: G.discId, disc: discById(G.discId), power, hyzer: 0, yawOffset: 0, launchOffset: G.aim.pitch, dir: aimDir(), pos: [p.lie[0] + aimDir()[0] * 0.4, world.height(p.lie[0], p.lie[2]) + 1.15, p.lie[2] + aimDir()[1] * 0.4] };
+  const o = { throwType: G.throwType, discId: G.discId, disc: discById(G.discId), power, hyzer: 0, lefty: p.appearance?.hand === 'left', yawOffset: 0, launchOffset: G.aim.pitch, dir: aimDir(), pos: [p.lie[0] + aimDir()[0] * 0.4, world.height(p.lie[0], p.lie[2]) + 1.15, p.lie[2] + aimDir()[1] * 0.4] };
   if (th.latMode === 'hyzer') o.hyzer = Math.max(-35, Math.min(35, lateral * 80)); else o.yawOffset = Math.max(-25, Math.min(25, lateral * 50));
   return o;
 }

@@ -24,4 +24,7 @@ const paths = {
   scoober: '<path d="M18 19c7-6-1-14-8-10L4 12m7 2-7-2 3-7"/>',
   putt: '<path d="M12 21V4m-6 6 6-6 6 6"/><path d="M4 20h3m10 0h3"/>',
 };
+paths.backhand_io = paths.backhand + '<path d="m14 21 6-2"/>'; paths.backhand_oi = paths.backhand + '<path d="m14 19 6 2"/>';
+paths.forehand_io = paths.forehand + '<path d="m4 19 6 2"/>'; paths.forehand_oi = paths.forehand + '<path d="m4 21 6-2"/>';
+paths.blade = '<path d="M5 4c8 0 14 6 14 16"/><path d="M14 20h5v-5"/>';
 export const icon = name => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name] || paths.disc}</svg>`;

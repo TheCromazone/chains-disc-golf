@@ -34,7 +34,7 @@ export function createGLTFCharacter(avatar) {
   const printMat = new THREE.MeshBasicMaterial({ map: print, transparent: true, depthWrite: false }); owned.add(printMat);
   for (const side of [-1, 1]) { const badge = new THREE.Mesh(printGeo, printMat); badge.position.set(0, .20, side * .155); badge.rotation.y = side < 0 ? Math.PI : 0; joints.spine.add(badge); }
   const hand = new THREE.Group(); hand.name = 'disc_socket'; hand.position.set(0, -.205, 0); joints.elR.add(hand);
-  const build = { slim: .93, athletic: 1, broad: 1.1 }[avatar.build] || 1; actor.scale.x *= build;
+  const build = { slim: .93, athletic: 1, broad: 1.1 }[avatar.build] || 1; actor.scale.x *= build; if (avatar.hand === 'left') actor.scale.x *= -1;   // ponytail: mirrored rig; swap for exported left-handed clips so the jersey print reads forward
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map(src.animations.map(c => [c.name, mixer.clipAction(c)]));
   let phase = null, throwType = 'backhand', active = null, time = Math.random() * 8, mood = null, previous = null, blend = 1, frameDt = 0, locomotion = null;
@@ -46,7 +46,7 @@ export function createGLTFCharacter(avatar) {
   }
   const api = {
     group, hand, joints, avatar, source: 'glb', clips: [...actions.keys()], faceParts: face.parts, setFace: face.setFace,
-    setThrow(t) { throwType = t; }, setPhase(p) { phase = p; if (p !== null) mood = null; }, getPhase() { return phase; },
+    setThrow(t) { throwType = actions.has(t) ? t : actions.has(t.split('_')[0]) ? t.split('_')[0] : t === 'blade' ? 'forehand' : 'backhand'; }, setPhase(p) { phase = p; if (p !== null) mood = null; }, getPhase() { return phase; },
     react(kind) { mood = { name: kind, t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion=name;phase=null;mood=null;time=0; } },
     update(dt) {

@@ -37,6 +37,58 @@ export function terrainSplat(material, geometry, weights) {
   material.customProgramCacheKey=()=> 'chains-splat-v1';
 }
 
+// ---------- painted detail ----------
+// Wii-style surfaces are flat colour plus a faint hand-painted grain. These tiles are drawn on a
+// canvas at boot (grey 128 = no change) so nothing is requested; a mid-grey tile listed in the
+// manifest as textures.<kind>_detail replaces the canvas one.
+// ponytail: canvas grain now, painted tiles from the asset pass later.
+const PAINT = {   // strength ≈ peak luminance swing of the fine grain; broad mottling is a third of it
+  grass:    { tile: 2.2, strength: .16, mode: 'ground', marks: [{ n: 420, amp: 60, w: [14, 30], h: [8, 16], alpha: .5 }, { n: 1500, amp: 128, w: [2.5, 4.5], h: [10, 22], tilt: .6 }] },
+  leaf:     { tile: 2.0, strength: .18, mode: 'leaf',   marks: [{ n: 300, amp: 110, w: [12, 24], h: [9, 18], alpha: .7 }, { n: 800, amp: 90, w: [3.5, 7], h: [3.5, 7] }] },
+  bark:     { tile: 1.4, strength: .22, mode: 'vertical', marks: [{ n: 220, amp: 120, w: [3, 6], h: [30, 90], alpha: .8 }] },
+  concrete: { tile: 1.0, strength: .09, mode: 'ground', marks: [{ n: 1400, amp: 120, w: [3, 6], h: [3, 6] }] },
+  water:    { tile: 3.0, strength: .14, mode: 'ground', scroll: true, marks: [{ n: 360, amp: 120, w: [14, 36], h: [2, 4], alpha: .7 }] },
+};
+const paintCache = {};
+function paintTile(kind) {
+  if (paintCache[kind]) return paintCache[kind];
+  const painted = texture(kind + '_detail', { srgb: false }); if (painted) return (paintCache[kind] = painted);
+  const size = 256, c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, size, size);
+  let s = kind.length * 7919; const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  for (const m of PAINT[kind].marks) for (let i = 0; i < m.n; i++) {
+    const x = rnd() * size, y = rnd() * size, l = Math.round(128 + (rnd() - .5) * 2 * m.amp);
+    g.fillStyle = `rgb(${l},${l},${l})`; g.globalAlpha = m.alpha ?? 1;
+    const w = m.w[0] + rnd() * (m.w[1] - m.w[0]), h = m.h[0] + rnd() * (m.h[1] - m.h[0]), a = (m.tilt || 0) * (rnd() - .5);
+    const ox = x < size / 2 ? size : -size, oy = y < size / 2 ? size : -size;   // wrapped copies keep the tile seamless
+    for (const [dx, dy] of [[0, 0], [ox, 0], [0, oy], [ox, oy]]) { g.save(); g.translate(x + dx, y + dy); g.rotate(a); g.beginPath(); g.ellipse(0, 0, w, h, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4; t.__shared = true;
+  return (paintCache[kind] = t);
+}
+export function paintDetail(material, kind) {
+  const P = PAINT[kind], prev = material.onBeforeCompile, prevKey = material.customProgramCacheKey;
+  const uv = P.mode === 'vertical' ? 'vec2(p.x * .7 + p.z * .7, p.y)' : 'p.xz';
+  const grain = P.mode === 'leaf' ? `(texture2D(paintMap, puv).r + texture2D(paintMap, (p.xy + vec2(p.z * .4, 0.)) / ${P.tile.toFixed(3)}).r) * .5` : 'texture2D(paintMap, puv).r';
+  material.onBeforeCompile = s => {
+    prev.call(material, s);
+    s.uniforms.paintMap = { value: paintTile(kind) }; s.uniforms.paintTime = windTime;
+    s.vertexShader = 'varying vec3 vPaintPos;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      #ifdef USE_INSTANCING
+      vPaintPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.)).xyz;
+      #else
+      vPaintPos = (modelMatrix * vec4(transformed, 1.)).xyz;
+      #endif`);
+    s.fragmentShader = 'uniform sampler2D paintMap;uniform float paintTime;varying vec3 vPaintPos;\n' + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      { vec3 p = vPaintPos; vec2 puv = ${uv} / ${P.tile.toFixed(3)}${P.scroll ? ' + paintTime * vec2(.018, .011)' : ''};
+        float grain = ${grain};
+        float broad = texture2D(paintMap, ${uv} / ${(P.tile * 6.3).toFixed(3)} + .37).r;
+        diffuseColor.rgb *= 1. + (grain - .5) * ${(2 * P.strength).toFixed(3)} + (broad - .5) * ${(0.7 * P.strength).toFixed(3)}; }`);
+  };
+  material.customProgramCacheKey = () => prevKey.call(material) + '|paint-' + kind;
+  return material;
+}
+
 export function windMaterial(source, clock, grass=false) {
   const m=source.clone();m.__shared=false;
   m.onBeforeCompile=s=>{

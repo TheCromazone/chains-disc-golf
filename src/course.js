@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
 import { modelParts, addModel } from './models.js';
-import { windMaterial, windTime, toonMaterial, cartoonSky } from './materials.js';
+import { windMaterial, windTime, toonMaterial, cartoonSky, paintDetail } from './materials.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
@@ -244,7 +244,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const gain=.40+band*.85;
     colors[i*3]*=gain;colors[i*3+1]*=gain;colors[i*3+2]*=gain;
   }
-  const terrain = new THREE.Mesh(geo, toonMaterial({ vertexColors: true }));
+  const terrain = new THREE.Mesh(geo, paintDetail(toonMaterial({ vertexColors: true }), 'grass'));
   terrain.receiveShadow = true; group.add(terrain);
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their
@@ -308,8 +308,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     return lastList;
   };
 
-  const trunkMat = toonMaterial({ color: '#986541' });
-  const leafMat = windMaterial(toonMaterial({ color: '#ffffff' }), windClock);
+  const trunkMat = paintDetail(toonMaterial({ color: '#986541' }), 'bark');
+  const leafMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff' }), windClock), 'leaf');
   const blob = (r, detail, amp) => {
     // Indexed round surfaces retain smooth vertex normals after the contour is shaped.
     const g=new THREE.SphereGeometry(r,detail===1?12:18,detail===1?7:12),p=g.attributes.position;
@@ -382,7 +382,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
 
   // --- water ---
   // Opaque candy-blue water and broad white ripple marks avoid reflected-sky noise.
-  const waterMat = toonMaterial({ color: '#46cbe7' });
+  const waterMat = paintDetail(toonMaterial({ color: '#46cbe7' }), 'water');
   const rippleMat = new THREE.MeshBasicMaterial({ color: '#d9fbff', transparent: true, opacity: .65, depthWrite: false });
   for (const p of ponds) {
     const wm = new THREE.Mesh(new THREE.CircleGeometry(1, 56), waterMat);
@@ -395,7 +395,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
 
   // --- tee pads, signs, baskets ---
-  const concrete = toonMaterial({ color: '#e6e5ca' });
+  const concrete = paintDetail(toonMaterial({ color: '#e6e5ca' }), 'concrete');
   const metal = toonMaterial({ color: '#e5f3f3' });
   const yellow = toonMaterial({ color: '#ffca26' });
   const basketGeo = makeBasketGeometry();
