@@ -18,8 +18,8 @@ export function createWindFx(scene, holes, height) {
   for (let i = 0; i < 5; i++) { ink.fillStyle = i % 2 ? '#fff4e6' : '#ff7a1f'; ink.fillRect(0, i * 12.8, 8, 12.8); }
   const sockMap = new THREE.CanvasTexture(sockCanvas); sockMap.colorSpace = THREE.SRGBColorSpace;
   const sockGeo = new THREE.CylinderGeometry(.045, .12, .95, 12, 1, true).rotateX(Math.PI / 2).translate(0, 0, .475);   // open cone pointing +z from its ring
-  const sockMat = new THREE.MeshToonMaterial({ map: sockMap, side: THREE.DoubleSide });
-  const poleGeo = new THREE.CylinderGeometry(.025, .03, 2.6, 8), poleMat = new THREE.MeshToonMaterial({ color: '#f0f4f6' });
+  const sockMat = new THREE.MeshStandardMaterial({ map: sockMap, side: THREE.DoubleSide, roughness: .9 });
+  const poleGeo = new THREE.CylinderGeometry(.025, .03, 2.6, 8), poleMat = new THREE.MeshStandardMaterial({ color: '#e8eef0', metalness: .6, roughness: .35 });
   const socks = [], group = new THREE.Group(); scene.add(group);
   for (const h of holes) {
     const dx = h.way[1][0] - h.tee[0], dz = h.way[1][1] - h.tee[1], L = Math.hypot(dx, dz) || 1, rx = -dz / L, rz = dx / L;   // right of the fairway

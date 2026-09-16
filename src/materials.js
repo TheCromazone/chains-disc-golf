@@ -3,13 +3,28 @@ import { texture } from './assets.js';
 export const windTime = { value: 0 };
 export const windVec = { value: new THREE.Vector2(0, 0) };   // world.wind / 7, shared by every swaying material
 
-// A tiny nearest-filtered light ramp gives every solid the same clear, three-tone language.
-// Shared across courses/characters; no image requests, environment maps, or PBR response.
-const ramp = new THREE.DataTexture(new Uint8Array([115, 192, 255]), 3, 1, THREE.RedFormat);
-ramp.minFilter = ramp.magFilter = THREE.NearestFilter;
-ramp.generateMipmaps = false; ramp.needsUpdate = true; ramp.__shared = true;
+// Physically based surfaces on stylised shapes: real light response, textures where the manifest has them.
+// The name survives from the toon rounds so every prop call site upgrades at once.
 export function toonMaterial(options = {}) {
-  return new THREE.MeshToonMaterial({ gradientMap: ramp, ...options });
+  return new THREE.MeshStandardMaterial({ roughness: .88, metalness: 0, ...options });
+}
+export const surface = toonMaterial;
+
+// Fresnel rim added as a light (not a tint), damped on bright surfaces: separates figures from the ground
+// the way broadcast lighting does. A dark jersey keeps its edge; a white sock does not bloom.
+export function rimLight(material, { color = '#e6f0f7', strength = .38, power = 3 } = {}) {
+  const prev = material.onBeforeCompile, prevKey = material.customProgramCacheKey;
+  material.userData.rim = { value: new THREE.Vector4(...new THREE.Color(color).toArray(), strength) };
+  material.onBeforeCompile = s => {
+    prev.call(material, s);
+    s.uniforms.rimLight = material.userData.rim;
+    s.fragmentShader = 'uniform vec4 rimLight;\n' + s.fragmentShader.replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+      { float f = 1. - saturate(dot(normalize(normal), normalize(vViewPosition))); f = pow(f, ${power.toFixed(1)});
+        float lum = dot(diffuseColor.rgb, vec3(.3, .59, .11));
+        reflectedLight.directSpecular += rimLight.rgb * f * rimLight.a * (1. - .55 * lum); }`);
+  };
+  material.customProgramCacheKey = () => prevKey.call(material) + '|rim';
+  return material;
 }
 
 export function cartoonSky() {
@@ -21,21 +36,28 @@ export function cartoonSky() {
   }));
 }
 
+// Ground: worn dirt and sand blend in by splat weight, and two octaves of value noise vary the grass tone so the
+// photo tile never reads as a repeating pattern from the tee. Splat weights are optional (empty manifest).
 export function terrainSplat(material, geometry, weights) {
-  const dirt=texture('dirt'),sand=texture('sand'); if(!dirt||!sand)return;
-  geometry.setAttribute('splat',new THREE.BufferAttribute(weights,2));
+  const dirt=texture('dirt'),sand=texture('sand');
+  const splat=!!(weights&&dirt&&sand);
+  if(splat)geometry.setAttribute('splat',new THREE.BufferAttribute(weights,2));
   material.onBeforeCompile=s=>{
-    s.uniforms.dirtTile={value:dirt};s.uniforms.sandTile={value:sand};
-    s.vertexShader='attribute vec2 splat;varying vec2 vSplat;varying vec2 vGround;\n'+s.vertexShader;
-    s.vertexShader=s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvSplat=splat;vGround=position.xz;');
-    s.fragmentShader='uniform sampler2D dirtTile;uniform sampler2D sandTile;varying vec2 vSplat;varying vec2 vGround;\n'+s.fragmentShader;
+    if(splat){s.uniforms.dirtTile={value:dirt};s.uniforms.sandTile={value:sand};}
+    s.vertexShader=(splat?'attribute vec2 splat;varying vec2 vSplat;':'')+'varying vec2 vGround;\n'+s.vertexShader;
+    s.vertexShader=s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n'+(splat?'vSplat=splat;':'')+'vGround=position.xz;');
+    s.fragmentShader=(splat?'uniform sampler2D dirtTile;uniform sampler2D sandTile;varying vec2 vSplat;':'')+'varying vec2 vGround;\n'+
+      'float chainsHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\nfloat chainsNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(chainsHash(i),chainsHash(i+vec2(1,0)),f.x),mix(chainsHash(i+vec2(0,1)),chainsHash(i+vec2(1,1)),f.x),f.y);}\n'+s.fragmentShader;
     s.fragmentShader=s.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
-      vec3 dirtColor=texture2D(dirtTile,vGround*.25).rgb;
+      { float macro = chainsNoise(vGround / 23.) * .6 + chainsNoise(vGround / 6.5 + 3.) * .4;
+        diffuseColor.rgb *= .86 + macro * .28; }
+      ${splat ? `vec3 dirtColor=texture2D(dirtTile,vGround*.25).rgb;
       vec3 sandColor=texture2D(sandTile,vGround*.32).rgb;
       diffuseColor.rgb=mix(diffuseColor.rgb,dirtColor,vSplat.x);
-      diffuseColor.rgb=mix(diffuseColor.rgb,sandColor,vSplat.y);`);
+      diffuseColor.rgb=mix(diffuseColor.rgb,sandColor,vSplat.y);` : ''}`);
   };
-  material.customProgramCacheKey=()=> 'chains-splat-v1';
+  material.customProgramCacheKey=()=> 'chains-ground-v2-'+splat;
+  return material;
 }
 
 // ---------- painted detail ----------

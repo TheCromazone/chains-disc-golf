@@ -2,12 +2,11 @@
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Water } from 'three/addons/objects/Water.js';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
-import { windMaterial, windTime } from './materials.js';
 
 export async function loadSky(renderer, url) {
   if(!url)return null;
@@ -16,18 +15,26 @@ export async function loadSky(renderer, url) {
   } catch {return null;}
 }
 
+// Broadcast finish for Full: render -> bloom (chalk, sky band, glossy plastic) -> output -> grade.
+// The grade is one fullscreen pass: lift and gain, saturation about luma, film grain, corner vignette.
+// SSAO is deliberately absent; the baked canopy occlusion and real shadows carry the ground.
+const GRADE = {
+  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.04, 1, .97) }, uLift: { value: new THREE.Vector3(.012, .014, .018) }, uSat: { value: 1.08 }, uGrain: { value: .02 }, uVignette: { value: .3 }, uTime: { value: 0 } },
+  vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift;uniform float uSat,uGrain,uVignette,uTime;varying vec2 vUv;
+    void main(){ vec4 c=texture2D(tDiffuse,vUv); c.rgb=c.rgb*uGain+uLift;
+      float l=dot(c.rgb,vec3(.2126,.7152,.0722)); c.rgb=mix(vec3(l),c.rgb,uSat);
+      float n=fract(sin(dot(gl_FragCoord.xy+vec2(uTime*61.,uTime*37.),vec2(12.9898,78.233)))*43758.5453); c.rgb+=(n-.5)*uGrain*(1.-l*.6);
+      vec2 d=(vUv-.5)*vec2(1.,.85); float v=1.-smoothstep(.35,.95,dot(d,d)*2.2)*uVignette; gl_FragColor=vec4(c.rgb*v,c.a); }`,
+};
 export function postprocessing(renderer, scene, camera, { photographic = false } = {}) {
-  // The sports art direction has no SSAO/bloom. Retain the experiment explicitly opt-in.
   if (!photographic) return { render: () => renderer.render(scene, camera), resize() {}, dispose() {} };
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const ao = new SSAOPass(scene, camera, 512, 512); ao.kernelRadius = .4; ao.minDistance = .004; ao.maxDistance = .035;
-  const oldNormal = ao.normalMaterial; ao.normalMaterial = windMaterial(oldNormal, windTime); oldNormal.dispose(); composer.addPass(ao);
-  const bloom = new UnrealBloomPass(new THREE.Vector2(512,512), .13, .35, 1.15); composer.addPass(bloom);
-  const output = new OutputPass(); composer.addPass(output);
-  return { render: () => composer.render(), resize(w,h) { composer.setPixelRatio(1); composer.setSize(w,h); ao.setSize(Math.ceil(w*.65),Math.ceil(h*.65)); }, dispose() {
-    // r170 SSAOPass.dispose omits its noise texture and SSAO shader material.
-    ao.noiseTexture?.dispose(); ao.ssaoMaterial.dispose();
+  const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), .22, .4, .93); composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+  const grade = new ShaderPass(GRADE); composer.addPass(grade);
+  return { render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); }, dispose() {
     for (const p of composer.passes) p.dispose?.(); composer.dispose();
   } };
 }

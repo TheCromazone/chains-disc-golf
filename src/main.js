@@ -34,8 +34,8 @@ const strHash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ 
 // ---------- renderer / scene ----------
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping; renderer.toneMappingExposure = 1;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // shadow.radius softens PCF; the soft variant ignores it
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
 let post = null, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0;
@@ -95,13 +95,13 @@ const puffs = createPuffs(scene);
 // A calm creator stage uses the same actor, camera and renderer as the course.
 const stageCanvas=document.createElement('canvas');stageCanvas.width=4;stageCanvas.height=256;
 const stageInk=stageCanvas.getContext('2d'),stageGradient=stageInk.createLinearGradient(0,0,0,256);
-stageGradient.addColorStop(0,'#bcecf3');stageGradient.addColorStop(.6,'#e8faf7');stageGradient.addColorStop(1,'#c9eae4');stageInk.fillStyle=stageGradient;stageInk.fillRect(0,0,4,256);
+stageGradient.addColorStop(0,'#8fd3e6');stageGradient.addColorStop(.6,'#cfeef0');stageGradient.addColorStop(1,'#a9d6d2');stageInk.fillStyle=stageGradient;stageInk.fillRect(0,0,4,256);
 const stageBackground=new THREE.CanvasTexture(stageCanvas);stageBackground.colorSpace=THREE.SRGBColorSpace;
 const stage=new THREE.Group(); scene.add(stage); stage.visible=false;
-const podium=new THREE.Mesh(new THREE.CylinderGeometry(.92,1.04,.07,64),new THREE.MeshToonMaterial({color:'#ffffff'}));stage.add(podium);
+const podium=new THREE.Mesh(new THREE.CylinderGeometry(.92,1.04,.07,64),new THREE.MeshStandardMaterial({color:'#e9eef0',roughness:.45}));stage.add(podium);
 const podiumRing=new THREE.Mesh(new THREE.TorusGeometry(1.04,.025,8,64).rotateX(Math.PI/2),new THREE.MeshBasicMaterial({color:'#55c5d5'}));podiumRing.position.y=.005;stage.add(podiumRing);
 const heroBlob=new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({map:contactShadow.material.map,transparent:true,depthWrite:false,opacity:.5}));heroBlob.position.y=.038;stage.add(heroBlob);
-const studioFill=new THREE.HemisphereLight('#ffffff','#d0e8df',1.5);scene.add(studioFill);studioFill.visible=false;
+const studioFill=new THREE.HemisphereLight('#ffffff','#d0e8df',.9);scene.add(studioFill);studioFill.visible=false;
 let cameraOffset=null;
 function frameInterface() {
   const staged=cam.mode==='menu'||cam.mode==='locker';
@@ -125,8 +125,20 @@ function placeHero() {
 }
 let heroDisc = null;
 function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
-// Disc gripped by the rim: its centre sits a little past the palm along the forearm.
-function holdDisc(char, mesh, n, spin) { char.hand.getWorldPosition(_v); char.elbow.getWorldPosition(_v2); _v2.subVectors(_v, _v2).normalize(); _v.addScaledVector(_v2, .07); setDiscPose(mesh, [_v.x, _v.y - .01, _v.z], n, spin); }
+// Disc in the hand. Idle: carried by the rim at the thigh, plate hanging beside the leg. Throwing: gripped so the
+// plate rides the wrist through the windup and is exactly level with the planned release normal at phase .62.
+const _qh = new THREE.Quaternion(), _qg = new THREE.Quaternion(), _off = new THREE.Vector3(), _nrm = new THREE.Vector3();
+const CARRY_N = new THREE.Vector3(0, .35, -1).normalize(), CARRY_OFF = new THREE.Vector3(0, -.095, -.02);
+function holdDisc(char, mesh, n, spin, throwType) {
+  char.hand.getWorldPosition(_v); char.hand.getWorldQuaternion(_qh);
+  const rel = throwType && char.getPhase() !== null ? char.releaseFrame?.(throwType) : null;
+  if (rel) {
+    _qg.copy(char.group.quaternion).invert();
+    _nrm.set(n[0], n[1], n[2]).applyQuaternion(_qg).applyQuaternion(rel.qInv).applyQuaternion(_qh);
+    _off.copy(rel.dir).multiplyScalar(.075).y -= .015; _off.applyQuaternion(rel.qInv).applyQuaternion(_qh);
+  } else { _nrm.copy(CARRY_N).applyQuaternion(_qh); _off.copy(CARRY_OFF).applyQuaternion(_qh); spin = 0; }
+  _v.add(_off); setDiscPose(mesh, [_v.x, _v.y, _v.z], [_nrm.x, _nrm.y, _nrm.z], spin);
+}
 function updateHub() { const i = COURSES.findIndex(c => c.id === G.courseId); UI.setHub({ name: G.avatar.name, jersey: G.avatar.jersey, course: COURSES[i], holes: LAYOUTS[i], img: asset('courses', G.courseId) }); }
 let courseQueue=Promise.resolve();
 function loadCourse(id){courseQueue=courseQueue.catch(()=>{}).then(()=>applyCourse(id));return courseQueue;}
@@ -134,10 +146,11 @@ async function applyCourse(id) {
   const def = courseById(id); if (course && course.def.id === def.id && course.quality === G.settings.quality) return;
   const first = !course; if (!first) { UI.fade(true); await sleep(340); }
   course?.dispose(); post?.dispose(); post = null;
-  // Authored toon palette is the default in both qualities. Legacy effects stay available offline.
-  effects = null;
-  const hdri = null;
+  // Full: HDRI ambient, reflective water and a bloom + grade pass. Lite: same textures, no render targets.
+  effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
+  const hdri = effects ? await effects.loadSky(renderer, asset('skies', def.id) || asset('skies', 'lake')) : null;
   course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, hdri });
+  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }
   windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
   world = course.world; holes = course.holes; course.setHole(0);
   G.courseId = def.id; saveLocal('chains.course', def.id); updateHub();
@@ -508,7 +521,7 @@ function loop() {
     // disc in hand, oriented like the release
     const lat = G.phase === 'windup' ? G.gesture.lateral : 0;
     const s0 = launch(gestureParams(0.5, lat));
-    holdDisc(p.char, p.discMesh, s0.n, time * 0.4);
+    holdDisc(p.char, p.discMesh, s0.n, time * 0.4, G.throwType);
     updatePreview();
   }
   updateCamera(dt);

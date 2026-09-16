@@ -3,11 +3,13 @@
 import * as THREE from 'three';
 import { cloneModel } from './models.js';
 import { createFaceParts } from './face-parts.js';
-import { characterRamp } from './character-material.js';
-import { paintDetail, jerseyStyle } from './materials.js';
+import { paintDetail, jerseyStyle, rimLight } from './materials.js';
+import { texture, washedTexture } from './assets.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
-const _v = new THREE.Vector3();
+// Surface response per wardrobe slot. Fabric shows its weave through a tiled grey map; skin gets a pore normal map.
+const SLOT = { skin: { roughness: .58, normal: 'skin_normal', normalScale: .3 }, jersey: { roughness: .86, map: 'jersey_pattern' }, shorts: { roughness: .82, map: 'jersey_pattern' }, trim: { roughness: .78 }, socks: { roughness: .95 }, shoes: { roughness: .42 }, sole: { roughness: .55 }, laces: { roughness: .9 }, hair: { roughness: .72 }, headwear: { roughness: .8 } };
+const _v = new THREE.Vector3(), _e = new THREE.Vector3(), _q = new THREE.Quaternion(), _gi = new THREE.Quaternion();
 
 export function createGLTFCharacter(avatar) {
   const src = cloneModel(avatar.lod ? 'golfer_lod' : 'golfer'); if (!src) return null;
@@ -23,14 +25,17 @@ export function createGLTFCharacter(avatar) {
     if (o.name === 'shades') o.visible = false;   // glasses are face decals
     if (!o.isMesh) return;
     const tint = m => {
-      const n = new THREE.MeshToonMaterial({ color: m.color, gradientMap: characterRamp }); owned.add(n);
-      const key = m.name.replace(/\.\d+$/, ''); if (colors[key]) n.color.set(colors[key]);
+      const key = m.name.replace(/\.\d+$/, ''), slot = SLOT[key] || { roughness: .8 };
+      const n = new THREE.MeshStandardMaterial({ color: m.color, roughness: slot.roughness, metalness: 0, map: slot.map ? washedTexture(slot.map, { wash: .55, repeat: [10, 5] }) : null, normalMap: slot.normal ? texture(slot.normal, { repeat: [6, 6], srgb: false }) : null });
+      if (n.normalMap) n.normalScale.setScalar(slot.normalScale); owned.add(n);
+      if (colors[key]) n.color.set(colors[key]);
       n.__shared = false;
       if (key === 'jersey') jerseyStyle(n, avatar.jerseyStyle, avatar.accent, 1);
-      return ['skin', 'jersey'].includes(key) ? paintDetail(n, key) : n;
+      if (['skin', 'jersey', 'shorts', 'hair'].includes(key)) rimLight(n, { strength: key === 'skin' ? .3 : .22 });
+      return ['skin', 'jersey'].includes(key) && !n.map && !n.normalMap ? paintDetail(n, key) : n;
     };
     o.material = Array.isArray(o.material) ? o.material.map(tint) : tint(o.material);
-    o.receiveShadow = false;
+    o.castShadow = true; o.receiveShadow = false;
     o.frustumCulled = false;
   });
   if (!joints.elR || !joints.root) return null;
@@ -62,8 +67,27 @@ export function createGLTFCharacter(avatar) {
     blend = Math.min(1, blend + frameDt / .22); active.setEffectiveWeight(blend); previous?.setEffectiveWeight(1 - blend); if (blend === 1) { previous?.stop(); previous = null; }
     action.paused = true; action.time = THREE.MathUtils.clamp(at, 0, action.getClip().duration - .00001); mixer.update(0);
   }
+  const frames = new Map();
+  // Hand frame at the release phase (.62) in the group's own space: the disc grip is derived from it so the
+  // disc rides the wrist through the windup and is exactly level with the planned release at the moment it leaves.
+  function releaseFrame(t) {
+    const name = actions.has(handed(t)) ? handed(t) : handed('backhand');
+    if (frames.has(name)) return frames.get(name);
+    const action = actions.get(name); if (!action) return null;
+    const snap = [...actions.values()].map(a => ({ a, w: a.getEffectiveWeight(), time: a.time, running: a.isRunning() }));
+    for (const s of snap) s.a.setEffectiveWeight(0);
+    const wasRunning = action.isRunning(); if (!wasRunning) { action.reset().play(); action.paused = true; }
+    action.setEffectiveWeight(1); action.time = .62 * action.getClip().duration; mixer.update(0); actor.updateMatrixWorld(true);
+    _gi.copy(group.quaternion).invert();
+    const q = hand.getWorldQuaternion(new THREE.Quaternion()).premultiply(_gi);
+    const dir = hand.getWorldPosition(new THREE.Vector3()).sub(api.elbow.getWorldPosition(_e)).normalize().applyQuaternion(_gi);
+    if (!wasRunning) action.stop();
+    for (const s of snap) { s.a.setEffectiveWeight(s.w); s.a.time = s.time; }
+    mixer.update(0); actor.updateMatrixWorld(true);
+    const frame = { qInv: q.invert(), dir }; frames.set(name, frame); return frame;
+  }
   const api = {
-    group, hand, elbow: joints[lefty ? 'elL' : 'elR'], joints, avatar, source: 'glb', headY: (headC ? headC[1] : 1.39) * tall, clips: [...actions.keys()], faceParts: face.parts, setFace: face.setFace,
+    group, hand, elbow: joints[lefty ? 'elL' : 'elR'], joints, avatar, source: 'glb', releaseFrame, headY: (headC ? headC[1] : 1.39) * tall, clips: [...actions.keys()], faceParts: face.parts, setFace: face.setFace,
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; }, getPhase() { return phase; },
     react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },

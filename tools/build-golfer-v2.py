@@ -48,39 +48,47 @@ def material(name, color, rough=.8):
   m.diffuse_color = (*color, 1)   # Workbench previews read the viewport colour
   return m
 
-def new_object(name, verts, faces, mat=None):
+def new_object(name, verts, faces, mat=None, uvs=None):
+  """uvs: per-face list of per-corner (u, v) pairs, parallel to faces."""
   me = bpy.data.meshes.new(name); me.from_pydata(verts, [], faces); me.update()
   o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
   if mat is not None: me.materials.append(mat)
   for p in me.polygons: p.use_smooth = True
+  if uvs is not None:
+    layer = me.uv_layers.new(name='UVMap')
+    for poly, corners in zip(me.polygons, uvs):
+      for li, uv in zip(poly.loop_indices, corners): layer.data[li].uv = uv
   return o
 
 def loft(name, rings, mat=None, seg=24, axis='y', cap_start=True, cap_end=True):
   """Sweep elliptical rings along an axis. ring = (pos, rA, rB, offA, offB): for axis y the ring
   lies in xz with rA=x radius, rB=z radius, offA=x centre, offB=z centre; for axis z the ring lies
   in xy (rA=x, rB=y). Returns a closed or open tube with smooth shading."""
-  verts, faces = [], []
+  verts, faces, uvs = [], [], []
+  span = abs(rings[-1][0] - rings[0][0]) or 1
   for (t, ra, rb, oa, ob) in rings:
     for i in range(seg):
       a = i * math.tau / seg
       if axis == 'y': p = (oa + math.cos(a) * ra, t, ob + math.sin(a) * rb)
       else: p = (oa + math.cos(a) * ra, ob + math.sin(a) * rb, t)
       verts.append(xyz(p))
+  vof = lambda j: abs(rings[j][0] - rings[0][0]) / span * 1.6   # v in metres-ish so the weave tiles evenly along the body
   for j in range(len(rings) - 1):
     for i in range(seg):
       a, b = j * seg + i, j * seg + (i + 1) % seg
-      faces.append((a, b, b + seg, a + seg))
+      faces.append((a, b, b + seg, a + seg)); u0, u1 = i / seg, (i + 1) / seg
+      uvs.append([(u0, vof(j)), (u1, vof(j)), (u1, vof(j + 1)), (u0, vof(j + 1))])
   if cap_start:
     t, ra, rb, oa, ob = rings[0]; c = len(verts); verts.append(xyz((oa, t, ob) if axis == 'y' else (oa, ob, t)))
-    for i in range(seg): faces.append((c, (i + 1) % seg, i))
+    for i in range(seg): faces.append((c, (i + 1) % seg, i)); uvs.append([(.5, 0), ((i + 1) / seg, 0), (i / seg, 0)])
   if cap_end:
     t, ra, rb, oa, ob = rings[-1]; c = len(verts); base = (len(rings) - 1) * seg
     verts.append(xyz((oa, t, ob) if axis == 'y' else (oa, ob, t)))
-    for i in range(seg): faces.append((c, base + i, base + (i + 1) % seg))
-  return new_object(name, verts, faces, mat)
+    for i in range(seg): faces.append((c, base + i, base + (i + 1) % seg)); uvs.append([(.5, 1.6), (i / seg, 1.6), ((i + 1) / seg, 1.6)])
+  return new_object(name, verts, faces, mat, uvs)
 
 def ell(name, pos, r, mat=None, seg=20, rings=12, rot=(0, 0, 0)):
-  bpy.ops.mesh.primitive_uv_sphere_add(segments=seg, ring_count=rings, location=xyz(pos), calc_uvs=False)
+  bpy.ops.mesh.primitive_uv_sphere_add(segments=seg, ring_count=rings, location=xyz(pos), calc_uvs=True)
   o = bpy.context.object; o.name = name; o.scale = (r[0], r[2], r[1]); o.rotation_euler = rot
   bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
   if mat is not None: o.data.materials.append(mat)
@@ -98,16 +106,18 @@ def capsule(name, a, b, r1, r2, mat=None, seg=12, steps=4):
     ang = math.pi / 2 * (1 - k / steps); ring_pos.append((A - n * r1 * math.sin(ang), r1 * math.cos(ang)))
   for k in range(steps + 1):
     ang = math.pi / 2 * (k / steps); ring_pos.append((B + n * r2 * math.sin(ang), r2 * math.cos(ang)))
+  uvs = []
   for c, r in ring_pos:
     for i in range(seg):
       a = i * math.tau / seg; p = c + u * math.cos(a) * r + v * math.sin(a) * r; verts.append(xyz(p))
   for j in range(len(ring_pos) - 1):
     for i in range(seg):
       a, b2 = j * seg + i, j * seg + (i + 1) % seg; faces.append((a, b2, b2 + seg, a + seg))
-  return new_object(name, verts, faces, mat)
+      uvs.append([(i / seg, j / len(ring_pos)), ((i + 1) / seg, j / len(ring_pos)), ((i + 1) / seg, (j + 1) / len(ring_pos)), (i / seg, (j + 1) / len(ring_pos))])
+  return new_object(name, verts, faces, mat, uvs)
 
 def box(name, pos, size, mat=None, bevel=0, segments=3):
-  bpy.ops.mesh.primitive_cube_add(size=1, location=xyz(pos), calc_uvs=False); o = bpy.context.object; o.name = name
+  bpy.ops.mesh.primitive_cube_add(size=1, location=xyz(pos), calc_uvs=True); o = bpy.context.object; o.name = name
   o.scale = (size[0], size[2], size[1]); bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
   if mat is not None: o.data.materials.append(mat)
   if bevel:
@@ -117,7 +127,7 @@ def box(name, pos, size, mat=None, bevel=0, segments=3):
 
 def torus(name, pos, R, r, mat=None, tilt=0, major=28, minor=8, squash=1):
   """Ring lying flat (axis y) unless tilted about x."""
-  bpy.ops.mesh.primitive_torus_add(major_segments=major, minor_segments=minor, location=xyz(pos), major_radius=R, minor_radius=r, generate_uvs=False)
+  bpy.ops.mesh.primitive_torus_add(major_segments=major, minor_segments=minor, location=xyz(pos), major_radius=R, minor_radius=r, generate_uvs=True)
   o = bpy.context.object; o.name = name; o.rotation_euler = (tilt, 0, 0); o.scale = (1, 1, squash)
   bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
   if mat is not None: o.data.materials.append(mat)
@@ -355,12 +365,14 @@ def build_rig(objs):
 # ---------- export ----------
 def export(name, budget):
   objs = meshes(); total = sum(tris(o) for o in objs)
+  for o in objs:
+    if not o.data.uv_layers: o.data.uv_layers.new(name='UVMap')   # every mesh carries a UV set (solidify rims, joins)
   REPORT[name] = {'triangles': total, 'meshCount': len(objs), 'perMesh': {o.name: tris(o) for o in objs}}
   print('CHAINS_TRIS', name, total, json.dumps(REPORT[name]['perMesh']), flush=True)
   assert total < budget, (name, total)
   bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE / (name + '.blend')), compress=True)
   bpy.ops.export_scene.gltf(filepath=str(OUT / (name + '.glb')), export_format='GLB', export_yup=True, export_animations=False,
-    export_skins=True, export_all_influences=False, export_extras=True, export_texcoords=False, export_apply=False)
+    export_skins=True, export_all_influences=False, export_extras=True, export_texcoords=True, export_apply=False)
   REPORT[name]['bytes'] = (OUT / (name + '.glb')).stat().st_size
   print('CHAINS_EXPORT', name, json.dumps({k: v for k, v in REPORT[name].items() if k != 'perMesh'}), flush=True)
 

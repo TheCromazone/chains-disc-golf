@@ -35,7 +35,7 @@
       "headwear_bucket": 512,
       "headwear_headband": 288
     },
-    "bytes": 548364
+    "bytes": 725176
   },
   "golfer-v2-lod-source": {
     "triangles": 6092,
@@ -73,6 +73,6 @@
       "headwear_bucket": 136,
       "headwear_headband": 120
     },
-    "bytes": 224648
+    "bytes": 306940
   }
 }

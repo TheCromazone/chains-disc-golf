@@ -29,3 +29,7 @@ hammer, a fourth (windy) course and surface-aware landings.
 - Play-through on Full and Lite: menu hero, locker tabs, tee, hammer/backhand/forehand poses, bot flight, landing.
 
 Physical phone frame rates still need `?fps=1` on a device; the embedded browser cannot certify them.
+
+## Second pass — surfaces
+
+Toon ramp replaced by physically based materials with the round-one photo tiles (grass, bark, concrete, dirt, sand, water normal, jersey weave, skin normal), real cast shadows, image-based ambient, ACES, rim light and a Full-only bloom + grade pass. Checked on Full (Pine Hollow tee and flight) and Lite (Lakeshore tee), clubhouse and locker, no console errors from the new modules.

@@ -5,7 +5,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
 import { canopyGeometry } from './canopies.js';
 import { modelParts, addModel } from './models.js';
-import { windMaterial, windTime, toonMaterial, cartoonSky, paintDetail, paintTerrain } from './materials.js';
+import { windMaterial, windTime, toonMaterial, cartoonSky, paintDetail, terrainSplat } from './materials.js';
+import { washedTexture } from './assets.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
@@ -200,8 +201,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const splats = new Float32Array(geo.attributes.position.count * 2);
   const paintWeights = new Float32Array(geo.attributes.position.count * 3);
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
-  const cFair = new THREE.Color(def.grass[0]), cRough = new THREE.Color(def.grass[1]), cDark = new THREE.Color(def.grass[2]), cSand = new THREE.Color(def.grass[3]), tmp = new THREE.Color();
-  const cCollar=new THREE.Color('#397c36'), cGreen=new THREE.Color('#afd66a'), cFringe=new THREE.Color('#357b36'), cut=new THREE.Color();
+  // The photo tile is washed toward white so it supplies blade grain, not colour: the course palette stays in the
+  // vertex colours (stripes, collar, green, wear). A blade-scale normal map repeats eight times finer than the tile.
+  const grassMap = washedTexture('grass', { wash: .58, repeat: [60, 46] }), grassNormal = texture('grass_normal', { repeat: [480, 368], srgb: false });
+  const tint = hex => { const c = new THREE.Color(hex); return grassMap ? c.multiplyScalar(1.14) : c; };
+  const cFair = tint(def.grass[0]), cRough = tint(def.grass[1]), cDark = tint(def.grass[2]), cSand = tint(def.grass[3]), tmp = new THREE.Color();
+  const cCollar=tint('#397c36'), cGreen=tint('#afd66a'), cFringe=tint('#357b36'), cut=new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i), y = height(x, z); pos.setY(i, y);
     const fi = fairwayInfo(holes, x, z);
@@ -243,18 +248,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3)); geo.computeVertexNormals();
-  // Broad terrain normals otherwise fall inside one toon band. Bake a six-value
-  // directional ramp into the vertex colours so shoulders and swales stay readable.
-  // No texture, screen-space occlusion, extra pass, or collision approximation.
-  const terrainNormals=geo.attributes.normal;
-  for(let i=0;i<pos.count;i++) {
-    const light=terrainNormals.getX(i)*.55+terrainNormals.getY(i)*.70+terrainNormals.getZ(i)*.45;
-    const band=Math.round(smooth(.28,.90,light)*5)/5;
-    const gain=.40+band*.85;
-    colors[i*3]*=gain;colors[i*3+1]*=gain;colors[i*3+2]*=gain;
+  if (!grassMap) {   // no tile: bake a soft directional ramp so slopes still read
+    const terrainNormals=geo.attributes.normal;
+    for(let i=0;i<pos.count;i++) { const light=terrainNormals.getX(i)*.55+terrainNormals.getY(i)*.70+terrainNormals.getZ(i)*.45; const gain=.55+smooth(.28,.90,light)*.6; colors[i*3]*=gain;colors[i*3+1]*=gain;colors[i*3+2]*=gain; }
   }
-  const terrain = new THREE.Mesh(geo, paintTerrain(toonMaterial({ vertexColors: true }), geo, paintWeights));
-  terrain.receiveShadow = true; group.add(terrain);
+  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, map: grassMap, normalMap: grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, splats));
+  terrain.receiveShadow = true; group.add(terrain); void paintWeights;
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their
   // inner edge is outside every in-bounds point; the playable height field is untouched.
@@ -317,9 +316,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     return lastList;
   };
 
-  const trunkMat = paintDetail(toonMaterial({ color: '#986541' }), 'bark');
-  const leafMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff', vertexColors: true }), windClock), 'leaf');
-  const pineMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff', vertexColors: true }), windClock), 'pine');
+  const bark = texture('bark', { repeat: [1, 3] });
+  const trunkMat = bark ? toonMaterial({ map: bark, roughness: .95 }) : paintDetail(toonMaterial({ color: '#986541' }), 'bark');
+  const leafMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff', vertexColors: true, roughness: .82 }), windClock), 'leaf');
+  const pineMat = paintDetail(windMaterial(toonMaterial({ color: '#ffffff', vertexColors: true, roughness: .82 }), windClock), 'pine');
   const blob = (r, detail, amp) => {
     // Indexed round surfaces retain smooth vertex normals after the contour is shaped.
     const g=new THREE.SphereGeometry(r,detail===1?12:18,detail===1?7:12),p=g.attributes.position;
@@ -380,7 +380,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
 
   // --- water ---
   // Opaque candy-blue water and broad white ripple marks avoid reflected-sky noise.
-  const waterMat = paintDetail(toonMaterial({ color: '#46cbe7' }), 'water');
+  const waterNormal = texture('water_normal', { repeat: [5, 5], srgb: false });
+  const waterMat = waterNormal ? toonMaterial({ color: def.water, roughness: .12, metalness: .05, transparent: true, opacity: .9, normalMap: waterNormal, normalScale: new THREE.Vector2(.35, .35) }) : paintDetail(toonMaterial({ color: '#46cbe7' }), 'water');
   const rippleMat = new THREE.MeshBasicMaterial({ color: '#d9fbff', transparent: true, opacity: .65, depthWrite: false });
   for (const p of ponds) {
     const wm = new THREE.Mesh(new THREE.CircleGeometry(1, 56), waterMat);
@@ -393,9 +394,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
 
   // --- tee pads, signs, baskets ---
-  const concrete = paintDetail(toonMaterial({ color: '#74a899' }), 'concrete');
-  const metal = paintDetail(toonMaterial({ color: '#e5f3f3' }), 'metal');
-  const yellow = paintDetail(toonMaterial({ color: '#ffca26' }), 'metal');
+  const concreteMap = texture('concrete', { repeat: [1, 2] });
+  const concrete = concreteMap ? toonMaterial({ map: concreteMap, color: '#c9d3cf', roughness: .92 }) : paintDetail(toonMaterial({ color: '#74a899' }), 'concrete');
+  const metal = toonMaterial({ color: '#d9e2e6', metalness: .88, roughness: .3 });
+  const yellow = toonMaterial({ color: '#ffca26', roughness: .5 });
   const basketGeo = makeBasketGeometry();
   const baskets = [], destinationMarkers = [];
   for (const h of holes) {
@@ -432,15 +434,19 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
 
   // --- sky, lights, fog ---
   const sky = cartoonSky(); scene.add(sky);
-  const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(50), THREE.MathUtils.degToRad(130));
-  scene.environment = null; scene.background = null;
-  scene.fog = new THREE.Fog('#b5dfe5', 38, 235);
-  const sun = new THREE.DirectionalLight('#fff7e5', 1.65); sun.castShadow = false;
+  const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1]));
+  // Image-based ambient: the course HDRI on Full, the gradient sky prefiltered on Lite. Discs, chains and shoes get real reflections.
+  let envRT = null;
+  if (hdri) scene.environment = hdri.target.texture;
+  else { const pmrem = new THREE.PMREMGenerator(renderer); const envScene = new THREE.Scene(); envScene.add(sky); envRT = pmrem.fromScene(envScene, .04); envScene.remove(sky); scene.add(sky); pmrem.dispose(); scene.environment = envRT.texture; }
+  scene.environmentIntensity = .45; scene.background = null;
+  scene.fog = new THREE.Fog('#d6f4fa', 46, 260);   // fog colour is the sky's horizon colour, always
+  const sun = new THREE.DirectionalLight(def.sunColor, 2.5); sun.castShadow = true;
   const sm = quality === 'low' ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
-  const sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -42; sc2.right = sc2.top = 42; sc2.near = 1; sc2.far = 400;
-  sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+  const extent = 44, sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -extent; sc2.right = sc2.top = extent; sc2.near = 1; sc2.far = 400;
+  sun.shadow.radius = 2.5; sun.shadow.bias = -0.0004; sun.shadow.normalBias = .02 + sun.shadow.radius * (extent * 2 / sm) * 1.15;   // bias follows texel size and filter width
   scene.add(sun); scene.add(sun.target);
-  const hemi = new THREE.HemisphereLight('#effaff', '#8fac75', 1.25); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], .9); scene.add(hemi);
 
   // Soft graphic clouds are part of the base style, including Lite.
   const cloudGeo = new THREE.SphereGeometry(1, 12, 8);
@@ -470,10 +476,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     g.setAttribute('shadowAlpha',new THREE.Float32BufferAttribute(alpha,1));g.setIndex(indices);shadowParts.push(g);
   };
-  for(const t of trees) groundShadow(t.x+.9,t.z+.6,t.fr*1.35,t.fr*1.1,.42);
+  for(const t of trees) groundShadow(t.x+.9,t.z+.6,t.fr*1.35,t.fr*1.1,.22);   // soft canopy occlusion under the real shadow
   for(const h of holes) {
-    groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,.28);
-    groundShadow(h.basket[0]+.5,h.basket[1]+.3,.65,.85,.38);
+    groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,.16);
+    groundShadow(h.basket[0]+.5,h.basket[1]+.3,.65,.85,.24);
   }
   if (shadowParts.length) {
     const shadowMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false,
@@ -494,11 +500,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       marker.position.y=height(marker.position.x,marker.position.z)+2.7+size*.6;
     }
     windClock.value=t; cloudGroup.position.x = Math.sin(t * .006) * 5;
+    if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 180); }
   };
   const dispose = () => {   // tear down so another course can be built into the same scene
     for(const w of waters)w.userData.dispose?.();
-    scene.remove(group, sky, sun, sun.target, hemi); scene.fog = null; scene.environment = null; scene.background = null; hdri?.target.dispose(); hdri?.texture.dispose();
+    scene.remove(group, sky, sun, sun.target, hemi); scene.fog = null; scene.environment = null; scene.background = null; hdri?.target.dispose(); hdri?.texture.dispose(); envRT?.dispose();
     group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };

@@ -195,21 +195,21 @@
     },
     "walk": {
       "file": "assets/models/golfer-walk.glb",
-      "bytes": 14440,
+      "bytes": 14304,
       "duration": 1,
       "meshes": 0
     },
     "walk_left": {
       "file": "assets/models/golfer-walk_left.glb",
-      "bytes": 14444,
+      "bytes": 14312,
       "duration": 1,
       "meshes": 0
     }
   },
   "golfer.glb": {
-    "bytes": 551540
+    "bytes": 548364
   },
   "golfer-lod.glb": {
-    "bytes": 220700
+    "bytes": 224648
   }
 }

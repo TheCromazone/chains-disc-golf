@@ -21,6 +21,10 @@ Four courses, three or nine holes each:
 
 Works on phones (touch) and desktop (mouse). Add it to your home screen for a full-screen app.
 
+### Look
+
+Stylised shapes, physically based surfaces. The ground is a photographic grass tile washed 58% toward white so it supplies blade grain while each course's palette lives in vertex colours (mow stripes, first-cut collar, putting green, worn soil); a blade-scale normal map repeats eight times finer than the tile, and dirt and sand blend in by splat weight. Trunks carry a bark photo, tee pads concrete, water a scrolling normal map. One warm sun casts filtered shadows from trees, players and baskets; the sky is prefiltered into image-based ambient so discs, chains and shoes reflect it. Bodies get a tiled fabric weave, a skin pore normal map and a Fresnel rim light. Full adds the course HDRI, bloom and a broadcast grade (lift, saturation, grain, corner vignette); Lite keeps every texture and shadow without render targets. ACES tone mapping on both.
+
 ### Game interface
 
 The clubhouse, course picker, locker room and HUD share white/cyan frosted glass, coral actions, local SVG icons and tactile buttons. Course cards show the actual toon course. The live HUD uses a compact score strip and equipment pickers. Sound icons crossfade, flight controls disable during throws, and leaving a round uses an in-game confirmation. Online validation appears beside the room controls.

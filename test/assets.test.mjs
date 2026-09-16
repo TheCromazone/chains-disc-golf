@@ -14,7 +14,7 @@ for(const [name,path] of Object.entries(manifest.models)){
   const triangles=(gltf.meshes||[]).reduce((n,m)=>n+m.primitives.reduce((a,p)=>a+gltf.accessors[p.indices].count/3,0),0);
   if(name==='golfer'||name==='golfer_lod'){
     assert(triangles<(name==='golfer'?18000:6500),'golfer triangle budget (athlete v2 carries 12 hair and 6 headwear variants; one of each draws)');
-    assert(bin.length<(name==='golfer'?640000:256000),'body/LOD byte budget');
+    assert(bin.length<(name==='golfer'?820000:340000),'body/LOD byte budget (UV set for fabric weave and skin pores)');
     assert.equal(gltf.animations?.length||0,0,'body does not duplicate animation clips');
     const actual=[...new Set(gltf.skins.flatMap(s=>s.joints.map(i=>gltf.nodes[i].name)))].sort();assert.deepEqual(actual,[...joints].sort());
     for(const slot of ['skin','hair','jersey','trim','shorts','shoes','headwear'])assert(gltf.materials.some(m=>m.name===slot),slot);

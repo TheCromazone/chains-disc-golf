@@ -4,7 +4,6 @@
 import * as THREE from 'three';
 import { createGLTFCharacter } from './gltf-player.js';
 import { FACE_OPTIONS, FACE_DEFAULTS, EYE_COLORS, createFaceParts } from './face-parts.js';
-import { characterRamp } from './character-material.js';
 import { paintDetail, jerseyStyle, JERSEY_STYLES } from './materials.js';
 
 export const AVATAR_OPTIONS = {
@@ -42,7 +41,7 @@ export function createCharacter(opts = {}) {
   const imported = createGLTFCharacter(a); if (imported) return imported;
   const g = new THREE.Group();
   const materials = new Set();
-  const std = c => { const m = new THREE.MeshToonMaterial({ color: c, gradientMap:characterRamp }); materials.add(m); return m; };
+  const std = c => { const m = new THREE.MeshStandardMaterial({ color: c, roughness: .8 }); materials.add(m); return m; };
   const skinM=paintDetail(std(a.skin),'skin'), shirtM=paintDetail(jerseyStyle(std(a.jersey),a.jerseyStyle,a.accent,.285,[0,1.31,0]),'jersey'), accentM=std(a.accent), shortsM=std(a.shorts), shoeM=std(a.shoes), hairM=std(a.hairColor), hatM=std(a.headwearColor), gloveM=std('#ffffff'),soleM=std('#b6cbd6');
   const ell = (parent, m, x,y,z, sx,sy,sz) => {const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,20,14),m);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);parent.add(mesh);return mesh;};
   const tube = (parent,m,x,y,z,r,len) => {const mesh=new THREE.Mesh(new THREE.CapsuleGeometry(r,len,4,12),m);mesh.position.set(x,y,z);parent.add(mesh);return mesh;};
@@ -87,9 +86,21 @@ export function createCharacter(opts = {}) {
   const cur = {}; for (const j of JOINTS) cur[j] = [...IDLE[j]]; cur.rootY = 0;
   let throwType = 'backhand', phase = null, time = Math.random() * 10, mood = null, locomotion = null;
   const apply = () => { for (const j of JOINTS) joints[j].rotation.set(cur[j][0], cur[j][1], cur[j][2]); root.position.y = ROOT_Y + cur.rootY; };
+  const frames = new Map(), _gi = new THREE.Quaternion();
+  function releaseFrame(t) {
+    const key = t + (lefty ? '_left' : ''); if (frames.has(key)) return frames.get(key);
+    let pose = poseAt(keysFor(t), .62); if (lefty) pose = mirrorPose(pose);
+    for (const j of JOINTS) joints[j].rotation.set(pose[j][0], pose[j][1], pose[j][2]);
+    g.updateMatrixWorld(true); _gi.copy(g.quaternion).invert();
+    const handJ = lefty ? L.hand : R.hand, elbowJ = lefty ? L.elbow : R.elbow;
+    const q = handJ.getWorldQuaternion(new THREE.Quaternion()).premultiply(_gi);
+    const dir = handJ.getWorldPosition(new THREE.Vector3()).sub(elbowJ.getWorldPosition(new THREE.Vector3())).normalize().applyQuaternion(_gi);
+    apply(); g.updateMatrixWorld(true);
+    const frame = { qInv: q.invert(), dir }; frames.set(key, frame); return frame;
+  }
 
   return {
-    group: g, hand: lefty ? L.hand : R.hand, elbow: lefty ? L.elbow : R.elbow, headY: 1.39*tall, joints, avatar: a, source: 'procedural', clips: ['idle','practice',...Object.keys(K),'celebrate','slump','walk'], faceParts: face.parts, setFace: face.setFace,
+    group: g, hand: lefty ? L.hand : R.hand, elbow: lefty ? L.elbow : R.elbow, headY: 1.39*tall, joints, avatar: a, source: 'procedural', releaseFrame, clips: ['idle','practice',...Object.keys(K),'celebrate','slump','walk'], faceParts: face.parts, setFace: face.setFace,
     setThrow(t) { throwType = t; },
     setPhase(p) { phase = p; if(p!==null)mood=null; },                       // null = idle
     react(name) { mood={name,t:0};phase=null; },
