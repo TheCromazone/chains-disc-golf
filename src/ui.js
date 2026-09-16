@@ -133,8 +133,8 @@ export function setHub({ name, jersey, course, holes, img }) {
   if (course) { const st = courseStats(holes); $('hubCourse').textContent = course.name; $('hubCourseSub').textContent = `Par ${st.par} · ${st.len} m · ${course.tag.toLowerCase()}`; $('hubMap').innerHTML = img ? `<img src="${img}" alt="">` : courseMapSVG(course, holes); }
 }
 const AV_LABELS = { skin: 'Skin tone', hair: 'Hair shape', hairColor: 'Hair colour', headwear: 'Headwear', headwearColor: 'Headwear colour', jersey: 'Shirt', jerseyStyle: 'Shirt style', accent: 'Trim', number: 'Number', shorts: 'Shorts', socks: 'Socks', shoes: 'Shoes', wristband: 'Wristband', build: 'Build', height: 'Height', shades: 'Shades', eyes: 'Eyes', eyeColor: 'Eye colour', brows: 'Brows', nose: 'Nose', mouth: 'Mouth', facialHair: 'Facial hair', glasses: 'Glasses', hand: 'Throwing hand' };
-const AV_GROUPS = { face: ['eyes', 'eyeColor', 'brows', 'nose', 'mouth', 'facialHair', 'glasses'], hair: ['hair', 'hairColor', 'headwear', 'headwearColor'], outfit: ['jersey', 'jerseyStyle', 'accent', 'number', 'shorts', 'socks', 'shoes', 'wristband'], body: ['skin', 'build', 'height', 'hand'] };
-let lockerCategory = 'face', faceCategory = 'eyes';
+const AV_GROUPS = { face: ['eyeColor', 'facialHair', 'glasses'], hair: ['hair', 'hairColor', 'headwear', 'headwearColor'], outfit: ['jersey', 'jerseyStyle', 'accent', 'number', 'shorts', 'socks', 'shoes', 'wristband'], body: ['skin', 'build', 'height', 'hand'] };
+let lockerCategory = 'face', faceCategory = 'eyeColor';
 // Small visual choice cards echo the decal vocabulary. The live 3D figure is the authority.
 function faceChoice(key, value, index) {
   const n = index % 4;

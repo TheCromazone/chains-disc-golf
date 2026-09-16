@@ -13,11 +13,18 @@ for(const [name,path] of Object.entries(manifest.models)){
   const gltf=JSON.parse(bin.subarray(20,20+bin.readUInt32LE(12)).toString());
   const triangles=(gltf.meshes||[]).reduce((n,m)=>n+m.primitives.reduce((a,p)=>a+gltf.accessors[p.indices].count/3,0),0);
   if(name==='golfer'||name==='golfer_lod'){
-    assert(triangles<(name==='golfer'?18000:6500),'golfer triangle budget (athlete v2 carries 12 hair and 6 headwear variants; one of each draws)');
-    assert(bin.length<(name==='golfer'?820000:340000),'body/LOD byte budget (UV set for fabric weave and skin pores)');
+    // athlete v3: Draco body (12.4k / 4k tris) plus 12 hair and 6 headwear variants; one of each draws
+    assert(gltf.extensionsRequired?.includes('KHR_draco_mesh_compression'),name+' body is Draco compressed');
+    const drawn=(gltf.meshes||[]).reduce((n,m)=>n+m.primitives.reduce((a,p)=>a+(p.extensions?.KHR_draco_mesh_compression?0:gltf.accessors[p.indices].count/3),0),0);
+    assert.equal(drawn,0,'every primitive is Draco encoded');
+    assert(bin.length<(name==='golfer'?320000:300000),'body/LOD byte budget');
     assert.equal(gltf.animations?.length||0,0,'body does not duplicate animation clips');
+    assert.equal(gltf.textures?.length||0,0,'body textures ship separately (manifest textures.body_*)');
     const actual=[...new Set(gltf.skins.flatMap(s=>s.joints.map(i=>gltf.nodes[i].name)))].sort();assert.deepEqual(actual,[...joints].sort());
-    for(const slot of ['skin','hair','jersey','trim','shorts','shoes','headwear'])assert(gltf.materials.some(m=>m.name===slot),slot);
+    for(const slot of ['body','hair','trim','headwear'])assert(gltf.materials.some(m=>m.name===slot),slot);
+    const rig=gltf.nodes.find(n=>n.name==='ChainsRig');assert(rig?.extras?.handOffset&&rig.extras.regionLum&&rig.extras.eyeY,'rig extras carry the grip, eye line and region luminance');
+    for(const v of ['hair_short','hair_afro','headwear_cap','headwear_visor','accessory_wristbandR'])assert(gltf.nodes.some(n=>n.name===v),v);
+    for(const t of ['body_albedo','body_mask1','body_mask2','body_normal','body_albedo_lod','body_mask1_lod','body_mask2_lod'])assert(manifest.textures[t],t);
   } else if(name.startsWith('golfer_')) {
     assert.equal(gltf.meshes?.length||0,0,'animation-only GLB has zero meshes');
     assert.equal(gltf.materials?.length||0,0,'animation-only GLB has zero materials');

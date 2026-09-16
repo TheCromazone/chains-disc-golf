@@ -22,11 +22,11 @@ export function washedTexture(name, { wash = .58, repeat = null } = {}) {
   img.src = url; t.__shared = true; return (cache[key] = t);
 }
 // Texture from the manifest or null. srgb=false for normal/roughness maps.
-export function texture(name, { repeat = null, srgb = true } = {}) {
+export function texture(name, { repeat = null, srgb = true, clamp = false, flipY = true } = {}) {
   const url = asset('textures', name); if (!url) return null;
   if (cache[url]) return cache[url];
   const t = new THREE.TextureLoader().load(url);
-  t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
+  t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.wrapS = t.wrapT = clamp ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping; t.anisotropy = 4; t.flipY = flipY;   // glTF UVs are not flipped
   if (repeat) t.repeat.set(repeat[0], repeat[1]);
   t.__shared = true; return (cache[url] = t);
 }

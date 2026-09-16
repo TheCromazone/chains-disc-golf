@@ -1,13 +1,13 @@
-"""Blender-author 32 positive-scale clips (16 motions x two hands) on the athlete v2 rig; never rebuild body/LOD here.
+"""Blender-author 32 positive-scale clips (16 motions x two hands) on the athlete v3 rig; never rebuild body/LOD here.
 Run node tools/extract-poses.mjs, then blender -b -P tools/author-golfer-clips.py.
-Source becomes art/blender/golfer-motion-r5.blend; runtime files contain no mesh.
+Source becomes art/blender/golfer-motion-r6.blend; runtime files contain no mesh.
 """
 from pathlib import Path
 import bpy, json, copy, math
 from mathutils import Quaternion, Vector
 ROOT=Path(__file__).resolve().parents[1]
 RIGSPEC=json.loads((ROOT/'tools/golfer-rig.json').read_text());GR=RIGSPEC['ground']
-bpy.ops.wm.open_mainfile(filepath=str(ROOT/'art/blender/golfer-v2-source.blend'))
+bpy.ops.wm.open_mainfile(filepath=str(ROOT/'art/blender/golfer-v3-source.blend'))
 rig=bpy.data.objects['ChainsRig'];rig.animation_data_clear()
 for a in list(bpy.data.actions):bpy.data.actions.remove(a)
 data=json.loads((ROOT/'tools/poses.json').read_text());idle=data['idle'];joints=data['joints'];clips=data['throws']
@@ -62,11 +62,11 @@ for base,keys in clips.items():
 rig.animation_data.action=None
 for b in rig.pose.bones:b.rotation_quaternion=(1,0,0,0);b.location=(0,0,0)
 bpy.context.scene.frame_set(0)
-bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'art/blender/golfer-motion-r5.blend'), compress=True)
-bpy.ops.export_scene.gltf(filepath=str(ROOT/'art/blender/golfer-motion-r5.glb'),export_format='GLB',export_yup=True,export_animations=True,export_animation_mode='ACTIONS',export_force_sampling=True,export_frame_range=False,export_skins=True,export_extras=True)
+bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'art/blender/golfer-motion-r6.blend'), compress=True)
+bpy.ops.export_scene.gltf(filepath=str(ROOT/'art/blender/golfer-motion-r6.glb'),export_format='GLB',export_yup=True,export_animations=True,export_animation_mode='ACTIONS',export_force_sampling=True,export_frame_range=False,export_skins=True,export_extras=True)
 # Reuse the byte-preserving repacker without invoking its source-model conversion step.
 exec((ROOT/'tools/split-golfer-clips.py').read_text().split('src,bin=read(')[0])
-src,binary=read(ROOT/'art/blender/golfer-motion-r5.glb');report={'skeleton':'ChainsRig eleven-joint v2 (athlete)','sampleHz':50,'phase':{'windup':[0,.5],'release':.62,'followThrough':[.5,1]},'clips':{}}
+src,binary=read(ROOT/'art/blender/golfer-motion-r6.glb');report={'skeleton':'ChainsRig eleven-joint v3 (meshy athlete)','sampleHz':50,'phase':{'windup':[0,.5],'release':.62,'followThrough':[.5,1]},'clips':{}}
 for a in src['animations']:
     doc=copy.deepcopy(src);doc['animations']=[copy.deepcopy(a)]
     for key in ['meshes','materials','textures','images','skins']:doc.pop(key,None)

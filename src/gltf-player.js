@@ -1,61 +1,53 @@
-// Blender-authored athlete (tools/build-golfer-v2.py) driven by the shared clip set. The rig node carries
-// extras (hand socket, head ellipsoid) so face decals and the disc grip follow whatever body Blender exported.
+// Blender-authored athlete (tools/build-golfer-v3.py) driven by the shared clip set. The rig node carries
+// extras (hand socket, head ellipsoid, eye line, region luminance) so the disc grip, glasses and recolouring
+// follow whatever body Blender exported.
 import * as THREE from 'three';
 import { cloneModel } from './models.js';
 import { createFaceParts } from './face-parts.js';
-import { paintDetail, jerseyStyle, rimLight } from './materials.js';
-import { texture, washedTexture } from './assets.js';
+import { rimLight } from './materials.js';
+import { bodyMaterial } from './body-material.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
-// Surface response per wardrobe slot. Fabric shows its weave through a tiled grey map; skin gets a pore normal map.
-const SLOT = { skin: { roughness: .58, normal: 'skin_normal', normalScale: .3 }, jersey: { roughness: .86, map: 'jersey_pattern' }, shorts: { roughness: .82, map: 'jersey_pattern' }, trim: { roughness: .78 }, socks: { roughness: .95 }, shoes: { roughness: .42 }, sole: { roughness: .55 }, laces: { roughness: .9 }, hair: { roughness: .72 }, headwear: { roughness: .8 } };
-const _v = new THREE.Vector3(), _e = new THREE.Vector3(), _q = new THREE.Quaternion(), _gi = new THREE.Quaternion();
+const SLOT = { hair: { roughness: .7, rim: .22 }, headwear: { roughness: .8 }, trim: { roughness: .78 } };
+const _v = new THREE.Vector3(), _e = new THREE.Vector3(), _gi = new THREE.Quaternion();
 
 export function createGLTFCharacter(avatar) {
   const src = cloneModel(avatar.lod ? 'golfer_lod' : 'golfer'); if (!src) return null;
   const group = new THREE.Group(), actor = src.scene; group.add(actor);
   const joints = {}, owned = new Set();
-  const colors = { skin: avatar.skin, hair: avatar.hairColor, jersey: avatar.jersey, trim: avatar.accent, shorts: avatar.shorts, shoes: avatar.shoes, headwear: avatar.headwearColor, socks: avatar.socks || avatar.accent, laces: avatar.accent };
-  const spec = actor.getObjectByName('ChainsRig')?.userData || {};   // athlete v2 extras; absent on the round-two Mii export
+  const colors = { hair: avatar.hairColor, headwear: avatar.headwearColor, trim: avatar.accent };
+  const spec = actor.getObjectByName('ChainsRig')?.userData || {};
+  let body = null;
   actor.traverse(o => {
     if (o.isBone) joints[o.name] = o;
     if (o.name.startsWith('hair_')) o.visible = o.name === 'hair_' + avatar.hair;
     if (o.name.startsWith('headwear_')) o.visible = o.name === 'headwear_' + avatar.headwear;
     if (o.name.startsWith('accessory_wristband')) o.visible = avatar.wristband === 'both' || avatar.wristband === (o.name.endsWith('R') ? 'right' : 'left');
-    if (o.name === 'shades') o.visible = false;   // glasses are face decals
     if (!o.isMesh) return;
-    const tint = m => {
-      const key = m.name.replace(/\.\d+$/, ''), slot = SLOT[key] || { roughness: .8 };
-      const n = new THREE.MeshStandardMaterial({ color: m.color, roughness: slot.roughness, metalness: 0, map: slot.map ? washedTexture(slot.map, { wash: .55, repeat: [10, 5] }) : null, normalMap: slot.normal ? texture(slot.normal, { repeat: [6, 6], srgb: false }) : null });
-      if (n.normalMap) n.normalScale.setScalar(slot.normalScale); owned.add(n);
-      if (colors[key]) n.color.set(colors[key]);
-      n.__shared = false;
-      if (key === 'jersey') jerseyStyle(n, avatar.jerseyStyle, avatar.accent, 1);
-      if (['skin', 'jersey', 'shorts', 'hair'].includes(key)) rimLight(n, { strength: key === 'skin' ? .3 : .22 });
-      return ['skin', 'jersey'].includes(key) && !n.map && !n.normalMap ? paintDetail(n, key) : n;
-    };
-    o.material = Array.isArray(o.material) ? o.material.map(tint) : tint(o.material);
-    o.castShadow = true; o.receiveShadow = false;
-    o.frustumCulled = false;
+    const key = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
+    if (key === 'body') { body = bodyMaterial(spec, avatar, o.geometry.index.count < 27000); o.material = body.material; }
+    else { const slot = SLOT[key] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[key] || '#ffffff', roughness: slot.roughness, metalness: 0 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
+    owned.add(o.material); o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
   });
-  if (!joints.elR || !joints.root) return null;
+  if (!joints.elR || !joints.root || !body) return null;
   actor.updateMatrixWorld(true);
-  const headC = spec.headCentre || null, headR = spec.headRadii || null;
-  const faceOpts = headC ? { centerY: headC[1] - joints.head.getWorldPosition(_v).y, rx: headR[0], ry: headR[1], rz: headR[2], scale: headR[1] / .295 } : {};
-  const face = createFaceParts(joints.head, avatar, faceOpts);
-  // chest and back prints: club mark and number, sized from the jersey rings
+  const headC = spec.headCentre, headR = spec.headRadii, headY = joints.head.getWorldPosition(_v).y, headZ = joints.head.getWorldPosition(_v).z;
+  // Glasses are the one decal left on a scanned face: wrapped on the skull so the lenses sit on the eye line.
+  const scale = headR[1] / .295;
+  const face = createFaceParts(joints.head, avatar, { only: ['glasses'], centerY: spec.eyeY - headY - .045 * scale, rx: headR[0], ry: headR[1], rz: headZ - spec.faceZ, scale });
+  // chest and back prints: club mark and number, placed on the measured torso
   const printCanvas = document.createElement('canvas'); printCanvas.width = 256; printCanvas.height = 256;
   const ink = printCanvas.getContext('2d'); ink.fillStyle = avatar.accent; ink.textAlign = 'center';
   ink.font = 'bold 30px system-ui'; ink.fillText('CHAINS', 128, 60);
   ink.font = 'bold 116px system-ui'; ink.fillText(String(avatar.number), 128, 184);
   const print = new THREE.CanvasTexture(printCanvas); print.colorSpace = THREE.SRGBColorSpace;
-  const printGeo = new THREE.PlaneGeometry(.22, .22);
+  const printGeo = new THREE.PlaneGeometry(.2, .2);
   const printMat = new THREE.MeshBasicMaterial({ map: print, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }); owned.add(printMat);
-  const chestY = headC ? 1.30 - joints.spine.getWorldPosition(_v).y : .20, chestZ = headC ? [.148, .138] : [.155, .155];
-  for (const side of [-1, 1]) { const badge = new THREE.Mesh(printGeo, printMat); badge.position.set(0, chestY, side * (side < 0 ? chestZ[0] : chestZ[1])); badge.rotation.y = side < 0 ? Math.PI : 0; badge.rotation.x = side < 0 ? -.08 : .08; joints.spine.add(badge); }
-  const hand = new THREE.Group(); hand.name = 'disc_socket'; hand.position.set(...(spec.handOffset || [0, -.205, 0]));
+  const chestY = 1.30 - joints.spine.getWorldPosition(_v).y, chestZ = spec.chestZ || [.13, .13];
+  for (const side of [-1, 1]) { const badge = new THREE.Mesh(printGeo, printMat); badge.position.set(0, chestY, side * ((side < 0 ? chestZ[0] : chestZ[1]) + .004)); badge.rotation.y = side < 0 ? Math.PI : 0; badge.rotation.x = side < 0 ? -.1 : .1; joints.spine.add(badge); }
+  const hand = new THREE.Group(); hand.name = 'disc_socket'; hand.position.set(...(spec.handOffset || [0, -.25, 0]));
   const lefty = avatar.hand === 'left'; joints[lefty ? 'elL' : 'elR'].add(hand);
-  const build = { slim: .93, athletic: 1, broad: 1.1 }[avatar.build] || 1, tall = HEIGHT[avatar.height] || 1;
+  const build = { slim: .95, athletic: 1, broad: 1.07 }[avatar.build] || 1, tall = HEIGHT[avatar.height] || 1;
   actor.scale.set(build * tall, tall, tall);
   const handed = name => lefty && actions.has(name + '_left') ? name + '_left' : name;
   const mixer = new THREE.AnimationMixer(actor);
@@ -87,7 +79,8 @@ export function createGLTFCharacter(avatar) {
     const frame = { qInv: q.invert(), dir }; frames.set(name, frame); return frame;
   }
   const api = {
-    group, hand, elbow: joints[lefty ? 'elL' : 'elR'], joints, avatar, source: 'glb', releaseFrame, headY: (headC ? headC[1] : 1.39) * tall, clips: [...actions.keys()], faceParts: face.parts, setFace: face.setFace,
+    group, hand, elbow: joints[lefty ? 'elL' : 'elR'], joints, avatar, source: 'glb', releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: face.parts,
+    setFace(value) { face.setFace(value); body.setPalette(value); },
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; }, getPhase() { return phase; },
     react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },

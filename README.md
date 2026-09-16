@@ -23,7 +23,11 @@ Works on phones (touch) and desktop (mouse). Add it to your home screen for a fu
 
 ### Look
 
-Stylised shapes, physically based surfaces. The ground is a photographic grass tile washed 58% toward white so it supplies blade grain while each course's palette lives in vertex colours (mow stripes, first-cut collar, putting green, worn soil); a blade-scale normal map repeats eight times finer than the tile, and dirt and sand blend in by splat weight. Trunks carry a bark photo, tee pads concrete, water a scrolling normal map. One warm sun casts filtered shadows from trees, players and baskets; the sky is prefiltered into image-based ambient so discs, chains and shoes reflect it. Bodies get a tiled fabric weave, a skin pore normal map and a Fresnel rim light. Full adds the course HDRI, bloom and a broadcast grade (lift, saturation, grain, corner vignette); Lite keeps every texture and shadow without render targets. ACES tone mapping on both.
+Stylised shapes, physically based surfaces. The ground is a photographic grass tile washed 58% toward white so it supplies blade grain while each course's palette lives in vertex colours (mow stripes, first-cut collar, putting green, worn soil); a blade-scale normal map repeats eight times finer than the tile, and dirt and sand blend in by splat weight. Trunks carry a bark photo, tee pads concrete, water a scrolling normal map. One warm sun casts filtered shadows from trees, players and baskets; the sky is prefiltered into image-based ambient so discs, chains and shoes reflect it. Full adds the course HDRI, bloom and a broadcast grade (lift, saturation, grain, corner vignette); Lite keeps every texture and shadow without render targets. ACES tone mapping on both.
+
+### Athlete
+
+The player is the photoreal Meshy athlete from the ultimate frisbee project, rebuilt for Chains in Blender (`tools/build-golfer-v3.py`): A-pose straightened into the ChainsRig rest, 24 auto-rig joints merged into the eleven Chains bones so all 32 authored clips still drive it, 108k source triangles decimated to a 12.4k Draco body (6.2k phone LOD) with tangent normals and occlusion baked from the untouched copy. A world-position bake classifies every albedo texel into regions (skin, shirt, shorts, hair, socks, shoes, iris, beard zones) and the runtime material (`src/body-material.js`) recolours each region as palette x baked luminance / region mean, so every locker colour applies while the photographic pores, folds and cleats survive. Twelve hair styles and six kinds of headwear are caps grown from the skull itself. Eye colour and facial hair come from the masks; sport glasses are the one decal. The flight preview is a screen-space dashed ribbon over a dark outline with a ground arrow at the lie, and wind is drawn as tapered streamlines that ride the wind vector.
 
 ### Game interface
 
@@ -95,8 +99,8 @@ No build step and no required assets. The shipped art replaces procedural defaul
 
 ## Graphics and animation
 
-- **Lite:** procedural round-headed golfer, analytic face atlas, instanced foliage, toon ramp, gradient sky, cartoon clouds and blob shadows. Models and Full-only texture/decoder requests are skipped at startup.
-- **Full:** the same bright art direction with the authored Blender body, ten separate mesh-free animation files, KTX2 face atlas and smaller waiting-player LOD. PBR grass, HDRI, SSAO and bloom are retired from the default look; their source infrastructure remains available.
+- **Lite:** the 6.2k-triangle athlete LOD with 1024/512 body textures and no normal map, instanced foliage, gradient sky, cartoon clouds and real shadows. Full-only texture/decoder requests are skipped at startup; the procedural round-headed golfer remains as the fallback when no model loads.
+- **Full:** the 12.4k Draco athlete with 2048 albedo and normal maps, 32 mesh-free animation files, course HDRI ambient, bloom and grade.
 - Five Blender throws use phase **0–0.5 for swipe windup**, **0.62 for release**, and **0.5–1 for follow-through**. Idle weight shifts, practice swings, fairway looks and score reactions use separate clips.
 - A basket-to-tee camera introduces each hole. Chain-hit slow motion changes playback speed only; physics and network trajectory data stay unchanged.
 - Graphics switching rebuilds and disposes course resources. Foliage uses spatial groups; resolution can scale down during sustained slow frames. Lite never exceeds its original pixel-ratio cap.
@@ -137,7 +141,9 @@ The [device record](docs/qa/r3/sound-device-detection.json) retains nulls until 
 The web game needs none of these tools. Blender sources live in `art/blender/`; image prompts are in [the asset brief](docs/codex-asset-prompts.md).
 
 ```bash
-blender --background --python tools/build-golfer-v2.py   # athlete body + phone LOD
+blender --background --python tools/build-golfer-v3.py -- --preview docs/qa/r6   # Meshy athlete -> ChainsRig body, LOD, masks (needs the frisbee project's athlete-v2.glb; --source <path>)
+python tools/pack-body-textures.py                          # WebP albedo/normal + PNG masks at two sizes, updates the manifest
+blender --background --python tools/build-golfer-v2.py   # previous lofted athlete (kept for reference)
 blender --background --python tools/build-disc.py        # lathed disc with mould text
 python tools/split-golfer-clips.py
 # Rebuild the current authored motion set after rebuilding the body:
@@ -148,7 +154,7 @@ python tools/texture-pack.py
 node tools/build-face-atlas.mjs
 ```
 
-The golfer body is **466,036 bytes / 10,800 triangles**; the distant LOD is **160,840 bytes / 3,230 triangles**. Thirty independent animation GLBs contain no mesh, material or texture payload: ten throws and five shared actions for each hand. Left-handed clips use positive scales, so jersey numbers stay readable. The eleven bone names remain unchanged. `tools/build-face-atlas.mjs` builds deterministic flat face parts and compresses them with Khronos `toktx`; the runtime retains its generated atlas fallback. Legacy model and Unity authoring tools remain in the repository.
+The golfer body is **294,724 bytes / 12,399 body triangles** (21k with every hidden hair and headwear variant, Draco); the phone LOD is **222,612 bytes / 6,200**; body textures are 1.06 MB on Full and 267 KB on Lite. Thirty-two independent animation GLBs contain no mesh, material or texture payload: ten throws and five shared actions for each hand. Left-handed clips use positive scales, so jersey numbers stay readable. The eleven bone names remain unchanged. `tools/build-face-atlas.mjs` builds deterministic flat face parts and compresses them with Khronos `toktx`; the runtime retains its generated atlas fallback. Legacy model and Unity authoring tools remain in the repository.
 
 Twelve original 256px painted JPEG detail tiles add 147.6 KB across all materials. The toon ramp and palette remain; skin and fabric follow the actor, while terrain blends fairway, rough, green and sand. See [texture provenance](art/textures/r3/prompts.json) and [motion authoring](docs/qa/r3/animation-authoring.md).
 

@@ -71,11 +71,12 @@ function getAtlas() {
   return atlas;
 }
 // head: parent object; the decals wrap an ellipsoid of radii rx/ry/rz centred centerY above it. scale sizes the ink.
-export function createFaceParts(head, avatar, { centerY = .23, rx = .275, ry = .295, rz = .255, scale = 1 } = {}) {
+export function createFaceParts(head, avatar, { centerY = .23, rx = .275, ry = .295, rz = .255, scale = 1, only = null } = {}) {
   const group = new THREE.Group(); group.name = 'face_decals'; head.add(group);
   const dimensions = { eyes: [.36, .20, .045], brows: [.38, .12, .115], nose: [.13, .12, -.017], mouth: [.24, .15, -.105], glasses: [.41, .19, .045], facialHair: [.36, .30, -.11], iris: [.36, .20, .045] };
   const parts = {};
   ROWS.forEach((part, row) => {
+    if (only && !only.includes(part)) return;
     const [w0, h0, y0] = dimensions[part], w = w0 * scale, h = h0 * scale, y = y0 * scale;
     const geometry = new THREE.PlaneGeometry(w, h, 12, 8);
     const position = geometry.attributes.position;
@@ -85,6 +86,7 @@ export function createFaceParts(head, avatar, { centerY = .23, rx = .275, ry = .
     const mesh = new THREE.Mesh(geometry, mat); mesh.name = 'face_' + part; mesh.rotation.y = Math.PI; mesh.position.set(0, centerY + y, 0); mesh.renderOrder = 5 + row; group.add(mesh); parts[part] = mesh;
   });
   const setFace = value => ROWS.forEach((part, row) => {
+    if (!parts[part]) return;
     let id = part === 'iris' ? (value.eyes || FACE_DEFAULTS.eyes) : value[part] || (part === 'glasses' && value.shades ? 'sport' : FACE_DEFAULTS[part]);
     const options = part === 'iris' ? FACE_OPTIONS.eyes : FACE_OPTIONS[part];
     const col = Math.max(0, options.indexOf(id)); const uv = parts[part].geometry.attributes.uv;

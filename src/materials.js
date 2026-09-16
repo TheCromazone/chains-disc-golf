@@ -171,7 +171,7 @@ export function windMaterial(source, clock, grass=false) {
 export const JERSEY_STYLES = ['solid', 'hoops', 'stripes', 'sash', 'sleeves', 'split', 'chevron'];
 const JERSEY_MASKS = ['m = 0.;', 'm = step(.5, fract((j.y - 1.31) / .15));', 'm = step(.5, fract((j.x + .055) / .11));', 'm = 1. - smoothstep(.045, .06, abs(j.x * .8 + (j.y - 1.24) * .6));',
   'm = step(.17, abs(j.x));', 'm = step(0., j.x);', 'm = 1. - smoothstep(.05, .065, abs(abs(j.x) * .7 + (j.y - 1.36)));'];
-export function jerseyStyle(material, style, accent, unit = 1, center = [0, 0, 0]) {
+export function jerseyStyle(material, style, accent, unit = 1, center = [0, 0, 0], gate = '1.') {
   const index = Math.max(0, JERSEY_STYLES.indexOf(style));
   const prev = material.onBeforeCompile, prevKey = material.customProgramCacheKey;
   material.userData.jerseyAccent = { value: new THREE.Color(accent) };
@@ -182,7 +182,7 @@ export function jerseyStyle(material, style, accent, unit = 1, center = [0, 0, 0
       vJerseyPos = position * ${unit.toFixed(4)} + vec3(${center.map(v => v.toFixed(3)).join(',')});`);
     s.fragmentShader = 'uniform vec3 jerseyAccent;varying vec3 vJerseyPos;\n' + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { vec3 j = vJerseyPos; float m = 0.; ${JERSEY_MASKS[index]}
-        diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, m); }`);
+        diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, m * (${gate})); }`);
   };
   material.customProgramCacheKey = () => prevKey.call(material) + '|jersey-' + index;
   return material;

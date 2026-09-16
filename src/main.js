@@ -7,6 +7,9 @@ import { loadModels, modelStatus } from './models.js';
 import { createDiscMesh, setDiscPose } from './disc.js';
 import { createPuffs } from './puffs.js';
 import { createWindFx } from './wind.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { setupInput } from './input.js';
 import { planBotThrow } from './bot.js';
 import { createNet } from './net.js';
@@ -39,13 +42,23 @@ renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
 let post = null, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0;
-const resize = () => { renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' || isMobile ? 1.5 : 2) * resolutionScale); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); };
+const lineMats = [];   // screen-space line materials that need the framebuffer size
+const resize = () => { renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' || isMobile ? 1.5 : 2) * resolutionScale); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
 addEventListener('resize', resize); resize();
 
 let course, world, holes, effects = null;
 const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos: new THREE.Vector3(), tLook: new THREE.Vector3(), mode: 'menu', lastHv: new THREE.Vector3(0, 0, -1) };
-const preview = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.7, gapSize: 0.45, transparent: true, opacity: 0.8, depthTest: false }));
-preview.frustumCulled = false; preview.renderOrder = 5; preview.visible = false; scene.add(preview);
+// Flight preview: a screen-space dashed ribbon (readable at any pixel ratio) over a dark outline, and a ground
+// arrow at the lie that turns with the aim. The dashes flow toward the basket so the direction reads at a glance.
+const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false });
+const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .42, depthTest: false, depthWrite: false });
+const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();
+const previewLines = [previewEdge, previewMat].map((m, i) => { const l = new Line2(new LineGeometry(), m); l.frustumCulled = false; l.renderOrder = 5 + i; preview.add(l); return l; });
+const aimArrow = (() => {
+  const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(.34, -.42); shape.lineTo(.12, -.36); shape.lineTo(.12, -1.15); shape.lineTo(-.12, -1.15); shape.lineTo(-.12, -.36); shape.lineTo(-.34, -.42); shape.closePath();
+  const m = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .82, depthTest: false, depthWrite: false }));
+  m.renderOrder = 4; m.frustumCulled = false; preview.add(m); return m;
+})();
 const circleRing = new THREE.Mesh(new THREE.RingGeometry(9.9, 10.1, 96).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
 scene.add(circleRing);
 // Soft projected contact shadow, only Full draws it.
@@ -415,8 +428,9 @@ function updatePreview() {
   const r = simulate(o, previewWorld(), { record: true, every: 6, maxT: 12 });
   const pts = r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7)));
   const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
-  preview.geometry.setAttribute('position', new THREE.BufferAttribute(arr, 3)); preview.geometry.setDrawRange(0, pts.length); preview.computeLineDistances();
-  preview.material.color.set(pw > 0.72 ? '#ffd23f' : '#ffffff');
+  for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); }
+  previewMat.color.set(pw > 0.72 ? '#ffd23f' : '#ffffff');
+  const p = curP(), d = aimDir(); aimArrow.position.set(p.lie[0] + d[0] * .55, world.height(p.lie[0] + d[0] * .55, p.lie[2] + d[1] * .55) + .05, p.lie[2] + d[1] * .55); aimArrow.rotation.y = Math.atan2(-d[0], -d[1]) + Math.PI; aimArrow.material.color.copy(previewMat.color);
 }
 
 // ---------- camera ----------
@@ -527,7 +541,8 @@ function loop() {
   updateCamera(dt);
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : p ? p.char.group.position : cam.look;
   course.update(dt, time, focus, camera.position);
-  puffs.update(dt); windFx?.update(time, dt, world.wind, focus);
+  puffs.update(dt); windFx?.update(time, dt, world.wind, focus, camera);
+  previewMat.dashOffset -= dt * 1.6; previewEdge.dashOffset = previewMat.dashOffset;
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   if(post) post.render(); else renderer.render(scene, camera);

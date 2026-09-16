@@ -22,3 +22,6 @@ __pycache__/
 docs/qa/r3/animation-frames.json
 docs/qa/r3/animation-parity-run.txt
 docs/qa/r3/page@*.webm
+
+# 44 MB bake masters; rebuilt by tools/build-golfer-v3.py, packed runtime copies live in assets/textures/body
+art/blender/golfer-v3-textures/

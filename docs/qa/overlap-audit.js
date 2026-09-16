@@ -28,8 +28,9 @@ $('btnLocal').click(); sweep('setup','setup'); $('btnSetupBack').click();
 $('btnOnline').click(); sweep('online','online'); $('btnOnlineBack').click();
 $('btnHelp').click(); sweep('help','help'); $('btnHelpClose').click();
 C.G.maxDt = 0.7; C.startGame({ mode: 'solo', holeCount: 3, players: [{ name: 'You' }, { name: 'Ricky', isBot: true }, { name: 'Paige', isBot: true }] });
-await new Promise(r => setTimeout(r, 300)); C.G.introT = 10;
-for (let i = 0; i < 40 && C.G.phase !== 'aim'; i++) await new Promise(r => setTimeout(r, 100));
+const skip = setInterval(() => { if (C.G.phase === 'intro') { C.G.introT = 10; C.nextTurn(); } }, 50);   // the frame loop may be throttled in a hidden pane, so end the intro directly   // the intro may start after the course and body textures land
+for (let i = 0; i < 200 && C.G.phase !== 'aim'; i++) await new Promise(r => setTimeout(r, 100));
+clearInterval(skip); if (C.G.phase !== 'aim') throw new Error('Round never reached aim: ' + C.G.phase);
 $('waiting').textContent = 'Ricky is thinking…'; $('waiting').classList.remove('hidden');
 res.push(audit('hud')); $('waiting').classList.add('hidden');
 const throws = [...$('throwRow').querySelectorAll('button')];
