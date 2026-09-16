@@ -10,7 +10,6 @@
     "skin_normal": "textures/skin_normal.png",
     "dirt": "textures/dirt.jpg",
     "sand": "textures/sand.jpg",
-    "face_parts": "appearance/face-parts.ktx2",
     "grass_detail": "textures/r3/fairway.jpg",
     "rough_detail": "textures/r3/rough.jpg",
     "green_detail": "textures/r3/green.jpg",
@@ -87,7 +86,9 @@
     "golfer_scoober_left": "models/golfer-scoober_left.glb",
     "golfer_slump_left": "models/golfer-slump_left.glb",
     "golfer_tomahawk_left": "models/golfer-tomahawk_left.glb",
-    "golfer_walk_left": "models/golfer-walk_left.glb"
+    "golfer_walk_left": "models/golfer-walk_left.glb",
+    "golfer_hammer": "models/golfer-hammer.glb",
+    "golfer_hammer_left": "models/golfer-hammer_left.glb"
   },
   "skies": {
     "pine": "skies/pine.exr",

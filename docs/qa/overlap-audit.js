@@ -33,8 +33,8 @@ for (let i = 0; i < 40 && C.G.phase !== 'aim'; i++) await new Promise(r => setTi
 $('waiting').textContent = 'Ricky is thinking…'; $('waiting').classList.remove('hidden');
 res.push(audit('hud')); $('waiting').classList.add('hidden');
 const throws = [...$('throwRow').querySelectorAll('button')];
-if(throws.length !== 10) throw new Error(`Expected ten throw choices, got ${throws.length}`);
-$('btnThrowPicker').click(); res.push(audit('ten-throw-sheet'));
+if(throws.length !== 11) throw new Error(`Expected eleven throw choices, got ${throws.length}`);
+$('btnThrowPicker').click(); res.push(audit("eleven-throw-sheet"));
 if($('throwRow').classList.contains('hidden')) throw new Error('Throw sheet did not open');
 $('btnThrowPicker').click();
 if ($('leaveDialog')) { $('leaveDialog').showModal(); res.push(audit('leave-dialog')); $('leaveDialog').close(); }

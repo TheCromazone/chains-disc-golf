@@ -24,6 +24,10 @@ export const COURSES = [
     len: [92, 118, 80, 134, 100, 74, 126, 96, 110], dog: { 2: 1, 5: -1, 7: 1 }, ponds: { 0: 'right', 2: 'front', 4: 'carry', 6: 'right', 8: 'front' },
     hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#7dc65a', '#419f50', '#287a51', '#ffe3ac'], leafHue: 0.3,
     sun: [55, 95], sky: [2.5, 3], sunColor: '#fff8ec', fog: ['#d6e6ee', 0.0028], hemi: ['#dbeeff', '#4d7a3e'], water: '#2a7fa8' },
+  { id: 'bluff', name: 'Gull Point Bluffs', tag: 'Coastal · exposed · gusty', blurb: 'Headland links above the surf. Nothing stops the wind up here: read the socks, throw low into it and ride it home.', seed: 59,
+    len: [98, 124, 88, 142, 110, 80, 156, 96, 118], dog: { 1: 1, 4: -1, 7: 1 }, ponds: { 2: 'right', 5: 'carry', 8: 'front' },
+    hills: 2.1, trees: 0.22, pine: 0.7, fairwayW: 1.4, wind: 2.8, grass: ['#a9c65a', '#7fa848', '#5d8a4a', '#e9d9a6'], leafHue: 0.25,
+    sun: [35, 200], sky: [3, 2.4], sunColor: '#fff3dc', fog: ['#d9e6ea', 0.0030], hemi: ['#dbeefb', '#7d8b5a'], water: '#3f8fb0' },
 ];
 export const courseById = id => COURSES.find(c => c.id === id) || COURSES[0];
 export const courseLayout = def => layoutHoles(makeRng(def.seed + 1), def);   // pure: used for the menu mini-maps
@@ -396,8 +400,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const baskets = [], destinationMarkers = [];
   for (const h of holes) {
     const yaw = Math.atan2(-(h.way[1][0] - h.tee[0]), -(h.way[1][1] - h.tee[1]));
-    const pad = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.14, 3.2), concrete);
-    pad.position.set(h.tee[0], h.teeY + 0.05, h.tee[1]); pad.rotation.y = yaw; pad.receiveShadow = true; pad.castShadow = true; group.add(pad);
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 3.2), concrete);   // top face sits under the athlete's soles
+    pad.position.set(h.tee[0], h.teeY + 0.02, h.tee[1]); pad.rotation.y = yaw; pad.receiveShadow = true; pad.castShadow = true; group.add(pad);
     const sign = new THREE.Group();
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.4, 6), trunkMat); post.position.y = 0.7; sign.add(post);
     const board = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.62, 0.05), new THREE.MeshStandardMaterial({ map: textTexture([`HOLE ${h.idx + 1}`, `PAR ${h.par}  •  ${Math.round(h.len)} m`], { font: 'bold 60px system-ui, sans-serif' }), roughness: 0.7 }));
@@ -478,7 +482,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const shadows = new THREE.Mesh(mergeGeometries(shadowParts), shadowMat); shadows.renderOrder = 1; group.add(shadows);
     shadowParts.forEach(g => g.dispose());
   }
-  const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes };
+  // 0 on the fairway, 1 in the rough: the flight model uses it for skip, roll and slide friction.
+  const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
+  const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough };
   const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; destinationMarkers.forEach((m,j)=>m.visible=j===i); };
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}

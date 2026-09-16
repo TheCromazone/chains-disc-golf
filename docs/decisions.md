@@ -161,3 +161,23 @@
 - Continued on the critic's narrower contour finding. The fifth build reallocates triangles to denser perimeter samples; the sixth makes those projections shallower and filters narrow self-occlusion stripes on the outer shell. Interior-shell occlusion remains unfiltered. These are geometry/vertex-bake edits, not tile, terrain or palette changes. The shader still uses the same toon ramp and wind bend.
 - The seventh build preserves a dense continuous authoring envelope in Blender and reduces it by geometric error to a 480-triangle primary shell. This fixes the long vertical-profile chords without raising the final 576-triangle deciduous budget. The critic closes the original defect in both portrait and wider views; its single largest remaining gap is outside canopy, in ground lighting. Stop the art loop here as requested. This is not a claim that Chains beats Switch Sports overall.
 - Final checks pass: physics, animation, six manifold crown variants, all three courses in both qualities with full/empty manifests, and all six UI audits with the ten-entry throw sheet open. Terrain positions and all 3,154 colliders match the baseline. The final Lite ledger is 720,033 encoded / 731,433 transferred bytes; the 2 MB startup cap is unchanged. Three deciduous variants raise whole-course batches from 263 to 332 while total instanced triangles decrease; actual phone frame rates remain pending.
+
+## Round five — Blender athlete, discs, hammer, wind course, ground contact (2026-09-15)
+
+### Actor
+- `tools/build-golfer-v2.py` replaces the Mii build. Every surface is a lofted cross-section (torso, limbs, head, jersey, shorts, socks, shoes) so silhouettes stay clean under the three-tone ramp; no remesh or sculpt data. Bones keep the eleven-joint ChainsRig contract (names, +Y tails, roll 0) at athletic positions; `tools/golfer-rig.json` carries the leg lengths so `tools/author-golfer-clips.py` grounds every clip's soles for this body.
+- Weights are assigned per swept part before joining (torso, arm, hand, leg, pelvis functions) after a geometric classifier let shorts ride up with a raised hand.
+- Wardrobe variants (12 hair, 6 headwear, wristbands) ship hidden in the same GLB; the test budget moved to 18k triangles / 640 KB for the body and 6.5k / 256 KB for the LOD. Lite phones now load the LOD and the same 32 clips instead of the procedural rig, which stays as the no-asset fallback.
+- The rig node exports extras (hand socket, head centre and radii) so face decals and the disc grip follow the exported body rather than constants.
+
+### Face and outfit
+- Face atlas gained tinted rows: an iris (eye colour) and facial hair (tinted by hair colour). The compiled KTX2 atlas was dropped; the canvas is the single source.
+- Shirt styles are a bind-pose shader hook shared by the GLB and the fallback rig (no UVs): hoops, stripes, sash, sleeves, split, chevron.
+
+### Disc
+- `tools/build-disc.py` lathes a PDGA-style profile with mould rings and embossed rim text; runtime tints one plastic material and curves a foil stamp onto the dome. The asset test treats `disc` as runtime-tinted geometry (no baked maps).
+
+### Throws, wind and ground
+- Hammer: forehand grip over the top, bank −130°, negative flip so it flattens inverted at the apex and drops (47 m, 13 m apex at full power). Poses, both clips, icon, hint and tests added.
+- Gull Point Bluffs (wind ×2.8) plus visible wind: windsocks beside every tee, drifting streaks, and a shared `windVec` uniform that leans grass and canopies downwind.
+- Landings read the surface (`world.rough`): rough grass damps skips and rolls; a tilted landing or a flop settles with a coin wobble; the record now carries spin rate so playback spins like the sim. Debris puffs on land/skip/roll/flop/splash.

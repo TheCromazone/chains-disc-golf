@@ -27,6 +27,8 @@ export const THROWS = {
   blade:    { ...FH, name: 'Blade', maxSpeed: 23, launch: 30, nose: 3, liftMul: 0.8, dragMul: 1.4, preset: -68, swipe: [-0.7071, 0.7071], lat: [0.7071, 0.7071], latMode: 'yaw', hint: 'swipe down-left ↙' },
   tomahawk: { name: 'Tomahawk', icon: '⤓', spin: -1, maxSpeed: 30, launch: 23, nose: 0,  bank: -85, liftMul: 0.85, dragMul: 1.2, flip: 1.2, swipe: [0, 1],  lat: [1, 0],  latMode: 'yaw',   hint: 'swipe down ↓' },
   scoober:  { name: 'Scoober',  icon: '⤴', spin: -1, maxSpeed: 22, launch: 30, nose: 8,  bank: 160, liftMul: 0.7,  dragMul: 1.3, flip: -1.9,  swipe: [-0.7071, -0.7071], lat: [0.7071, -0.7071], latMode: 'hyzer', hint: 'swipe up-left ↖' },
+  // Ultimate's hammer: forehand grip over the top, released past vertical so it flies inverted, flattens at the apex and drops. RH drifts left.
+  hammer:   { ...FH, name: 'Hammer', maxSpeed: 28, launch: 36, nose: 0, bank: -130, liftMul: 0.9, dragMul: 1.15, flip: -0.35, swipe: [0.7071, 0.7071], lat: [-0.7071, 0.7071], latMode: 'yaw', hint: 'swipe down-right ↘' },
   putt:     { name: 'Putt',     icon: '⇡', spin: +1, maxSpeed: 14, launch: 12, nose: 7,  bank: 0,   liftMul: 1,    dragMul: 1,   flip: 0,    swipe: [0, -1], lat: [1, 0],  latMode: 'yaw',   hint: 'swipe up ↑' },
 };
 
@@ -121,7 +123,8 @@ export function step(s, w, dt = DT) {
     s.lean += 0.32 * dt;                                    // slowly lays over
     const curve = side * 0.55 * s.lean;
     s.v = rotAxis([s.v[0], 0, s.v[2]], [0, 1, 0], curve * dt);
-    const dec = 1.7 + 0.15 * sp;
+    const rough = w.rough ? w.rough(s.p[0], s.p[2]) : 0;
+    const dec = (1.7 + 0.15 * sp) * (1 + 1.6 * rough);
     const ns = Math.max(0, sp - dec * dt);
     s.v = sp > 1e-3 ? scale(s.v, ns / sp) : [0, 0, 0];
     s.p = [s.p[0] + s.v[0] * dt, gy + R_DISC * Math.cos(s.lean * 0.9), s.p[2] + s.v[2] * dt];
@@ -130,7 +133,7 @@ export function step(s, w, dt = DT) {
     s.n = rotAxis(scale(rightOf, side), vh, -side * s.lean * 0.9);
     s.spinRate = ns / R_DISC;
     hitTrees(s, w, dt);
-    if (s.lean > 1.05 || ns < 1.2) { s.mode = 'ground'; s.v = scale(s.v, 0.5); s.events.push('flop'); }
+    if (s.lean > 1.05 || ns < 1.2) { s.mode = 'ground'; s.v = scale(s.v, 0.5); s.events.push('flop'); s.wobble = 0.55; s.wobbleA = Math.atan2(s.n[2], s.n[0]); }
   } else if (s.mode === 'ground') {
     const gy = w.height(s.p[0], s.p[2]), N = w.normal(s.p[0], s.p[2]);
     const vn = dot(s.v, N);
@@ -138,14 +141,18 @@ export function step(s, w, dt = DT) {
     const gt = [G * N[1] * N[0], -G + G * N[1] * N[1], G * N[1] * N[2]];
     const sp = len(s.v);
     if (sp > 0.05) {
-      const mu = 0.75, vh = scale(s.v, 1 / sp);
+      const mu = 0.75 * (1 + 0.9 * (w.rough ? w.rough(s.p[0], s.p[2]) : 0)), vh = scale(s.v, 1 / sp);
       s.v = [s.v[0] + (gt[0] - mu * G * vh[0]) * dt, s.v[1] + (gt[1] - mu * G * vh[1]) * dt, s.v[2] + (gt[2] - mu * G * vh[2]) * dt];
       if (dot(s.v, vh) < 0) s.v = [0, 0, 0];
     } else s.v = [0, 0, 0];
     s.p = [s.p[0] + s.v[0] * dt, 0, s.p[2] + s.v[2] * dt];
-    s.n = norm([s.n[0] + (N[0] - s.n[0]) * 6 * dt, s.n[1] + (N[1] - s.n[1]) * 6 * dt, s.n[2] + (N[2] - s.n[2]) * 6 * dt]);
-    s.p[1] = w.height(s.p[0], s.p[2]) + 0.015;
-    s.spinRate *= (1 - 4 * dt);
+    if (s.wobble > 0.01) {   // settling like a dropped coin: the rim rings around faster as the tilt dies
+      s.wobbleA += (7 + 22 * (1 - s.wobble / 0.55)) * dt; s.wobble *= 1 - 3.2 * dt;
+      const tilt = s.wobble, cx = Math.cos(s.wobbleA), sx = Math.sin(s.wobbleA);
+      s.n = norm([N[0] + cx * tilt, N[1], N[2] + sx * tilt]);
+    } else s.n = norm([s.n[0] + (N[0] - s.n[0]) * 6 * dt, s.n[1] + (N[1] - s.n[1]) * 6 * dt, s.n[2] + (N[2] - s.n[2]) * 6 * dt]);
+    s.p[1] = w.height(s.p[0], s.p[2]) + 0.015 + 0.03 * (s.wobble || 0);
+    s.spinRate *= (1 - (s.wobble > 0.05 ? 1.5 : 4) * dt);
     if (len(s.v) < 0.08) { s.restT += dt; if (s.restT > 0.25) s.mode = 'rest'; } else s.restT = 0;
   }
   // water / bounds (any mode)
@@ -166,20 +173,20 @@ function groundContact(s, w) {
   s.p[1] = low;
   if (vn >= 0) return;
   const vt = [s.v[0] - vn * N[0], s.v[1] - vn * N[1], s.v[2] - vn * N[2]];
-  const vts = len(vt), spd = len(s.v), steep = -vn / (spd || 1);
-  if (Math.abs(s.n[1]) < 0.45 && vts > 3) {
+  const vts = len(vt), spd = len(s.v), steep = -vn / (spd || 1), rough = w.rough ? w.rough(s.p[0], s.p[2]) : 0;
+  if (Math.abs(s.n[1]) < 0.45 && vts > 3 + 2.5 * rough) {
     s.mode = 'roll'; s.v = scale(vt, 0.85); s.p[1] = gy + R_DISC; s.lean = 0.15;
     const vh = norm([s.v[0], 0, s.v[2]]);
     s.rollSide = dot(s.n, cross(vh, [0, 1, 0])) >= 0 ? 1 : -1;
     s.events.push('roll'); return;
   }
   const shallow = steep < 0.42;
-  const e = shallow ? 0.38 : 0.1, keep = shallow ? 0.7 : 0.35;
+  const e = (shallow ? 0.38 : 0.1) * (1 - 0.65 * rough), keep = (shallow ? 0.7 : 0.35) * (1 - 0.4 * rough);
   s.v = [vt[0] * keep - vn * e * N[0], vt[1] * keep - vn * e * N[1], vt[2] * keep - vn * e * N[2]];
   s.n = norm([s.n[0] * 0.35 + N[0] * 0.65, s.n[1] * 0.35 + N[1] * 0.65, s.n[2] * 0.35 + N[2] * 0.65]);
   s.contacts++;
   s.events.push(s.contacts === 1 ? 'land' : 'skip');
-  if (len(s.v) < 1.5 || s.contacts > 5) { s.mode = 'ground'; s.v = scale(vt, keep); }
+  if (len(s.v) < 1.5 || s.contacts > 5) { s.mode = 'ground'; s.v = scale(vt, keep); const tilt = Math.sqrt(Math.max(0, 1 - s.n[1] * s.n[1])); if (tilt > 0.12) { s.wobble = Math.min(0.55, tilt * 0.9); s.wobbleA = Math.atan2(s.n[2], s.n[0]); } }
 }
 
 function hitTrees(s, w, dt) {
@@ -258,10 +265,10 @@ export function simulate(params, w, opts = {}) {
   let i = 0;
   while (!isDone(s) && s.t < maxT) {
     step(s, w, DT);
-    if (rec && (i++ % every) === 0) rec.push([s.p[0], s.p[1], s.p[2], s.n[0], s.n[1], s.n[2]]);
+    if (rec && (i++ % every) === 0) rec.push([s.p[0], s.p[1], s.p[2], s.n[0], s.n[1], s.n[2], s.spinRate]);
   }
   if (!isDone(s)) s.mode = 'rest';
-  if (rec) rec.push([s.p[0], s.p[1], s.p[2], s.n[0], s.n[1], s.n[2]]);
+  if (rec) rec.push([s.p[0], s.p[1], s.p[2], s.n[0], s.n[1], s.n[2], s.spinRate]);
   return { state: s, traj: rec, result: resultOf(s, w) };
 }
 
@@ -269,6 +276,6 @@ export function simulate(params, w, opts = {}) {
 export function flatWorld(basket = { x: 0, y: 0, z: -30 }) {
   return {
     height: () => 0, normal: () => [0, 1, 0], treesNear: () => [], basket,
-    inWater: () => false, waterLevel: () => -10, inBounds: () => true, wind: [0, 0],
+    inWater: () => false, waterLevel: () => -10, inBounds: () => true, wind: [0, 0], rough: () => 0,
   };
 }

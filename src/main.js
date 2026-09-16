@@ -5,6 +5,8 @@ import { createCharacter, DEFAULT_AVATAR, AVATAR_OPTIONS, randomAvatar } from '.
 import { loadManifest, asset } from './assets.js';
 import { loadModels, modelStatus } from './models.js';
 import { createDiscMesh, setDiscPose } from './disc.js';
+import { createPuffs } from './puffs.js';
+import { createWindFx } from './wind.js';
 import { setupInput } from './input.js';
 import { planBotThrow } from './bot.js';
 import { createNet } from './net.js';
@@ -88,7 +90,8 @@ function ensureDisc(p, discId) {
 function clearPlayers() { for (const p of G.players) { scene.remove(p.char.group); scene.remove(p.marker); p.marker.geometry.dispose(); p.marker.material.dispose(); if (p.discMesh) { scene.remove(p.discMesh); p.discMesh.userData.dispose?.(); } p.char.dispose(); } G.players = []; }
 
 // ---------- course + hero (menu avatar) ----------
-let hero = null;
+let hero = null, windFx = null;
+const puffs = createPuffs(scene);
 // A calm creator stage uses the same actor, camera and renderer as the course.
 const stageCanvas=document.createElement('canvas');stageCanvas.width=4;stageCanvas.height=256;
 const stageInk=stageCanvas.getContext('2d'),stageGradient=stageInk.createLinearGradient(0,0,0,256);
@@ -120,7 +123,10 @@ function placeHero() {
   const h = holes[0], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]);
   hero.group.position.set(h.tee[0], h.teeY + 0.07, h.tee[1]); hero.faceDir(d[0] / L, d[1] / L); hero.setPhase(null);
 }
-function makeHero() { if (hero) { scene.remove(hero.group); hero.hand.children.forEach(o=>o.userData.dispose?.()); hero.dispose(); } hero = createCharacter(G.avatar); scene.add(hero.group); const dm = createDiscMesh(discById('driver')); dm.position.set(0, -0.035, -0.02); dm.rotation.set(0.5, 0, 0); hero.hand.add(dm); placeHero(); }
+let heroDisc = null;
+function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
+// Disc gripped by the rim: its centre sits a little past the palm along the forearm.
+function holdDisc(char, mesh, n, spin) { char.hand.getWorldPosition(_v); char.elbow.getWorldPosition(_v2); _v2.subVectors(_v, _v2).normalize(); _v.addScaledVector(_v2, .07); setDiscPose(mesh, [_v.x, _v.y - .01, _v.z], n, spin); }
 function updateHub() { const i = COURSES.findIndex(c => c.id === G.courseId); UI.setHub({ name: G.avatar.name, jersey: G.avatar.jersey, course: COURSES[i], holes: LAYOUTS[i], img: asset('courses', G.courseId) }); }
 let courseQueue=Promise.resolve();
 function loadCourse(id){courseQueue=courseQueue.catch(()=>{}).then(()=>applyCourse(id));return courseQueue;}
@@ -132,6 +138,7 @@ async function applyCourse(id) {
   effects = null;
   const hdri = null;
   course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, hdri });
+  windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
   world = course.world; holes = course.holes; course.setHole(0);
   G.courseId = def.id; saveLocal('chains.course', def.id); updateHub();
   if (hero) placeHero();
@@ -244,11 +251,11 @@ function runSim(params) {
   const rnd = v => Math.round(v * 1000) / 1000;
   while (!isDone(s) && s.t < 25) {
     step(s, world, DT);
-    if (i++ % 4 === 0) traj.push([rnd(s.p[0]), rnd(s.p[1]), rnd(s.p[2]), rnd(s.n[0]), rnd(s.n[1]), rnd(s.n[2])]);
+    if (i++ % 4 === 0) traj.push([rnd(s.p[0]), rnd(s.p[1]), rnd(s.p[2]), rnd(s.n[0]), rnd(s.n[1]), rnd(s.n[2]), rnd(s.spinRate)]);
     for (; le < s.events.length; le++) events.push([rnd(s.t), s.events[le]]);
   }
   if (!isDone(s)) s.mode = 'rest';
-  traj.push([rnd(s.p[0]), rnd(s.p[1]), rnd(s.p[2]), rnd(s.n[0]), rnd(s.n[1]), rnd(s.n[2])]);
+  traj.push([rnd(s.p[0]), rnd(s.p[1]), rnd(s.p[2]), rnd(s.n[0]), rnd(s.n[1]), rnd(s.n[2]), rnd(s.spinRate)]);
   return { traj, events, result: resultOf(s, world) };
 }
 function launchNow() {
@@ -274,14 +281,18 @@ function updateFlight(dt) {
   const fi = f.t * 60, i = Math.min(Math.floor(fi), n - 1), a = f.traj[i], b = f.traj[Math.min(i + 1, n - 1)], u = Math.min(1, fi - i);
   const pos = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
   const nn = [a[3] + (b[3] - a[3]) * u, a[4] + (b[4] - a[4]) * u, a[5] + (b[5] - a[5]) * u];
-  f.spin += f.spinRate * dt; f.spinRate *= (1 - 0.12 * dt);
+  if (a.length > 6) f.spinRate = a[6] + (b[6] - a[6]) * u; else f.spinRate *= (1 - 0.12 * dt);   // older peers send six-wide records
+  f.spin += f.spinRate * dt;
   setDiscPose(p.discMesh, pos, nn, f.spin * THROWS[f.params.throwType].spin * (f.params.lefty ? -1 : 1));
   f.pos = pos; f.hv = [b[0] - a[0], 0, b[2] - a[2]];
   while (f.ei < f.events.length && f.events[f.ei][0] <= f.t) { onFlightEvent(f.events[f.ei][1]); f.ei++; }
   UI.setHud({ dist: Math.hypot(basketPos()[0] - pos[0], basketPos()[1] - pos[2]) });
   if (i >= n - 1 && f.t > n / 60 + 0.6) { G.flight = null; resolveThrow(f.pi, f.result); }
 }
+const SURFACE_AT = p => world.inWater(p[0], p[2]) ? 'water' : world.rough(p[0], p[2]) > 0.5 ? 'dirt' : 'grass';
 function onFlightEvent(e) {
+  const f = G.flight, at = f?.pos, strength = f?.hv ? Math.min(2, Math.hypot(f.hv[0], f.hv[2]) * 60 / 12) : 1;
+  if (at && ['land', 'skip', 'flop', 'roll', 'splash'].includes(e)) puffs.burst(at, e, strength, e === 'splash' ? 'water' : SURFACE_AT(at));
   if (e === 'chains' || e === 'drop') { sfx[e === 'drop' ? 'drop' : 'chains'](G.flight?.params.power ?? .6); UI.toast('Chains!', 'Right in the heart!', 1600); return; }
   if ((e === 'chainout' || e === 'band' || e === 'rim') && !G.flight?.result.holed && !G.flight?.missReaction) { if(G.flight)G.flight.missReaction=true;sfx.ohh(); }
   const m = { land: () => sfx.thud(), skip: () => sfx.skip(), tree: () => { sfx.tree(); UI.toast('Tree!', '', 900); }, branch: () => { sfx.leaves(); UI.toast('Kicked by a branch', '', 900); }, chains: () => sfx.chains(), drop: () => sfx.drop(), chainout: () => { sfx.chainout(); UI.toast('Chain out!', 'too hard', 1200); }, band: () => { sfx.band(); UI.toast('Off the band', '', 900); }, pole: () => sfx.pole(), rim: () => { sfx.band(); UI.toast('Off the rim', '', 900); }, splash: () => sfx.splash(), roll: () => sfx.roll(), flop: () => sfx.thud(0.5), ob: () => sfx.bad() };
@@ -406,11 +417,12 @@ function updateCamera(dt) {
     const h0 = holes[0], t = performance.now() / 1000, d = [h0.basket[0] - h0.tee[0], h0.basket[1] - h0.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
     const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2, locker = cam.mode === 'locker';
     const faceEdit=locker && document.querySelector('.locker-tabs [aria-selected="true"]')?.dataset.category==='face';
-    const ang = Math.sin(t * 0.18) * 0.04 + (locker ? -.10 : -.26), dist = faceEdit ? 1.85 : 3.25;
+    const hy = hero.headY || 1.39;   // frame whichever rig loaded: the athlete's face sits higher than the Mii's
+    const ang = Math.sin(t * 0.18) * 0.04 + (locker ? -.10 : -.26), dist = faceEdit ? Math.max(.95, hy * .62) : 3.25;
     const fx = d[0] * Math.cos(ang) + r[0] * Math.sin(ang), fz = d[1] * Math.cos(ang) + r[1] * Math.sin(ang);   // direction from hero to camera, swept around his front
-    const side = wide ? 1.25 : 0;   // desktop: menu panel sits on the left, so frame the hero right of centre
-    cam.tPos.set(p.x + fx * dist + r[0] * side, p.y + (faceEdit ? 1.42 : 1.35), p.z + fz * dist + r[1] * side);
-    cam.tLook.set(p.x + r[0] * side, p.y + (faceEdit ? 1.38 : .86), p.z + r[1] * side); k = 4;
+    const side = wide ? (faceEdit ? .45 : 1.25) : 0;   // desktop: menu panel sits on the left, so frame the hero right of centre
+    cam.tPos.set(p.x + fx * dist + r[0] * side, p.y + (faceEdit ? hy + .03 : hy * .97), p.z + fz * dist + r[1] * side);
+    cam.tLook.set(p.x + r[0] * side, p.y + (faceEdit ? hy - .01 : hy * .62), p.z + r[1] * side); k = 4;
   } else if (cam.mode === 'courses') {   // slow flyover of the whole course
     const t = performance.now() / 1000 * 0.06, cx = holes.reduce((a, h) => a + h.basket[0], 0) / holes.length, cz = holes.reduce((a, h) => a + h.basket[1], 0) / holes.length;
     cam.tPos.set(cx + Math.cos(t) * 170, world.height(cx, cz) + 95, cz + Math.sin(t) * 170); cam.tLook.set(cx, world.height(cx, cz), cz); k = 1.5;
@@ -489,20 +501,20 @@ function loop() {
   }
   if (G.flight) updateFlight(dt);
   for (const p of G.players) p.char.update(dt);
-  if (hero?.group.visible) hero.update(dt);
+  if (hero?.group.visible) { hero.update(dt); if (heroDisc) { heroDisc.visible = true; hero.group.getWorldDirection(_v2); holdDisc(hero, heroDisc, [_v2.x * .25, 1, _v2.z * .25], time * .3); } } else if (heroDisc) heroDisc.visible = false;
   const p = curP();
   if (p && (G.phase === 'aim' || G.phase === 'windup' || (G.phase === 'release' && G.pending && !G.pending.fired))) {
     const d = aimDir(); p.char.faceDir(d[0], d[1]);
     // disc in hand, oriented like the release
-    p.char.hand.getWorldPosition(_v);
     const lat = G.phase === 'windup' ? G.gesture.lateral : 0;
     const s0 = launch(gestureParams(0.5, lat));
-    setDiscPose(p.discMesh, [_v.x, _v.y - 0.02, _v.z], s0.n, time * 0.4);
+    holdDisc(p.char, p.discMesh, s0.n, time * 0.4);
     updatePreview();
   }
   updateCamera(dt);
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : p ? p.char.group.position : cam.look;
   course.update(dt, time, focus, camera.position);
+  puffs.update(dt); windFx?.update(time, dt, world.wind, focus);
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   if(post) post.render(); else renderer.render(scene, camera);
@@ -531,7 +543,7 @@ $('btnSolo').onclick = () => startGame({ mode: 'solo', holeCount: +G.settings.ho
 $('btnCourses').onclick = () => { UI.hide('menu'); UI.show('courses'); cam.mode = 'courses'; sfx.click(); UI.renderCourseCards(COURSES, LAYOUTS, G.courseId, async id => { sfx.click(); UI.hide('courses'); UI.show('menu'); cam.mode = 'menu'; await loadCourse(id); }, id => asset('courses', id)); };
 $('btnCoursesBack').onclick = () => { UI.hide('courses'); UI.show('menu'); cam.mode = 'menu'; };
 let heroTimer = null;
-const onAvatarChange = (k, v) => { G.avatar[k] = v; saveLocal('chains.avatar', G.avatar); updateHub(); if (k === 'name') return; if (['eyes','brows','nose','mouth','glasses','shades'].includes(k)) { hero?.setFace?.(G.avatar); return; } clearTimeout(heroTimer); heroTimer = setTimeout(makeHero, 120); };
+const onAvatarChange = (k, v) => { G.avatar[k] = v; saveLocal('chains.avatar', G.avatar); updateHub(); if (k === 'name') return; if (['eyes','eyeColor','brows','nose','mouth','facialHair','glasses','shades'].includes(k)) { hero?.setFace?.(G.avatar); return; } clearTimeout(heroTimer); heroTimer = setTimeout(makeHero, 120); };
 const openLocker = () => { UI.hide('menu'); UI.show('locker'); cam.mode = 'locker'; sfx.click(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); };
 $('btnLocker').onclick = openLocker;
 $('btnRandomAvatar').onclick = () => { G.avatar = randomAvatar(Math.random, { name: G.avatar.name }); saveLocal('chains.avatar', G.avatar); makeHero(); updateHub(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); sfx.click(); };
@@ -620,5 +632,5 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
 }, 60);

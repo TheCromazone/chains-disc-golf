@@ -1,12 +1,13 @@
-"""Blender-author 30 positive-scale clips on the verified body rig; never rebuild body/LOD.
+"""Blender-author 32 positive-scale clips (16 motions x two hands) on the athlete v2 rig; never rebuild body/LOD here.
 Run node tools/extract-poses.mjs, then blender -b -P tools/author-golfer-clips.py.
-Source remains art/blender/golfer-motion-r3.blend; runtime files contain no mesh.
+Source becomes art/blender/golfer-motion-r5.blend; runtime files contain no mesh.
 """
 from pathlib import Path
 import bpy, json, copy, math
 from mathutils import Quaternion, Vector
 ROOT=Path(__file__).resolve().parents[1]
-bpy.ops.wm.open_mainfile(filepath=str(ROOT/'art/blender/golfer-mii-source.blend'))
+RIGSPEC=json.loads((ROOT/'tools/golfer-rig.json').read_text());GR=RIGSPEC['ground']
+bpy.ops.wm.open_mainfile(filepath=str(ROOT/'art/blender/golfer-v2-source.blend'))
 rig=bpy.data.objects['ChainsRig'];rig.animation_data_clear()
 for a in list(bpy.data.actions):bpy.data.actions.remove(a)
 data=json.loads((ROOT/'tools/poses.json').read_text());idle=data['idle'];joints=data['joints'];clips=data['throws']
@@ -36,13 +37,16 @@ def sample(keys,t,ground=True):
     for side in ['R','L']:
         hip=out['hip'+side];kn=out['kn'+side];root=out['root']
         def foot(v):return rotate(rotate(rotate(v,kn),hip),root)
-        knee=rotate((0,-.26,0),hip);sole=rotate(rotate((0,-.333,-.052),kn),hip)
-        center=rotate(((1 if side=='R' else -1)*.115+knee.x+sole.x,-.02+knee.y+sole.y,knee.z+sole.z),root)
-        radius=math.sqrt(sum(foot(v).y**2 for v in [(.083,0,0),(0,.027,0),(0,0,.154)]))
-        heights.append(.64+center.y-radius)
+        # Athlete v2 leg lengths (tools/golfer-rig.json) so every clip plants the sole on the floor for this rig.
+        knee=rotate((0,-GR['thigh'],0),hip);sole=rotate(rotate(tuple(GR['sole']),kn),hip)
+        center=rotate(((1 if side=='R' else -1)*GR['hipX']+knee.x+sole.x,-GR['hipDrop']+knee.y+sole.y,knee.z+sole.z),root)
+        rx,ry,rz=GR['soleRadii'];radius=math.sqrt(sum(foot(v).y**2 for v in [(rx,0,0),(0,ry,0),(0,0,rz)]))
+        heights.append(GR['root']+center.y-radius)
     if ground:out['rootY']=-min(heights)
     return out
 bpy.context.scene.render.fps=50
+# Dense sampling uses LINEAR to match the runtime's quaternion interpolation without Bezier overshoot (Blender 5 slotted actions expose no fcurves list).
+bpy.context.preferences.edit.keyframe_new_interpolation_type='LINEAR'
 rig.animation_data_create()
 for base,keys in clips.items():
     for left in [False,True]:
@@ -54,18 +58,15 @@ for base,keys in clips.items():
                 r=pose[mirror.get(j,j) if left else j];r=[r[0],-r[1],-r[2]] if left else r
                 b=rig.pose.bones[j];b.rotation_mode='QUATERNION';b.rotation_quaternion=Quaternion((1,0,0),r[0]) @ Quaternion((0,1,0),r[1]) @ Quaternion((0,0,1),r[2]);b.keyframe_insert('rotation_quaternion',frame=frame,group=j)
             b=rig.pose.bones['root'];b.location=(0,pose['rootY'],0);b.keyframe_insert('location',frame=frame,group='root')
-        # Dense sampling uses LINEAR to match the runtime's quaternion interpolation without Bezier overshoot.
-        for fc in action.fcurves:
-            for k in fc.keyframe_points:k.interpolation='LINEAR'
         action.use_fake_user=True
 rig.animation_data.action=None
 for b in rig.pose.bones:b.rotation_quaternion=(1,0,0,0);b.location=(0,0,0)
 bpy.context.scene.frame_set(0)
-bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'art/blender/golfer-motion-r3.blend'), compress=True)
-bpy.ops.export_scene.gltf(filepath=str(ROOT/'art/blender/golfer-motion-r3.glb'),export_format='GLB',export_yup=True,export_animations=True,export_animation_mode='ACTIONS',export_force_sampling=True,export_frame_range=False,export_skins=True,export_extras=True)
+bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'art/blender/golfer-motion-r5.blend'), compress=True)
+bpy.ops.export_scene.gltf(filepath=str(ROOT/'art/blender/golfer-motion-r5.glb'),export_format='GLB',export_yup=True,export_animations=True,export_animation_mode='ACTIONS',export_force_sampling=True,export_frame_range=False,export_skins=True,export_extras=True)
 # Reuse the byte-preserving repacker without invoking its source-model conversion step.
 exec((ROOT/'tools/split-golfer-clips.py').read_text().split('src,bin=read(')[0])
-src,binary=read(ROOT/'art/blender/golfer-motion-r3.glb');report={'skeleton':'ChainsRig eleven-joint v1','sampleHz':50,'phase':{'windup':[0,.5],'release':.62,'followThrough':[.5,1]},'clips':{}}
+src,binary=read(ROOT/'art/blender/golfer-motion-r5.glb');report={'skeleton':'ChainsRig eleven-joint v2 (athlete)','sampleHz':50,'phase':{'windup':[0,.5],'release':.62,'followThrough':[.5,1]},'clips':{}}
 for a in src['animations']:
     doc=copy.deepcopy(src);doc['animations']=[copy.deepcopy(a)]
     for key in ['meshes','materials','textures','images','skins']:doc.pop(key,None)

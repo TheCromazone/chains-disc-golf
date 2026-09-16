@@ -3,29 +3,35 @@
 // type; phase 0..0.5 is the windup (scrubbed by the swipe), 0.5..1 the release/follow-through.
 import * as THREE from 'three';
 import { createGLTFCharacter } from './gltf-player.js';
-import { FACE_OPTIONS, FACE_DEFAULTS, createFaceParts } from './face-parts.js';
+import { FACE_OPTIONS, FACE_DEFAULTS, EYE_COLORS, createFaceParts } from './face-parts.js';
 import { characterRamp } from './character-material.js';
-import { paintDetail } from './materials.js';
+import { paintDetail, jerseyStyle, JERSEY_STYLES } from './materials.js';
 
 export const AVATAR_OPTIONS = {
   ...FACE_OPTIONS,
   skin: ['#f6dcc4', '#eec0a0', '#d9a382', '#c68a5e', '#a86b42', '#8d5a3b', '#6b4229', '#4a2d1c'],
-  hair: ['short', 'buzz', 'curly', 'long', 'bun', 'none'],
+  eyeColor: EYE_COLORS,
+  hair: ['short', 'buzz', 'curly', 'wavy', 'sidepart', 'long', 'ponytail', 'bun', 'braids', 'afro', 'mohawk', 'none'],
   hairColor: ['#1b1410', '#3b2a1c', '#6b4a2b', '#a5733d', '#d9b26a', '#e6dccb', '#8a2b1a', '#556070'],
+  jerseyStyle: JERSEY_STYLES,
   jersey: ['#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#ff7ad9', '#9b6bff', '#ffffff', '#151820', '#ff8a2b', '#16c2d4'],
   accent: ['#ffffff', '#151820', '#ffd23f', '#ff4d3d', '#2f80ff', '#38d47a', '#16c2d4', '#ff8a2b'],
   shorts: ['#23262e', '#f4f4f4', '#1d3557', '#3d5a2a', '#6b2d2d', '#5a4632', '#2f80ff', '#151820'],
+  socks: ['#f4f4f4', '#151820', '#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#ff7ad9'],
   shoes: ['#f1f1f1', '#151820', '#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a'],
-  headwear: ['cap', 'backcap', 'beanie', 'visor', 'none'],
+  wristband: ['none', 'right', 'left', 'both'],
+  headwear: ['cap', 'backcap', 'beanie', 'visor', 'bucket', 'headband', 'none'],
   headwearColor: ['#151820', '#ffffff', '#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#3d5a2a', '#6b2d2d'],
   build: ['slim', 'athletic', 'broad'],
+  height: ['short', 'average', 'tall'],
   hand: ['right', 'left'],
 };
-export const DEFAULT_AVATAR = { hand: 'right', ...FACE_DEFAULTS, name: 'You', skin: '#d9a382', hair: 'short', hairColor: '#3b2a1c', jersey: '#ff4d3d', accent: '#ffffff', shorts: '#23262e', shoes: '#f1f1f1', headwear: 'none', headwearColor: '#151820', number: 7, shades: false, build: 'athletic' };
+export const DEFAULT_AVATAR = { hand: 'right', ...FACE_DEFAULTS, name: 'You', skin: '#d9a382', hair: 'short', hairColor: '#3b2a1c', jersey: '#ff4d3d', jerseyStyle: 'solid', accent: '#ffffff', shorts: '#23262e', socks: '#f4f4f4', shoes: '#f1f1f1', wristband: 'none', headwear: 'none', headwearColor: '#151820', number: 7, shades: false, build: 'athletic', height: 'average' };
 export function randomAvatar(rng = Math.random, overrides = {}) {
   const pick = a => a[Math.floor(rng() * a.length)];
   const jersey = overrides.jersey || pick(AVATAR_OPTIONS.jersey);
-  return { ...DEFAULT_AVATAR, ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([k,v])=>[k,pick(v)])), skin: pick(AVATAR_OPTIONS.skin), hair: pick(AVATAR_OPTIONS.hair), hairColor: pick(AVATAR_OPTIONS.hairColor), jersey, accent: pick(AVATAR_OPTIONS.accent.filter(c => c !== jersey)), shorts: pick(AVATAR_OPTIONS.shorts), shoes: pick(AVATAR_OPTIONS.shoes), headwear: pick(AVATAR_OPTIONS.headwear), headwearColor: pick(AVATAR_OPTIONS.headwearColor), number: Math.floor(rng() * 99) + 1, shades: rng() < 0.5, build: pick(AVATAR_OPTIONS.build), hand: rng() < 0.12 ? 'left' : 'right', ...overrides };
+  const facialHair = rng() < 0.3 ? pick(FACE_OPTIONS.facialHair) : 'none';
+  return { ...DEFAULT_AVATAR, ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([k,v])=>[k,pick(v)])), facialHair, eyeColor: pick(EYE_COLORS), skin: pick(AVATAR_OPTIONS.skin), hair: pick(AVATAR_OPTIONS.hair), hairColor: pick(AVATAR_OPTIONS.hairColor), jersey, jerseyStyle: rng() < 0.55 ? 'solid' : pick(JERSEY_STYLES), accent: pick(AVATAR_OPTIONS.accent.filter(c => c !== jersey)), shorts: pick(AVATAR_OPTIONS.shorts), socks: pick(AVATAR_OPTIONS.socks), shoes: pick(AVATAR_OPTIONS.shoes), wristband: rng() < 0.3 ? pick(AVATAR_OPTIONS.wristband) : 'none', headwear: pick(AVATAR_OPTIONS.headwear), headwearColor: pick(AVATAR_OPTIONS.headwearColor), number: Math.floor(rng() * 99) + 1, shades: rng() < 0.5, build: pick(AVATAR_OPTIONS.build), height: pick(AVATAR_OPTIONS.height), hand: rng() < 0.12 ? 'left' : 'right', ...overrides };
 }
 
 import { JOINTS, IDLE, K, mirrorPose, keysFor, poseAt } from './throw-poses.js';
@@ -37,7 +43,7 @@ export function createCharacter(opts = {}) {
   const g = new THREE.Group();
   const materials = new Set();
   const std = c => { const m = new THREE.MeshToonMaterial({ color: c, gradientMap:characterRamp }); materials.add(m); return m; };
-  const skinM=paintDetail(std(a.skin),'skin'), shirtM=paintDetail(std(a.jersey),'jersey'), accentM=std(a.accent), shortsM=std(a.shorts), shoeM=std(a.shoes), hairM=std(a.hairColor), hatM=std(a.headwearColor), gloveM=std('#ffffff'),soleM=std('#b6cbd6');
+  const skinM=paintDetail(std(a.skin),'skin'), shirtM=paintDetail(jerseyStyle(std(a.jersey),a.jerseyStyle,a.accent,.285,[0,1.31,0]),'jersey'), accentM=std(a.accent), shortsM=std(a.shorts), shoeM=std(a.shoes), hairM=std(a.hairColor), hatM=std(a.headwearColor), gloveM=std('#ffffff'),soleM=std('#b6cbd6');
   const ell = (parent, m, x,y,z, sx,sy,sz) => {const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,20,14),m);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);parent.add(mesh);return mesh;};
   const tube = (parent,m,x,y,z,r,len) => {const mesh=new THREE.Mesh(new THREE.CapsuleGeometry(r,len,4,12),m);mesh.position.set(x,y,z);parent.add(mesh);return mesh;};
   const joint = (parent,x,y,z) => {const o=new THREE.Group();o.position.set(x,y,z);parent.add(o);return o;};
@@ -75,6 +81,7 @@ export function createCharacter(opts = {}) {
   const joints={root,spine,head:headG,shR:R.shoulder,elR:R.elbow,shL:L.shoulder,elL:L.elbow,hipR:RL.hip,knR:RL.knee,hipL:LL.hip,knL:LL.knee};
   for(const [name,j] of Object.entries(joints))j.name=name;
   g.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+  const tall={short:.94,average:1,tall:1.06}[a.height]||1; g.scale.setScalar(tall);
 
   const motionEuler = new THREE.Euler(), motionA = new THREE.Quaternion(), motionB = new THREE.Quaternion();
   const cur = {}; for (const j of JOINTS) cur[j] = [...IDLE[j]]; cur.rootY = 0;
@@ -82,7 +89,7 @@ export function createCharacter(opts = {}) {
   const apply = () => { for (const j of JOINTS) joints[j].rotation.set(cur[j][0], cur[j][1], cur[j][2]); root.position.y = ROOT_Y + cur.rootY; };
 
   return {
-    group: g, hand: lefty ? L.hand : R.hand, joints, avatar: a, source: 'procedural', clips: ['idle','practice',...Object.keys(K),'celebrate','slump','walk'], faceParts: face.parts, setFace: face.setFace,
+    group: g, hand: lefty ? L.hand : R.hand, elbow: lefty ? L.elbow : R.elbow, headY: 1.39*tall, joints, avatar: a, source: 'procedural', clips: ['idle','practice',...Object.keys(K),'celebrate','slump','walk'], faceParts: face.parts, setFace: face.setFace,
     setThrow(t) { throwType = t; },
     setPhase(p) { phase = p; if(p!==null)mood=null; },                       // null = idle
     react(name) { mood={name,t:0};phase=null; },

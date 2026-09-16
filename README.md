@@ -1,6 +1,6 @@
 # Chains — mobile 3D disc golf
 
-Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc and a throw type, then swipe in the throw pad: the swipe direction must match the throw (backhand →, forehand ←, tomahawk ↓, scoober ↖, putt ↑), the swipe length sets the power bar, and a slightly lower or higher swipe adds hyzer or anhyzer. Discs fly with a real turn/fade model, skip, roll, kick off trees, chain out, and splash into ponds.
+Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc and a throw type, then swipe in the throw pad: the swipe direction must match the throw (backhand →, forehand ←, tomahawk ↓, scoober ↖, hammer ↘, blade ↙, putt ↑; inside-out and outside-in variants of both backhand and forehand), the swipe length sets the power bar, and a slightly lower or higher swipe adds hyzer or anhyzer. Discs fly with a real turn/fade model, skip, roll, kick off trees, chain out, and splash into ponds.
 
 ![Chains clubhouse](docs/qa/r3/after-clubhouse-430.png)
 
@@ -10,13 +10,14 @@ Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc a
 - **Pass & play** — up to six people on one phone, plus optional bots.
 - **Online room** — one player creates a room and shares a 4-letter code; friends join from their own phones. Peer-to-peer over [PeerJS](https://peerjs.com/), no server to run.
 
-Three courses, three or nine holes each:
+Four courses, three or nine holes each:
 
 - **Pine Hollow** — wooded, tight fairways, doglegs, water on 3, 6 and 9.
 - **Cedar Meadows** — open rolling meadow at golden hour, long holes, strong wind.
 - **Lakeshore Links** — morning light, water in play on five holes.
+- **Gull Point Bluffs** — exposed coastal headland: the windiest course by far. Windsocks on every tee, drifting wind streaks and leaning grass show what the flight model is fighting.
 
-**Locker room** — live round-headed avatar, Face / Hair / Outfit / Body tabs, visual face-part choices, skin and kit swatches. Eyes, brows, nose, mouth and glasses change atlas UVs on the same decal surfaces. Existing name, headwear, number and build choices remain available. Each player's appearance travels with them in online rooms.
+**Locker room** — a Blender-authored athlete (`tools/build-golfer-v2.py`) with Face / Hair / Outfit / Body tabs. Face: eyes, eye colour, brows, nose, mouth, facial hair and glasses are atlas decals on the head. Hair: twelve styles, seven kinds of headwear, colours for both. Outfit: shirt colour and style (hoops, stripes, sash, sleeves, split, chevron), trim, number, shorts, socks, shoes, wristbands. Body: skin, build, height and throwing hand (left-handers get mirrored clips and physics). Each player's appearance travels with them in online rooms.
 
 Works on phones (touch) and desktop (mouse). Add it to your home screen for a full-screen app.
 
@@ -46,6 +47,8 @@ Standard stroke play, lightly simplified:
 - Discs have real flight numbers (speed | glide | turn | fade). Throw a putter at driver speed and it turns over; throw a driver too slowly and it dumps early.
 - Ground skips, cut rollers, tree trunks (hard kicks) and foliage (random branch hits), and a basket with chains, band, tray and pole.
 - Overhand throws start vertical and roll over in flight; the scoober starts inverted and flips back to flat.
+- The hammer is released past vertical, flattens upside down at the apex and drops steeply.
+- Wind is a real force (headwind lifts and turns the disc over, tailwind starves it, crosswind pushes). Landings depend on the surface: rough grass kills skips and rolls, and a tilted landing rocks like a dropped coin before it settles.
 
 ## Run it locally
 
@@ -130,7 +133,8 @@ The [device record](docs/qa/r3/sound-device-detection.json) retains nulls until 
 The web game needs none of these tools. Blender sources live in `art/blender/`; image prompts are in [the asset brief](docs/codex-asset-prompts.md).
 
 ```bash
-blender --background --python tools/build-mii.py
+blender --background --python tools/build-golfer-v2.py   # athlete body + phone LOD
+blender --background --python tools/build-disc.py        # lathed disc with mould text
 python tools/split-golfer-clips.py
 # Rebuild the current authored motion set after rebuilding the body:
 node tools/extract-poses.mjs

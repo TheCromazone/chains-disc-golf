@@ -55,14 +55,30 @@ console.log('mid max right', Math.max(...xs).toFixed(1), 'final x', xs.at(-1).to
 assert(Math.max(...xs) > 0.5, 'midrange should turn right at high speed');
 
 // Tomahawk / scoober fly and land.
-for (const t of ['tomahawk', 'scoober']) {
+for (const t of ['tomahawk', 'scoober', 'hammer']) {
   const r = throwIt({ throwType: t, disc: discById('mid') });
   console.log(t, r.thrown.toFixed(1), 'm, x', r.rest[0].toFixed(1), 'maxH', r.maxH.toFixed(1));
   assert(r.thrown > 15, `${t} too short`);
 }
-// All ten authored motions retain finite flight and mirror under handedness,
+// A hammer arcs high, flies inverted through the apex and comes down steeply: a lob over trees, not a driver.
+const hammer = simulate({ pos: [0, 1.2, 0], dir: [0, -1], power: 1, throwType: 'hammer', disc: discById('mid') }, w, { record: true });
+const apex = hammer.traj.reduce((b, p) => p[1] > b[1] ? p : b);
+console.log('hammer', hammer.result.thrown.toFixed(1), 'm, x', hammer.result.rest[0].toFixed(1), 'maxH', hammer.result.maxH.toFixed(1), 'apex n.y', apex[4].toFixed(2));
+assert(hammer.result.maxH > 9 && hammer.result.maxH < 18, `hammer apex ${hammer.result.maxH}`);
+assert(apex[4] < -0.7, 'hammer is upside down at the top of its arc');
+assert(hammer.result.thrown > 35 && hammer.result.thrown < drive.thrown * 0.6, `hammer range ${hammer.result.thrown}`);
+// Wind is a real force: a headwind lifts the disc and a tailwind starves it; rough grass kills the ground run.
+const windy = wind => simulate({ pos: [0, 1.2, 0], dir: [0, -1], power: 1, throwType: 'backhand', disc: discById('driver') }, { ...w, wind }).result;
+const calm = windy([0, 0]), head = windy([0, 6]), tail = windy([0, -6]);
+console.log('wind calm/head/tail maxH', calm.maxH.toFixed(1), head.maxH.toFixed(1), tail.maxH.toFixed(1), 'thrown', calm.thrown.toFixed(1), head.thrown.toFixed(1), tail.thrown.toFixed(1));
+assert(head.maxH > calm.maxH + 0.8 && tail.maxH < calm.maxH - 0.8, 'headwind lifts, tailwind drops');
+assert(tail.thrown < calm.thrown - 10, 'tailwind shortens the drive');
+const onFairway = simulate({ pos: [0, 1.2, 0], dir: [0, -1], power: .8, throwType: 'backhand', disc: discById('mid') }, w).result;
+const inRough = simulate({ pos: [0, 1.2, 0], dir: [0, -1], power: .8, throwType: 'backhand', disc: discById('mid') }, { ...w, rough: () => 1 }).result;
+assert(inRough.thrown < onFairway.thrown - 1.5, `rough should shorten the ground run (${onFairway.thrown.toFixed(1)} vs ${inRough.thrown.toFixed(1)})`);
+// All eleven authored motions retain finite flight and mirror under handedness,
 // including the overhand turnover rate (not only the initial release bank).
-assert.equal(Object.keys(THROWS).length, 10);
+assert.equal(Object.keys(THROWS).length, 11);
 for (const throwType of Object.keys(THROWS)) {
   for (const power of [0.4, 1]) {
     const params = { throwType, power, hyzer: 9 };
@@ -80,4 +96,4 @@ for (const throwType of Object.keys(THROWS)) {
 const fhIO = throwIt({ throwType: 'forehand_io' }), fhOI = throwIt({ throwType: 'forehand_oi' });
 assert(fhIO.rest[0] > fh.rest[0] + 2, 'IO forehand finishes further right than flat');
 assert(fhOI.rest[0] < fh.rest[0] - 3, 'OI forehand finishes left of flat');
-console.log('physics OK — ten throws, both hands, two powers');
+console.log('physics OK — eleven throws, both hands, two powers');

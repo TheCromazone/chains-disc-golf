@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { texture } from './assets.js';
 export const windTime = { value: 0 };
+export const windVec = { value: new THREE.Vector2(0, 0) };   // world.wind / 7, shared by every swaying material
 
 // A tiny nearest-filtered light ramp gives every solid the same clear, three-tone language.
 // Shared across courses/characters; no image requests, environment maps, or PBR response.
@@ -123,8 +124,8 @@ export function paintTerrain(material, geometry, weights) {
 export function windMaterial(source, clock, grass=false) {
   const m=source.clone();m.__shared=false;
   m.onBeforeCompile=s=>{
-    s.uniforms.windTime=clock;
-    s.vertexShader='uniform float windTime;\n'+s.vertexShader;
+    s.uniforms.windTime=clock;s.uniforms.windVec=windVec;
+    s.vertexShader='uniform float windTime;uniform vec2 windVec;\n'+s.vertexShader;
     s.vertexShader=s.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
       vec3 origin=vec3(0.);
       #ifdef USE_INSTANCING
@@ -135,8 +136,32 @@ export function windMaterial(source, clock, grass=false) {
       bend=${grass?'clamp(position.y,0.,1.)':'smoothstep(1.8,8.,position.y)'};
       #endif
       float wave=sin(windTime*1.5+origin.x*.23+origin.z*.17+position.y*.4);
-      transformed.x+=wave*bend*${grass?'.15':'.18'};
-      transformed.z+=cos(windTime*1.1+origin.z*.2)*bend*.075;`);
+      float gust=.55+.45*sin(windTime*3.1+origin.x*.31-origin.z*.27);
+      transformed.x+=wave*bend*${grass?'.15':'.18'}+windVec.x*bend*${grass?'.22':'.3'}*gust;
+      transformed.z+=cos(windTime*1.1+origin.z*.2)*bend*.075+windVec.y*bend*${grass?'.22':'.3'}*gust;`);
   };
   m.customProgramCacheKey=()=> 'chains-wind-'+grass;return m;
+}
+
+// ---------- jersey styles ----------
+// Accent pattern from bind-pose position, so the skinned athlete and the Lite ellipsoid share one look
+// without UVs. unit = metres per position unit (the Lite torso is a unit sphere: pass its radius and centre).
+export const JERSEY_STYLES = ['solid', 'hoops', 'stripes', 'sash', 'sleeves', 'split', 'chevron'];
+const JERSEY_MASKS = ['m = 0.;', 'm = step(.5, fract((j.y - 1.31) / .15));', 'm = step(.5, fract((j.x + .055) / .11));', 'm = 1. - smoothstep(.045, .06, abs(j.x * .8 + (j.y - 1.24) * .6));',
+  'm = step(.17, abs(j.x));', 'm = step(0., j.x);', 'm = 1. - smoothstep(.05, .065, abs(abs(j.x) * .7 + (j.y - 1.36)));'];
+export function jerseyStyle(material, style, accent, unit = 1, center = [0, 0, 0]) {
+  const index = Math.max(0, JERSEY_STYLES.indexOf(style));
+  const prev = material.onBeforeCompile, prevKey = material.customProgramCacheKey;
+  material.userData.jerseyAccent = { value: new THREE.Color(accent) };
+  material.onBeforeCompile = s => {
+    prev.call(material, s);
+    s.uniforms.jerseyAccent = material.userData.jerseyAccent;
+    s.vertexShader = 'varying vec3 vJerseyPos;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vJerseyPos = position * ${unit.toFixed(4)} + vec3(${center.map(v => v.toFixed(3)).join(',')});`);
+    s.fragmentShader = 'uniform vec3 jerseyAccent;varying vec3 vJerseyPos;\n' + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      { vec3 j = vJerseyPos; float m = 0.; ${JERSEY_MASKS[index]}
+        diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, m); }`);
+  };
+  material.customProgramCacheKey = () => prevKey.call(material) + '|jersey-' + index;
+  return material;
 }

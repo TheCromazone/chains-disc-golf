@@ -32,7 +32,7 @@ export function fade(on) { $('fade').classList.toggle('on', on); }
 export function setPower(p) { $('powerFill').style.transform = `scaleY(${Math.max(0, Math.min(1, p)).toFixed(3)})`; $('powerLabel').textContent = p > 0 ? `${Math.round(p * 100)}%` : 'POWER'; }
 export function setHint(throwType, sub) {
   const t = THROWS[throwType];
-  const angles = { backhand: 0, backhand_io: 0, backhand_oi: 0, forehand: 180, forehand_io: 180, forehand_oi: 180, blade: 135, tomahawk: 90, scoober: -135, putt: -90 };
+  const angles = { backhand: 0, backhand_io: 0, backhand_oi: 0, forehand: 180, forehand_io: 180, forehand_oi: 180, blade: 135, tomahawk: 90, scoober: -135, hammer: 45, putt: -90 };
   $('hintArrow').innerHTML = icon('arrow'); $('hintArrow').style.transform = `rotate(${angles[throwType]}deg)`;
   $('pad').classList.remove('bad'); $('hintText').textContent = `${t.hint[0].toUpperCase()}${t.hint.slice(1)} to throw`;
   if (sub !== undefined) $('hintSub').textContent = sub;
@@ -132,8 +132,8 @@ export function setHub({ name, jersey, course, holes, img }) {
   if (jersey) $('hubSwatch').style.background = `linear-gradient(160deg, ${jersey}, ${jersey} 60%, rgba(0,0,0,0.35))`;
   if (course) { const st = courseStats(holes); $('hubCourse').textContent = course.name; $('hubCourseSub').textContent = `Par ${st.par} · ${st.len} m · ${course.tag.toLowerCase()}`; $('hubMap').innerHTML = img ? `<img src="${img}" alt="">` : courseMapSVG(course, holes); }
 }
-const AV_LABELS = { skin: 'Skin tone', hair: 'Hair shape', hairColor: 'Hair colour', headwear: 'Headwear', headwearColor: 'Headwear colour', jersey: 'Shirt', accent: 'Trim', number: 'Number', shorts: 'Shorts', shoes: 'Shoes', build: 'Body', shades: 'Shades', eyes: 'Eyes', brows: 'Brows', nose: 'Nose', mouth: 'Mouth', glasses: 'Glasses', hand: 'Throwing hand' };
-const AV_GROUPS = { face: ['eyes', 'brows', 'nose', 'mouth', 'glasses'], hair: ['hair', 'hairColor', 'headwear', 'headwearColor'], outfit: ['jersey', 'accent', 'number', 'shorts', 'shoes'], body: ['skin', 'build', 'hand'] };
+const AV_LABELS = { skin: 'Skin tone', hair: 'Hair shape', hairColor: 'Hair colour', headwear: 'Headwear', headwearColor: 'Headwear colour', jersey: 'Shirt', jerseyStyle: 'Shirt style', accent: 'Trim', number: 'Number', shorts: 'Shorts', socks: 'Socks', shoes: 'Shoes', wristband: 'Wristband', build: 'Build', height: 'Height', shades: 'Shades', eyes: 'Eyes', eyeColor: 'Eye colour', brows: 'Brows', nose: 'Nose', mouth: 'Mouth', facialHair: 'Facial hair', glasses: 'Glasses', hand: 'Throwing hand' };
+const AV_GROUPS = { face: ['eyes', 'eyeColor', 'brows', 'nose', 'mouth', 'facialHair', 'glasses'], hair: ['hair', 'hairColor', 'headwear', 'headwearColor'], outfit: ['jersey', 'jerseyStyle', 'accent', 'number', 'shorts', 'socks', 'shoes', 'wristband'], body: ['skin', 'build', 'height', 'hand'] };
 let lockerCategory = 'face', faceCategory = 'eyes';
 // Small visual choice cards echo the decal vocabulary. The live 3D figure is the authority.
 function faceChoice(key, value, index) {
@@ -144,6 +144,7 @@ function faceChoice(key, value, index) {
     brows: `<path d="M11 ${n === 2 ? 21 : 18}q5 ${n === 2 ? -7 : n === 0 ? -3 : 0} 10 0m8 0q5 ${n === 2 ? -7 : n === 0 ? -3 : 0} 10 0" stroke-width="${n === 3 ? 4 : 2.5}"/>`,
     nose: n === 0 ? '<circle cx="25" cy="25" r="3" fill="currentColor"/>' : n === 2 ? '<path d="m27 17-6 13h8"/>' : `<ellipse cx="25" cy="25" rx="${n === 1 ? 5 : 7}" ry="5"/>`,
     mouth: n === 3 ? '<ellipse cx="25" cy="28" rx="5" ry="7"/>' : `<path d="M15 25q10 ${n === 2 ? 0 : n === 1 ? 15 : 9} 20 0${n === 1 ? 'z' : ''}"/>`,
+    facialHair: ['<path d="m15 15 20 20m0-20L15 35" opacity=".4"/>', '<path d="M14 24q11 14 22 0" stroke-dasharray="2 3"/>', '<path d="M20 30q5 8 10 0v-6h-10z" fill="currentColor"/>', '<path d="M15 22q10-6 20 0-10 4-20 0z" fill="currentColor"/>', '<path d="M12 18q1 18 13 18t13-18q-6 8-13 6-7 2-13-6z" fill="currentColor"/>'][index],
     glasses: n === 0 ? '<path d="m15 15 20 20m0-20L15 35" opacity=".4"/>' : `<${n === 1 ? 'circle cx="15" cy="24" r="8"' : 'rect x="7" y="17" width="16" height="13" rx="3"'}/><${n === 1 ? 'circle cx="35" cy="24" r="8"' : 'rect x="27" y="17" width="16" height="13" rx="3"'}/><path d="M23 22h4"/>`
   };
   return `<svg class="face-choice" viewBox="0 0 50 44" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${parts[key] || ''}</svg><span>${escapeText(value[0].toUpperCase() + value.slice(1))}</span>`;
@@ -173,7 +174,7 @@ export function renderLocker(avatar, opts, onChange) {
         const b = document.createElement('button'); pressed(b, avatar[key] === v);
         const label = `${AV_LABELS[key]}: ${v}`; b.title = label; b.setAttribute('aria-label', label);
         if (colors) b.style.setProperty('--swatch', v);
-        else if (AV_GROUPS.face.includes(key)) b.innerHTML = faceChoice(key, v, index);
+        else if (['eyes', 'brows', 'nose', 'mouth', 'glasses', 'facialHair'].includes(key)) b.innerHTML = faceChoice(key, v, index);
         else b.textContent = v[0].toUpperCase() + v.slice(1);
         b.onclick = () => { for (const c of wrap.children) pressed(c, c === b); avatar[key] = v; onChange(key, v); };
         wrap.appendChild(b);
