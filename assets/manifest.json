@@ -28,7 +28,18 @@
     "body_mask1": "textures/body/mask1.png",
     "body_mask2": "textures/body/mask2.png",
     "body_mask1_lod": "textures/body/mask1_lod.png",
-    "body_mask2_lod": "textures/body/mask2_lod.png"
+    "body_mask2_lod": "textures/body/mask2_lod.png",
+    "body_f_albedo": "textures/body-f/albedo.webp",
+    "body_f_albedo_lod": "textures/body-f/albedo_lod.webp",
+    "body_f_normal": "textures/body-f/normal.webp",
+    "body_f_mask1": "textures/body-f/mask1.png",
+    "body_f_mask2": "textures/body-f/mask2.png",
+    "body_f_mask1_lod": "textures/body-f/mask1_lod.png",
+    "body_f_mask2_lod": "textures/body-f/mask2_lod.png",
+    "leaf_deciduous": "textures/foliage/leaf_deciduous.webp",
+    "leaf_deciduous_lod": "textures/foliage/leaf_deciduous_lod.webp",
+    "leaf_pine": "textures/foliage/leaf_pine.webp",
+    "leaf_pine_lod": "textures/foliage/leaf_pine_lod.webp"
   },
   "courses": {
     "pine": "courses/pine_toon.jpg",
@@ -95,7 +106,9 @@
     "golfer_tomahawk_left": "models/golfer-tomahawk_left.glb",
     "golfer_walk_left": "models/golfer-walk_left.glb",
     "golfer_hammer": "models/golfer-hammer.glb",
-    "golfer_hammer_left": "models/golfer-hammer_left.glb"
+    "golfer_hammer_left": "models/golfer-hammer_left.glb",
+    "golfer_f": "models/golfer-f.glb",
+    "golfer_f_lod": "models/golfer-f-lod.glb"
   },
   "skies": {
     "pine": "skies/pine.exr",

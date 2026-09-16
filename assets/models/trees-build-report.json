@@ -1,0 +1,28 @@
+{
+  "deciduous": {
+    "variants": [
+      "deciduous0",
+      "deciduous1",
+      "deciduous2"
+    ],
+    "triangles": 1548,
+    "bytes": 20656
+  },
+  "pine": {
+    "variants": [
+      "pine0",
+      "pine1",
+      "pine2"
+    ],
+    "triangles": 2320,
+    "bytes": 24480
+  },
+  "bush": {
+    "variants": [
+      "bush0",
+      "bush1"
+    ],
+    "triangles": 294,
+    "bytes": 7456
+  }
+}

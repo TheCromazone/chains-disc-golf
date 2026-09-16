@@ -1,6 +1,6 @@
-# Current QA: round six
+# Current QA: round seven
 
-Current evidence is in [r6/](r6/) (photoreal athlete, aim line, wind streamlines); round five's Blender athlete work is in [r5/](r5/) and round three's device work stays in [r3/](r3/). Older reports and reusable scripts remain, but their historical images were removed from the working tree: **214 images/videos, 43,971,015 bytes**. Those historical captures remain recoverable from Git at `d8d7b4b`. This prunes the checkout; it does not rewrite Git history.
+Current evidence is in [r7/](r7/) (female athlete, grip, hats, glasses, seam-free bake, photo-leaf trees); round six is in [r6/](r6/), round five's Blender athlete work in [r5/](r5/) and round three's device work stays in [r3/](r3/). Older reports and reusable scripts remain, but their historical images were removed from the working tree: **214 images/videos, 43,971,015 bytes**. Those historical captures remain recoverable from Git at `d8d7b4b`. This prunes the checkout; it does not rewrite Git history.
 
 `overlap-audit.js` walks the clubhouse, courses, locker (including scroll bottom), local setup, online, help, HUD, **open eleven-entry throw sheet**, leave dialog and scorecard. It rejects overlapping controls, offscreen controls and clipped button labels. It also asserts that exactly eleven throw choices exist and that the sheet opens.
 

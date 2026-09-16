@@ -1,77 +1,135 @@
 {
+  "seams": {
+    "verts": 54197,
+    "boundary": 340
+  },
+  "albedoMisses": 0.13039159774780273,
+  "skinMean": [
+    0.38913410902023315,
+    0.2189171016216278,
+    0.1754123419523239
+  ],
   "textures": {
     "regionLum": {
-      "skin": 0.22252042591571808,
-      "jersey": 0.8943841457366943,
-      "shorts": 0.0024948427453637123,
-      "hair": 0.00643040519207716,
-      "socks": 0.8478842377662659,
-      "shoes": 0.010412529110908508,
-      "iris": 0.03247952088713646
+      "skin": 0.2520550489425659,
+      "jersey": 0.9095326066017151,
+      "shorts": 0.008763449266552925,
+      "hair": 0.5,
+      "socks": 0.8822064995765686,
+      "shoes": 0.0149474972859025,
+      "iris": 0.5
     },
     "coverage": {
-      "skin": 0.2886786460876465,
-      "jersey": 0.18906617164611816,
-      "shorts": 0.07094454765319824,
-      "hair": 0.07590198516845703,
-      "socks": 0.03443312644958496,
-      "shoes": 0.12615752220153809,
-      "iris": 0.0005497932434082031
+      "skin": 0.31638145446777344,
+      "jersey": 0.1996173858642578,
+      "shorts": 0.08888578414916992,
+      "hair": 0.0,
+      "socks": 0.03752470016479492,
+      "shoes": 0.09240365028381348,
+      "iris": 0.0
     },
-    "hit": 0.8205628395080566
+    "hit": 0.7348129749298096
   },
-  "golfer-v3-source": {
-    "triangles": 21466,
-    "meshCount": 20,
-    "perMesh": {
-      "body": 12399,
-      "accessory_wristbandR": 168,
-      "accessory_wristbandL": 168,
-      "hair_short": 452,
-      "hair_buzz": 330,
-      "hair_curly": 811,
-      "hair_long": 632,
-      "hair_bun": 412,
-      "hair_ponytail": 448,
-      "hair_sidepart": 452,
-      "hair_mohawk": 377,
-      "hair_afro": 370,
-      "hair_braids": 656,
-      "hair_wavy": 507,
-      "headwear_cap": 728,
-      "headwear_backcap": 680,
-      "headwear_beanie": 619,
-      "headwear_visor": 448,
-      "headwear_bucket": 521,
-      "headwear_headband": 288
+  "hands": {
+    "Right": {
+      "length": 0.2548059821128845,
+      "tipDrop": 0.20643794536590576,
+      "tipIn": -0.029659464955329895
     },
-    "bytes": 294724
+    "Left": {
+      "length": 0.24988722801208496,
+      "tipDrop": 0.1892189383506775,
+      "tipIn": 0.10536491870880127
+    }
+  },
+  "handR": [
+    0.16685432195663452,
+    0.8736607432365417,
+    -0.025381559506058693
+  ],
+  "golfer-v3-source": {
+    "triangles": 28256,
+    "meshCount": 22,
+    "perMesh": {
+      "body": 12398,
+      "accessory_wristbandR": 240,
+      "accessory_wristbandL": 240,
+      "hair_buzz": 425,
+      "hair_curly": 1235,
+      "hair_long": 885,
+      "hair_bun": 554,
+      "hair_ponytail": 602,
+      "hair_sidepart": 602,
+      "hair_mohawk": 504,
+      "hair_afro": 459,
+      "hair_braids": 866,
+      "hair_wavy": 702,
+      "headwear_cap": 1139,
+      "headwear_backcap": 1091,
+      "headwear_beanie": 1016,
+      "headwear_visor": 792,
+      "headwear_bucket": 818,
+      "headwear_headband": 512,
+      "glasses_round": 1008,
+      "glasses_square": 1008,
+      "glasses_sport": 1160
+    },
+    "bytes": 243344
+  },
+  "albedoMisses_lod": 0.14460277557373047,
+  "skinMean_lod": [
+    0.38364872336387634,
+    0.21947704255580902,
+    0.17821674048900604
+  ],
+  "textures_lod": {
+    "regionLum": {
+      "skin": 0.2513997256755829,
+      "jersey": 0.9069992303848267,
+      "shorts": 0.014549586921930313,
+      "hair": 0.5,
+      "socks": 0.8828719854354858,
+      "shoes": 0.016165904700756073,
+      "iris": 0.5
+    },
+    "coverage": {
+      "skin": 0.33770275115966797,
+      "jersey": 0.2086639404296875,
+      "shorts": 0.06295490264892578,
+      "hair": 0.0,
+      "socks": 0.03706550598144531,
+      "shoes": 0.08624076843261719,
+      "iris": 0.0
+    },
+    "hit": 0.7326278686523438
   },
   "golfer-v3-lod-source": {
-    "triangles": 12477,
-    "meshCount": 20,
+    "triangles": 15058,
+    "meshCount": 22,
     "perMesh": {
-      "body": 6200,
-      "accessory_wristbandR": 96,
-      "accessory_wristbandL": 96,
-      "hair_short": 307,
-      "hair_buzz": 263,
-      "hair_curly": 505,
-      "hair_long": 433,
-      "hair_bun": 295,
-      "hair_ponytail": 313,
-      "hair_sidepart": 307,
-      "hair_mohawk": 286,
-      "hair_afro": 289,
-      "hair_braids": 583,
-      "hair_wavy": 353,
-      "headwear_cap": 518,
-      "headwear_backcap": 470,
-      "headwear_beanie": 405,
-      "headwear_visor": 264,
-      "headwear_bucket": 350,
-      "headwear_headband": 144
+      "body": 6199,
+      "accessory_wristbandR": 132,
+      "accessory_wristbandL": 132,
+      "hair_buzz": 269,
+      "hair_curly": 522,
+      "hair_long": 453,
+      "hair_bun": 308,
+      "hair_ponytail": 326,
+      "hair_sidepart": 320,
+      "hair_mohawk": 295,
+      "hair_afro": 312,
+      "hair_braids": 596,
+      "hair_wavy": 377,
+      "headwear_cap": 694,
+      "headwear_backcap": 646,
+      "headwear_beanie": 496,
+      "headwear_visor": 420,
+      "headwear_bucket": 449,
+      "headwear_headband": 224,
+      "glasses_round": 576,
+      "glasses_square": 576,
+      "glasses_sport": 736
     },
-    "bytes": 222612
+    "bytes": 175780
   }
 }

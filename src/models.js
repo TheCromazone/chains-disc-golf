@@ -11,11 +11,12 @@ let activeQuality = 'low';
 export const modelStatus = {};
 export async function loadModels(renderer, quality = 'full') {
   activeQuality = quality;
-  // Props use the clean procedural art. Only the actor is downloaded, by quality: phones get the athlete LOD.
-  const bodyName = quality === 'full' || quality === 'high' ? 'golfer' : 'golfer_lod';
+  // Props use the clean procedural art. Only the actors are downloaded, by quality: phones get the athlete LODs.
+  const full = quality === 'full' || quality === 'high';
+  const bodies = full ? ['golfer', 'golfer_lod', 'golfer_f', 'golfer_f_lod'] : ['golfer_lod', 'golfer_f_lod'];
   const baseClips = ['idle','practice','backhand','backhand_io','backhand_oi','forehand','forehand_io','forehand_oi','tomahawk','scoober','hammer','blade','putt','celebrate','slump','walk'];
   const clipNames = [...baseClips,...baseClips.map(n=>n+'_left')];
-  const names = [...new Set([bodyName, 'golfer_lod']), 'disc', ...clipNames.map(n=>'golfer_'+n)];
+  const names = [...bodies, 'disc', ...(full ? ['pine', 'deciduous', 'bush'] : []), ...clipNames.map(n=>'golfer_'+n)];   // Full also fetches the Blender trees
   if (!names.some(n => asset('models', n))) return;
   const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/');
   draco.setWorkerLimit(2);
@@ -30,11 +31,11 @@ export async function loadModels(renderer, quality = 'full') {
       models.set(name, gltf); modelStatus[name] = 'ready';
     } catch { modelStatus[name] = 'procedural fallback'; }
   }));
-  const actor = models.get(bodyName);
-  if (actor) {
-    actor.animations = clipNames.flatMap(n=>models.get('golfer_'+n)?.animations || []);
-    if (models.get('golfer_lod')) models.get('golfer_lod').animations = actor.animations;
-    models.set('golfer', actor); modelStatus.golfer = 'ready';
+  const clips = clipNames.flatMap(n=>models.get('golfer_'+n)?.animations || []);
+  for (const [body, lod] of [['golfer', 'golfer_lod'], ['golfer_f', 'golfer_f_lod']]) {   // both figures share the rig and the clip set
+    const actor = models.get(full ? body : lod) || models.get(lod); if (!actor) continue;
+    actor.animations = clips; if (models.get(lod)) models.get(lod).animations = clips;
+    models.set(body, actor); modelStatus[body] = 'ready';
   }
   draco.dispose(); ktx.dispose();
 }

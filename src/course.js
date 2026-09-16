@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
 import { canopyGeometry } from './canopies.js';
+import { model } from './models.js';
 import { modelParts, addModel } from './models.js';
 import { windMaterial, windTime, toonMaterial, cartoonSky, paintDetail, terrainSplat } from './materials.js';
 import { washedTexture } from './assets.js';
@@ -353,19 +354,31 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     for(const cell of cells.values()){
       const im=new THREE.InstancedMesh(geo,mat,cell.length);
       cell.forEach((s,i)=>{e.set(0,s.rot,0);q.setFromEuler(e);v.set(s.x,s.y-.15,s.z);sc.setScalar(s.s);m.compose(v,q,sc);im.setMatrixAt(i,m);if(colorFn)im.setColorAt(i,colorFn(s));});
-      if(quality!=='low'){const depth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking});im.customDepthMaterial=windMaterial(depth,windClock);depth.dispose();}
+      if(quality!=='low'){const depth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:mat.alphaTest?mat.map:null,alphaTest:mat.alphaTest||0});im.customDepthMaterial=windMaterial(depth,windClock);depth.dispose();}   // leaf cards cut their shadows out too
       im.castShadow=shadow;im.receiveShadow=true;im.instanceMatrix.needsUpdate=true;if(im.instanceColor)im.instanceColor.needsUpdate=true;
       im.computeBoundingSphere();im.computeBoundingBox();group.add(im);clusters.push(im);
     }
   };
   const col = new THREE.Color();
+  // Blender trees (tools/build-trees.py): branching trunks with photo leaf cards, several variants per species,
+  // instanced per spot with a per-instance tint. Lite keeps the embedded crowns: alpha-tested cards cost fill rate on phones.
+  const leafMats = new Map();
+  const leafCard = key => { if (!leafMats.has(key)) { const map = texture(key, { clamp: true }); if (!map) return null; leafMats.set(key, paintDetail(windMaterial(toonMaterial({ map, color: '#ffffff', alphaTest: .42, side: THREE.DoubleSide, vertexColors: true, roughness: .86 }), windClock), 'leaf')); } return leafMats.get(key); };
   const importedInstances = (name, spots, shadow = true) => {
-    // Lite retains its existing foliage geometry budget.
-    // Keep imported foliage infrastructure available; authored embedded crowns also work with empty assets.
-    return false; /*
-    const parts = modelParts(name); if (!parts) return false;
-    for (const part of parts) inst(part.geometry, windMaterial(part.material, windClock, name === 'grass'), spots, null, shadow);
-    return true; */
+    if (quality === 'low') return false;
+    const src = model(name); if (!src) return false;
+    src.scene.updateMatrixWorld(true); const variants = new Map();
+    src.scene.traverse(o => { if (!o.isMesh) return; const key = (o.parent?.isMesh ? o.parent.name : o.name).replace(/_\d+$/, ''); if (!variants.has(key)) variants.set(key, []); variants.get(key).push({ geometry: o.geometry.clone().applyMatrix4(o.matrixWorld), material: o.material }); });
+    const list = [...variants.values()]; if (!list.length) return false;
+    list.forEach((parts, index) => {
+      const mine = spots.filter(s => Math.floor(noise(s.x * .37 + 13, s.z * .37 + 5) * list.length) === index); if (!mine.length) return;
+      for (const part of parts) {
+        const key = part.material.name.replace(/\.\d+$/, '');
+        if (key === 'bark') inst(part.geometry, trunkMat, mine, null, false);
+        else { const mat = leafCard(key); if (!mat) return; inst(part.geometry, mat, mine, s => col.setRGB(.8 + noise(s.x / 19 + 3, s.z / 19) * .2, .84 + noise(s.z / 23, s.x / 23 + 7) * .16, .72 + noise(s.x / 17 + 11, s.z / 17 + 2) * .28), shadow); }
+      }
+    });
+    return true;
   };
   if (!importedInstances('pine', pineSpots)) {
     inst(pineTrunk, trunkMat, pineSpots, null, false);

@@ -24,13 +24,14 @@ export const AVATAR_OPTIONS = {
   build: ['slim', 'athletic', 'broad'],
   height: ['short', 'average', 'tall'],
   hand: ['right', 'left'],
+  figure: ['male', 'female'],
 };
-export const DEFAULT_AVATAR = { hand: 'right', ...FACE_DEFAULTS, name: 'You', skin: '#d9a382', hair: 'short', hairColor: '#3b2a1c', jersey: '#ff4d3d', jerseyStyle: 'solid', accent: '#ffffff', shorts: '#23262e', socks: '#f4f4f4', shoes: '#f1f1f1', wristband: 'none', headwear: 'none', headwearColor: '#151820', number: 7, shades: false, build: 'athletic', height: 'average' };
+export const DEFAULT_AVATAR = { hand: 'right', figure: 'male', ...FACE_DEFAULTS, name: 'You', skin: '#d9a382', hair: 'short', hairColor: '#3b2a1c', jersey: '#ff4d3d', jerseyStyle: 'solid', accent: '#ffffff', shorts: '#23262e', socks: '#f4f4f4', shoes: '#f1f1f1', wristband: 'none', headwear: 'none', headwearColor: '#151820', number: 7, shades: false, build: 'athletic', height: 'average' };
 export function randomAvatar(rng = Math.random, overrides = {}) {
   const pick = a => a[Math.floor(rng() * a.length)];
   const jersey = overrides.jersey || pick(AVATAR_OPTIONS.jersey);
   const facialHair = rng() < 0.3 ? pick(FACE_OPTIONS.facialHair) : 'none';
-  return { ...DEFAULT_AVATAR, ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([k,v])=>[k,pick(v)])), facialHair, eyeColor: pick(EYE_COLORS), skin: pick(AVATAR_OPTIONS.skin), hair: pick(AVATAR_OPTIONS.hair), hairColor: pick(AVATAR_OPTIONS.hairColor), jersey, jerseyStyle: rng() < 0.55 ? 'solid' : pick(JERSEY_STYLES), accent: pick(AVATAR_OPTIONS.accent.filter(c => c !== jersey)), shorts: pick(AVATAR_OPTIONS.shorts), socks: pick(AVATAR_OPTIONS.socks), shoes: pick(AVATAR_OPTIONS.shoes), wristband: rng() < 0.3 ? pick(AVATAR_OPTIONS.wristband) : 'none', headwear: pick(AVATAR_OPTIONS.headwear), headwearColor: pick(AVATAR_OPTIONS.headwearColor), number: Math.floor(rng() * 99) + 1, shades: rng() < 0.5, build: pick(AVATAR_OPTIONS.build), height: pick(AVATAR_OPTIONS.height), hand: rng() < 0.12 ? 'left' : 'right', ...overrides };
+  return { ...DEFAULT_AVATAR, ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([k,v])=>[k,pick(v)])), facialHair, eyeColor: pick(EYE_COLORS), skin: pick(AVATAR_OPTIONS.skin), hair: pick(AVATAR_OPTIONS.hair), hairColor: pick(AVATAR_OPTIONS.hairColor), jersey, jerseyStyle: rng() < 0.55 ? 'solid' : pick(JERSEY_STYLES), accent: pick(AVATAR_OPTIONS.accent.filter(c => c !== jersey)), shorts: pick(AVATAR_OPTIONS.shorts), socks: pick(AVATAR_OPTIONS.socks), shoes: pick(AVATAR_OPTIONS.shoes), wristband: rng() < 0.3 ? pick(AVATAR_OPTIONS.wristband) : 'none', headwear: pick(AVATAR_OPTIONS.headwear), headwearColor: pick(AVATAR_OPTIONS.headwearColor), number: Math.floor(rng() * 99) + 1, shades: rng() < 0.5, build: pick(AVATAR_OPTIONS.build), height: pick(AVATAR_OPTIONS.height), hand: rng() < 0.12 ? 'left' : 'right', figure: rng() < 0.5 ? 'female' : 'male', ...overrides };
 }
 
 import { JOINTS, IDLE, K, mirrorPose, keysFor, poseAt } from './throw-poses.js';
