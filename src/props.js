@@ -18,8 +18,8 @@ const rngOf = seed => { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s 
 // Painted at 2048 on Full and at half scale on Lite (same layout, so the UVs are shared). [x, y, w, h] in 2048 space.
 const REGION = { mat: [8, 8, 512, 1024], wood: [8, 1048, 512, 128], white: [8, 1768, 16, 16], concrete: [40, 1768, 64, 64] };
 for (let i = 0; i < 9; i++) REGION['sign' + i] = [536 + (i % 3) * 496, 8 + Math.floor(i / 3) * 346, 480, 330];
-for (let i = 0; i < 3; i++) { REGION['feather' + i] = [536 + i * 176, 1048, 160, 640]; REGION['banner' + i] = [8, 1192 + i * 192, 512, 176]; }
-REGION.band = [1072, 1048, 960, 76]; REGION.valance = [1072, 1352, 960, 96];
+for (let i = 0; i < 3; i++) REGION['feather' + i] = [536 + i * 176, 1048, 160, 640];
+REGION.bag = [536, 1704, 256, 320]; REGION.band = [1072, 1048, 960, 76]; REGION.valance = [1072, 1352, 960, 96]; REGION.archBeam = [1072, 1464, 960, 118]; REGION.archLeg = [1072, 1600, 96, 440];
 for (let i = 0; i < 9; i++) REGION['flag' + i] = [1072 + (i % 6) * 144, 1140 + Math.floor(i / 6) * 104, 128, 88];
 const uvRect = name => { const [x, y, w, h] = REGION[name]; return [x / 2048, 1 - (y + h) / 2048, (x + w) / 2048, 1 - y / 2048]; };   // CanvasTexture flips Y
 
@@ -111,11 +111,6 @@ function paintFeather(g, w, h, i, name) {
   if (i === 1) { g.fillStyle = fg; g.beginPath(); g.moveTo(w * .3, 60); g.quadraticCurveTo(w * .75, 20, w * .9, 70); g.quadraticCurveTo(w * .6, 55, w * .3, 60); g.fill(); }   // wing mark
   if (i === 2) { g.strokeStyle = fg; g.lineWidth = 6; g.beginPath(); g.arc(w * .58, 70, 34, 0, 7); g.stroke(); g.font = `800 34px ${FONT}`; g.fillStyle = fg; g.textAlign = 'center'; g.fillText('BB', w * .58, 72); }
 }
-function paintBanner(g, w, h, i, name) {
-  const [bg, fg, accent, big, small] = [[NAVY, '#ffffff', GOLD, 'CHAINS OPEN', '2026  ·  ' + name.toUpperCase()], ['#f6f4ee', '#d4471b', '#1c2430', 'LOFTWING DISCS', 'OFFICIAL DISC PARTNER'], ['#1f5a3b', '#f3ead2', GOLD, 'BIRDIE BREW', 'OFFICIAL COFFEE OF THE CHAINS OPEN']][i];
-  g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = accent; g.fillRect(0, h - 16, w, 16);
-  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = fg; fitText(g, big, w / 2, h * .38, w - 40, 800, 84); g.fillStyle = i === 0 ? GOLD : fg; fitText(g, small, w / 2, h * .74, w - 60, 700, 28);
-}
 // Band: the yellow top band, branded three times around so every side reads.
 function paintBand(g, w, h, name) {
   g.fillStyle = GOLD; g.fillRect(0, 0, w, h); g.fillStyle = NAVY; g.fillRect(0, 0, w, 5); g.fillRect(0, h - 5, w, 5);
@@ -135,8 +130,32 @@ function paintAtlas(canvas, scale, ctx) {
   draw('mat', paintMat); draw('wood', paintWood);
   draw('concrete', (g, w, h) => g.drawImage(pixels(w, h, (x, y) => { const v = 150 + hash2(x, y, 41) * 40 + vnoise(x / 8, y / 8, 42) * 30; return [v, v - 3, v - 8]; }), 0, 0));
   ctx.holes.forEach((hole, i) => i < 9 && draw('sign' + i, (g, w, h) => paintSign(g, w, h, hole, { ...ctx, sponsor: ['LOFTWING DISCS', 'BIRDIE BREW', 'PINE HOLLOW DGC'][i % 3] })));
-  for (let i = 0; i < 3; i++) { draw('feather' + i, (g, w, h) => paintFeather(g, w, h, i, ctx.name)); draw('banner' + i, (g, w, h) => paintBanner(g, w, h, i, ctx.name)); }
+  for (let i = 0; i < 3; i++) draw('feather' + i, (g, w, h) => paintFeather(g, w, h, i, ctx.name));
   draw('band', (g, w, h) => paintBand(g, w, h, ctx.name));
+  draw('bag', (g, w, h) => {   // ripstop purple with piping, a zip across the top third and a sponsor patch
+    g.drawImage(pixels(w, h, (x, y) => { const k = .86 + hash2(x, y, 61) * .1 + ((x % 6 < 1 || y % 6 < 1) ? -.06 : 0) + vnoise(x / 40, y / 40, 62) * .1; return [78 * k, 50 * k, 128 * k]; }), 0, 0);
+    g.strokeStyle = '#18161d'; g.lineWidth = 12; g.strokeRect(0, 0, w, h);
+    g.fillStyle = '#18161d'; g.fillRect(0, h * .3, w, 9); g.fillStyle = '#b9b6c2'; g.fillRect(w * .7, h * .3 - 4, 12, 22);
+    g.fillStyle = '#f4f1ea'; roundRect(g, w * .22, h * .45, w * .56, h * .2, 8); g.fill(); g.fillStyle = '#d4471b'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'LOFTWING', w / 2, h * .55 + 2, w * .5, 800, 40);
+  });
+  // Event arch: the beam carries the event, the legs stack the basket roundel over the partners, like a broadcast arch.
+  const roundel = (g, cx, cy, r) => {
+    g.strokeStyle = GOLD; g.lineWidth = r * .1; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke(); g.fillStyle = '#ffffff';
+    g.fillRect(cx - r * .04, cy - r * .7, r * .08, r * 1.45); g.fillRect(cx - r * .5, cy - r * .42, r, r * .1);
+    g.beginPath(); g.moveTo(cx - r * .46, cy + .1 * r); g.lineTo(cx + r * .46, cy + .1 * r); g.lineTo(cx + r * .36, cy + .45 * r); g.lineTo(cx - r * .36, cy + .45 * r); g.fill();
+    g.strokeStyle = '#ffffff'; g.lineWidth = r * .035; for (let i = 0; i < 7; i++) { g.beginPath(); g.moveTo(cx - r * .42 + i * r * .14, cy - r * .32); g.quadraticCurveTo(cx - r * .3 + i * r * .1, cy - r * .05, cx + (i - 3) * r * .02, cy + r * .1); g.stroke(); }
+  };
+  draw('archBeam', (g, w, h) => {
+    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#1d2f4d'); grd.addColorStop(1, '#111c31'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    g.fillStyle = GOLD; g.fillRect(0, h - 7, w, 7); roundel(g, 62, h / 2, 40); roundel(g, w - 62, h / 2, 40);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = GOLD; fitText(g, `${ctx.name.toUpperCase()}  ·  DISC GOLF CHAMPIONSHIP`, w / 2, 24, w - 260, 700, 24);
+    g.fillStyle = '#ffffff'; fitText(g, 'CHAINS OPEN 2026', w / 2, 72, w - 260, 800, 76);
+  });
+  draw('archLeg', (g, w, h) => {
+    g.fillStyle = '#16233d'; g.fillRect(0, 0, w, h); g.fillStyle = GOLD; g.fillRect(0, 0, w, 5); roundel(g, w / 2, 58, 34);
+    g.save(); g.translate(w / 2 + 4, h - 16); g.rotate(-Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillStyle = '#ffffff'; fitText(g, 'LOFTWING', 0, -14, h * .5, 800, 46); g.fillStyle = GOLD; fitText(g, 'BIRDIE BREW', h * .52, -14, h * .3, 700, 30); g.restore();
+  });
   draw('valance', (g, w, h) => { g.fillStyle = NAVY; g.fillRect(0, 0, w, h); g.fillStyle = GOLD; g.fillRect(0, h - 10, w, 10); g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'CHAINS OPEN 2026  ·  REGISTRATION', w / 2, h * .45, w - 60, 800, 60); });
   for (let i = 0; i < 9; i++) draw('flag' + i, (g, w, h) => paintFlag(g, w, h, i + 1));
 }
@@ -168,6 +187,15 @@ const ring = (r, t, n, m = 5) => new THREE.TorusGeometry(r, t, m, n).rotateX(Mat
 const tube = (pts, r, seg, sides) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), seg, r, sides, false);
 // a local part (built in the prop's own frame) placed by the prop's world matrix
 const at = (g, local, world) => g.applyMatrix4(local).applyMatrix4(world);
+// Padded box: every vertex of a subdivided box pulled onto a rounded shell of radius r (soft goods, cushions).
+function roundBox(w, h, d, r, seg) {
+  const g = new THREE.BoxGeometry(w, h, d, seg, seg, seg), p = g.attributes.position, n = g.attributes.normal, v = new THREE.Vector3(), c = new THREE.Vector3(), hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
+  for (let i = 0; i < p.count; i++) {   // the shell normal is the offset from the inner box: seamless across the face splits
+    v.fromBufferAttribute(p, i); c.set(Math.max(-hx, Math.min(hx, v.x)), Math.max(-hy, Math.min(hy, v.y)), Math.max(-hz, Math.min(hz, v.z)));
+    v.sub(c).normalize(); n.setXYZ(i, v.x, v.y, v.z); v.multiplyScalar(r).add(c); p.setXYZ(i, v.x, v.y, v.z);
+  }
+  return g;
+}
 
 // Basket: galvanised pole, tray of rim rings and bars over a pressed dish, outer and inner chain sets hanging in
 // catenaries from the rings inside the band to a collar over the tray, the printed band with rolled edges, and a
@@ -190,10 +218,10 @@ function addBasket(K, world, n, full) {
     for (let i = 0; i < count; i++) {
       const a = off + i / count * Math.PI * 2 + (hash2(i, n, 3) - .5) * .08, b = bulge * (.85 + hash2(i, n, 4) * .3), twist = (hash2(i, n, 5) - .5) * .12, pts = [];
       for (let k = 0; k <= 6; k++) { const t = k / 6, r = r0 + (r1 - r0) * t + b * Math.sin(Math.PI * t) * (1 - t * .35), aa = a + twist * Math.sin(Math.PI * t); pts.push(new THREE.Vector3(Math.cos(aa) * r, y0 + (y1 - y0) * t - .018 * Math.sin(Math.PI * t), Math.sin(aa) * r)); }
-      S(tube(pts, .0055, seg, sides), '#eceff0');
+      S(tube(pts, .007, seg, sides), '#f2f4f5');
     }
   };
-  hang(.255, .068, 1.37, .87, full ? 20 : 10, .055, 0, full ? 10 : 3, full ? 4 : 3);
+  hang(.255, .068, 1.37, .87, full ? 24 : 10, .055, 0, full ? 10 : 3, full ? 4 : 3);
   if (full) hang(.16, .05, 1.37, .87, 12, .035, .13, 8, 3);
   Pr(cyl(.29, .29, .13, full ? 40 : 16, true).translate(0, 1.395, 0), 'band');
   const flag = new THREE.PlaneGeometry(.38, .26, full ? 8 : 2, 1), fp = flag.attributes.position;   // 38 x 26 cm, flying from the mast top
@@ -233,15 +261,18 @@ export function dressCourse({ holes, height, trees, def, quality }) {
     for (const x of [-.65, .65]) { paint(at(box(.05, .42, .05), pose(x, .21, -.12), world), '#26292b'); paint(at(box(.05, .82, .05), pose(x, .41, .17, 0, -.1), world), '#26292b'); paint(at(box(.05, .04, .42), pose(x, .4, .03), world), '#26292b'); }
   };
   const addCan = world => {   // park bin: green powder-coated drum, black lid, two rolled ribs
-    paint(at(cyl(.27, .25, .82, 16, true), pose(0, .41, 0), world), '#35573f');
-    paint(at(cyl(.3, .29, .07, 16), pose(0, .85, 0), world), '#1f2422');
-    for (const y of [.22, .6]) paint(at(ring(.272, .012, 24, 3), pose(0, y, 0), world), '#35573f');
+    paint(at(cyl(.27, .25, .82, full ? 16 : 8, true), pose(0, .41, 0), world), '#35573f');
+    paint(at(cyl(.3, .29, .07, full ? 16 : 8), pose(0, .85, 0), world), '#1f2422');
+    if (full) for (const y of [.22, .6]) paint(at(ring(.272, .012, 24, 3), pose(0, y, 0), world), '#35573f');
   };
-  const addBanner = (world, design) => {
-    K.print(at(new THREE.PlaneGeometry(2.3, .78), pose(0, .66, .012), world), 'banner' + design);
-    K.print(at(new THREE.PlaneGeometry(2.3, .78), pose(0, .66, -.012, Math.PI), world), 'white', '#dfe2e0');
-    for (const x of [-1.18, 1.18]) K.steel(at(cyl(.02, .02, 1.12, 6), pose(x, .56, 0), world), '#9aa0a4');
-    K.steel(at(cyl(.015, .015, 2.36, 5).rotateZ(Math.PI / 2), pose(0, 1.06, 0), world), '#9aa0a4');
+  // A player's disc golf backpack left on the bench: a padded purple body with rounded edges, black zip pocket and
+  // base, a putter pouch, and the rims of a stack of coloured discs over the top. Built in the bench's frame (seat .46).
+  const addBag = world => {
+    K.print(at(roundBox(.36, .46, .26, .05, full ? 3 : 2), pose(0, .69, 0), world), 'bag');
+    paint(at(roundBox(.3, .24, .07, .03, 2), pose(0, .62, -.135), world), '#1d1c22');
+    paint(at(roundBox(.37, .06, .27, .02, 1), pose(0, .48, 0), world), '#1d1c22');
+    paint(at(cyl(.075, .075, .22, full ? 12 : 6), pose(.2, .64, .02), world), '#1d1c22');
+    ['#e4412b', '#f3c21b', '#2f9fd8', '#62c23c', '#f07ab8', '#f4f4f0', '#ff8a1e'].slice(0, full ? 7 : 3).forEach((c, k) => paint(at(cyl(.105, .105, .021, full ? 16 : 8).rotateZ(Math.PI / 2 + (k - 3) * .06), pose(-.14 + k * .045, .88 + (k % 3) * .014, .01), world), c));   // standing like books
   };
   // Pop-up event canopy: 3 x 3 m, navy roof, printed valance, a draped registration table underneath.
   const addTent = world => {
@@ -250,6 +281,16 @@ export function dressCourse({ holes, height, trees, def, quality }) {
     for (let k = 0; k < 4; k++) K.print(at(new THREE.PlaneGeometry(3, .3), pose(Math.sin(k * Math.PI / 2) * 1.5, 1.97, Math.cos(k * Math.PI / 2) * 1.5, k * Math.PI / 2), world), 'valance');
     paint(at(box(1.8, .74, .72), pose(0, .37, -.6), world), '#f1f1ee');
     paint(at(box(1.82, .03, .74), pose(0, .755, -.6), world), '#f7f7f4');
+  };
+  // Event arch over the gallery walk: two printed pillars and a beam, 6 m clear span, 4 m clear height.
+  const addArch = world => {
+    for (const x of [-3.32, 3.32]) {
+      paint(at(box(.64, 4, .5), pose(x, 2, 0), world), '#16233d');
+      for (const s of [1, -1]) K.print(at(new THREE.PlaneGeometry(.58, 3.3), pose(x, 1.95, s * .252, s < 0 ? Math.PI : 0), world), 'archLeg');
+      paint(at(box(.9, .07, .8), pose(x, .035, 0), world), '#2b2f33');
+    }
+    paint(at(box(7.28, 1.12, .5), pose(0, 4.56, 0), world), '#16233d');
+    for (const s of [1, -1]) K.print(at(new THREE.PlaneGeometry(7.2, 1.06), pose(0, 4.56, s * .252, s < 0 ? Math.PI : 0), world), 'archBeam');
   };
   const clearOf = (x, z, r) => !trees.some(t => (t.x - x) ** 2 + (t.z - z) ** 2 < (r + t.r * 2) ** 2) && !holes.some(h => h.ponds.some(p => ((x - p.x) / (p.rx * 1.3 + r)) ** 2 + ((z - p.z) / (p.rz * 1.3 + r)) ** 2 < 1));
 
@@ -265,23 +306,38 @@ export function dressCourse({ holes, height, trees, def, quality }) {
     K.print(at(box(1.0, .7, .05), pose(0, 1.16, -.01), sg), 'wood');
     K.print(at(new THREE.PlaneGeometry(.92, .632), pose(0, 1.16, .019), sg), 'sign' + i);
     K.print(at(box(1.16, .045, .16), pose(0, 1.66, 0), sg), 'wood');
-    if (full) { addCan(onGround(h, 3.2, 2.9)); addBench(onGround(h, -2.6, 1.3, -Math.PI / 2)); }
+    if (full || i === 0) { const bench = onGround(h, -2.6, 1.3, -Math.PI / 2); addCan(onGround(h, 3.2, 2.9)); addBench(bench); if (i === 0) addBag(pose(-.5, 0, 0).premultiply(bench)); }   // Lite furnishes only the clubhouse tee
     // Basket, same yaw as the hole so the flag flies broadside to the approach; a pair of feather flags stands
     // behind-left of the green, off the putt line and clear of the basket's silhouette from the approach.
     const ap = h.way[h.way.length - 2], adx = h.basket[0] - ap[0], adz = h.basket[1] - ap[1], al = Math.hypot(adx, adz), fx = adx / al, fz = adz / al, yawB = Math.atan2(-fx, -fz);   // the approach, past any dogleg
     addBasket(K, pose(h.basket[0], h.basketY, h.basket[1], yawB), i, full);
-    if (full || i === 0) for (const [u, f, d] of [[-3.6, 6.2, i % 3], [-2.6, 9.8, (i + 1) % 3]]) {
-      const x = h.basket[0] - fz * u + fx * f, z = h.basket[1] + fx * u + fz * f;
-      if (clearOf(x, z, .8)) addFeather(pose(x, height(x, z) - .05, z, yawB + .35 + (rnd() - .5) * .3), d);
-    }
+    const green = (u, f, rot, sink = .03) => { const x = h.basket[0] - fz * u + fx * f, z = h.basket[1] + fx * u + fz * f; return clearOf(x, z, 1) && pose(x, height(x, z) - sink, z, yawB + rot); };
+    if (full || i === 0) for (const [u, f, d] of [[-3.6, 6.2, i % 3], [-2.6, 9.8, (i + 1) % 3]]) { const w = green(u, f, .35 + (rnd() - .5) * .3, .05); if (w) addFeather(w, d); }
+    if (full) { const b = green(-4.4, 1.9, -Math.PI / 2), c = green(-4.5, 3.9, 0); if (b) addBench(b); if (c) addCan(c); }   // a bench and a bin at the green's edge, left of the approach
     // Every other tee: two sponsor flags down the left edge of the corridor (Full).
     if (full && i) for (const f of [14, 22]) { const [x, z] = frame(h, -12.5 * def.fairwayW - rnd(), f); if (clearOf(x, z, .8)) addFeather(pose(x, height(x, z) - .05, z, h.yaw + .45 + (rnd() - .5) * .3), (i + f) % 3); }
   });
-  // Tournament village on hole 1, the clubhouse tee: banner boards, the event canopy and feather flags down the left
-  // of the corridor (~9.4 m each side of the centreline here), turned back toward the tee so they read from the pad.
+  // Tournament village on hole 1, the clubhouse tee, down the left of the corridor (~9.4 m each side of the centreline
+  // here) and turned back toward the tee so it reads from the pad: the event arch over the gallery walk (both tiers,
+  // ~200 triangles), feather flags receding beyond it (nearer ones would stand in front of it), and on Full the
+  // registration canopy and gallery ropes down both edges.
   const h1 = holes[0];
-  [[11, -10.7, 0], [17.5, -10.9, 1], [26, -11.2, 2], [30.5, -10.8, 0], [34.5, -10.4, 1]].slice(0, full ? 5 : 3).forEach(([f, u, d]) => addFeather(onGround(h1, u - rnd() * .4, f, .45 + (rnd() - .5) * .3, .05), d));
-  if (full) { [[13.2, 0], [15.6, 2]].forEach(([f, d]) => addBanner(onGround(h1, -10.3, f, Math.PI / 2 - .5), d)); addTent(onGround(h1, -12.8, 21.5, .5, .02)); }
+  addArch(onGround(h1, -13.1, 26.5, .45, .02));   // right pillar ~1 m outside the corridor edge
+  [[31.5, -10.5, 1], [36.5, -10.5, 0], [41.5, -10.3, 2], [46.5, -10.1, 1], [11.5, -11, 2]].slice(0, full ? 5 : 3).forEach(([f, u, d]) => {
+    u -= rnd() * .4; for (const df of [0, 2, -2, 4]) { const [x, z] = frame(h1, u, f + df); if (clearOf(x, z, 1.2)) return addFeather(onGround(h1, u, f + df, .45 + (rnd() - .5) * .3, .05), d); }
+  });
+  if (full) {
+    addTent(onGround(h1, -13.4, 14.5, .6, .02));
+    for (const [u, f0, f1] of [[-9.6, 3, 40], [10.6, 4, 32]]) {   // white rope sagging between painted stakes every 3.5 m
+      let prev = null;
+      for (let f = f0; f <= f1; f += 3.5) {
+        const [x, z] = frame(h1, u, f), y = height(x, z), top = new THREE.Vector3(x, y + .86, z);
+        paint(box(.045, .95, .045).translate(x, y + .445, z), '#f1efe8'); paint(box(.06, .05, .06).translate(x, y + .93, z), GOLD);
+        if (prev) { const mid = prev.clone().lerp(top, .5); mid.y -= .09; K.print(tube([prev, mid, top], .007, 6, 3), 'white', '#efe9dc'); }
+        prev = top;
+      }
+    }
+  }
 
   const atlas = document.createElement('canvas'), scale = full ? 1 : .5; atlas.width = atlas.height = 2048 * scale;
   const ctx = { holes, trees, name: def.name, fairwayW: def.fairwayW };
@@ -291,8 +347,9 @@ export function dressCourse({ holes, height, trees, def, quality }) {
   // Double-sided so cloth reads from behind, but only back faces go into the shadow map: the flat mat and sign faces
   // under a 19° sun would otherwise shadow themselves in bands (acne). Cloth is two sheets, so one always casts.
   const print = new THREE.Mesh(mergeGeometries(K.lists.print), toonMaterial({ map, vertexColors: true, roughness: .82, side: THREE.DoubleSide, shadowSide: THREE.BackSide }));
-  // Galvanised steel is dull and light in sun: half metal so the diffuse term carries it under the dim ambient.
-  const steel = new THREE.Mesh(mergeGeometries(K.lists.steel), toonMaterial({ vertexColors: true, metalness: .55, roughness: .42 }));
+  // Galvanised steel is a matte zinc skin: mostly diffuse so a back-lit basket stays silver-white under the dim ambient,
+  // with enough metal and a tight enough lobe that chains still glint.
+  const steel = new THREE.Mesh(mergeGeometries(K.lists.steel), toonMaterial({ vertexColors: true, metalness: .35, roughness: .38 }));
   print.castShadow = print.receiveShadow = steel.receiveShadow = true; steel.castShadow = full;
   for (const g of [...K.lists.print, ...K.lists.steel]) g.dispose();
   return [print, steel];
