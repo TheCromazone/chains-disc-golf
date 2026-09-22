@@ -67,7 +67,7 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 .play-cta strong { font-family: var(--display); font-size: 28px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; line-height: 1; }
 .play-cta small { font-size: 11px; font-weight: 600; color: #fff3ef; }
 .play-cta .cta-end { display: flex; padding-left: 13px; border-left: 1px solid #242e2330; }
-.mode-btn { font-family: var(--display); font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; min-height: 44px; background: linear-gradient(145deg, #ffffffaa, #d7f0ff80); }
+.mode-btn { font-family: var(--display); font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; min-height: 44px; background: linear-gradient(145deg, #ffffffaa, #d7f0ff80); }
 .mode-btn .icon { width: 18px; height: 18px; color: #1884a5; }
 .round-settings { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; padding: 4px 0 0; }
 .round-settings .f { gap: 5px; font-family: var(--display); font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; }
@@ -89,7 +89,7 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 .ccard.on { color: var(--text); border-color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
 .ccard.on .chev { color: #15241d; background: var(--accent); border-color: var(--accent); }
 #btnCourses { min-height: 96px; padding: 12px 14px; }
-#btnCourses .cinfo b { font-size: 24px; }
+#btnCourses .cinfo b { font-size: 21px; }   /* one hero on the hub card: Play round; the course name sits a step under it */
 /* Locker room equipment controls. */
 .overlay.locker .panel { max-height: 56vh; }
 .opt { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid #ffffff10; }
@@ -223,31 +223,30 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 #score::before, #score::after { content: 'RESULTS'; position: fixed; z-index: 0; pointer-events: none; font-family: var(--display); font-size: clamp(110px, 22vw, 300px); font-weight: 800; line-height: .8; text-transform: uppercase; color: transparent; -webkit-text-stroke: 1.5px #ffffff2a; user-select: none; }
 #score::before { top: -1vw; left: -1vw; }
 #score::after { right: -1vw; bottom: -1vw; }
-#score .panel { position: relative; z-index: 1; width: min(470px, 100%); padding: 0; gap: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; color: var(--black); font-family: var(--display); filter: drop-shadow(0 24px 50px #000a); scrollbar-color: #ffffff60 transparent; }
+#score .panel { --gutter: 28px; position: relative; z-index: 1; width: min(560px, 100%); padding: 0; gap: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; color: var(--black); font-family: var(--display); filter: drop-shadow(0 24px 50px #000a); scrollbar-color: #ffffff60 transparent; }
 #score .eyebrow { align-self: flex-start; display: inline-flex; gap: 6px; padding: 7px 14px 6px; border-radius: 6px 6px 0 0; background: #0f5a3c; color: #fff; font-size: 12px; letter-spacing: 2px; }
-#score h2 { margin: 0; padding: 9px 16px 7px; border-radius: 0 6px 0 0; background: var(--mint); color: var(--black); font-size: 34px; }
+/* Two loud things only: this headline and the lit current-hole column. Everything else stays at body weight with air around it. */
+#score h2 { margin: 0; padding: 16px var(--gutter) 12px; border-radius: 0 6px 0 0; background: var(--mint); color: var(--black); font-size: clamp(40px, 6vw, 56px); letter-spacing: -.02em; line-height: .95; }
 .score-body { display: flex; flex-direction: column; background: #f4f5f3; border-radius: 0 0 6px 6px; overflow: hidden; }
-#score #scoreBest { padding: 9px 16px 0; font-size: 13px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: #0f5a3c; }
-#score .stand { margin: 0; padding: 8px 16px; border: 0; border-bottom: 1px solid #0c111414; border-radius: 0; background: transparent; }
-#score .stand .standing-name { gap: 10px; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
-#score .stand .standing-name .muted { font-size: 12px; font-weight: 700; color: #6b7570; letter-spacing: 1px; }
-#score .stand .rank { width: 26px; color: #6b7570; font-size: 14px; font-weight: 800; }
-#score .stand .rank .icon { width: 20px; height: 20px; }
-#score .stand b { display: inline-flex; align-items: center; gap: 10px; }
-#score .badge { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--mint); color: var(--black); font-size: 20px; font-weight: 800; }
-#score .topar { min-width: 30px; text-align: right; font-size: 20px; font-weight: 800; }
-#score .stand.win { background: var(--black); color: #fff; }
-#score .stand.win .rank, #score .stand.win .standing-name .muted { color: var(--mint); }
-.score-grid { overflow-x: auto; border-top: 1px solid #0c111414; }
-#score table { font-family: var(--display); font-size: 14px; }
-#score th { padding: 8px 4px; background: var(--black); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; border: 0; }
+#score #scoreBest { padding: 16px var(--gutter) 0; font-size: 13px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: #0f5a3c; }
+#score .badge { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--mint); color: var(--black); font-size: 19px; font-weight: 800; }
+.score-grid { overflow-x: auto; padding: 16px 0 6px; }
+#score table { font-family: var(--display); font-size: 16px; }
+#score th { padding: 9px 3px; background: var(--black); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; border: 0; }
 #score th .muted { color: #ffffff80; font-size: 10px; font-weight: 700; letter-spacing: .5px; }
-#score td { padding: 9px 4px; font-weight: 700; color: var(--black); border-bottom: 1px solid #0c111412; }
-#score td.name { padding-left: 14px; text-transform: uppercase; font-weight: 800; }
+#score th.cur, #score th.cur .muted { color: var(--mint); }
+#score td { padding: 8px 3px; font-weight: 700; color: var(--black); border: 0; }
+#score tr:first-child + tr td { padding-top: 14px; }
+#score td.name { padding-left: var(--gutter); max-width: 128px; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; font-weight: 800; }
+#score td.name .rank { display: inline-block; width: 24px; color: #6b7570; font-size: 12px; vertical-align: 1px; }
+#score td.name .rank .icon { width: 16px; height: 16px; color: #b0731a; vertical-align: -3px; }
 #score td.name .dot { width: 10px; height: 10px; margin-right: 7px; vertical-align: -1px; border: 0; box-shadow: none; }
+#score td.cur { background: #5cf0a826; }   /* the lit column: a mint wash under the badges, over the global amber tint */
+#score td.blank { color: #b3b9b5; }
+#score td.tot { padding-right: var(--gutter); font-size: 18px; }
+#score td.tot small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .5px; color: #6b7570; }
 #score td.s-1, #score td.s-2, #score td.s-3 { color: #0f8a55; } #score td.s1 { color: #b0731a; } #score td.s2, #score td.s3, #score td.s4 { color: #c0392b; }
-#score td.cur { background: var(--mint); color: var(--black); }
-#score .score-actions { padding: 12px 16px 14px; gap: 8px; }
+#score .score-actions { padding: 18px var(--gutter) var(--gutter); gap: 10px; }
 #score .score-actions button { font-family: var(--display); font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; border-radius: 999px; min-height: 44px; backdrop-filter: none; -webkit-backdrop-filter: none; }
 #score #btnScoreMenu { background: transparent; border: 2px solid #0c111433; box-shadow: none; color: var(--black); }
 #score #btnScoreNext { background: var(--black); border-color: var(--black); color: #fff; box-shadow: none; }
@@ -265,8 +264,13 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .panel { padding: 16px; }
   .hub-main { padding: 12px; border-radius: 24px; }
   #top { width: min(236px, calc(100% - 84px)); }
-  #score h2 { font-size: 28px; }
-  #score .stand .standing-name { font-size: 18px; }
+  #score .panel { --gutter: 18px; }
+  #score th .muted span { display: none; }   /* narrow cells: just the par number under the hole */
+  #score .badge { width: 30px; height: 30px; font-size: 15px; }
+  #score table { font-size: 14px; }
+  #score td { padding: 6px 2px; }
+  #score td.name { max-width: 104px; }
+  #score td.tot { font-size: 16px; }
 }
 @media (max-width: 560px) {
   #conditions { flex-direction: column; align-items: flex-end; gap: 3px; }   /* two short lines clear the ring at bottom-centre */
@@ -306,24 +310,19 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .hub-top { top: calc(10px + var(--sat)); }
   body[data-phase='result'] #toast, body.result-mode #toast { top: 23%; }
   body[data-phase='result'] #toast b, body.result-mode #toast b { font-size: 42px; }
-  #score .panel { width: min(620px, 100%); }
+  #score .panel { --gutter: 20px; width: min(620px, 100%); }
   #score .eyebrow { padding: 5px 12px 4px; }
-  #score h2 { font-size: 26px; padding: 6px 14px 5px; }
-  .score-body { display: grid; grid-template-columns: 1fr 1.25fr; }   /* standings beside the grid so the card fits a landscape phone */
-  #score #scoreBest, #score .score-actions, #score #scoreWait { grid-column: 1 / -1; }
-  #scoreStand { border-right: 1px solid #0c111414; }
-  .score-grid { border-top: 0; }
-  #score .stand { padding: 5px 12px; }
-  #score .stand .standing-name { font-size: 17px; }
-  #score .badge { width: 36px; height: 36px; font-size: 17px; }
-  #score .topar { font-size: 17px; }
-  #score td { padding: 6px 4px; }
-  #score .score-actions { padding: 8px 14px 10px; }
-  #score .score-actions button { min-height: 40px; }
-  #score th { padding: 6px 2px; font-size: 10px; }
+  #score h2 { font-size: 34px; padding: 8px var(--gutter) 6px; }
+  #score #scoreBest { padding-top: 8px; }
+  .score-grid { padding: 4px 0 0; }
+  #score .badge { width: 30px; height: 30px; font-size: 15px; }
+  #score th { padding: 5px 2px; font-size: 10px; }
   #score th .muted { font-size: 8px; }
-  #score td { padding: 6px 2px; font-size: 12px; }
-  #score td.name { padding-left: 10px; }
+  #score td { padding: 4px 2px; font-size: 13px; }
+  #score tr:first-child + tr td { padding-top: 6px; }
+  #score td.tot { font-size: 15px; }
+  #score .score-actions { padding: 8px var(--gutter) 12px; }
+  #score .score-actions button { min-height: 40px; }
 }
 @media (prefers-reduced-motion: reduce) {
   button, #toast, #fade, #windArrow, #btnMute .sound-icons > span, #pad .hint, #powerFill { transition: none; }
