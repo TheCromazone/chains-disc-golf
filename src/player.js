@@ -34,7 +34,7 @@ export function randomAvatar(rng = Math.random, overrides = {}) {
   return { ...DEFAULT_AVATAR, ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([k,v])=>[k,pick(v)])), facialHair, eyeColor: pick(EYE_COLORS), skin: pick(AVATAR_OPTIONS.skin), hair: pick(AVATAR_OPTIONS.hair), hairColor: pick(AVATAR_OPTIONS.hairColor), jersey, jerseyStyle: rng() < 0.55 ? 'solid' : pick(JERSEY_STYLES), accent: pick(AVATAR_OPTIONS.accent.filter(c => c !== jersey)), shorts: pick(AVATAR_OPTIONS.shorts), socks: pick(AVATAR_OPTIONS.socks), shoes: pick(AVATAR_OPTIONS.shoes), wristband: rng() < 0.3 ? pick(AVATAR_OPTIONS.wristband) : 'none', headwear: pick(AVATAR_OPTIONS.headwear), headwearColor: pick(AVATAR_OPTIONS.headwearColor), number: Math.floor(rng() * 99) + 1, shades: rng() < 0.5, build: pick(AVATAR_OPTIONS.build), height: pick(AVATAR_OPTIONS.height), hand: rng() < 0.12 ? 'left' : 'right', figure: rng() < 0.5 ? 'female' : 'male', ...overrides };
 }
 
-import { JOINTS, IDLE, K, mirrorPose, keysFor, poseAt } from './throw-poses.js';
+import { JOINTS, IDLE, K, mirrorPose, keysFor, poseAt, readyPose } from './throw-poses.js';
 
 export function createCharacter(opts = {}) {
   const a = { ...DEFAULT_AVATAR, ...(opts.color ? { jersey: opts.color } : {}), ...(opts.skin ? { skin: opts.skin } : {}), ...(opts.cap ? { headwearColor: opts.cap } : {}), ...opts };
@@ -86,9 +86,11 @@ export function createCharacter(opts = {}) {
   const motionEuler = new THREE.Euler(), motionA = new THREE.Quaternion(), motionB = new THREE.Quaternion();
   const cur = {}; for (const j of JOINTS) cur[j] = [...IDLE[j]]; cur.rootY = 0;
   let throwType = 'backhand', phase = null, time = Math.random() * 10, mood = null, locomotion = null;
+  let aimHit = false, aimFrames = 0, aimType = 'backhand';   // aiming = main.js steering faceDir every frame (see gltf-player.js)
   const apply = () => { for (const j of JOINTS) joints[j].rotation.set(cur[j][0], cur[j][1], cur[j][2]); root.position.y = ROOT_Y + cur.rootY; };
   const frames = new Map(), _gi = new THREE.Quaternion();
   function releaseFrame(t) {
+    if (phase === null) aimType = t;
     const key = t + (lefty ? '_left' : ''); if (frames.has(key)) return frames.get(key);
     let pose = poseAt(keysFor(t), .62); if (lefty) pose = mirrorPose(pose);
     for (const j of JOINTS) joints[j].rotation.set(pose[j][0], pose[j][1], pose[j][2]);
@@ -106,14 +108,15 @@ export function createCharacter(opts = {}) {
     setPhase(p) { phase = p; if(p!==null)mood=null; },                       // null = idle
     react(name) { mood={name,t:0};phase=null; },
     play(name) { locomotion=name;phase=null;mood=null;time=0; },
-    getPhase() { return phase; },
+    getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },
     update(dt) {
-      time += dt;
+      time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false;
       let target;
       if (phase === null) {
         target = {}; for (const j of JOINTS) target[j] = [...IDLE[j]]; target.rootY = Math.sin(time * 1.8) * 0.004;
         target.spine[0] += Math.sin(time * 1.8) * 0.02; target.spine[2] += Math.sin(time * 0.6) * 0.015; target.shR[2] += Math.sin(time * 1.3) * 0.02; target.shL[2] -= Math.sin(time * 1.1) * 0.02;
         target.head[1] += Math.sin(time * 0.45) * 0.22; target.head[0] += Math.sin(time * 0.7) * 0.04;
+        if(aimFrames>=2&&!mood&&!locomotion) target=readyPose(aimType,time);
         if(locomotion==='walk') { const step=Math.sin(time*Math.PI*2);target.hipR[0]=step*.45;target.hipL[0]=-step*.45;target.shR[0]=-step*.4;target.shL[0]=step*.4; }
         if(locomotion==='practice') { const swing=(Math.sin(time*Math.PI/1.2)+1)*.5;target.root[1]=-.35+swing*.55;target.shR[0]=.7+swing*.5;target.elR[0]=1.2-swing*.6; }
         if(mood) { mood.t+=dt;const strength=Math.sin(Math.min(1,mood.t/2.4)*Math.PI);if(mood.name==='celebrate'){target.shR[0]=2.9*strength;target.shL[0]=2.9*strength;target.elR[0]=.4;target.elL[0]=.4;target.rootY=.1*strength;}else{target.spine[0]=.28*strength;target.head[0]=.35*strength;target.shR[0]=.1;}if(mood.t>=2.4)mood=null; }
@@ -131,9 +134,14 @@ export function createCharacter(opts = {}) {
         if(lefty){a0=mirrorPose(a0);a1=mirrorPose(a1);}
         for(const j of JOINTS){motionA.setFromEuler(motionEuler.fromArray([...a0[j],'XYZ']));motionB.setFromEuler(motionEuler.fromArray([...a1[j],'XYZ']));joints[j].quaternion.copy(motionA).slerp(motionB,u);}
         root.position.y=ROOT_Y+a0.rootY+(a1.rootY-a0.rootY)*u;
+        if(phase<.15&&aimFrames>=2){   // the swipe starts from the coiled aim stance and eases into the clip over its first 15 %
+          const w=1-phase/.15;let r=readyPose(aimType,time);if(lefty)r=mirrorPose(r);
+          for(const j of JOINTS)joints[j].quaternion.slerp(motionA.setFromEuler(motionEuler.fromArray([...r[j],'XYZ'])),w);
+          root.position.y+=(ROOT_Y+r.rootY-root.position.y)*w;
+        }
       }
     },
-    faceDir(dx, dz) { g.rotation.y = Math.atan2(-dx, -dz); },
+    faceDir(dx, dz) { g.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
     dispose() { face.dispose(); g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); for(const m of materials)m.dispose(); },
   };
 }

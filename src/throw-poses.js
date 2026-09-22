@@ -97,12 +97,33 @@ export function poseAt(keys, phase) {
   const out={};for(const j of JOINTS)out[j]=[0,1,2].map(c=>interpolate(j,c));out.rootY=interpolate('rootY',0);out.rootY=-Math.min(...soleHeights(out,false));return out;
 }
 
+// Coiled aim stance per throw family: the first few percent of the clip, scrubbed slowly so the athlete breathes,
+// plus a staggered, knee-bent overlay (backhand and putt lead with the throwing-side foot, the rest with the other).
+// Right-handed; callers mirror. The windup fades it out over its first 15 % so the swipe starts from this pose.
+// The clips open with the disc presented at shoulder height; the stance drops the elbow to the hip and folds the forearm across.
+const STANCE = {
+  backhand: { root: [0, .12, 0], spine: [.1, 0, 0], shR: [-.85, .7, .1], elR: [.3, 0, 0], shL: [-.15, 0, .12], elL: [.2, 0, 0], hipR: [.3, 0, 0], knR: [-.3, 0, 0], hipL: [-.15, 0, 0], knL: [-.4, 0, 0] },
+  forehand: { root: [0, -.1, 0], spine: [.08, 0, 0], shR: [-.25, 0, -.2], elR: [-.2, 0, 0], shL: [-.1, 0, .1], elL: [.2, 0, 0], hipL: [.3, 0, 0], knL: [-.3, 0, 0], hipR: [-.15, 0, 0], knR: [-.4, 0, 0] },
+  putt: { spine: [.05, 0, 0], shR: [-.55, 0, 0], elR: [-.5, 0, 0], shL: [-.1, 0, .2], hipR: [.15, 0, 0], hipL: [-.1, 0, 0], knL: [-.1, 0, 0] },
+};
+export function readyPose(type, time, rig = RIGS.lite) {
+  const stance = STANCE[type.split('_')[0]] || STANCE.forehand, breath = Math.sin(time * 1.3);
+  const pose = poseAt(keysFor(type), .06 + .04 * Math.sin(time * 1.1));
+  for (const j of JOINTS) { const d = stance[j]; if (d) for (let i = 0; i < 3; i++) pose[j][i] += d[i]; }
+  pose.knR[0] -= .02 + .02 * breath; pose.knL[0] -= .02 + .02 * breath; pose.spine[0] += .015 * breath; pose.head[1] += .04 * Math.sin(time * .5);
+  pose.rootY = -Math.min(...soleHeights(pose, false, rig));
+  return pose;
+}
+
 // Sole support for the visual rig only. No X/Z root travel and no change to the player's lie.
+// Leg geometry of the procedural rig and of ChainsRig (tools/golfer-rig.json "ground", what the Blender clips were planted with).
+export const RIGS = { lite: { root: .64, hipDrop: .02, hipX: .115, thigh: .26, sole: [0, -.333, -.052], soleRadii: [.083, .027, .154] },
+  glb: { root: .9867, hipDrop: .0905, hipX: .0995, thigh: .3638, sole: [0, -.5324, -.0196], soleRadii: [.0639, .012, .1418] } };
 function rotate(v,r){let[x,y,z]=v;const[rx,ry,rz]=r;let c=Math.cos(rz),s=Math.sin(rz);[x,y]=[x*c-y*s,x*s+y*c];c=Math.cos(ry);s=Math.sin(ry);[x,z]=[x*c+z*s,-x*s+z*c];c=Math.cos(rx);s=Math.sin(rx);return[x,y*c-z*s,y*s+z*c];}
-export function soleHeights(p,includeRootY=true){return ['R','L'].map(side=>{
+export function soleHeights(p,includeRootY=true,g=RIGS.lite){return ['R','L'].map(side=>{
  const hip=p['hip'+side],kn=p['kn'+side],root=p.root;const foot=v=>rotate(rotate(rotate(v,kn),hip),root);
- const knee=rotate([0,-.26,0],hip),sole=rotate(rotate([0,-.333,-.052],kn),hip);
- const center=rotate([(side==='R'?1:-1)*.115+knee[0]+sole[0],-.02+knee[1]+sole[1],knee[2]+sole[2]],root);
- const radius=Math.hypot(foot([.083,0,0])[1],foot([0,.027,0])[1],foot([0,0,.154])[1]);
- return .64+(includeRootY?p.rootY:0)+center[1]-radius;
+ const knee=rotate([0,-g.thigh,0],hip),sole=rotate(rotate(g.sole,kn),hip);
+ const center=rotate([(side==='R'?1:-1)*g.hipX+knee[0]+sole[0],-g.hipDrop+knee[1]+sole[1],knee[2]+sole[2]],root);
+ const[rx,ry,rz]=g.soleRadii,radius=Math.hypot(foot([rx,0,0])[1],foot([0,ry,0])[1],foot([0,0,rz])[1]);
+ return g.root+(includeRootY?p.rootY:0)+center[1]-radius;
 });}

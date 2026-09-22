@@ -15,7 +15,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   const suffix = lod ? '_lod' : '';   // the LOD body has its own bake: its UV layout differs
   const tex = (name, o = opts) => texture(prefix + name, o) || texture('body_' + name, o);   // a figure without its own bake borrows the male set rather than losing its shader
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .74, metalness: 0, map: tex('albedo' + suffix), normalMap: lod ? null : tex('normal', { ...opts, srgb: false }) });
-  if (material.normalMap) material.normalScale.set(.85, .85);
+  if (material.normalMap) material.normalScale.set(1, 1);   // full-strength baked folds and pores
   const u = {
     uMask1: { value: tex('mask1' + suffix, { ...opts, srgb: false }) }, uMask2: { value: tex('mask2' + suffix, { ...opts, srgb: false }) },
     uPal: { value: REGIONS.map(() => new THREE.Color()) }, uMean: { value: new Float32Array(REGIONS.map((r, i) => Math.max(.004, (Array.isArray(spec.regionLum) ? spec.regionLum[i] : spec.regionLum?.[r]) ?? .5))) },
@@ -24,7 +24,8 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   };
   material.onBeforeCompile = s => {
     Object.assign(s.uniforms, u);
-    s.fragmentShader = 'uniform sampler2D uMask1, uMask2; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean;\n' + s.fragmentShader.replace('#include <map_fragment>', `float chainsJersey = 0.;
+    // per-region roughness: skin and hair take a soft sheen, cloth stays matte
+    s.fragmentShader = 'uniform sampler2D uMask1, uMask2; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean;\n' + s.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor *= chainsRough;').replace('#include <map_fragment>', `float chainsJersey = 0., chainsRough = 1.;
       #include <map_fragment>
       { vec4 m1 = texture2D(uMask1, vMapUv), m2 = texture2D(uMask2, vMapUv);
         vec3 base = diffuseColor.rgb; float lum = dot(base, vec3(.2126, .7152, .0722));
@@ -37,7 +38,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         float zone = (zi > 2.5 ? uBeard.z : zi > 1.5 ? uBeard.y : zi > .5 ? uBeard.x : 0.) * soft;
         float grain = fract(sin(dot(floor(vMapUv * 1100.), vec2(12.9898, 78.233))) * 43758.5453);
         col = mix(col, uHair * (.5 + .5 * clamp(lum / uMean[0], .3, 1.4)), zone * (.6 + .4 * grain));
-        chainsJersey = w[1]; diffuseColor.rgb = col; }`);
+        chainsJersey = w[1]; chainsRough = 1. - .22 * w[0] - .18 * w[3] + .12 * (w[1] + w[2] + w[4]); diffuseColor.rgb = col; }`);
   };
   material.customProgramCacheKey = () => 'chains-body';
   jerseyStyle(material, avatar.jerseyStyle, avatar.accent, 1, [0, 0, 0], 'chainsJersey');
