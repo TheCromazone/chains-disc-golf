@@ -274,6 +274,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       const u = tx * cy - tz * sy, v = tx * sy + tz * cy;
       const wear = 1 - smooth(.5, 1.05, (u / 2) ** 2 + (v / (v > 0 ? 4.4 : 2.7)) ** 2);
       splats[i * 3] = Math.max(wear * .85, (1 - smooth(.4, 1.5, Math.hypot(u - 2.4, v + 2.6))) * .65);
+      tmp.multiplyScalar(1 - wear * .18);   // trodden turf around the pad is darker even where no earth shows
     }
     for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 2.2) tmp.lerp(cSand, smooth(2.2, 1.1, e) * 0.7); }
     splats[i*3] = Math.max(splats[i*3], smooth(4, 0, fi.d) * smooth(.1, .3, fi.t) * (1-smooth(.7,.95,fi.t)) * .25);
