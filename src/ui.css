@@ -380,3 +380,11 @@ body[data-phase='result'] #utilities, body.result-mode #utilities { display: non
   #hintText, #hintSub { font-size: 10px; }
   #hintArrow, #hintArrow .icon { width: 20px; height: 20px; }
 }
+
+/* ---------- hole intro: flyover title, HUD hidden while the camera flies ---------- */
+#hud { transition: opacity .45s; }
+body[data-phase='intro'] #hud { opacity: 0; }
+#holeTitle { position: fixed; left: calc(22px + env(safe-area-inset-left, 0px)); bottom: calc(24px + var(--sab)); z-index: 11; pointer-events: none; opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; color: #fff; font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', Impact, sans-serif; font-weight: 800; text-transform: uppercase; line-height: .9; letter-spacing: .005em; text-shadow: 0 2px 3px #0009, 0 10px 34px #0008; }
+#holeTitle b, #holeTitle span { display: block; font-size: clamp(42px, 9.5vmin, 104px); font-weight: 800; }
+body[data-phase='intro'] #holeTitle { opacity: 1; transform: none; transition-duration: .5s; }
+@media (prefers-reduced-motion: reduce) { #holeTitle, #hud { transition: none; } }

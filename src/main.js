@@ -47,7 +47,7 @@ const resize = () => { renderer.setSize(innerWidth, innerHeight); renderer.setPi
 addEventListener('resize', resize); resize();
 
 let course, world, holes, effects = null;
-const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos: new THREE.Vector3(), tLook: new THREE.Vector3(), mode: 'menu', lastHv: new THREE.Vector3(0, 0, -1) };
+const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos: new THREE.Vector3(), tLook: new THREE.Vector3(), mode: 'menu', lastHv: new THREE.Vector3(0, 0, -1), fov: 58 };
 // Flight preview: a screen-space dashed ribbon (readable at any pixel ratio) over a dark outline, and a ground
 // arrow at the lie that turns with the aim. The dashes flow toward the basket so the direction reads at a glance.
 const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false });
@@ -117,7 +117,7 @@ const heroBlob=new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4).rotateX(-Math.PI/
 const studioFill=new THREE.HemisphereLight('#ffffff','#d0e8df',.9);scene.add(studioFill);studioFill.visible=false;
 let cameraOffset=null;
 function frameInterface() {
-  const staged=cam.mode==='menu'||cam.mode==='locker';
+  const staged=cam.mode==='locker';   // the locker keeps its calm creator stage; the clubhouse hero stands on the real tee
   stage.visible=staged;studioFill.visible=staged;
   course.group.visible=!staged;if(course.sky)course.sky.visible=!staged;
   scene.background=staged?stageBackground:null;
@@ -199,7 +199,9 @@ function startHole() {
   UI.setHud({ hole: G.holeIdx + 1, par: h.par, len: h.len, dist: h.len, throwNo: 'Tee', playerName: '' });
   UI.setControlsEnabled(false); UI.waiting(null); preview.visible = false;
   G.phase = 'intro'; G.introT = 0; cam.mode = 'intro'; G.overview = false;
-  UI.toast(`Hole ${G.holeIdx + 1}`, `Par ${h.par} · ${Math.round(h.len)} m${h.pondKind ? ' · water in play' : ''}`, 2600);
+  // Broadcast-style title over the flyover (the HUD is hidden while data-phase is 'intro'; set it now so the HUD never flashes).
+  const title = $('holeTitle'); if (title) { title.firstElementChild.textContent = `Hole ${G.holeIdx + 1}`; title.lastElementChild.textContent = `Par ${h.par} · ${Math.round(h.len)} m`; }
+  document.body.dataset.phase = 'intro';
 }
 function updateWindHud() {
   const [wx, wz] = world.wind, ws = Math.hypot(wx, wz);
@@ -435,36 +437,40 @@ function updatePreview() {
 
 // ---------- camera ----------
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+const baseFov = () => camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58;   // mirrors resize(); narrower lenses below are per camera mode
 function updateCamera(dt) {
   if (document.body.dataset.phase !== G.phase) document.body.dataset.phase = G.phase;
   frameInterface();
   const h = holes[G.holeIdx] || holes[0];
-  let k = 5;
-  if (cam.mode === 'menu' || cam.mode === 'locker') {   // hero shot of the avatar on tee 1, slow sway
+  let k = 5, fov = baseFov();
+  if (cam.mode === 'menu') {   // clubhouse: the athlete on tee 1 facing us, low three-quarter lens with the fairway, pin and tree line behind
     const h0 = holes[0], t = performance.now() / 1000, d = [h0.basket[0] - h0.tee[0], h0.basket[1] - h0.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
-    const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2, locker = cam.mode === 'locker';
-    const faceEdit=locker && document.querySelector('.locker-tabs [aria-selected="true"]')?.dataset.category==='face';
+    const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2, sway = Math.sin(t * 0.18) * 0.1;
+    hero.faceDir(-d[0], -d[1]);
+    const side = (wide ? 1.2 : .5) + sway, back = wide ? 2.5 : 2.8, la = wide ? 8 : 7.2, ls = wide ? 0 : 1.4;
+    cam.tPos.set(p.x - d[0] * back - r[0] * side, p.y + (wide ? 1.05 : 1.3), p.z - d[1] * back - r[1] * side);   // portrait: look down so the athlete sits above the card with the horizon just over it
+    cam.tLook.set(p.x + d[0] * la + r[0] * ls, p.y + (wide ? .95 : -2), p.z + d[1] * la + r[1] * ls); k = 4; fov = wide ? 46 : baseFov();
+  } else if (cam.mode === 'locker') {   // creator stage: orbit the avatar's front, slow sway
+    const h0 = holes[0], t = performance.now() / 1000, d = [h0.basket[0] - h0.tee[0], h0.basket[1] - h0.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
+    const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2;
+    hero.faceDir(d[0], d[1]);
+    const faceEdit=document.querySelector('.locker-tabs [aria-selected="true"]')?.dataset.category==='face';
     const hy = hero.headY || 1.39;   // frame whichever rig loaded: the athlete's face sits higher than the Mii's
-    const ang = Math.sin(t * 0.18) * 0.04 + (locker ? -.10 : -.26), dist = faceEdit ? Math.max(.95, hy * .62) : 3.25;
+    const ang = Math.sin(t * 0.18) * 0.04 - .10, dist = faceEdit ? Math.max(.95, hy * .62) : 3.25;
     const fx = d[0] * Math.cos(ang) + r[0] * Math.sin(ang), fz = d[1] * Math.cos(ang) + r[1] * Math.sin(ang);   // direction from hero to camera, swept around his front
-    const side = wide ? (faceEdit ? .45 : 1.25) : 0;   // desktop: menu panel sits on the left, so frame the hero right of centre
+    const side = wide ? (faceEdit ? .45 : 1.25) : 0;   // desktop: the panel sits on the left, so frame the hero right of centre
     cam.tPos.set(p.x + fx * dist + r[0] * side, p.y + (faceEdit ? hy + .03 : hy * .97), p.z + fz * dist + r[1] * side);
     cam.tLook.set(p.x + r[0] * side, p.y + (faceEdit ? hy - .01 : hy * .62), p.z + r[1] * side); k = 4;
   } else if (cam.mode === 'courses') {   // slow flyover of the whole course
     const t = performance.now() / 1000 * 0.06, cx = holes.reduce((a, h) => a + h.basket[0], 0) / holes.length, cz = holes.reduce((a, h) => a + h.basket[1], 0) / holes.length;
     cam.tPos.set(cx + Math.cos(t) * 170, world.height(cx, cz) + 95, cz + Math.sin(t) * 170); cam.tLook.set(cx, world.height(cx, cz), cz); k = 1.5;
-  } else if (cam.mode === 'intro') {
+  } else if (cam.mode === 'intro') {   // flyover: pin first from a low airborne start short of the basket, then pull back down the fairway to high behind the tee
     const d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
-    const orbit=Math.min(1,G.introT/1.25), u=ease(Math.max(0,Math.min(1,(G.introT-1.25)/3.35)));
-    const r=rightOf(d), angle=-.75+orbit*.9;
-    const start=new THREE.Vector3(h.basket[0]+d[0]*Math.cos(angle)*7+r[0]*Math.sin(angle)*7,h.basketY+3.1,h.basket[1]+d[1]*Math.cos(angle)*7+r[1]*Math.sin(angle)*7);
-    const end=new THREE.Vector3(h.tee[0]-d[0]*5.6,h.teeY+2.3,h.tee[1]-d[1]*5.6);
-    cam.pos.lerpVectors(start,end,u); cam.pos.y+=Math.sin(u*Math.PI)*Math.min(14,L*.13);
-    cam.pos.y=Math.max(cam.pos.y,world.height(cam.pos.x,cam.pos.z)+1.6);
-    _v.set(h.basket[0],h.basketY+1.0,h.basket[1]);
-    _v2.set(h.tee[0]+d[0]*16,h.teeY+.5,h.tee[1]+d[1]*16);
-    cam.look.lerpVectors(_v,_v2,ease(Math.max(0,(u-.55)/.45)));   // hold the basket in frame while flying back; a linear blend pointed straight down at grass mid-flight
-    camera.position.copy(cam.pos); camera.lookAt(cam.look); return;
+    const r = rightOf(d), u = ease(Math.min(1, G.introT / 4.7)), s = Math.min(25, L * .45);
+    _v.set(h.basket[0] - d[0] * s - r[0] * 7, h.basketY + 12, h.basket[1] - d[1] * s - r[1] * 7);
+    _v2.set(h.tee[0] - d[0] * 8 - r[0] * .6, h.teeY + 4, h.tee[1] - d[1] * 8 - r[1] * .6);
+    cam.tPos.lerpVectors(_v, _v2, u); cam.tPos.y = Math.max(cam.tPos.y, world.height(cam.tPos.x, cam.tPos.z) + 1.6);
+    cam.tLook.set(h.basket[0], h.basketY + 1, h.basket[1]); k = 1e3;   // no smoothing: the eased path is the motion
   } else if (cam.mode === 'aim' || (cam.mode === 'result' && !G.flight)) {
     const p = curP(); if (!p) return;
     const d = aimDir(), r = rightOf(d), lie = p.char.group.position;
@@ -476,12 +482,14 @@ function updateCamera(dt) {
       const r=rightOf(d);cam.tPos.set(lie.x+d[0]*3.8+r[0]*.7,lie.y+1.45,lie.z+d[1]*3.8+r[1]*.7);
       cam.tLook.set(lie.x,lie.y+.92,lie.z); k=5;
     }
-    else {
-      const pitchLift = G.aim.pitch * 0.06;
-      const back = camera.aspect < 0.8 ? 5.6 : 4.8;
-      const portrait = camera.aspect < 1.2, ahead = portrait ? 10 : 16;
-      cam.tPos.set(lie.x - d[0] * back + r[0] * 0.75, lie.y + (portrait ? 3.1 : 2.3) + pitchLift, lie.z - d[1] * back + r[1] * 0.75);
-      cam.tLook.set(lie.x + d[0] * ahead, lie.y + (portrait ? -.3 : .4) + G.aim.pitch * .35, lie.z + d[1] * ahead);
+    else {   // over the left shoulder on a long lens: player right of frame, basket left of centre, nothing between them; tighter for putts
+      const putt = G.throwType === 'putt', portrait = camera.aspect < 1.2, drop = putt ? Math.max(0, lie.y - h.basketY) : 0;   // downhill putt: climb and step back so both the head and the band stay in frame
+      const back = (putt ? 1.7 : 1.8) + drop * .35, side = (putt ? .7 : .55) * (portrait ? .45 : 1), up = (putt ? 1.35 : 1.4) + drop * .3 + G.aim.pitch * .06;
+      cam.tPos.set(lie.x - d[0] * back - r[0] * side, lie.y + up, lie.z - d[1] * back - r[1] * side);
+      // putts: level the lens on the basket's band whatever the green's slope (the look stays along the aim, so dragging still steers); drives: a fixed lift keeps the pin near 40% height
+      const bd = distToBasket(lie.x, lie.z) + back, lookY = putt ? cam.tPos.y + (h.basketY + .45 - cam.tPos.y) * (14 + back) / bd : lie.y + .45;
+      cam.tLook.set(lie.x + d[0] * 14 + r[0] * .33, lookY + G.aim.pitch * .35, lie.z + d[1] * 14 + r[1] * .33);
+      fov = portrait ? (putt ? 58 : 62) : camera.aspect < 1.6 ? 46 : putt ? 42 : 40;
     }
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
     const f = G.flight;
@@ -494,9 +502,10 @@ function updateCamera(dt) {
     }
   }
   const a = 1 - Math.exp(-k * dt);
-  cam.pos.lerp(cam.tPos, a); cam.look.lerp(cam.tLook, a);
+  cam.pos.lerp(cam.tPos, a); cam.look.lerp(cam.tLook, a); cam.fov += (fov - cam.fov) * a;
   const gy = world.height(cam.pos.x, cam.pos.z) + 0.7; if (cam.pos.y < gy) cam.pos.y = gy;
   camera.position.copy(cam.pos); camera.lookAt(cam.look);
+  if (Math.abs(camera.fov - cam.fov) > .01) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }   // resize() resets fov by aspect; this re-applies the mode's lens every frame
 }
 
 // ---------- main loop ----------
