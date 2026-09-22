@@ -249,7 +249,7 @@ function setupTurn(idx) {
   // sensible default club for the distance (players can change it)
   if (dist > 62) { G.throwType = 'backhand'; G.discId = 'driver'; } else if (dist > 34) { G.throwType = 'backhand'; G.discId = 'fairway'; } else if (dist > 15) { G.throwType = 'backhand'; G.discId = 'mid'; } else { G.throwType = 'putt'; G.discId = 'putter'; }
   UI.selectThrow(G.throwType); UI.selectDisc(G.discId); ensureDisc(p, G.discId); p.discMesh.visible = true;
-  UI.setHud({ dist, circle: dist <= 10, playerName: p.name, throwNo: p.strokes === 0 ? 'Tee shot' : `Throw ${p.strokes + 1}` });
+  UI.setHud({ dist, circle: dist <= 10, playerName: p.name, throwNo: p.strokes === 0 ? 'Tee shot' : `Throw ${p.strokes + 1}`, elev: holes[G.holeIdx].basketY - lie[1] });
   updateWindHud();
   UI.setPower(0); G.gesture = { power: 0, lateral: 0 }; G.previewDirty = true;
   G.phase = 'aim'; cam.mode = 'aim'; G.overview = false; $('btnOverview').classList.remove('on'); $('btnOverview').setAttribute('aria-pressed', 'false');
@@ -413,6 +413,7 @@ function onGesture(g) {
   UI.setHint(G.throwType, 'swipe further for power · drag the view to aim');
   buzz(15);
   doThrow(G.cur, o);
+  document.body.classList.add('thrown');   // the swipe hint fades after the first real throw (ui.css)
 }
 function gestureParams(power, lateral) {
   const th = THROWS[G.throwType], p = curP();
