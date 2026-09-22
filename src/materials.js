@@ -57,7 +57,8 @@ export function terrainSplat(material, geometry, weights, { duff = null, lite = 
         float dirtW = smoothstep(.28, .72, vSplat.x + (breakup - .5) * .6);
         float duffW = smoothstep(.2, .7, vSplat.z + (breakup - .5) * .5);
         diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(duffTile, vGround * .62).rgb, duffW);
-        diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(dirtTile, vGround * .25).rgb * vec3(.6, .65, .68), dirtW);
+        vec3 earth = texture2D(dirtTile, vGround * .25).rgb; earth = mix(earth, vec3(dot(earth, vec3(.3, .59, .11))), .4) * .8;   // dusty grey-brown, not orange
+        diffuseColor.rgb = mix(diffuseColor.rgb, earth, dirtW);
         diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(sandTile, vGround * .32).rgb, vSplat.y); }` : ''}`);
   };
   material.customProgramCacheKey=()=> 'chains-ground-v3-'+splat+(lite?'-lite':'');
