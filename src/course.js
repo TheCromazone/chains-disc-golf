@@ -408,7 +408,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const leafMats = new Map();
   // Leaves lit from behind glow (thin-leaf transmission) and sun-averted cards wrap instead of going flat. After three's
   // directional loop, directLight.color still holds the sun colour with its shadow applied, so shaded crowns do not glow.
-  const leafLight = mat => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.fragmentShader = s.fragmentShader.replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+  // The build bakes each leaf normal pointing away from the crown centre, so the crown lights as one volume (bright top,
+  // dark underside); the double-sided flip is dropped so a card seen from behind keeps that crown normal.
+  const leafLight = mat => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
     #if NUM_DIR_LIGHTS > 0
     { vec3 L = directionalLights[0].direction; float back = pow(saturate(dot(-normalize(vViewPosition), L)), 3.);
       float wrap = saturate((dot(normal, L) + .5) / 1.5);
@@ -426,7 +428,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       for (const part of parts) {
         const key = part.material.name.replace(/\.\d+$/, '');
         if (key === 'bark') inst(part.geometry, trunkMat, mine, null, false);
-        else { const mat = leafCard(key); if (!mat) return; inst(part.geometry, mat, mine, s => col.setHSL(.27 + (noise(s.x / 19 + 3, s.z / 19) - .5) * .07, .45, .62 + (noise(s.z / 23, s.x / 23 + 7) - .5) * .14), shadow); }   // hue and lightness lean about ±10% per tree
+        else { const mat = leafCard(key); if (!mat) return; inst(part.geometry, mat, mine, s => col.setHSL(.27 + (noise(s.x / 19 + 3, s.z / 19) - .5) * .07, .42, .57 + (noise(s.z / 23, s.x / 23 + 7) - .5) * .14), shadow); }   // hue and lightness lean about ±10% per tree
       }
     });
     return true;

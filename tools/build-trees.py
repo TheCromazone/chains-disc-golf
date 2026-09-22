@@ -26,7 +26,8 @@ def material(name, color):
 class Builder:
   """Accumulates tube and card geometry for one tree into two meshes."""
   def __init__(self, rng):
-    self.rng = rng; self.wv = []; self.wf = []; self.wuv = []; self.lv = []; self.lf = []; self.luv = []; self.lc = []; self.ao = lambda v, g: (g, g, g)
+    self.rng = rng; self.wv = []; self.wf = []; self.wuv = []; self.lv = []; self.lf = []; self.luv = []; self.lc = []; self.la = []; self.ao = lambda v, g: (g, g, g)
+    self.nrm = lambda v, anchor: Vector((0, 0, 1))
   def tube(self, a, b, r1, r2, seg=6):
     A, B = Vector(a), Vector(b); n = (B - A).normalized()
     up = Vector((0, 0, 1)) if abs(n.z) < .9 else Vector((1, 0, 0)); u = n.cross(up).normalized(); v = n.cross(u)
@@ -44,16 +45,18 @@ class Builder:
       m = Matrix.Rotation(roll + k * math.pi / 2, 4, n)
       u = (m @ up.cross(n)).normalized() * size * .5 * aspect; w = (m @ up).normalized() * size
       c = Vector(centre); base = len(self.lv)
-      for v in (c - u, c + u, c + u + w, c - u + w): self.lv.append(v); self.lc.append(self.ao(v, shade))
+      for v in (c - u, c + u, c + u + w, c - u + w): self.lv.append(v); self.lc.append(self.ao(v, shade)); self.la.append(c + w * .5)   # anchor: the card's centre
       self.lf.append((base, base + 1, base + 2, base + 3)); self.luv.append([(0, 0), (1, 0), (1, 1), (0, 1)])
-  def crown(self, z0, z1, radius_at):
+  def crown(self, z0, z1, radius_at, centre):
     """Hemispherical occlusion baked into leaf vertex colour: lit at the top rim, dark at the crown core and underside.
-    radius_at(up) is the crown's radius at that height fraction, so a cone and a globe both shade against their own outline."""
+    radius_at(up) is the crown's radius at that height fraction, so a cone and a globe both shade against their own outline.
+    Leaf normals point away from centre(v, anchor) instead of across each card (anchor is the card's base point), so the
+    runtime lights the crown as one volume: bright top, dark underside, whichever way the flat cards happen to face."""
     def ao(v, gain):
       up = min(1, max(0, (v.z - z0) / (z1 - z0))); r = min(1, math.hypot(v.x, v.y) / radius_at(up))
-      sky = min(1, max(0, .4 * r + .6 * up)) ** 1.8 * gain
-      return (.12 + .78 * sky, .15 + .75 * sky, .15 + .72 * sky)   # the shade leans cool, the light warm
-    self.ao = ao
+      sky = min(1, max(0, .5 * r + .5 * up)) ** 1.4 * gain
+      return (.2 + .7 * sky, .22 + .68 * sky, .22 + .65 * sky)   # the shade leans cool, the light warm
+    self.ao = ao; self.nrm = lambda v, anchor: (v - centre(v, anchor)).normalized()
   def finish(self, name, mats):
     objs = []
     for tag, verts, faces, uvs, cols, mat in (('wood', self.wv, self.wf, self.wuv, None, mats[0]), ('leaves', self.lv, self.lf, self.luv, self.lc, mats[1])):
@@ -70,13 +73,21 @@ class Builder:
     bpy.ops.object.select_all(action='DESELECT')   # earlier trees stay selected otherwise and would be joined in
     for o in objs: o.select_set(True)
     bpy.context.view_layer.objects.active = objs[0]; bpy.ops.object.join(); o = objs[0]; o.name = name
+    me = o.data; normals = [v.normal.copy() for v in me.vertices]; nw = len(self.wv)   # wood keeps its smooth tube normals
+    assert len(me.vertices) == nw + len(self.lv) and (me.vertices[nw].co - self.lv[0]).length < 1e-4, 'join appends the leaf vertices after the wood'
+    for p in me.polygons:
+      if p.material_index == 1:
+        for vi in p.vertices: normals[vi] = self.nrm(me.vertices[vi].co, self.la[vi - nw])
+    me.normals_split_custom_set_from_vertices(normals)
     return o
 
 def deciduous(rng, name, mats, height=7.5, spread=1.0, lean=0.0, bare=.5):
-  """Bare trunk for `bare` of the height, a leader through the crown, few limbs each forking once. Leaf clusters sit at the
-  limb ends only, big and irregular, and a fifth of the tips stay bare, so sky shows through and the skeleton reads."""
-  b = Builder(rng); h = height * rng.uniform(.9, 1.1); R = h * .4 * spread
-  b.crown(h * bare * .8, h * 1.05, lambda up: R * (.55 + .45 * math.sin(up * math.pi)))
+  """Bare trunk for `bare` of the height, a leader through the crown, few limbs each forking once. Leaf cards pack along the
+  outer half of every limb and fill the core around the leader, so the crown reads as one mass with no trunk showing
+  through; a few tips stay bare so the outline breaks and sky shows at the edge."""
+  b = Builder(rng); h = height * rng.uniform(.9, 1.1); R = h * .4 * spread; z0, z1 = h * bare * .8, h * 1.05
+  radius = lambda up: R * (.55 + .45 * math.sin(up * math.pi)); core = Vector((0, 0, z0 + (z1 - z0) * .42))
+  b.crown(z0, z1, radius, lambda v, a: core)   # core is re-centred on the leaf mass once the cards are placed (below)
   p = Vector((0, 0, 0)); d = Vector((lean * .4, 0, 1)).normalized(); r = .2 * h / 7.5; tips = []
   segs = 5
   for i in range(segs):
@@ -95,20 +106,27 @@ def deciduous(rng, name, mats, height=7.5, spread=1.0, lean=0.0, bare=.5):
     side = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(.4, 1))).normalized()
     f = (dirn * .5 + side * .6).normalized(); mid = start + dirn * L * rng.uniform(.4, .65); fe = mid + f * L * rng.uniform(.5, .75)
     b.tube(mid, fe, r * .3, r * .1); tips.append((fe, f, L * .6))
+  def leaf(c, size):
+    out = Vector((c.x, c.y, 0)).normalized() if c.xy.length > .5 else Vector((1, 0, 0))
+    b.card(c - Vector((0, 0, size * .4)), size, out + Vector((rng.uniform(-.6, .6), rng.uniform(-.6, .6), rng.uniform(-.3, .3))), rng.uniform(0, math.pi))
   for end, dirn, L in tips:
-    if rng.random() < .2: continue   # bare tip: a gap in the crown
-    for j in range(rng.randint(3, 4)):
-      c = end - dirn * L * rng.uniform(0, .25) + Vector((rng.uniform(-.45, .45), rng.uniform(-.45, .45), rng.uniform(-.3, .3)))
-      size = h * rng.uniform(.2, .3) * spread   # cards stay under ~2.5 m so the photo leaves keep a believable scale
-      out = Vector((c.x, c.y, 0)).normalized() if c.xy.length > .5 else Vector((1, 0, 0))
-      b.card(c - Vector((0, 0, size * .4)), size, out + Vector((rng.uniform(-.6, .6), rng.uniform(-.6, .6), rng.uniform(-.3, .3))), rng.uniform(0, math.pi))
+    if rng.random() < .15: continue   # bare tip: a gap in the crown
+    for j in range(rng.randint(7, 10)):
+      c = end - dirn * L * rng.uniform(0, .55) + Vector((rng.uniform(-.55, .55), rng.uniform(-.55, .55), rng.uniform(-.35, .35)))
+      leaf(c, h * rng.uniform(.15, .24) * spread)   # cards stay under ~2 m so the photo leaves keep a believable scale
+  for j in range(rng.randint(10, 14)):   # core fill: the leader and limb bases never show through
+    up = rng.uniform(.15, .8); ang = rng.uniform(0, math.tau); rad = radius(up) * rng.uniform(.1, .6)
+    leaf(Vector((math.cos(ang) * rad, math.sin(ang) * rad, z0 + up * (z1 - z0))), h * rng.uniform(.15, .22) * spread)
+  core.xy = (0, 0); core.z = sum(v.z for v in b.lv) / len(b.lv) - h * .1   # a little under the leaf centroid: two thirds of the cards face up
   return b.finish(name, mats)
 
 def pine(rng, name, mats, height=11, bare=.35, density=.85):
   """Bare trunk to `bare` of the height, then loose tiers of unequal branches with a sprig standing at each tip and one mid-branch;
   missing branches (1 - density) and the tier spacing leave sky gaps between the dark masses, as in the reference pines."""
   b = Builder(rng); h = height * rng.uniform(.9, 1.1); r = .24 * h / 11; R = h * .3
-  b.crown(h * bare, h, lambda up: R * (1 - .75 * up) + .3)
+  # each sprig shades against its own tier: the card's top edge faces up and out, its hanging bottom edge faces down, so the
+  # tiers stack as lit shelves over dark undersides instead of one smooth cone
+  b.crown(h * bare, h, lambda up: R * (1 - .75 * up) + .3, lambda v, a: Vector((0, 0, a.z - R * .15)))
   p = Vector((0, 0, 0)); segs = 6
   for i in range(segs):
     q = p + Vector((rng.uniform(-.05, .05), rng.uniform(-.05, .05), h / segs)); b.tube(p, q, r, r * .78); p, r = q, r * .78
@@ -120,20 +138,25 @@ def pine(rng, name, mats, height=11, bare=.35, density=.85):
       ang = i * math.tau / n + rng.uniform(-.5, .5); droop = -.08 - .12 * (1 - t) + rng.uniform(-.08, .08)
       Li = L * rng.uniform(.6, 1.15); dirn = Vector((math.cos(ang), math.sin(ang), droop)).normalized(); start = Vector((0, 0, z)); end = start + dirn * Li
       b.tube(start, end, .045 * Li + .02, .012)
-      for frac, k in ((1.0, 1.0), (.5, .75)):
-        if frac < 1 and Li < 1.6: continue
-        c = start + dirn * Li * frac; size = min(2.4, Li * .7 + .5) * k
-        b.card(c - Vector((0, 0, size * .5)), size, (dirn.x, dirn.y, .25), rng.uniform(-.35, .35), aspect=.7)
+      for frac, k in ((1.0, 1.0), (.75, .85), (.5, .75), (.25, .65)):   # sprigs all along the branch, not one at the tip
+        if frac < 1 and Li * frac < .9: continue
+        c = start + dirn * Li * frac + Vector((rng.uniform(-.25, .25), rng.uniform(-.25, .25), rng.uniform(-.15, .15))); size = min(2.2, Li * .55 + .5) * k
+        b.card(c - Vector((0, 0, size * .5)), size, (dirn.x + rng.uniform(-.3, .3), dirn.y + rng.uniform(-.3, .3), .25), rng.uniform(-.35, .35), aspect=.7)
+    for i in range(2):   # sprigs hugging the trunk between tiers, so it never reads as a bare pole through the crown
+      ang = rng.uniform(0, math.tau); c = Vector((math.cos(ang) * .45, math.sin(ang) * .45, z + h * rng.uniform(.02, .08)))
+      b.card(c - Vector((0, 0, .6)), 1.2 + .6 * (1 - t), (math.cos(ang), math.sin(ang), .25), rng.uniform(-.35, .35), aspect=.7)
     z += h * rng.uniform(.09, .13)
   b.card(Vector((0, 0, h - .7)), 1.6, (1, 0, 0), rng.uniform(0, 1), aspect=.7)   # crown spike, standing
   return b.finish(name, mats)
 
 def bush(rng, name, mats):
-  b = Builder(rng); b.crown(0, 1.3, lambda up: 1.1)
+  b = Builder(rng); b.crown(0, 1.3, lambda up: 1.1, lambda v, a: Vector((0, 0, -.3)))
   for i in range(rng.randint(8, 11)):
     ang = rng.uniform(0, math.tau); rad = rng.uniform(0, .6); c = Vector((math.cos(ang) * rad, math.sin(ang) * rad, rng.uniform(.15, .8)))
     b.tube(Vector((0, 0, 0)), c, .03, .01, 5)
-    b.card(c - Vector((0, 0, .5)), rng.uniform(1.1, 1.6), (math.cos(ang), math.sin(ang), rng.uniform(-.2, .5)), rng.uniform(0, math.pi))
+    for k in range(3):   # three cards per stem, spread around it
+      d = c + Vector((rng.uniform(-.35, .35), rng.uniform(-.35, .35), rng.uniform(-.2, .2)))
+      b.card(d - Vector((0, 0, .45)), rng.uniform(.9, 1.3), (d.x + rng.uniform(-.5, .5), d.y + rng.uniform(-.5, .5), rng.uniform(-.2, .5)), rng.uniform(0, math.pi))
   return b.finish(name, mats)
 
 def export(species, objs):

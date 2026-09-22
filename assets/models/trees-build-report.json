@@ -5,8 +5,8 @@
       "deciduous1",
       "deciduous2"
     ],
-    "triangles": 1076,
-    "bytes": 20820
+    "triangles": 1924,
+    "bytes": 43808
   },
   "pine": {
     "variants": [
@@ -14,15 +14,15 @@
       "pine1",
       "pine2"
     ],
-    "triangles": 1236,
-    "bytes": 20904
+    "triangles": 1820,
+    "bytes": 33504
   },
   "bush": {
     "variants": [
       "bush0",
       "bush1"
     ],
-    "triangles": 238,
-    "bytes": 7740
+    "triangles": 418,
+    "bytes": 12280
   }
 }
