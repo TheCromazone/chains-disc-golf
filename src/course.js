@@ -624,7 +624,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if (focus && scatterNear) { const still = Math.hypot(focus.x - lastFx, focus.z - lastFz) < .05; lastFx = focus.x; lastFz = focus.z; if (still) scatterNear(focus); }   // a resting lie, not a flying disc or flyover
     if(view) for(const marker of destinationMarkers) if(marker.visible) {
       const distance=Math.hypot(view.x-marker.position.x,view.z-marker.position.z), size=clamp(distance*.065,1.2,7);
-      marker.scale.set(size,size*1.25,1);marker.material.opacity=smooth(7,17,distance);
+      marker.scale.set(size,size*1.25,1);marker.material.opacity=smooth(14,22,distance);   // gone inside putting range: the basket is the target there
       marker.position.y=height(marker.position.x,marker.position.z)+2.7+size*.6;
     }
     windClock.value=t; sky.material.uniforms.time.value = t;
