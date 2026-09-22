@@ -20,13 +20,17 @@
 <div id="fade"></div>
 
 <div id="hud" class="hidden">
-  <div id="top" class="panel" aria-label="Round information">
-    <div id="holeInfo"><span class="muted" id="holeLabel">HOLE 1</span><b id="holePar">Par 3 · 85 m</b></div>
-    <div id="distInfo"><b id="dist" aria-label="Distance to basket">85 m</b><span id="wind"><span id="windArrow" data-icon="arrow"></span><span id="windText">calm</span></span></div>
-    <div id="playerInfo"><span class="muted" id="throwNo">Throw 1</span><b id="playerName">You</b></div>
+  <div id="top" aria-label="Round information">
+    <div id="holeInfo"><span id="holeLabel">HOLE 1</span><span id="holePar">Par 3 · 85 m</span></div>
+    <div id="playerInfo"><b id="playerName">You</b><b id="dist" aria-label="Distance to basket">85 m</b></div>
+    <div id="throwNo">Throw 1</div>
   </div>
-  <div id="powerLabel">POWER</div>
+  <div id="conditions" aria-label="Conditions">
+    <span id="wind"><span id="windArrow" data-icon="arrow"></span>Wind <b id="windText">calm</b></span>
+    <span id="elev">Elevation <b id="elevText">—</b></span>
+  </div>
   <div id="power"><div id="powerFill"></div></div>
+  <div id="powerLabel">POWER</div>
   <div id="utilities">
     <button id="btnUtilities" aria-label="Course tools" aria-expanded="false" aria-controls="sideBtns"><span data-icon="menu"></span></button>
     <div id="sideBtns" class="hidden" role="group" aria-label="Course tools">
@@ -47,9 +51,7 @@
     <div id="discRow" class="equipment-picker hidden" role="group" aria-label="Choose disc"></div>
   </div>
   <div id="pad">
-    <div id="hintArrow" data-icon="arrow"></div>
-    <div id="hintText">BACKHAND · swipe right</div>
-    <div id="hintSub">swipe further for power · drag the view to aim</div>
+    <div class="hint"><span id="hintArrow" data-icon="arrow"></span><span id="hintText">BACKHAND · swipe right</span><span id="hintSub">swipe further for power · drag the view to aim</span></div>
   </div>
 </div>
 
@@ -129,11 +131,13 @@
   <div class="panel stack">
     <div class="eyebrow"><span data-icon="trophy"></span>Round report</div>
     <h2 id="scoreTitle">Scorecard</h2>
-    <div id="scoreBest" class="muted hidden" style="text-align:center;margin:-6px 0 10px"></div>
-    <div id="scoreStand"></div>
-    <div style="overflow-x:auto"><table id="scoreTable"></table></div>
-    <div class="row"><button id="btnScoreMenu"><span data-icon="menu"></span><span>Menu</span></button><button class="primary" id="btnScoreNext" style="flex:1">Next hole</button></div>
-    <div id="scoreWait" class="muted hidden" style="text-align:center">Waiting for the host…</div>
+    <div class="score-body">
+      <div id="scoreBest" class="muted hidden"></div>
+      <div id="scoreStand"></div>
+      <div class="score-grid"><table id="scoreTable"></table></div>
+      <div class="row score-actions"><button id="btnScoreMenu"><span data-icon="menu"></span><span>Menu</span></button><button class="primary" id="btnScoreNext" style="flex:1">Next hole</button></div>
+      <div id="scoreWait" class="muted hidden">Waiting for the host…</div>
+    </div>
   </div>
 </div>
 

@@ -29,7 +29,7 @@ export function toast(title, sub = '', ms = 1800) {
 }
 export function fade(on) { $('fade').classList.toggle('on', on); }
 
-export function setPower(p) { $('powerFill').style.transform = `scaleY(${Math.max(0, Math.min(1, p)).toFixed(3)})`; $('powerLabel').textContent = p > 0 ? `${Math.round(p * 100)}%` : 'POWER'; }
+export function setPower(p) { $('power').style.setProperty('--p', Math.max(0, Math.min(1, p)).toFixed(3)); $('powerLabel').textContent = p > 0 ? `${Math.round(p * 100)}%` : 'POWER'; }
 export function setHint(throwType, sub) {
   const t = THROWS[throwType];
   const angles = { backhand: 0, backhand_io: 0, backhand_oi: 0, forehand: 180, forehand_io: 180, forehand_oi: 180, blade: 135, tomahawk: 90, scoober: -135, hammer: 45, putt: -90 };
@@ -38,7 +38,8 @@ export function setHint(throwType, sub) {
   if (sub !== undefined) $('hintSub').textContent = sub;
 }
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
-export function setHud({ hole, par, len, dist, playerName, throwNo, windText, windDeg, circle }) {
+export function setHud({ hole, par, len, dist, playerName, throwNo, windText, windDeg, circle, elev }) {
+  if (elev !== undefined) $('elevText').textContent = `${elev < -0.05 ? '−' : '+'}${Math.abs(elev).toFixed(1)} m`;
   if (hole !== undefined) $('holeLabel').textContent = `HOLE ${hole}`;
   if (par !== undefined) $('holePar').textContent = `Par ${par} · ${Math.round(len)} m`;
   if (dist !== undefined) { const label = dist < 1 ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`; $('dist').textContent = label; $('dist').setAttribute('aria-label', dist < 1 ? label : `${label} to basket`); }
@@ -98,7 +99,7 @@ export function buildDiscChips(onPick) {
 }
 export function selectThrow(id) { for (const b of $('throwRow').children) pressed(b, b.dataset.id === id); setHint(id); $('currentThrow').textContent = THROWS[id].name; $('currentThrowIcon').innerHTML = icon(id); $('btnThrowPicker').setAttribute('aria-label', `Choose throw, current: ${THROWS[id].name}`); }
 export function selectDisc(id) { for (const b of $('discRow').children) pressed(b, b.dataset.id === id); const d = DISCS.find(d => d.id === id); const name = id === 'mid' ? 'Midrange' : id[0].toUpperCase() + id.slice(1); $('currentDisc').textContent = name; $('currentDiscDot').style.background = d?.color || '#fff'; $('btnDiscPicker').setAttribute('aria-label', `Choose disc, current: ${name}`); }
-export function setControlsEnabled(on) { if (!on) closeEquipment(); $('controls').style.opacity = on ? 1 : 0.35; $('controls').style.pointerEvents = on ? 'auto' : 'none'; for (const b of $('controls').querySelectorAll('button')) b.disabled = !on; $('pad').style.opacity = on ? 1 : 0.5; }
+export function setControlsEnabled(on) { if (!on) closeEquipment(); $('controls').style.opacity = on ? 1 : 0.35; $('controls').style.pointerEvents = on ? 'auto' : 'none'; for (const b of $('controls').querySelectorAll('button')) b.disabled = !on; $('pad').classList.toggle('idle', !on); }
 export function setSoundMuted(muted) { const b = $('btnMute'); b.classList.toggle('muted-sound', muted); b.setAttribute('aria-pressed', String(muted)); b.title = muted ? 'Unmute sound' : 'Mute sound'; b.setAttribute('aria-label', b.title); }
 export function waiting(text) { if (text) { $('waiting').textContent = text; show('waiting'); } else hide('waiting'); }
 export function seg(id, onChange) { const el = $(id); for (const b of el.children) { pressed(b, b.classList.contains('on')); b.onclick = () => { for (const c of el.children) pressed(c, c === b); onChange(b.dataset.v); }; } return el.querySelector('.on').dataset.v; }
@@ -201,9 +202,9 @@ export function renderScorecard({ players, holes, holeIdx, final, isHost, online
   const totals = players.map(p => { let s = 0, par = 0; played.forEach((h, i) => { if (p.scores[i] != null) { s += p.scores[i]; par += h.par; } }); return { p, s, toPar: s - par }; });
   const sorted = [...totals].sort((a, b) => a.toPar - b.toPar);
   $('scoreTitle').textContent = final ? 'Final results' : `Hole ${holeIdx + 1} complete`;
-  $('scoreStand').innerHTML = sorted.map((t, i) => `<div class="stand ${final && i === 0 ? 'win' : ''}"><span class="standing-name"><span class="rank">${final && i === 0 ? icon('trophy') : String(i + 1).padStart(2, '0')}</span><span>${escapeText(t.p.name)}${t.p.isBot ? ' <span class="muted">bot</span>' : ''}</span></span><b>${t.s} <span class="muted">(${t.toPar > 0 ? '+' : ''}${t.toPar})</span></b></div>`).join('');
-  let html = `<tr><th></th>${holes.map((h, i) => `<th>${i + 1}<div class="muted">${h.par}</div></th>`).join('')}<th>Tot</th></tr>`;
-  for (const t of totals) html += `<tr><td class="name" style="color:${t.p.color}">${t.p.name}</td>${holes.map((h, i) => { const s = t.p.scores[i]; return s == null ? `<td>–</td>` : `<td class="s${Math.max(-3, Math.min(4, s - h.par))} ${i === holeIdx ? 'cur' : ''}">${s}</td>`; }).join('')}<td><b>${t.s}</b></td></tr>`;
+  $('scoreStand').innerHTML = sorted.map((t, i) => `<div class="stand ${final && i === 0 ? 'win' : ''}"><span class="standing-name"><span class="rank">${final && i === 0 ? icon('trophy') : String(i + 1).padStart(2, '0')}</span><span>${escapeText(t.p.name)}${t.p.isBot ? ' <span class="muted">bot</span>' : ''}</span></span><b><span class="badge">${t.s}</span><span class="topar">${fmt(t.toPar)}</span></b></div>`).join('');
+  let html = `<tr><th></th>${holes.map((h, i) => `<th>${i + 1}<div class="muted">Par ${h.par}</div></th>`).join('')}<th>Tot</th></tr>`;
+  for (const t of totals) html += `<tr><td class="name"><i class="dot" style="background:${t.p.color}"></i>${escapeText(t.p.name)}</td>${holes.map((h, i) => { const s = t.p.scores[i]; return s == null ? `<td>–</td>` : `<td class="s${Math.max(-3, Math.min(4, s - h.par))} ${i === holeIdx ? 'cur' : ''}">${s}</td>`; }).join('')}<td><b>${t.s}</b></td></tr>`;
   $('scoreTable').innerHTML = html;
   $('btnScoreNext').innerHTML = `${final ? 'Play again' : 'Next hole'}${icon('arrow')}`;
   const hostOk = !online || isHost;
