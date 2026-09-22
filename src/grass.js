@@ -11,15 +11,15 @@ import { windTime, windVec, GROUND_GLSL } from './materials.js';
 
 export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite, seed = 1 }) {
   const nx = segX + 1, nz = segZ + 1, n = nx * nz, f = x => x.toFixed(6);
-  const hgt = new Float32Array(n * 2), zone = new Uint8Array(n * 4), spl = new Uint8Array(n * 4);
+  const hgt = new Float32Array(n * 4), zone = new Uint8Array(n * 4), spl = new Uint8Array(n * 4);
   for (let i = 0; i < n; i++) {
-    hgt[i * 2] = pos.getY(i); hgt[i * 2 + 1] = turf[i * 2 + 1];
+    hgt[i * 4] = pos.getY(i); hgt[i * 4 + 1] = turf[i * 4 + 1]; hgt[i * 4 + 2] = turf[i * 4 + 2]; hgt[i * 4 + 3] = turf[i * 4 + 3];   // height, stripe coordinate, trail offset and wear
     for (let k = 0; k < 3; k++) zone[i * 4 + k] = Math.round(Math.sqrt(Math.min(1, colors[i * 3 + k])) * 255);   // sqrt: finer 8-bit steps where turf albedos live
-    zone[i * 4 + 3] = Math.round(turf[i * 2] * 255);
+    zone[i * 4 + 3] = Math.round(turf[i * 4] * 255);
     for (let k = 0; k < 4; k++) spl[i * 4 + k] = Math.round(Math.min(1, splats[i * 4 + k]) * 255);
   }
-  const data = (a, format, type, filter) => { const t = new THREE.DataTexture(a, nx, nz, format, type); t.minFilter = t.magFilter = filter; t.needsUpdate = true; return t; };
-  const maps = [data(hgt, THREE.RGFormat, THREE.FloatType, THREE.NearestFilter), data(zone, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.LinearFilter), data(spl, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.LinearFilter)];
+  const data = (a, type, filter) => { const t = new THREE.DataTexture(a, nx, nz, THREE.RGBAFormat, type); t.minFilter = t.magFilter = filter; t.needsUpdate = true; return t; };
+  const maps = [data(hgt, THREE.FloatType, THREE.NearestFilter), data(zone, THREE.UnsignedByteType, THREE.LinearFilter), data(spl, THREE.UnsignedByteType, THREE.LinearFilter)];
 
   // One clump: single-triangle blades 6-10 cm tall (scaled per clump in the shader) spread over a 12 cm disc, so
   // neighbouring clumps overlap into an even carpet instead of reading as tufts. A 20 px blade barely shows curvature,
@@ -51,20 +51,20 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = `attribute vec4 aRoot;attribute vec2 aSide,aBlade;uniform sampler2D gHeight,gZone,gSplat;uniform vec3 gEye;uniform vec2 gFwd;
       uniform vec4 gLayer[${layers.length}],gPads[${pads.length}];uniform float windTime;uniform vec2 windVec;varying vec3 vBlade;varying float vTip;${GROUND_GLSL}
-      vec2 gHeightAt(vec2 p,out vec3 n){   // the terrain mesh's own triangles: PlaneGeometry splits each cell along b-d
+      vec4 gHeightAt(vec2 p,out vec3 n){   // the terrain mesh's own triangles: PlaneGeometry splits each cell along b-d
         vec2 g=(p+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W)},${f(segZ / H)}),c=clamp(floor(g),vec2(0.),vec2(${f(segX - 1)},${f(segZ - 1)})),q=g-c;ivec2 i=ivec2(c);
-        vec2 a=texelFetch(gHeight,i,0).rg,b=texelFetch(gHeight,i+ivec2(0,1),0).rg,cc=texelFetch(gHeight,i+ivec2(1,1),0).rg,d=texelFetch(gHeight,i+ivec2(1,0),0).rg;
-        vec2 h;vec2 grad;
+        vec4 a=texelFetch(gHeight,i,0),b=texelFetch(gHeight,i+ivec2(0,1),0),cc=texelFetch(gHeight,i+ivec2(1,1),0),d=texelFetch(gHeight,i+ivec2(1,0),0);
+        vec4 h;vec2 grad;
         if(q.x+q.y<1.){h=a+(d-a)*q.x+(b-a)*q.y;grad=vec2(d.x-a.x,b.x-a.x);}else{h=cc-(cc-b)*(1.-q.x)-(cc-d)*(1.-q.y);grad=vec2(cc.x-b.x,cc.x-d.x);}
         grad*=vec2(${f(segX / W)},${f(segZ / H)});n=normalize(vec3(-grad.x,1.,-grad.y));return h;
       }
       void gBlade(out vec3 bladePos,out vec3 bladeNormal){
         vec4 L=gLayer[int(aRoot.w)];vec2 anchor=gEye.xz+gFwd*L.y,rel=aRoot.xy*L.x-anchor;rel-=L.x*floor(rel/L.x+.5);vec2 root=anchor+rel;
-        vec3 gn;vec2 ga=gHeightAt(root,gn);float dCam=distance(vec3(root.x,ga.x,root.y),gEye);
+        vec3 gn;vec4 ga=gHeightAt(root,gn);float dCam=distance(vec3(root.x,ga.x,root.y),gEye);
         float drop=L.z+(L.w-L.z)*fract(aRoot.z*3.71);   // this clump's own fade distance
         float k=smoothstep(drop+.6,drop,dCam)*smoothstep(L.x*.5,L.x*.5-.8,max(abs(rel.x),abs(rel.y)));   // zero at the wrap edge: roots jump unseen
         vec2 guv=(root+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W / nx)},${f(segZ / H / nz)})+vec2(${f(.5 / nx)},${f(.5 / nz)});
-        vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,br);float grow=1.-max(max(cov.x,cov.y),cov.z);
+        vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,ga.zw,br);float grow=1.-max(max(cov.x,cov.y),cov.z);
         for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);grow*=smoothstep(.05,.3,max(abs(q.x)-.8,abs(q.y)-1.6));}
         float sc=k*smoothstep(.3,.7,grow),fair=zf.a,cl=gNoise(root*.8+3.);
         float hs=mix(1.+cl*.5,.6+cl*.25,fair)*(.8+.4*fract(aRoot.z*13.7))*sc;   // x the 6-10 cm blades: rough 5-18 cm, fairway 3-9 cm
@@ -73,11 +73,11 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         float t=aBlade.x,t2=t*hs,gust=.55+.45*sin(windTime*3.1+root.x*.31-root.y*.27);
         bp.x+=(sin(windTime*1.7+root.x*.5+root.y*.3)*.012+windVec.x*.04*gust)*t2;bp.z+=(cos(windTime*1.3+root.y*.4)*.008+windVec.y*.04*gust)*t2;
         bladePos=vec3(root.x,ga.x-.01,root.y)+bp;
-        vec2 bn=R*normal.xz;bladeNormal=normalize(gn+vec3(bn.x,0.,bn.y)*.3);
+        vec2 bn=R*normal.xz;bladeNormal=normalize(gn+vec3(bn.x,0.,bn.y)*.12);   // a low sun would black out blades tilted away; thin blades pass light anyway
         vec3 c=gTurf(root,zf.rgb*zf.rgb,vec2(fair,ga.y),gDry(sp.w,br))*(.8+.4*fract(aRoot.z*91.7+aBlade.y*7.3));
-        c=max(mix(vec3(dot(c,vec3(.3,.59,.11))),c,1.15),0.);   // live blades a touch richer than the turf's average
+        c=max(mix(vec3(dot(c,vec3(.3,.59,.11))),c,1.3),0.);   // live blades richer than the turf's average, which includes soil and thatch
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.4,1.18,.62),step(.96,fract(aBlade.y*17.3+aRoot.z*5.1))*.6);   // one blade in 25 is dead straw
-        vBlade=c*mix(.7,1.35,t);vTip=t;   // shaded at the root where neighbours crowd it, tips above the turf catch the sun
+        vBlade=c*mix(.8,1.4,t);vTip=t;   // shaded at the root where neighbours crowd it, tips above the turf catch the sun
       }\n` + sh.vertexShader.replace('#include <beginnormal_vertex>', 'vec3 objectNormal,bladePos;gBlade(bladePos,objectNormal);').replace('#include <begin_vertex>', 'vec3 transformed=bladePos;');
     sh.fragmentShader = 'varying vec3 vBlade;varying float vTip;\n' + sh.fragmentShader.replace('#include <color_fragment>', 'diffuseColor.rgb=vBlade;')
       .replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))   // both faces keep the ground-leaning normal

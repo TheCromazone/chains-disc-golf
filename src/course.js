@@ -19,19 +19,19 @@ export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
-    hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#6b9441', '#5d8340', '#4a6b39', '#e3cf9a'], leafHue: 0.29,
+    hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#689a3c', '#588a38', '#446f33', '#e3cf9a'], leafHue: 0.29,
     sun: [19, 22], sky: [.5, 1.3, '#7aa6d2'], sunColor: '#ffd3a0', fog: ['#e4e6df', 0.0100], hemi: ['#b8cde6', '#33492a'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
-    hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#789a42', '#6a8e3f', '#536f38', '#e6d29c'], leafHue: 0.265,
+    hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#74a03e', '#65933a', '#4f7434', '#e6d29c'], leafHue: 0.265,
     sun: [18, 340], sky: [.47, 1.1, '#95a9c1'], sunColor: '#ffc98a', fog: ['#f0e3ca', 0.0088], hemi: ['#c8d3e8', '#4d4a2a'], water: '#4a7f8f' },
   { id: 'lake', name: 'Lakeshore Links', tag: 'Water on five holes', blurb: 'Morning light off the lake. Carries, wraps and island greens; every pond is out of bounds.', seed: 41,
     len: [92, 118, 80, 134, 100, 74, 126, 96, 110], dog: { 2: 1, 5: -1, 7: 1 }, ponds: { 0: 'right', 2: 'front', 4: 'carry', 6: 'right', 8: 'front' },
-    hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#659644', '#568541', '#446d3b', '#ecd8a6'], leafHue: 0.3,
+    hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#629c3f', '#528b3b', '#407236', '#ecd8a6'], leafHue: 0.3,
     sun: [21, 30], sky: [.55, 1.4, '#78a7d6'], sunColor: '#ffdcae', fog: ['#e6ece9', 0.0096], hemi: ['#c3daf0', '#2f4f33'], water: '#2a7fa8' },
   { id: 'bluff', name: 'Gull Point Bluffs', tag: 'Coastal · exposed · gusty', blurb: 'Headland links above the surf. Nothing stops the wind up here: read the socks, throw low into it and ride it home.', seed: 59,
     len: [98, 124, 88, 142, 110, 80, 156, 96, 118], dog: { 1: 1, 4: -1, 7: 1 }, ponds: { 2: 'right', 5: 'carry', 8: 'front' },
-    hills: 2.1, trees: 0.22, pine: 0.7, fairwayW: 1.4, wind: 2.8, grass: ['#839c4a', '#749047', '#5b7642', '#e0d2a4'], leafHue: 0.25,
+    hills: 2.1, trees: 0.22, pine: 0.7, fairwayW: 1.4, wind: 2.8, grass: ['#7fa144', '#709540', '#577a3c', '#e0d2a4'], leafHue: 0.25,
     sun: [20, 345], sky: [.44, 1.2, '#86abcb'], sunColor: '#ffd6a6', fog: ['#e5eaec', 0.0092], hemi: ['#c2d6e8', '#4e5a3c'], water: '#3f8fb0' },
 ];
 export const courseById = id => COURSES.find(c => c.id === id) || COURSES[0];
@@ -216,7 +216,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const geo = new THREE.PlaneGeometry(W, H, segX, segZ); geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
   const splats = new Float32Array(pos.count * 4);   // gravel/earth, sand, leaf litter, dry
-  const turf = new Float32Array(pos.count * 2);     // fairway weight, metres across the tee-basket line (mown stripes)
+  const turf = new Float32Array(pos.count * 4);     // fairway weight, metres across the tee-basket line (mown stripes), trail offset, trail wear
   // Each colour is a zone's mean albedo: the photo tiles are divided by their means in the shader, so these are what
   // the turf averages to. Mown fairway lightest, rough, then deep rough away from the line and in damp hollows.
   const grassNormal = texture('grass_normal', { repeat: [480, 368], srgb: false });
@@ -233,13 +233,18 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const fair = 1 - smooth(width, width + .55, edge), collar = 1 - smooth(width + 1.05, width + 1.8, edge);
     tmp.copy(cRough).lerp(cDark, clamp(smooth(width + 5, width + 24, edge) * .6 + smooth(.55, .8, noise(x / 19 + 77, z / 19 + 77)) * .5, 0, 1));
     tmp.lerp(cCollar, collar * .7).lerp(cFair, fair);
-    turf[i * 2] = fair;
+    turf[i * 4] = fair;
     if(fi.hole) {
       const h = fi.hole, dx = h.basket[0] - h.tee[0], dz = h.basket[1] - h.tee[1], length = Math.hypot(dx, dz);
       const px = x - h.tee[0], pz = z - h.tee[1], along = (px * dx + pz * dz) / length, across = (-px * dz + pz * dx) / length;
-      turf[i * 2 + 1] = across + 1.75;   // a stripe edge runs down the line
-      // Broad exposed dry ground on the low shoulder describes the landing-area shape (visual only, not a hazard).
+      turf[i * 4 + 1] = across + 1.75;   // a stripe edge runs down the line
+      // The walking trail: players leave the pad on the open side and walk the rough beside the fairway to the basket.
+      // Stored as a signed offset from its meandering centre line (linear across the 2 m grid, so the fragment
+      // shader draws a crisp 1 m trail) plus how worn it is along the hole: patchy, fading out before the basket.
       const side = h.idx % 2 ? -1 : 1;
+      turf[i * 4 + 2] = across - side * lerp(1.3, width + 2.8 + Math.sin(along * .06 + h.idx * 2) * 1.2, smooth(0, 14, along));
+      turf[i * 4 + 3] = smooth(-1, 2, along) * (1 - smooth(length - 14, length - 6, along)) * (.55 + .45 * smooth(.3, .6, noise(x / 9 + 60, z / 9 + 60)));
+      // Broad exposed dry ground on the low shoulder describes the landing-area shape (visual only, not a hazard).
       const soil = ((along - length * .76) / (length * .14)) ** 2 + ((across + side * 8.8) / (4.8 + Math.sin(along * .19) * .8)) ** 2;
       const soilMask = (1 - smooth(.72, 1.08, soil)) * smooth(width + .35, width + 1.2, edge);
       // Dry patches follow dryNoise; trodden ground around the basket collects litter and wears to earth at the pole.
