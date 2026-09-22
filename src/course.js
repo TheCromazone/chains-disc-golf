@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
-import { canopyGeometry } from './canopies.js';
+import { canopyGeometry, IMPOSTOR } from './canopies.js';
 import { model } from './models.js';
 import { modelParts, addModel } from './models.js';
 import { windMaterial, windTime, toonMaterial, paintDetail, terrainSplat } from './materials.js';
@@ -328,6 +328,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // --- trees ---
   const trees = [], bushes = [], tufts = [];
   const pineSpots = [], decSpots = [];
+  // Species by stand, variant by tree: Scots pines gather in stands among the spruces, birches in groves among the broadleaves.
+  // DIMS at scale 1, measured off tools/build-trees.py: trunk radius, trunk height the disc can hit, crown centre, crown radius.
+  const DIMS = { birch: [.2, 15, 12, 4.2], broad: [.32, 8, 9.8, 5.8], spruce: [.3, 17, 7.5, 4.2], scots: [.3, 18, 16.5, 4.2] };
+  const kindOf = (x, z, pine) => pine ? (noise(x / 55 + 300, z / 55 + 300) > .62 ? 'scots' : 'spruce') : (noise(x / 45 + 200, z / 45 + 200) > .47 ? 'birch' : 'broad');
   for (let gx = -W / 2 + 8; gx < W / 2 - 8; gx += 5) for (let gz = -H / 2 + 8; gz < H / 2 - 8; gz += 5) {
     const x = gx + (rng() - 0.5) * 4.5, z = gz + (rng() - 0.5) * 4.5;
     const fi = fairwayInfo(holes, x, z);
@@ -348,10 +352,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const prob = edge < 25 ? 0.85 : (fi.d < halfW + 8 ? 0.14 : 0.62) * def.trees * grove;
     if (!skip && rng() < prob) {
       const s = 0.8 + rng() * 0.55, guardian=side*openSide<0 && fi.t>.18 && fi.t<.52 && fi.d<halfW+12, pine = !guardian && noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine;
-      const y = height(x, z), rot = rng() * Math.PI * 2;
+      const y = height(x, z), rot = rng() * Math.PI * 2, kind = kindOf(x, z, pine), D = DIMS[kind];
       // per-instance tilt and height so one variant never tiles; hashed from position, so the rng stream (and the layout) stays put
-      (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * .14, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * .14, sy: .9 + noise(x * .53 + 17, z * .53 + 23) * .2 });
-      trees.push(pine ? { x, y, z, r: 0.3 * s, h: 6 * s, fy: 7 * s, fr: 2.3 * s } : { x, y, z, r: 0.34 * s, h: 4 * s, fy: 5.8 * s, fr: 3.4 * s });
+      (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + (kind === 'scots' ? 0 : Math.floor(noise(x * .37 + 13, z * .37 + 5) * 2)), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * .08, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * .08, sy: .92 + noise(x * .53 + 17, z * .53 + 23) * .16 });
+      trees.push({ x, y, z, r: D[0] * s, h: D[1] * s, fy: D[2] * s, fr: D[3] * s });
     } else if (!skip && fi.d > halfW - 1 && fi.d < halfW + 18 && rng() < 0.18) bushes.push({ x, y: height(x, z), z, s: 0.6 + rng() * 0.8, rot: rng() * 6.3 });
     if (!skip && fi.d < halfW + 10 && rng() < (fi.d < halfW ? 0.05 : 0.3)) for (let k = 0; k < 2; k++) { const tx = x + (rng() - 0.5) * 4, tz = z + (rng() - 0.5) * 4; tufts.push({ x: tx, y: height(tx, tz), z: tz, s: 0.7 + rng() * 0.7, rot: rng() * 6.3 }); }
   }
@@ -406,57 +410,120 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const decVariants = [0,1,2].map(variant => canopyGeometry('deciduous',variant));
   const bushGeo = shadeCrown(blob(1, 1, 0.6).scale(1, 0.75, 1).translate(0, 0.5, 0));
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
-  const inst = (geo, mat, spots, colorFn, shadow = true) => {
-    const cells=new Map();
-    for(const s of spots){const key=Math.floor(s.x/64)+','+Math.floor(s.z/64);if(!cells.has(key))cells.set(key,[]);cells.get(key).push(s);}
+  // Tree LOD. Full draws the Blender trees within treeNear (62 m) of the eye and a camera-facing impostor beyond; Lite draws
+  // impostors everywhere (treeNear 0). Both sides test the same eye, refreshed every quarter second by treeLod() from update(),
+  // per tree in the vertex shader, so every tree is exactly one of the two. The 3D trees sit in 32 m cells whose visibility
+  // follows the same tick, which keeps the submitted triangles to the cells that can hold a near tree.
+  const treeEye = { value: new THREE.Vector3(1e9, 0, 1e9) }, treeNear = { value: quality === 'low' ? 0 : 62 }, nearCells = [];
+  let lodT = -1;
+  const treeLod = (view, t) => { if (t - lodT < .25) return; lodT = t; treeEye.value.copy(view); for (const c of nearCells) { const p = c.boundingSphere.center, r = c.boundingSphere.radius + treeNear.value; c.visible = (p.x - view.x) ** 2 + (p.z - view.z) ** 2 < r * r; } };
+  const near3d = mat => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.treeEye = treeEye; s.uniforms.treeNear = treeNear;
+    s.vertexShader = 'uniform vec3 treeEye;uniform float treeNear;\n' + s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      #ifdef USE_INSTANCING
+      if (distance(instanceMatrix[3].xz, treeEye.xz) > treeNear) gl_Position = vec4(2., 2., 2., 1.);
+      #endif`); }; mat.customProgramCacheKey = () => prevKey.call(mat) + '|near3d'; return mat; };
+  const inst = (geo, mat, spots, colorFn, shadow = true, lod = false) => {
+    const cells=new Map(), size=lod?32:64;
+    for(const s of spots){const key=Math.floor(s.x/size)+','+Math.floor(s.z/size);if(!cells.has(key))cells.set(key,[]);cells.get(key).push(s);}
     for(const cell of cells.values()){
       const im=new THREE.InstancedMesh(geo,mat,cell.length);
       cell.forEach((s,i)=>{e.set(s.tx||0,s.rot,s.tz||0);q.setFromEuler(e);v.set(s.x,s.y-.15,s.z);sc.set(s.s,s.s*(s.sy||1),s.s);m.compose(v,q,sc);im.setMatrixAt(i,m);if(colorFn)im.setColorAt(i,colorFn(s));});
-      if(quality!=='low'){const depth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:mat.alphaTest?mat.map:null,alphaTest:mat.alphaTest||0});im.customDepthMaterial=windMaterial(depth,windClock);depth.dispose();}   // leaf cards cut their shadows out too
+      if(quality!=='low'){const depth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:mat.alphaTest?mat.map:null,alphaTest:mat.alphaTest||0});im.customDepthMaterial=windMaterial(depth,windClock);if(lod)near3d(im.customDepthMaterial);depth.dispose();}   // leaf cards cut their shadows out too
       im.castShadow=shadow;im.receiveShadow=true;im.instanceMatrix.needsUpdate=true;if(im.instanceColor)im.instanceColor.needsUpdate=true;
-      im.computeBoundingSphere();im.computeBoundingBox();group.add(im);clusters.push(im);
+      im.computeBoundingSphere();im.computeBoundingBox();group.add(im);(lod?nearCells:clusters).push(im);
     }
   };
   const col = new THREE.Color();
-  // Blender trees (tools/build-trees.py): branching trunks with photo leaf cards, several variants per species,
-  // instanced per spot with a per-instance tint. Lite keeps the embedded crowns: alpha-tested cards cost fill rate on phones.
-  const leafMats = new Map();
-  // Leaves lit from behind glow (thin-leaf transmission) and sun-averted cards wrap instead of going flat. After three's
-  // directional loop, directLight.color still holds the sun colour with its shadow applied, so shaded crowns do not glow.
-  // The build bakes each leaf normal pointing away from the crown centre, so the crown lights as one volume (bright top,
-  // dark underside); the double-sided flip is dropped so a card seen from behind keeps that crown normal.
-  const leafLight = mat => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
-    #if NUM_DIR_LIGHTS > 0
-    { vec3 L = directionalLights[0].direction; float back = pow(saturate(dot(-normalize(vViewPosition), L)), 3.);
-      float wrap = saturate((dot(normal, L) + .5) / 1.5);
-      reflectedLight.directDiffuse += diffuseColor.rgb * directLight.color * (wrap * .2 + back * .6); }
-    #endif`); }; mat.customProgramCacheKey = () => prevKey.call(mat) + '|leaf-light'; return mat; };
-  const leafCard = key => { if (!leafMats.has(key)) { const map = texture(key, { clamp: true }); if (!map) return null; leafMats.set(key, leafLight(paintDetail(windMaterial(toonMaterial({ map, color: '#ffffff', alphaTest: .42, side: THREE.DoubleSide, vertexColors: true, roughness: .86 }), windClock), 'leaf'))); } return leafMats.get(key); };
-  const importedInstances = (name, spots, shadow = true) => {
-    if (quality === 'low') return false;
-    const src = model(name); if (!src) return false;
-    src.scene.updateMatrixWorld(true); const variants = new Map();
-    src.scene.traverse(o => { if (!o.isMesh) return; const key = (o.parent?.isMesh ? o.parent.name : o.name).replace(/_\d+$/, ''); if (!variants.has(key)) variants.set(key, []); variants.get(key).push({ geometry: o.geometry.clone().applyMatrix4(o.matrixWorld), material: o.material }); });
-    const list = [...variants.values()]; if (!list.length) return false;
-    list.forEach((parts, index) => {
-      const mine = spots.filter(s => Math.floor(noise(s.x * .37 + 13, s.z * .37 + 5) * list.length) === index); if (!mine.length) return;
-      for (const part of parts) {
-        const key = part.material.name.replace(/\.\d+$/, '');
-        if (key === 'bark') inst(part.geometry, trunkMat, mine, null, false);
-        else { const mat = leafCard(key); if (!mat) return; inst(part.geometry, mat, mine, s => col.setHSL(.27 + (noise(s.x / 19 + 3, s.z / 19) - .5) * .07, .42, .57 + (noise(s.z / 23, s.x / 23 + 7) - .5) * .14), shadow); }   // hue and lightness lean about ±10% per tree
-      }
-    });
+  // Full: the Blender trees (tools/build-trees.py over the tools/build-foliage.py atlas). A variant is a branch skeleton
+  // ('bark' / 'bark_birch') plus leaf-spray cards ('leaves'), instanced per 32 m cell with a per-tree tint. Wood and leaves
+  // share the wind, so the limbs carry their clumps as they sway, and both cast shadows.
+  const leafAtlas = texture('leaves', { clamp: true, flipY: false }), leafNormals = texture('leaves_n', { clamp: true, flipY: false, srgb: false });
+  // Canopy shading on top of three's PBR loop. Vertex colour rgb tints the albedo and its alpha is the build's sky visibility,
+  // which dims ambient light fully and sunlight a little (the shadow map does the rest), so sunlit clumps stay bright while the
+  // core of the crown and the limbs inside it fall dark. Leaves (leaf = true) also: the build bakes each leaf normal away from
+  // its clump and the crown axis and the double-sided flip is dropped, so both faces of a card light as the crown surface
+  // (every clump has a lit and a shaded side) and the atlas normal map tilts each leaf on top; a leaf turned from the sun
+  // passes it through as a warm yellow-green, strongest looking into the sun (thin-leaf translucency), and directLight.color
+  // still carries the shadow after three's directional loop, so leaves in shade do not glow; specular is damped to a third
+  // (a matte blade against the low sun otherwise reads as grey sheen); alpha grows with the mip level (capped, so a card seen
+  // edge-on does not fill in) so distant crowns keep their coverage. An impostor overwrites bakedAO and leafMask from its maps.
+  const canopy = (mat, leaf = true) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
+    s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `float bakedAO = 1., leafMask = 1.;
+      #if defined( USE_COLOR_ALPHA )
+      diffuseColor.rgb *= vColor.rgb; bakedAO = vColor.a;
+      #elif defined( USE_COLOR )
+      diffuseColor.rgb *= vColor;
+      #endif`).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+      reflectedLight.indirectDiffuse *= bakedAO; reflectedLight.directDiffuse *= mix(1., bakedAO, .3);` + (leaf ? `
+      reflectedLight.directSpecular *= .3 * bakedAO; reflectedLight.indirectSpecular *= .3 * bakedAO;
+      reflectedLight.indirectDiffuse *= 1. + .5 * leafMask;   // a thin blade takes sky light on both faces
+      #if NUM_DIR_LIGHTS > 0
+      { vec3 L = directionalLights[0].direction, sun = directionalLights[0].color; float into = pow(saturate(dot(-normalize(vViewPosition), L)), 2.);
+        float thru = saturate(.3 - dot(normal, L)) * (.2 + .8 * into) * leafMask * mix(.4, 1., bakedAO);
+        // light reaches a back-lit leaf through several leaves, not only through gaps: soften its shadow to 35% for this term
+        float lit = mix(.35, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
+        reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(.8, .95, .36);
+        // sunlight scattered leaf to leaf through the crown: a soft yellow-green fill that follows the sun, not the shadow map,
+        // so the shaded side of a back-lit crown reads green instead of black
+        reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .18 * bakedAO * leafMask * vec3(1., 1., .45); }
+      #endif` : ''));
+    if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
+      .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * 1024.; diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
+      #include <alphatest_fragment>`); };
+    mat.customProgramCacheKey = () => prevKey.call(mat) + (leaf ? '|leaf' : '|wood'); return mat; };
+  const leafFull = leafAtlas && near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.7, -.7), alphaTest: .5, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock)));
+  const wood = map => map && near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false));
+  const woodMats = { bark: wood(bark), bark_birch: wood(texture('bark_birch')) };
+  // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm; each tree
+  // is then yellower or bluer, lighter or darker by about 12%.
+  const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5; return col.setRGB(1.14 + h * .16, 1.02, .74 - h * .2).multiplyScalar(.95 + noise(s.z / 23, s.x / 23 + 7) * .3); };
+  for (const b of bushes) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
+  const planted = (name, spots, shadow = true, lod = true) => {
+    const src = quality !== 'low' && leafFull && model(name); if (!src) return false;
+    src.scene.updateMatrixWorld(true);
+    src.scene.traverse(o => { if (!o.isMesh) return;
+      const variant = o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant);
+      if (mine.length) inst(o.geometry.clone().applyMatrix4(o.matrixWorld), key === 'leaves' ? leafFull : woodMats[key] || trunkMat, mine, key === 'leaves' ? leafTint : null, shadow, lod); });
     return true;
   };
-  if (!importedInstances('pine', pineSpots)) {
-    inst(pineTrunk, trunkMat, pineSpots, null, false);
-    for(let variant=0;variant<3;variant++) inst(pineVariants[variant], pineMat, pineSpots.filter(s=>Math.floor(noise(s.x*.37+13,s.z*.37+5)*3)===variant), s => col.setHSL(.32 + noise(s.x/24,s.z/24)*.045, .42 + noise(s.x/31+5,s.z/31)*.12, .25 + noise(s.x/22,s.z/22)*.16, THREE.SRGBColorSpace));
+  // Impostors: tools/build-trees.py renders every variant side-on into a 256 x 512 cell (albedo, then the crown normals'
+  // x and y, the sky visibility and a leaf mask) and writes the card extents to src/impostors.js. One instanced card per
+  // tree turns about the vertical to face the camera (the sun, in the shadow pass) and lights through the same canopy
+  // shading as the 3D leaves, so a far crown is dark into the sun with lit, glowing rims like the near ones.
+  const impMap = texture('impostors'), impNormal = texture('impostors_n', { srgb: false });
+  const billboard = s => { s.uniforms.treeEye = treeEye; s.uniforms.treeNear = treeNear;
+    s.vertexShader = 'attribute float impCell;uniform vec3 treeEye;uniform float treeNear;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;\n' + s.vertexShader
+      .replace('#include <begin_vertex>', `vec3 impO = instanceMatrix[3].xyz, impT = cameraPosition - impO; impT.y = 0.; impT = normalize(impT + vec3(1e-4, 0., 0.));
+        vImpR = vec3(impT.z, 0., -impT.x); vImpT = impT; vImpFlip = sign(instanceMatrix[0].x);
+        vec3 transformed = impO + vImpR * position.x * instanceMatrix[0].x + vec3(0., position.y * instanceMatrix[1].y, 0.);`)
+      .replace('#include <project_vertex>', `vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.); gl_Position = projectionMatrix * mvPosition;
+        if (distance(impO.xz, treeEye.xz) < treeNear) gl_Position = vec4(2., 2., 2., 1.);`)
+      .replace('#include <worldpos_vertex>', 'vec4 worldPosition = modelMatrix * vec4(transformed, 1.);')
+      .replace('#include <uv_vertex>', '#include <uv_vertex>\nvMapUv = vec2((mod(impCell, 4.) + uv.x) * .25, 1. - (floor(impCell / 4.) + 1. - uv.y) * .5);'); };
+  const impMat = impMap && impNormal && canopy(Object.assign(toonMaterial({ map: impMap, alphaTest: .5, side: THREE.DoubleSide, roughness: .85 }), { onBeforeCompile: s => { billboard(s); s.uniforms.impNormal = { value: impNormal };
+    s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip;
+      normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * sqrt(saturate(1. - dot(t, t))), 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); }`); }, customProgramCacheKey: () => 'chains-impostor' }));
+  const impDepth = impMat && Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: billboard, customProgramCacheKey: () => 'chains-impostor-depth' });
+  const impostors = (spots, shadow = true) => {
+    if (!impMat || !spots.length) return false;
+    const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).translate(0, .5, 0), impMat, spots.length), cells = new Float32Array(spots.length);
+    spots.forEach((s, i) => { const [w, h, b, c] = IMPOSTOR[s.variant] || IMPOSTOR.bush0, sy = s.s * (s.sy || 1), flip = noise(s.x * .71 + 5, s.z * .71 + 9) > .5 ? -1 : 1;
+      m.makeScale(w * s.s * flip, h * sy, 1).setPosition(s.x, s.y - .15 + b * sy, s.z); im.setMatrixAt(i, m); im.setColorAt(i, leafTint(s)); cells[i] = c; });
+    im.geometry.setAttribute('impCell', new THREE.InstancedBufferAttribute(cells, 1));
+    im.frustumCulled = false; im.castShadow = shadow; im.receiveShadow = true; im.customDepthMaterial = impDepth; group.add(im);   // one card per tree over the whole course: one draw
+    return true;
+  };
+  // Lite (or no GLBs): impostors only. With neither, the embedded crowns, scaled to the trees' height so what the disc hits shows.
+  const grow = (spots, k) => spots.map(s => ({ ...s, s: s.s * k }));
+  if (!planted('pine', pineSpots) & !impostors(pineSpots)) {
+    inst(pineTrunk, trunkMat, grow(pineSpots, 1.6), null, false);
+    for(let variant=0;variant<3;variant++) inst(pineVariants[variant], pineMat, grow(pineSpots.filter(s=>Math.floor(noise(s.x*.37+13,s.z*.37+5)*3)===variant), 1.6), s => col.setHSL(.32 + noise(s.x/24,s.z/24)*.045, .42 + noise(s.x/31+5,s.z/31)*.12, .25 + noise(s.x/22,s.z/22)*.16, THREE.SRGBColorSpace));
   }
-  if (!importedInstances('deciduous', decSpots)) {
-    inst(decTrunk, trunkMat, decSpots, null, false);
-    for(let variant=0;variant<3;variant++) inst(decVariants[variant], leafMat, decSpots.filter(s=>Math.floor(noise(s.x*.37+13,s.z*.37+5)*3)===variant), s => col.setHSL(def.leafHue + (noise(s.x/22 + 9, s.z/22) - 0.5) * 0.07, 0.5, 0.30 + noise(s.z/24 + 4, s.x/24) * 0.18, THREE.SRGBColorSpace));
+  if (!planted('deciduous', decSpots) & !impostors(decSpots)) {
+    inst(decTrunk, trunkMat, grow(decSpots, 1.6), null, false);
+    for(let variant=0;variant<3;variant++) inst(decVariants[variant], leafMat, grow(decSpots.filter(s=>Math.floor(noise(s.x*.37+13,s.z*.37+5)*3)===variant), 1.6), s => col.setHSL(def.leafHue + (noise(s.x/22 + 9, s.z/22) - 0.5) * 0.07, 0.5, 0.30 + noise(s.z/24 + 4, s.x/24) * 0.18, THREE.SRGBColorSpace));
   }
-  if (!importedInstances('bush', bushes, false)) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
+  if (!planted('bush', bushes, false, false) && !(quality === 'low' && impostors(bushes, false))) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
   // Fine crossed-alpha grass is deliberately retired in both modes.
 
   // --- water ---
@@ -621,6 +688,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   let lastFx = 0, lastFz = 0;
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
+    if (view) treeLod(view, t);   // trees: 3D near the eye, impostors beyond (the trees section)
     if (focus && scatterNear) { const still = Math.hypot(focus.x - lastFx, focus.z - lastFz) < .05; lastFx = focus.x; lastFz = focus.z; if (still) scatterNear(focus); }   // a resting lie, not a flying disc or flyover
     if(view) for(const marker of destinationMarkers) if(marker.visible) {
       const distance=Math.hypot(view.x-marker.position.x,view.z-marker.position.z), size=clamp(distance*.065,1.2,7);
