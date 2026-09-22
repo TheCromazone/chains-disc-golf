@@ -206,7 +206,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       const tx = x - h.tee[0], tz = z - h.tee[1]; if (tx * tx + tz * tz > 64) continue;
       const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy;
       const out = Math.hypot(Math.max(Math.abs(u) - .8, 0), Math.max(v > 0 ? v - 2.2 : -v - 1.6, 0));   // metres outside the pad, its back stretched by the walk-in
-      w = Math.max(w, 1 - smooth(.3, 1, out + (noise(x / 1.3 + 91, z / 1.3 + 91) - .5) * .7));
+      w = Math.max(w, 1 - smooth(.2, .85, out + (noise(x / 1.3 + 91, z / 1.3 + 91) - .5) * .7));
     }
     return w;
   };
@@ -250,7 +250,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       // Dry patches follow dryNoise; trodden ground around the basket collects litter and wears to earth at the pole.
       const dry = dryNoise(x, z), bd = Math.hypot(x - h.basket[0], z - h.basket[1]);
       splats[i * 4 + 3] = Math.max(smooth(.52, .76, dry) * .85, soilMask * .9, (1 - smooth(2.5, 6, bd)) * .5);
-      splats[i * 4 + 2] = (1 - smooth(1.4, 3.4, bd + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 1.6)) * .95;
+      splats[i * 4 + 2] = (1 - smooth(2.2, 4.4, bd + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 1.8)) * .95;
       // Tee: the gravel apron, a scuff at the sign post, and the driest patches within ~12 m worn through to earth.
       const tx = x - h.tee[0], tz = z - h.tee[1], cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy, wear = padWear(x, z);
       splats[i * 4] = Math.max(wear, soilMask * .45, (1 - smooth(.4, 1.3, Math.hypot(u - 2.4, v + 2.6))) * .7, smooth(.62, .8, dry) * .5 * (1 - smooth(5, 14, Math.hypot(tx, tz))), (1 - smooth(.3, .8, bd)) * .8);
@@ -264,7 +264,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const terrainNormals=geo.attributes.normal;
     for(let i=0;i<pos.count;i++) { const light=terrainNormals.getX(i)*.55+terrainNormals.getY(i)*.70+terrainNormals.getZ(i)*.45; const gain=.55+smooth(.28,.90,light)*.6; colors[i*3]*=gain;colors[i*3+1]*=gain;colors[i*3+2]*=gain; }
   }
-  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, duff: litterTexture(), lite: quality === 'low' }));
+  const pads = holes.map(h => [h.tee[0], h.tee[1], Math.cos(h.yaw), Math.sin(h.yaw)]);   // the ground shades round them and the carpet stays off them
+  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, duff: litterTexture(), pads, lite: quality === 'low' }));
   terrain.receiveShadow = true; group.add(terrain);
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their
@@ -331,7 +332,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // Under crowns the turf darkens and litter collects (duff splat); earth shows at the trunk base. Colour and splat weights only: no height change.
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i); let shade = 0, duff = 0, bare = 0;
-    for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.3, t.fr * .2, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
+    for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.5, t.fr * .4, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
     const k = 1 - Math.min(1, shade) * .3; colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
     splats[i * 4 + 2] = Math.max(splats[i * 4 + 2], Math.min(1, duff) * .9); splats[i * 4] = Math.max(splats[i * 4], Math.min(1, bare) * .7);
   }
@@ -476,10 +477,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
 
   // --- grass tufts ---
   // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
-  // rough, gone on gravel, litter, sand and the pads. A few photo tufts stand where mowers miss: along the pad's long
-  // edges, at the sign post and round the basket pole, small and green, darkened at the root; no shadow discs. Lite
-  // spends their triangles on the carpet.
-  group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads: holes.map(h => [h.tee[0], h.tee[1], Math.cos(h.yaw), Math.sin(h.yaw)]), lite: quality === 'low', seed }));
+  // rough, gone on gravel, litter, sand and the pads. A few photo tufts stand where mowers miss, at the sign post and
+  // round the basket pole: small and green, darkened at the root; no shadow discs. Lite spends their triangles on the carpet.
+  group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }));
   const tuftMap = quality !== 'low' && texture('tuft', { clamp: true });
   if (tuftMap) {
     const tuftRng = makeRng(seed + 733);
@@ -490,7 +490,6 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const spots = [];
     for (const h of holes) {
       const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), at = (u, w) => [h.tee[0] + u * cy + w * sy, h.tee[1] - u * sy + w * cy];
-      for (let k = 0; k < 8; k++) spots.push({ p: at((k % 2 ? 1 : -1) * (.84 + tuftRng() * .12), (tuftRng() * 2 - 1) * 1.5), s: .12 + tuftRng() * .1 });
       for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .08 + tuftRng() * .2; spots.push({ p: at(2.4 + Math.cos(a) * r, -2.6 + Math.sin(a) * r), s: .14 + tuftRng() * .12 }); }
       for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .3 + tuftRng() * .3; spots.push({ p: [h.basket[0] + Math.cos(a) * r, h.basket[1] + Math.sin(a) * r], s: .12 + tuftRng() * .1 }); }
     }
