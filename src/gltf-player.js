@@ -6,11 +6,12 @@ import * as THREE from 'three';
 import { cloneModel } from './models.js';
 import { rimLight } from './materials.js';
 import { bodyMaterial } from './body-material.js';
+import { JOINTS, RIGS, readyPose, mirrorPose, poseAt, keysFor, soleHeights } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
 const SLOT = { hair: { roughness: .7, rim: .22 }, headwear: { roughness: .8 }, trim: { roughness: .78 }, frame: { roughness: .42, color: '#1a1c22' }, lens: { roughness: .15, color: '#14171c', metalness: .3, opacity: .86 } };
 const DOME_HATS = new Set(['cap', 'backcap', 'beanie', 'bucket']), BIG_HAIR = new Set(['curly', 'wavy', 'sidepart', 'afro', 'mohawk']);   // volume no hat could sit over; 'short' is the scan's own hair, no mesh
-const _v = new THREE.Vector3(), _e = new THREE.Vector3(), _gi = new THREE.Quaternion();
+const _v = new THREE.Vector3(), _e = new THREE.Vector3(), _gi = new THREE.Quaternion(), _q = new THREE.Quaternion(), _eu = new THREE.Euler();
 const glassesOf = a => a.glasses && a.glasses !== 'none' ? a.glasses : a.shades ? 'sport' : 'none';
 
 export function createGLTFCharacter(avatar) {
@@ -56,7 +57,24 @@ export function createGLTFCharacter(avatar) {
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map(src.animations.map(c => [c.name, mixer.clipAction(c)]));
   let phase = null, throwType = handed('backhand'), active = null, time = Math.random() * 8, mood = null, previous = null, blend = 1, frameDt = 0, locomotion = null;
+  // Aim stance. main.js steers faceDir every frame only for the player lining up a throw, so two consecutive
+  // steered frames mean "aiming" and the coiled stance blends over the idle clip; holdDisc then asks releaseFrame
+  // for the selected throw, which is how the stance follows the throw picker. ponytail: inferred rather than a
+  // setStance() call because main.js is shared; add the call if a second consumer needs the state.
+  let aimHit = false, aimFrames = 0, readyW = 0, aimType = 'backhand';
   function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; actor.updateMatrixWorld(true); }
+  function coil(w) {   // slerp the bones toward the ready stance: over the idle clip, or over the windup pose the clip was baked from
+    // (the mixer skips bones whose value did not change, so a held windup phase is rebuilt from the shared keys instead of read back)
+    let pose = readyPose(aimType, time, RIGS.glb), base = phase === null ? null : poseAt(keysFor(throwType.replace(/_left$/, '')), phase);
+    if (lefty) { pose = mirrorPose(pose); if (base) base = mirrorPose(base); }
+    for (const j of JOINTS) {
+      const b = joints[j]; if (!b) continue;
+      if (base) b.quaternion.setFromEuler(_eu.set(base[j][0], base[j][1], base[j][2], 'XYZ'));
+      b.quaternion.slerp(_q.setFromEuler(_eu.set(pose[j][0], pose[j][1], pose[j][2], 'XYZ')), w);
+    }
+    const baseY = base ? -Math.min(...soleHeights(base, false, RIGS.glb)) : (joints.root.position.y - rootRestY) / legScale;
+    joints.root.position.y = rootRestY + (baseY + (pose.rootY - baseY) * w) * legScale; actor.updateMatrixWorld(true);
+  }
   function sample(name, at) {
     const action = actions.get(name); if (!action) return;
     if (active !== action) { previous?.stop(); previous = active; active = action; blend = phase === null ? 0 : 1; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
@@ -68,6 +86,7 @@ export function createGLTFCharacter(avatar) {
   // disc rides the wrist through the windup and is exactly level with the planned release at the moment it leaves.
   function releaseFrame(t) {
     const name = actions.has(handed(t)) ? handed(t) : handed('backhand');
+    if (phase === null) aimType = t;
     if (frames.has(name)) return frames.get(name);
     const action = actions.get(name); if (!action) return null;
     const snap = [...actions.values()].map(a => ({ a, w: a.getEffectiveWeight(), time: a.time, running: a.isRunning() }));
@@ -79,23 +98,28 @@ export function createGLTFCharacter(avatar) {
     const dir = hand.getWorldPosition(new THREE.Vector3()).sub(api.elbow.getWorldPosition(_e)).normalize().applyQuaternion(_gi);
     if (!wasRunning) action.stop();
     for (const s of snap) { s.a.setEffectiveWeight(s.w); s.a.time = s.time; }
-    mixer.update(0); settle();
+    mixer.update(0); settle(); if (coilW() > 0) coil(coilW());
     const frame = { qInv: q.invert(), dir }; frames.set(name, frame); return frame;
   }
+  const coilW = () => phase === null ? readyW : readyW * Math.max(0, 1 - phase / .15);
   const api = {
     group, hand, elbow: joints[lefty ? 'elL' : 'elR'], joints, avatar, source: 'glb', releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},
     setFace(value) { body.setPalette(value); const g = glassesOf(value); for (const o of glasses) o.visible = o.name === 'glasses_' + g; },
-    setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; }, getPhase() { return phase; },
+    setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; },
+    getPhase() { return phase ?? (readyW > 0 ? 0 : null); },   // coiled in the aim stance counts as windup start so the disc is gripped, not carried
     react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
     update(dt) {
-      frameDt = dt; time += dt;
+      frameDt = dt; time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false;
       if (phase !== null) { const a = actions.get(throwType); sample(throwType, phase * (a?.getClip().duration || 1)); }
       else if (mood) { mood.t += dt; sample(mood.name, mood.t); if (mood.t >= (actions.get(mood.name)?.getClip().duration || 2.4)) mood = null; }
-      else { const name = handed(locomotion || (Math.floor(time / 8) % 3 === 2 ? 'practice' : 'idle')); sample(name, time % (actions.get(name)?.getClip().duration || 4)); }
+      else { const name = handed(locomotion || (aimFrames >= 2 ? 'idle' : Math.floor(time / 8) % 3 === 2 ? 'practice' : 'idle')); sample(name, time % (actions.get(name)?.getClip().duration || 4)); }
       settle();
+      const aiming = phase === null && !mood && !locomotion && aimFrames >= 2;
+      readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < .15 ? readyW : Math.max(0, readyW - dt / .22);
+      if (coilW() > 0) coil(coilW());
     },
-    faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); },
+    faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
     dispose() { mixer.stopAllAction(); mixer.uncacheRoot(actor); print.dispose(); printGeo.dispose(); for (const m of owned) m.dispose(); actor.traverse(o => { if (o.isSkinnedMesh) o.skeleton.dispose(); }); }
   };
   api.update(0); return api;
