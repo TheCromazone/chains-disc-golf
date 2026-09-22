@@ -36,24 +36,34 @@ export function cartoonSky() {
   }));
 }
 
-// Ground: worn dirt, sand and leaf litter blend in by splat weight (dirt, sand, duff) after the vertex palette, so
-// bare earth is not tinted green. Fragment noise breaks the 2 m vertex interpolation into trodden patches instead of
-// a soft gradient, and two octaves of value noise vary the tone so the photo tile never reads as a repeating pattern
-// from the tee. Splat weights are optional (empty manifest). lite drops the fine breakup octave for phones.
+// Ground: worn dirt, sand and leaf litter blend in by splat weight (dirt, sand, duff, dry) after the vertex palette, so
+// bare earth is not tinted green. The palette times the green photo tile lands saturated, so the turf is first pulled
+// toward olive-khaki; the dry weight (10-20 m noise baked per vertex, the same family that clusters the tufts) then
+// bleaches patches to straw, and fragment noise breaks the 2 m vertex interpolation into trodden patches instead of a
+// soft gradient. Full re-samples the tile at the normal map's 8x repeat so the ground under the camera shows blades,
+// not a blurred carpet. Splat weights are optional (empty manifest). lite drops the fine octave and that re-sample.
 export function terrainSplat(material, geometry, weights, { duff = null, lite = false } = {}) {
   const dirt=texture('dirt'),sand=texture('sand');
   const splat=!!(weights&&dirt&&sand);
-  if(splat)geometry.setAttribute('splat',new THREE.BufferAttribute(weights,3));
+  if(splat)geometry.setAttribute('splat',new THREE.BufferAttribute(weights,4));
   material.onBeforeCompile=s=>{
     if(splat){s.uniforms.dirtTile={value:dirt};s.uniforms.sandTile={value:sand};s.uniforms.duffTile={value:duff||dirt};}
-    s.vertexShader=(splat?'attribute vec3 splat;varying vec3 vSplat;':'')+'varying vec2 vGround;\n'+s.vertexShader;
+    s.vertexShader=(splat?'attribute vec4 splat;varying vec4 vSplat;':'')+'varying vec2 vGround;\n'+s.vertexShader;
     s.vertexShader=s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n'+(splat?'vSplat=splat;':'')+'vGround=position.xz;');
-    s.fragmentShader=(splat?'uniform sampler2D dirtTile;uniform sampler2D sandTile;uniform sampler2D duffTile;varying vec3 vSplat;':'')+'varying vec2 vGround;\n'+
+    s.fragmentShader=(splat?'uniform sampler2D dirtTile;uniform sampler2D sandTile;uniform sampler2D duffTile;varying vec4 vSplat;':'')+'varying vec2 vGround;\n'+
       'float chainsHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\nfloat chainsNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(chainsHash(i),chainsHash(i+vec2(1,0)),f.x),mix(chainsHash(i+vec2(0,1)),chainsHash(i+vec2(1,1)),f.x),f.y);}\n'+s.fragmentShader;
     s.fragmentShader=s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
-      { float macro = chainsNoise(vGround / 23.) * .6 + chainsNoise(vGround / 6.5 + 3.) * .4;
-        diffuseColor.rgb *= .86 + macro * .28; }
+      { float lum = dot(diffuseColor.rgb, vec3(.3, .59, .11));
+        diffuseColor.rgb = mix(diffuseColor.rgb, lum * vec3(1.3, 1.02, .42), .5);   // DGM turf samples at hue 58-63 deg; the raw product sits near 100
+        float macro = chainsNoise(vGround / 23.) * .6 + chainsNoise(vGround / 6.5 + 3.) * .4;
+        diffuseColor.rgb *= .84 + macro * .3;
+        #ifdef USE_MAP
+        ${lite ? '' : 'diffuseColor.rgb *= .62 + dot(texture2D(map, vMapUv * 5.).rgb, vec3(.33)) * .76;'}
+        #endif
+      }
       ${splat ? `{ float breakup = chainsNoise(vGround * 1.4 + 5.)${lite ? '' : ' * .65 + chainsNoise(vGround * 4.7 + 17.) * .35'};
+        float dry = smoothstep(.2, .8, vSplat.w + (breakup - .5) * .5);
+        diffuseColor.rgb = mix(diffuseColor.rgb, dot(diffuseColor.rgb, vec3(.3, .59, .11)) * vec3(1.5, 1.28, .7), dry * .8);
         float dirtW = smoothstep(.28, .72, vSplat.x + (breakup - .5) * .6);
         float duffW = smoothstep(.2, .7, vSplat.z + (breakup - .5) * .5);
         diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(duffTile, vGround * .62).rgb, duffW);
@@ -61,7 +71,7 @@ export function terrainSplat(material, geometry, weights, { duff = null, lite = 
         diffuseColor.rgb = mix(diffuseColor.rgb, earth, dirtW);
         diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(sandTile, vGround * .32).rgb, vSplat.y); }` : ''}`);
   };
-  material.customProgramCacheKey=()=> 'chains-ground-v3-'+splat+(lite?'-lite':'');
+  material.customProgramCacheKey=()=> 'chains-ground-v4-'+splat+(lite?'-lite':'');
   return material;
 }
 
@@ -166,6 +176,10 @@ export function windMaterial(source, clock, grass=false) {
       float gust=.55+.45*sin(windTime*3.1+origin.x*.31-origin.z*.27);
       transformed.x+=wave*bend*${grass?'.15':'.18'}+windVec.x*bend*${grass?'.22':'.3'}*gust;
       transformed.z+=cos(windTime*1.1+origin.z*.2)*bend*.075+windVec.y*bend*${grass?'.22':'.3'}*gust;`);
+    if(grass){   // blade cards darken toward the root (neighbouring blades shade it) so they sit in the turf instead of floating on it
+      s.vertexShader='varying float vBladeY;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvBladeY=position.y;');
+      s.fragmentShader='varying float vBladeY;\n'+s.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb*=mix(.4,1.,smoothstep(-.04,.45,vBladeY));');
+    }
   };
   m.customProgramCacheKey=()=> 'chains-wind-'+grass;return m;
 }
