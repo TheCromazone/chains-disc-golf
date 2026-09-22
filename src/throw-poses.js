@@ -104,8 +104,22 @@ export function poseAt(keys, phase) {
 const STANCE = {
   backhand: { root: [0, .12, 0], spine: [.1, 0, 0], shR: [-.85, .7, .1], elR: [.3, 0, 0], shL: [-.15, 0, .12], elL: [.2, 0, 0], hipR: [.3, 0, 0], knR: [-.3, 0, 0], hipL: [-.15, 0, 0], knL: [-.4, 0, 0] },
   forehand: { root: [0, -.1, 0], spine: [.08, 0, 0], shR: [-.25, 0, -.2], elR: [-.2, 0, 0], shL: [-.1, 0, .1], elL: [.2, 0, 0], hipL: [.3, 0, 0], knL: [-.3, 0, 0], hipR: [-.15, 0, 0], knR: [-.4, 0, 0] },
-  putt: { spine: [.05, 0, 0], shR: [-.55, 0, 0], elR: [-.5, 0, 0], shL: [-.1, 0, .2], hipR: [.15, 0, 0], hipL: [-.1, 0, 0], knL: [-.1, 0, 0] },
+  // putt: feet planted with the throwing-side foot ahead, knees soft rather than crouched, elbow forward with the forearm
+  // near its release pitch so the disc sets chest-high in front, level but for the putt's own nose-up
+  putt: { spine: [-.03, 0, 0], shR: [-.05, 0, -.05], elR: [-.6, 0, 0], shL: [-.1, 0, .2], elL: [.1, 0, 0], hipR: [.05, 0, 0], knR: [.2, 0, 0], hipL: [-.2, 0, 0], knL: [.25, 0, 0] },
 };
+// Cover-shot idle for the menu tee and bystanders: weight over the right leg, left knee soft, disc fist raised beside the
+// chest with the forearm near vertical (the roll-free socket then shows the plate to a lens in front), off hand on the hip,
+// head level. Right-handed; callers mirror. Absolute joint values, breathing sway added per frame.
+const HERO = { root: [0, .08, -.03], spine: [.02, -.06, .05], head: [.02, .12, -.02], shR: [-.05, -.55, .45], elR: [2.55, 0, 0], shL: [-.15, 0, -.5], elL: [.36, 0, .96], hipR: [.02, 0, .04], knR: [-.03, 0, 0], hipL: [.2, 0, -.14], knL: [-.42, 0, 0] };
+export function heroPose(time, rig = RIGS.lite) {
+  const pose = { rootY: 0 }; for (const j of JOINTS) pose[j] = [...(HERO[j] || IDLE[j])];
+  const breath = Math.sin(time * 1.2);
+  pose.spine[0] += .012 * breath; pose.shR[2] += .015 * breath; pose.elR[0] -= .02 * breath; pose.shL[2] -= .01 * Math.sin(time * .9);
+  pose.head[1] += .05 * Math.sin(time * .35); pose.head[0] += .015 * Math.sin(time * .6); pose.root[2] += .006 * Math.sin(time * .5);
+  pose.rootY = -Math.min(...soleHeights(pose, false, rig));
+  return pose;
+}
 export function readyPose(type, time, rig = RIGS.lite) {
   const stance = STANCE[type.split('_')[0]] || STANCE.forehand, breath = Math.sin(time * 1.3);
   const pose = poseAt(keysFor(type), .06 + .04 * Math.sin(time * 1.1));
