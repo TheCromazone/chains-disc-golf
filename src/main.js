@@ -133,8 +133,10 @@ function frameInterface() {
 }
 const LAYOUTS = COURSES.map(courseLayout);
 function placeHero() {
-  const h = holes[0], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]);
-  hero.group.position.set(h.tee[0], h.teeY + 0.07, h.tee[1]); hero.faceDir(d[0] / L, d[1] / L); hero.setPhase(null);
+  const h = holes[0], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
+  const r = rightOf(d), a = cam.mode === 'locker' ? 0 : Math.PI - .35;   // clubhouse: three-quarter to the lens behind the pad; locker: down the fairway
+  hero.group.position.set(h.tee[0], h.teeY + 0.07, h.tee[1]); hero.setPhase(null);
+  hero.faceDir(d[0] * Math.cos(a) + r[0] * Math.sin(a), d[1] * Math.cos(a) + r[1] * Math.sin(a));   // once: steering faceDir every frame reads as aiming and coils the stance
 }
 let heroDisc = null;
 function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
@@ -198,7 +200,7 @@ function startHole() {
   circleRing.position.set(h.basket[0], h.basketY + 0.05, h.basket[1]);
   UI.setHud({ hole: G.holeIdx + 1, par: h.par, len: h.len, dist: h.len, throwNo: 'Tee', playerName: '' });
   UI.setControlsEnabled(false); UI.waiting(null); preview.visible = false;
-  G.phase = 'intro'; G.introT = 0; cam.mode = 'intro'; G.overview = false;
+  G.phase = 'intro'; G.introT = 0; G.aim.pitch = 0; cam.mode = 'intro'; G.overview = false;   // pitch reset: the intro lands on the tee's aim frame
   // Broadcast-style title over the flyover (the HUD is hidden while data-phase is 'intro'; set it now so the HUD never flashes).
   const title = $('holeTitle'); if (title) { title.firstElementChild.textContent = `Hole ${G.holeIdx + 1}`; title.lastElementChild.textContent = `Par ${h.par} · ${Math.round(h.len)} m`; }
   document.body.dataset.phase = 'intro';
@@ -439,22 +441,36 @@ function updatePreview() {
 // ---------- camera ----------
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const baseFov = () => camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58;   // mirrors resize(); narrower lenses below are per camera mode
+const DEG = Math.PI / 180;
+// Over-the-left-shoulder aim frame (Disc Golf Masters bar): drives show the whole athlete on the right third, head ~20% from the
+// top; putts sit closer and crop him at the hip. Pin left of centre near mid-height, horizon ~35-40% from the top (7° down).
+// Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the vertical fov.
+function aimFrame(lie, d, putt, pos, look) {
+  const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2;
+  const back = putt ? (portrait ? 1.6 : 1.25) : 2.75, side = (putt ? .7 : 1) * (portrait ? .5 : 1), up = putt ? 1.7 : 1.45;   // portrait's narrow lens needs a step back so the athlete leaves room for the pin
+  pos.set(lie.x - d[0] * back - r[0] * side, lie.y + up, lie.z - d[1] * back - r[1] * side);
+  // putts: tilt to the band so the basket stays mid-frame on a sloped green, clamped so the horizon never leaves the top; drag up = look up
+  const bd = Math.hypot(h.basket[0] - pos.x, h.basket[1] - pos.z);
+  const pitch = (putt ? Math.max(-2, Math.min(11, Math.atan2(pos.y - h.basketY - .8, bd) / DEG + 1)) : 7) - G.aim.pitch;
+  const yaw = (putt ? 11 : 4) * (portrait ? .55 : 1) * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);   // look axis a few degrees right of the aim: athlete right, pin left of centre
+  look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
+  return portrait ? 60 : camera.aspect < 1.6 ? 50 : 45;
+}
 function updateCamera(dt) {
   if (document.body.dataset.phase !== G.phase) document.body.dataset.phase = G.phase;
   frameInterface();
   const h = holes[G.holeIdx] || holes[0];
   let k = 5, fov = baseFov();
-  if (cam.mode === 'menu') {   // clubhouse: the athlete on tee 1 facing us, low three-quarter lens with the fairway, pin and tree line behind
+  if (cam.mode === 'menu') {   // clubhouse: a 40 mm portrait of the athlete on tee 1 from straight behind the pad, mid-thigh up on the right two-thirds, fairway and pin behind him, hole sign off frame
     const h0 = holes[0], t = performance.now() / 1000, d = [h0.basket[0] - h0.tee[0], h0.basket[1] - h0.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
-    const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2, sway = Math.sin(t * 0.18) * 0.1;
-    hero.faceDir(-d[0], -d[1]);
-    const side = (wide ? 1.2 : .5) + sway, back = wide ? 2.5 : 2.8, la = wide ? 8 : 7.2, ls = wide ? 0 : 1.4;
-    cam.tPos.set(p.x - d[0] * back - r[0] * side, p.y + (wide ? 1.05 : 1.3), p.z - d[1] * back - r[1] * side);   // portrait: look down so the athlete sits above the card with the horizon just over it
-    cam.tLook.set(p.x + d[0] * la + r[0] * ls, p.y + (wide ? .95 : -2), p.z + d[1] * la + r[1] * ls); k = 4; fov = wide ? 46 : baseFov();
+    const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2, sway = Math.sin(t * 0.18) * 0.08;
+    const back = wide ? 2.15 : 2.8, yaw = (wide ? -.2 : -.04) + sway * .1, la = 10;   // look axis left of the athlete: wide puts him on the right two-thirds, portrait just right of centre above the card
+    const fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
+    cam.tPos.set(p.x - d[0] * back - r[0] * sway, p.y + (wide ? 1.2 : 1.3), p.z - d[1] * back - r[1] * sway);
+    cam.tLook.set(cam.tPos.x + fx * la, cam.tPos.y + (wide ? .52 : -3.3), cam.tPos.z + fz * la); k = 4; fov = wide ? 36 : baseFov();   // wide: 3° up, heroic; portrait: down so the horizon sits just over the card
   } else if (cam.mode === 'locker') {   // creator stage: orbit the avatar's front, slow sway
     const h0 = holes[0], t = performance.now() / 1000, d = [h0.basket[0] - h0.tee[0], h0.basket[1] - h0.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
     const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2;
-    hero.faceDir(d[0], d[1]);
     const faceEdit=document.querySelector('.locker-tabs [aria-selected="true"]')?.dataset.category==='face';
     const hy = hero.headY || 1.39;   // frame whichever rig loaded: the athlete's face sits higher than the Mii's
     const ang = Math.sin(t * 0.18) * 0.04 - .10, dist = faceEdit ? Math.max(.95, hy * .62) : 3.25;
@@ -465,16 +481,17 @@ function updateCamera(dt) {
   } else if (cam.mode === 'courses') {   // slow flyover of the whole course
     const t = performance.now() / 1000 * 0.06, cx = holes.reduce((a, h) => a + h.basket[0], 0) / holes.length, cz = holes.reduce((a, h) => a + h.basket[1], 0) / holes.length;
     cam.tPos.set(cx + Math.cos(t) * 170, world.height(cx, cz) + 95, cz + Math.sin(t) * 170); cam.tLook.set(cx, world.height(cx, cz), cz); k = 1.5;
-  } else if (cam.mode === 'intro') {   // flyover: pin first from a low airborne start short of the basket, then pull back down the fairway to high behind the tee
+  } else if (cam.mode === 'intro') {   // flyover: a drone high behind the pad looking ~30° down the fairway (pad and pin both in frame), easing forward and down into the tee's aim frame
     const d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
-    const r = rightOf(d), u = ease(Math.min(1, G.introT / 4.7)), s = Math.min(25, L * .45);
-    _v.set(h.basket[0] - d[0] * s - r[0] * 7, h.basketY + 12, h.basket[1] - d[1] * s - r[1] * 7);
-    _v2.set(h.tee[0] - d[0] * 8 - r[0] * .6, h.teeY + 4, h.tee[1] - d[1] * 8 - r[1] * .6);
-    cam.tPos.lerpVectors(_v, _v2, u); cam.tPos.y = Math.max(cam.tPos.y, world.height(cam.tPos.x, cam.tPos.z) + 1.6);
-    cam.tLook.set(h.basket[0], h.basketY + 1, h.basket[1]); k = 1e3;   // no smoothing: the eased path is the motion
+    const r = rightOf(d), u = ease(Math.min(1, G.introT / 4.7));
+    _v.set(h.tee[0], h.teeY, h.tee[1]); const aimFov = aimFrame(_v, d, false, _v2, _v3);   // landing = the aim camera on the tee, so the hand-off is seamless
+    _v.set(h.tee[0] - d[0] * 15 - r[0] * 2, h.teeY + 13, h.tee[1] - d[1] * 15 - r[1] * 2); cam.tPos.lerpVectors(_v, _v2, u);   // at 1.7 s: ~10 m up, 12 m back, 22° down — sky over the pin, pad at the bottom fifth
+    _v.set(h.tee[0] + d[0] * 12.5, h.teeY, h.tee[1] + d[1] * 12.5); cam.tLook.lerpVectors(_v, _v3, u);
+    cam.tPos.y = Math.max(cam.tPos.y, world.height(cam.tPos.x, cam.tPos.z) + 1.6); k = 1e3;   // no smoothing: the eased path is the motion
+    fov += (aimFov - fov) * u;
   } else if (cam.mode === 'aim' || (cam.mode === 'result' && !G.flight)) {
     const p = curP(); if (!p) return;
-    const d = aimDir(), r = rightOf(d), lie = p.char.group.position;
+    const d = aimDir(), lie = p.char.group.position;
     if (G.overview && cam.mode !== 'result') {
       const dist = Math.max(20, distToBasket(lie.x, lie.z));
       const mx = (lie.x + basketPos()[0]) / 2, mz = (lie.z + basketPos()[1]) / 2;
@@ -483,15 +500,7 @@ function updateCamera(dt) {
       const r=rightOf(d);cam.tPos.set(lie.x+d[0]*3.8+r[0]*.7,lie.y+1.45,lie.z+d[1]*3.8+r[1]*.7);
       cam.tLook.set(lie.x,lie.y+.92,lie.z); k=5;
     }
-    else {   // over the left shoulder on a long lens: player right of frame, basket left of centre, nothing between them; tighter for putts
-      const putt = G.throwType === 'putt', portrait = camera.aspect < 1.2, drop = putt ? Math.max(0, lie.y - h.basketY) : 0;   // downhill putt: climb and step back so both the head and the band stay in frame
-      const back = (putt ? 1.7 : 1.8) + drop * .35, side = (putt ? .7 : .55) * (portrait ? .45 : 1), up = (putt ? 1.35 : 1.4) + drop * .3 + G.aim.pitch * .06;
-      cam.tPos.set(lie.x - d[0] * back - r[0] * side, lie.y + up, lie.z - d[1] * back - r[1] * side);
-      // putts: level the lens on the basket's band whatever the green's slope (the look stays along the aim, so dragging still steers); drives: a fixed lift keeps the pin near 40% height
-      const bd = distToBasket(lie.x, lie.z) + back, lookY = putt ? cam.tPos.y + (h.basketY + .45 - cam.tPos.y) * (14 + back) / bd : lie.y + .45;
-      cam.tLook.set(lie.x + d[0] * 14 + r[0] * .33, lookY + G.aim.pitch * .35, lie.z + d[1] * 14 + r[1] * .33);
-      fov = portrait ? (putt ? 58 : 62) : camera.aspect < 1.6 ? 46 : putt ? 42 : 40;
-    }
+    else fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
     const f = G.flight;
     if (f && f.pos) {
@@ -582,10 +591,10 @@ $('btnCourses').onclick = () => { UI.hide('menu'); UI.show('courses'); cam.mode 
 $('btnCoursesBack').onclick = () => { UI.hide('courses'); UI.show('menu'); cam.mode = 'menu'; };
 let heroTimer = null;
 const onAvatarChange = (k, v) => { G.avatar[k] = v; saveLocal('chains.avatar', G.avatar); updateHub(); if (k === 'name') return; if (['eyes','eyeColor','brows','nose','mouth','facialHair','glasses','shades'].includes(k)) { hero?.setFace?.(G.avatar); return; } clearTimeout(heroTimer); heroTimer = setTimeout(makeHero, 120); };
-const openLocker = () => { UI.hide('menu'); UI.show('locker'); cam.mode = 'locker'; sfx.click(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); };
+const openLocker = () => { UI.hide('menu'); UI.show('locker'); cam.mode = 'locker'; placeHero(); sfx.click(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); };
 $('btnLocker').onclick = openLocker;
 $('btnRandomAvatar').onclick = () => { G.avatar = randomAvatar(Math.random, { name: G.avatar.name }); saveLocal('chains.avatar', G.avatar); makeHero(); updateHub(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); sfx.click(); };
-$('btnLockerDone').onclick = () => { UI.hide('locker'); UI.show('menu'); cam.mode = 'menu'; sfx.click(); };
+$('btnLockerDone').onclick = () => { UI.hide('locker'); UI.show('menu'); cam.mode = 'menu'; placeHero(); sfx.click(); };
 
 // pass & play setup
 let setupPlayers = [];
