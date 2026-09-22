@@ -135,9 +135,12 @@ const LAYOUTS = COURSES.map(courseLayout);
 // off-shoulder and the woods past it closing the top of the frame. Trees inside ~25 m keep 95% of their contrast
 // through the haze, so staging close is what clears the fog. Of the greens whose approach runs away from the sun (the
 // low key then lights his face and the woods instead of haloing him) the one with the most trees past it wins.
-const MENU = { short: 5, lat: 1.7, face: .45, wide: { back: 4.4, up: 1, aim: 1.05, x: .5, fov: 28 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
+const MENU = { short: 5, lat: 1.7, face: .45, wide: { back: 5, up: 1, aim: .98, x: .5, fov: 28 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
 const menuStage = { d: [0, 1], r: [-1, 0] };
-const menuBlob = new THREE.Mesh(heroBlob.geometry, heroBlob.material); menuBlob.visible = false; scene.add(menuBlob);   // contact shade under the clubhouse hero
+// Contact shade under the clubhouse hero: the key light sits behind the lens, so his own shadow falls out of sight behind him.
+const blobCanvas = document.createElement('canvas'); blobCanvas.width = blobCanvas.height = 64; const blobInk = blobCanvas.getContext('2d'), blobGrad = blobInk.createRadialGradient(32, 32, 0, 32, 32, 32);
+blobGrad.addColorStop(0, 'rgba(0,0,0,.72)'); blobGrad.addColorStop(.38, 'rgba(0,0,0,.42)'); blobGrad.addColorStop(1, 'rgba(0,0,0,0)'); blobInk.fillStyle = blobGrad; blobInk.fillRect(0, 0, 64, 64);
+const menuBlob = new THREE.Mesh(heroBlob.geometry, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(blobCanvas), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); menuBlob.scale.setScalar(.62); menuBlob.visible = false; scene.add(menuBlob);
 function placeHero() {
   hero.setPhase(null);
   if (cam.mode === 'locker') { const h = holes[0], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); hero.group.position.set(h.tee[0], h.teeY + 0.07, h.tee[1]); hero.faceDir(d[0] / L, d[1] / L); return; }   // locker: on the pad, down the fairway
@@ -463,20 +466,20 @@ const DEG = Math.PI / 180;
 // Over-the-left-shoulder aim frame (the Disc Golf Masters broadcast lens): a chest-high camera ~2 m behind the athlete's left
 // shoulder, near level, so he fills the right third cropped at the thigh with his head ~18% from the top. Drives: axis a few
 // degrees right of the aim, pin left of centre, horizon just under the middle. Putts: the axis runs through the basket, dead
-// centre with its band ~45% down. On a sloped green the camera rides 30% of the drop (up for downhill, down for uphill) and
-// the tilt stops where the head would pass 18% from the top. Wide screens hold the horizontal lens (hfov), portrait the vertical
-// one (a 2:1 phone widens past the hfov rather than crop under 32° tall). Shared by the aim camera and the hole intro's landing.
+// centre with its band ~45-50% down. On a sloped green the camera rides 40% of the drop (up for downhill, down for uphill, at
+// most 50 cm) and the tilt stops where the head would pass 18% from the top. Wide screens hold the horizontal lens (hfov), portrait the vertical
+// one (a 2:1 phone widens past the hfov rather than crop under 29° tall). Shared by the aim camera and the hole intro's landing.
 // Writes pos/look, returns the vertical fov.
-const AIM = { drive: { back: 2.1, side: .8, up: 1.36, pitch: 1.5, yaw: 4.8, hfov: 58 }, putt: { back: 2, side: .8, up: 1.28, lift: .3, hfov: 58 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.3, side: .8, up: 1.3, lift: .4, hfov: 50 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, fov: 56 } } };
 function aimFrame(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = (portrait ? AIM.tall : AIM)[putt ? 'putt' : 'drive'];
-  const vt = portrait ? Math.tan(P.fov * DEG / 2) : Math.max(Math.tan(16 * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 32° at least, so a 2:1 phone keeps headroom
-  const up = P.up + (putt ? Math.max(-.4, Math.min(.4, P.lift * (lie.y - h.basketY))) : 0);
+  const vt = portrait ? Math.tan(P.fov * DEG / 2) : Math.max(Math.tan(14.5 * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least, so a 2:1 phone keeps headroom
+  const up = P.up + (putt ? Math.max(-.5, Math.min(.5, P.lift * (lie.y - h.basketY))) : 0);
   pos.set(lie.x - d[0] * P.back - r[0] * P.side, lie.y + up, lie.z - d[1] * P.back - r[1] * P.side);
   const bd = Math.hypot(h.basket[0] - pos.x, h.basket[1] - pos.z);
-  // putts: band 5% above centre, but never tipped so far that the eyes (~1.72 m) pass 20% from the top; drag up = look up
-  const band = Math.atan2(up - h.basketY + lie.y - 1.34, bd) + Math.atan(.1 * vt), head = Math.atan(.6 * vt) - Math.atan2(1.72 - up, Math.hypot(P.back, P.side));
+  // putts: band 5% above centre, but never tipped so far that the eyes (~1.72 m) pass 21% from the top; drag up = look up
+  const band = Math.atan2(up - h.basketY + lie.y - 1.34, bd) + Math.atan(.1 * vt), head = Math.atan(.58 * vt) - Math.atan2(1.72 - up, Math.hypot(P.back, P.side));
   const pitch = (putt ? Math.max(-4, Math.min(12, Math.min(band, head) / DEG)) : P.pitch) - G.aim.pitch;
   const yaw = putt ? Math.atan2(P.side, bd) : P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
@@ -493,7 +496,7 @@ function updateCamera(dt) {
     const right = wide ? (document.querySelector('#menu .panel')?.getBoundingClientRect().right || 0) / innerWidth : 0, sx = wide ? right + (1 - right) * S.x - .5 : S.x - .5;
     const yaw = -Math.atan(sx * 2 * Math.tan(S.fov * DEG / 2) * camera.aspect) + sway * .02, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
     cam.tPos.set(p.x - d[0] * S.back - r[0] * sway, p.y + S.up, p.z - d[1] * S.back - r[1] * sway);
-    cam.tLook.set(cam.tPos.x + fx * S.back, p.y + S.aim, cam.tPos.z + fz * S.back); k = 4; fov = S.fov;   // the axis meets the athlete's S.aim height: his framing holds on any slope
+    cam.tLook.set(cam.tPos.x + fx * S.back * 2, 2 * (p.y + S.aim) - cam.tPos.y, cam.tPos.z + fz * S.back * 2); k = 4; fov = S.fov;   // the axis meets the athlete's S.aim height, so his framing holds on any slope; aimed twice as far so the lie-focused tufts gather round the basket, not the lens
   } else if (cam.mode === 'locker') {   // creator stage: orbit the avatar's front, slow sway
     const h0 = holes[0], t = performance.now() / 1000, d = [h0.basket[0] - h0.tee[0], h0.basket[1] - h0.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
     const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2;
@@ -705,5 +708,5 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, placeHero, MENU, THREE };  // debug hook (remote devtools)
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, placeHero, MENU, AIM, THREE };  // debug hook (remote devtools)
 }, 60);
