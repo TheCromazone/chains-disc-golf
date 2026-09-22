@@ -1,0 +1,95 @@
+// Blade carpet: short turf blades around the camera. Clumps are scattered once over square tiles of ground that wrap
+// around a point ahead of the camera, so a root that leaves one side of its tile re-enters on the other while its height
+// is zero: blades are fixed to the world and never swim or pop. Full runs two tiles (dense to ~7 m, sparse to ~17 m),
+// Lite one small tile of single-triangle blades. The vertex shader roots every blade on the terrain's own triangles (a
+// float texture of the mesh heights, split like PlaneGeometry) and reads the ground there (the palette, fairway weight
+// and splat weights the terrain shader uses, through GROUND_GLSL), so blades carry the ground's colour, stripes and
+// straw, stand taller in the rough, and thin out into gravel, litter, sand and the tee pads. The camera is read in
+// onBeforeRender, so the only per-frame CPU work is two uniforms.
+import * as THREE from 'three';
+import { windTime, windVec, GROUND_GLSL } from './materials.js';
+
+export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite, seed = 1 }) {
+  const nx = segX + 1, nz = segZ + 1, n = nx * nz, f = x => x.toFixed(6);
+  const hgt = new Float32Array(n * 2), zone = new Uint8Array(n * 4), spl = new Uint8Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    hgt[i * 2] = pos.getY(i); hgt[i * 2 + 1] = turf[i * 2 + 1];
+    for (let k = 0; k < 3; k++) zone[i * 4 + k] = Math.round(Math.sqrt(Math.min(1, colors[i * 3 + k])) * 255);   // sqrt: finer 8-bit steps where turf albedos live
+    zone[i * 4 + 3] = Math.round(turf[i * 2] * 255);
+    for (let k = 0; k < 4; k++) spl[i * 4 + k] = Math.round(Math.min(1, splats[i * 4 + k]) * 255);
+  }
+  const data = (a, format, type, filter) => { const t = new THREE.DataTexture(a, nx, nz, format, type); t.minFilter = t.magFilter = filter; t.needsUpdate = true; return t; };
+  const maps = [data(hgt, THREE.RGFormat, THREE.FloatType, THREE.NearestFilter), data(zone, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.LinearFilter), data(spl, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.LinearFilter)];
+
+  // One clump: single-triangle blades 6-10 cm tall (scaled per clump in the shader) spread over a 12 cm disc, so
+  // neighbouring clumps overlap into an even carpet instead of reading as tufts. A 20 px blade barely shows curvature,
+  // and one triangle per blade buys three times the blades.
+  let s = seed >>> 0 || 1; const rnd = () => (s = Math.imul(s, 1664525) + 1013904223 >>> 0) / 4294967296;
+  const B = lite ? 5 : 16, P = [], S = [], N = [], U = [];
+  for (let b = 0; b < B; b++) {
+    const a = rnd() * 6.283, r = Math.sqrt(rnd()) * .12, x0 = Math.cos(a) * r, z0 = Math.sin(a) * r;
+    const h = .1 * (.6 + rnd() * .4), w = .003 + rnd() * .0015, fa = rnd() * 3.1416, fx = Math.cos(fa), fz = Math.sin(fa);
+    const la = rnd() * 6.283, lean = h * (.1 + rnd() * .35), j = rnd();
+    for (const sg of [-1, 1]) { P.push(x0, 0, z0); S.push(fx * w * sg, fz * w * sg); N.push(-fz, 0, fx); U.push(0, j); }
+    P.push(x0 + Math.cos(la) * lean, h, z0 + Math.sin(la) * lean); S.push(0, 0); N.push(-fz, 0, fx); U.push(1, j);
+  }
+  const geo = new THREE.InstancedBufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+  geo.setAttribute('aSide', new THREE.Float32BufferAttribute(S, 2)); geo.setAttribute('aBlade', new THREE.Float32BufferAttribute(U, 2));
+  // Tiles: [size m, anchor distance ahead of the camera m, thinning from, gone at (m from the eye), roots per side].
+  // Each clump drops out at its own random distance inside the thinning band, so density falls off smoothly instead of
+  // stepping at a fade line; the far tile's clumps spread twice as wide (its spacing is three times the near one's).
+  const layers = lite ? [[8, 3.2, 3, 5.8, 22]] : [[11, 4.5, 3.5, 8.5, 72], [24, 10, 9, 15, 56]], roots = [];
+  layers.forEach(([, , , , m], l) => { for (let i = 0; i < m; i++) for (let k = 0; k < m; k++) roots.push((i + rnd()) / m, (k + rnd()) / m, rnd(), l); });
+  geo.setAttribute('aRoot', new THREE.InstancedBufferAttribute(new Float32Array(roots), 4)); geo.instanceCount = roots.length / 4;
+
+  const eye = new THREE.Vector3(), fwd = new THREE.Vector2(0, 1), dir = new THREE.Vector3();
+  const uniforms = { gHeight: { value: maps[0] }, gZone: { value: maps[1] }, gSplat: { value: maps[2] }, gEye: { value: eye }, gFwd: { value: fwd },
+    gLayer: { value: layers.map(([L, a, f0, f1]) => new THREE.Vector4(L, a, f0, f1)) }, gPads: { value: pads.map(p => new THREE.Vector4(...p)) }, windTime, windVec };
+  const mat = new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide });
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, uniforms);
+    sh.vertexShader = `attribute vec4 aRoot;attribute vec2 aSide,aBlade;uniform sampler2D gHeight,gZone,gSplat;uniform vec3 gEye;uniform vec2 gFwd;
+      uniform vec4 gLayer[${layers.length}],gPads[${pads.length}];uniform float windTime;uniform vec2 windVec;varying vec3 vBlade;varying float vTip;${GROUND_GLSL}
+      vec2 gHeightAt(vec2 p,out vec3 n){   // the terrain mesh's own triangles: PlaneGeometry splits each cell along b-d
+        vec2 g=(p+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W)},${f(segZ / H)}),c=clamp(floor(g),vec2(0.),vec2(${f(segX - 1)},${f(segZ - 1)})),q=g-c;ivec2 i=ivec2(c);
+        vec2 a=texelFetch(gHeight,i,0).rg,b=texelFetch(gHeight,i+ivec2(0,1),0).rg,cc=texelFetch(gHeight,i+ivec2(1,1),0).rg,d=texelFetch(gHeight,i+ivec2(1,0),0).rg;
+        vec2 h;vec2 grad;
+        if(q.x+q.y<1.){h=a+(d-a)*q.x+(b-a)*q.y;grad=vec2(d.x-a.x,b.x-a.x);}else{h=cc-(cc-b)*(1.-q.x)-(cc-d)*(1.-q.y);grad=vec2(cc.x-b.x,cc.x-d.x);}
+        grad*=vec2(${f(segX / W)},${f(segZ / H)});n=normalize(vec3(-grad.x,1.,-grad.y));return h;
+      }
+      void gBlade(out vec3 bladePos,out vec3 bladeNormal){
+        vec4 L=gLayer[int(aRoot.w)];vec2 anchor=gEye.xz+gFwd*L.y,rel=aRoot.xy*L.x-anchor;rel-=L.x*floor(rel/L.x+.5);vec2 root=anchor+rel;
+        vec3 gn;vec2 ga=gHeightAt(root,gn);float dCam=distance(vec3(root.x,ga.x,root.y),gEye);
+        float drop=L.z+(L.w-L.z)*fract(aRoot.z*3.71);   // this clump's own fade distance
+        float k=smoothstep(drop+.6,drop,dCam)*smoothstep(L.x*.5,L.x*.5-.8,max(abs(rel.x),abs(rel.y)));   // zero at the wrap edge: roots jump unseen
+        vec2 guv=(root+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W / nx)},${f(segZ / H / nz)})+vec2(${f(.5 / nx)},${f(.5 / nz)});
+        vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,br);float grow=1.-max(max(cov.x,cov.y),cov.z);
+        for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);grow*=smoothstep(.05,.3,max(abs(q.x)-.8,abs(q.y)-1.6));}
+        float sc=k*smoothstep(.3,.7,grow),fair=zf.a,cl=gNoise(root*.8+3.);
+        float hs=mix(1.+cl*.5,.6+cl*.25,fair)*(.8+.4*fract(aRoot.z*13.7))*sc;   // x the 6-10 cm blades: rough 5-18 cm, fairway 3-9 cm
+        float yaw=aRoot.z*6.2832,cs=cos(yaw),sn=sin(yaw);mat2 R=mat2(cs,sn,-sn,cs);
+        vec3 bp=position*vec3(1.,hs,1.);bp.xz=R*(position.xz*(aRoot.w>.5?2.:1.)+aSide*max(1.,dCam/6.)*mix(.4,1.,sc));   // far blades widen to stay a pixel wide
+        float t=aBlade.x,t2=t*hs,gust=.55+.45*sin(windTime*3.1+root.x*.31-root.y*.27);
+        bp.x+=(sin(windTime*1.7+root.x*.5+root.y*.3)*.012+windVec.x*.04*gust)*t2;bp.z+=(cos(windTime*1.3+root.y*.4)*.008+windVec.y*.04*gust)*t2;
+        bladePos=vec3(root.x,ga.x-.01,root.y)+bp;
+        vec2 bn=R*normal.xz;bladeNormal=normalize(gn+vec3(bn.x,0.,bn.y)*.3);
+        vec3 c=gTurf(root,zf.rgb*zf.rgb,vec2(fair,ga.y),gDry(sp.w,br))*(.8+.4*fract(aRoot.z*91.7+aBlade.y*7.3));
+        c=max(mix(vec3(dot(c,vec3(.3,.59,.11))),c,1.15),0.);   // live blades a touch richer than the turf's average
+        c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.4,1.18,.62),step(.96,fract(aBlade.y*17.3+aRoot.z*5.1))*.6);   // one blade in 25 is dead straw
+        vBlade=c*mix(.7,1.35,t);vTip=t;   // shaded at the root where neighbours crowd it, tips above the turf catch the sun
+      }\n` + sh.vertexShader.replace('#include <beginnormal_vertex>', 'vec3 objectNormal,bladePos;gBlade(bladePos,objectNormal);').replace('#include <begin_vertex>', 'vec3 transformed=bladePos;');
+    sh.fragmentShader = 'varying vec3 vBlade;varying float vTip;\n' + sh.fragmentShader.replace('#include <color_fragment>', 'diffuseColor.rgb=vBlade;')
+      .replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))   // both faces keep the ground-leaning normal
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+        #if NUM_DIR_LIGHTS > 0
+        { float back=pow(saturate(dot(-normalize(vViewPosition),directionalLights[0].direction)),4.);   // back-lit tips glow (thin-blade transmission)
+          reflectedLight.directDiffuse+=diffuseColor.rgb*directLight.color*back*vTip*.12; }
+        #endif`);
+  };
+  mat.customProgramCacheKey = () => 'chains-grass-' + lite;
+  const dispose = mat.dispose.bind(mat); mat.dispose = () => { dispose(); maps.forEach(t => t.dispose()); };
+  const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.receiveShadow = true;
+  mesh.onBeforeRender = (r, sc, cam) => { cam.getWorldPosition(eye); cam.getWorldDirection(dir); if (Math.hypot(dir.x, dir.z) > .05) fwd.set(dir.x, dir.z).normalize(); };
+  return mesh;
+}

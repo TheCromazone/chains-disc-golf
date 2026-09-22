@@ -7,7 +7,7 @@ import { canopyGeometry } from './canopies.js';
 import { model } from './models.js';
 import { modelParts, addModel } from './models.js';
 import { windMaterial, windTime, toonMaterial, paintDetail, terrainSplat } from './materials.js';
-import { washedTexture } from './assets.js';
+import { grassCarpet } from './grass.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
@@ -19,19 +19,19 @@ export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
-    hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#75bd48', '#3f9842', '#29774a', '#f5dfa4'], leafHue: 0.29,
+    hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#6b9441', '#5d8340', '#4a6b39', '#e3cf9a'], leafHue: 0.29,
     sun: [19, 22], sky: [.5, 1.3, '#7aa6d2'], sunColor: '#ffd3a0', fog: ['#e4e6df', 0.0100], hemi: ['#b8cde6', '#33492a'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
-    hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#8bc352', '#55a344', '#397e48', '#f4dd9e'], leafHue: 0.265,
+    hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#789a42', '#6a8e3f', '#536f38', '#e6d29c'], leafHue: 0.265,
     sun: [18, 340], sky: [.47, 1.1, '#95a9c1'], sunColor: '#ffc98a', fog: ['#f0e3ca', 0.0088], hemi: ['#c8d3e8', '#4d4a2a'], water: '#4a7f8f' },
   { id: 'lake', name: 'Lakeshore Links', tag: 'Water on five holes', blurb: 'Morning light off the lake. Carries, wraps and island greens; every pond is out of bounds.', seed: 41,
     len: [92, 118, 80, 134, 100, 74, 126, 96, 110], dog: { 2: 1, 5: -1, 7: 1 }, ponds: { 0: 'right', 2: 'front', 4: 'carry', 6: 'right', 8: 'front' },
-    hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#7dc65a', '#419f50', '#287a51', '#ffe3ac'], leafHue: 0.3,
+    hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#659644', '#568541', '#446d3b', '#ecd8a6'], leafHue: 0.3,
     sun: [21, 30], sky: [.55, 1.4, '#78a7d6'], sunColor: '#ffdcae', fog: ['#e6ece9', 0.0096], hemi: ['#c3daf0', '#2f4f33'], water: '#2a7fa8' },
   { id: 'bluff', name: 'Gull Point Bluffs', tag: 'Coastal · exposed · gusty', blurb: 'Headland links above the surf. Nothing stops the wind up here: read the socks, throw low into it and ride it home.', seed: 59,
     len: [98, 124, 88, 142, 110, 80, 156, 96, 118], dog: { 1: 1, 4: -1, 7: 1 }, ponds: { 2: 'right', 5: 'carry', 8: 'front' },
-    hills: 2.1, trees: 0.22, pine: 0.7, fairwayW: 1.4, wind: 2.8, grass: ['#a9c65a', '#7fa848', '#5d8a4a', '#e9d9a6'], leafHue: 0.25,
+    hills: 2.1, trees: 0.22, pine: 0.7, fairwayW: 1.4, wind: 2.8, grass: ['#839c4a', '#749047', '#5b7642', '#e0d2a4'], leafHue: 0.25,
     sun: [20, 345], sky: [.44, 1.2, '#86abcb'], sunColor: '#ffd6a6', fog: ['#e5eaec', 0.0092], hemi: ['#c2d6e8', '#4e5a3c'], water: '#3f8fb0' },
 ];
 export const courseById = id => COURSES.find(c => c.id === id) || COURSES[0];
@@ -63,17 +63,6 @@ function canvasTex(size, draw, repeat) {
   if (repeat) t.repeat.set(repeat[0], repeat[1]);
   t.anisotropy = 4;
   return t;
-}
-function grassTexture(rng) {
-  return canvasTex(512, (g, s) => {
-    g.fillStyle = '#4f7a2a'; g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 26000; i++) {
-      const x = rng() * s, y = rng() * s, l = 2 + rng() * 5, h = 80 + rng() * 30, li = 22 + rng() * 22;
-      g.strokeStyle = `hsl(${h}, ${45 + rng() * 25}%, ${li}%)`; g.lineWidth = 1 + rng();
-      g.beginPath(); g.moveTo(x, y); g.lineTo(x + (rng() - 0.5) * 2, y - l); g.stroke();
-    }
-    for (let i = 0; i < 400; i++) { g.fillStyle = `rgba(90,70,30,${0.08 + rng() * 0.1})`; g.beginPath(); g.arc(rng() * s, rng() * s, 3 + rng() * 6, 0, 7); g.fill(); }
-  }, [60, 46]);
 }
 function concreteTexture(rng) {
   return canvasTex(256, (g, s) => {
@@ -113,16 +102,6 @@ function litterTexture() {
     for (let i = 0; i < 5000; i++) { g.fillStyle = `rgba(20,14,8,${.1 + rng() * .2})`; g.fillRect(rng() * s, rng() * s, 1 + rng() * 2, 1 + rng() * 2); }
   });
   litterTile.__shared = true; return litterTile;
-}
-function bladeTexture() {
-  return canvasTex(128, (g, s) => {
-    g.clearRect(0, 0, s, s);
-    for (let i = 0; i < 9; i++) {
-      const x = 10 + i * 13, h = 60 + Math.random() * 60, lean = (Math.random() - 0.5) * 30;
-      const grd = g.createLinearGradient(0, s, 0, s - h); grd.addColorStop(0, '#3d6b22'); grd.addColorStop(1, '#8fc04a');
-      g.fillStyle = grd; g.beginPath(); g.moveTo(x - 4, s); g.quadraticCurveTo(x + lean * 0.4, s - h * 0.6, x + lean, s - h); g.quadraticCurveTo(x + lean * 0.4 + 2, s - h * 0.6, x + 4, s); g.fill();
-    }
-  });
 }
 export function textTexture(lines, { w = 512, h = 256, bg = '#f3efe4', fg = '#1a1a1a', font = 'bold 64px system-ui, sans-serif' } = {}) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
@@ -217,18 +196,17 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const waterLevel = (x, z) => { let best = ponds[0], bd = 1e9; for (const p of ponds) { const d = Math.hypot(x - p.x, z - p.z); if (d < bd) { bd = d; best = p; } } return best ? best.level : -100; };
   const inBounds = (x, z) => Math.abs(x) < W / 2 - 6 && Math.abs(z) < H / 2 - 6;
   for (const h of holes) { h.teeY = height(h.tee[0], h.tee[1]); h.basketY = height(h.basket[0], h.basket[1]); h.yaw = Math.atan2(-(h.way[1][0] - h.tee[0]), -(h.way[1][1] - h.tee[1])); }   // pad heading: local +z points behind the pad
-  // One noise family for the turf's wear: three octaves (16, 6.5, 2.8 m) dry patches to straw, the mid and fine
-  // octaves gather the tufts, and the driest ground near a tee wears through to earth. Pad wear is a bald ellipse,
-  // 3 m wide and longer behind the pad (the walk-in) than in front, with a noisy edge so earth bleeds into the turf
-  // in fingers; the tufts read it too so bald ground stays bald.
+  // One noise family for the turf's wear: three octaves (16, 6.5, 2.8 m) dry patches to straw, and the driest ground
+  // near a tee wears through to earth. Pad wear is a gravel apron (Disc Golf Masters sets its mats in crushed stone):
+  // it hugs the pad, runs longer behind it (the walk-in) and frays into the turf in fingers of a 1.3 m noise.
   const dryNoise = (x, z) => noise(x / 16 + 41, z / 16 + 41) * .55 + noise(x / 6.5 + 9, z / 6.5 + 9) * .3 + noise(x / 2.8 + 77, z / 2.8 + 77) * .15;
-  const clump = (x, z) => noise(x / 6.5 + 9, z / 6.5 + 9) * .6 + noise(x / 2.8 + 77, z / 2.8 + 77) * .4;
   const padWear = (x, z) => {
     let w = 0;
     for (const h of holes) {
       const tx = x - h.tee[0], tz = z - h.tee[1]; if (tx * tx + tz * tz > 64) continue;
       const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy;
-      w = Math.max(w, 1 - smooth(.45, 1.15, (u / 2.6) ** 2 + (v / (v > 0 ? 5 : 3.8)) ** 2 + (noise(x / 1.9 + 91, z / 1.9 + 91) - .5) * .7));
+      const out = Math.hypot(Math.max(Math.abs(u) - .8, 0), Math.max(v > 0 ? v - 2.2 : -v - 1.6, 0));   // metres outside the pad, its back stretched by the walk-in
+      w = Math.max(w, 1 - smooth(.3, 1, out + (noise(x / 1.3 + 91, z / 1.3 + 91) - .5) * .7));
     }
     return w;
   };
@@ -236,75 +214,53 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // --- terrain mesh ---
   const segX = 260, segZ = 200;
   const geo = new THREE.PlaneGeometry(W, H, segX, segZ); geo.rotateX(-Math.PI / 2);
-  const splats = new Float32Array(geo.attributes.position.count * 4);   // dirt, sand, duff, dry
-  const paintWeights = new Float32Array(geo.attributes.position.count * 3);
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
-  // The photo tile is washed toward white so it supplies blade grain, not colour: the course palette stays in the
-  // vertex colours (stripes, collar, green, wear). A blade-scale normal map repeats eight times finer than the tile.
-  const grassMap = washedTexture('grass', { wash: .58, repeat: [60, 46] }), grassNormal = texture('grass_normal', { repeat: [480, 368], srgb: false });
-  const tint = hex => { const c = new THREE.Color(hex); return grassMap ? c.multiplyScalar(1.14) : c; };
-  const cFair = tint(def.grass[0]), cRough = tint(def.grass[1]), cDark = tint(def.grass[2]), cSand = tint(def.grass[3]), tmp = new THREE.Color();
-  const cCollar=tint('#397c36'), cGreen=tint('#afd66a'), cFringe=tint('#357b36'), cut=new THREE.Color();
-  // Real turf is olive, not one green. The target is in vertex-colour space: the green photo tile multiplies in
-  // afterwards and the material pulls the product toward khaki; straw patches come from the dry splat weight.
-  const cOlive = new THREE.Color('#8c8a66');
+  const splats = new Float32Array(pos.count * 4);   // gravel/earth, sand, leaf litter, dry
+  const turf = new Float32Array(pos.count * 2);     // fairway weight, metres across the tee-basket line (mown stripes)
+  // Each colour is a zone's mean albedo: the photo tiles are divided by their means in the shader, so these are what
+  // the turf averages to. Mown fairway lightest, rough, then deep rough away from the line and in damp hollows.
+  const grassNormal = texture('grass_normal', { repeat: [480, 368], srgb: false });
+  const cFair = new THREE.Color(def.grass[0]), cRough = new THREE.Color(def.grass[1]), cDark = new THREE.Color(def.grass[2]), cSand = new THREE.Color(def.grass[3]), tmp = new THREE.Color();
+  const cCollar = cRough.clone().lerp(cDark, .5);
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i), y = height(x, z); pos.setY(i, y);
     const fi = fairwayInfo(holes, x, z);
-    const n1 = noise(x / 9 + 3, z / 9 + 3), n2 = noise(x / 40 + 9, z / 40 + 9);
-    // Scalloped fairway, a dark first-cut collar and an isolated putting green form a
-    // readable route even when the phone camera sees very little lateral ground.
+    const n2 = noise(x / 40 + 9, z / 40 + 9);
+    // Scalloped fairway and a darker first-cut collar form a readable route even when the phone camera sees little lateral ground.
     const phase = fi.t * Math.PI * 4;
     const width = (2.0 + smooth(.06,.22,fi.t) * 1.7 + Math.sin(phase - .6) * .6 + Math.sin(phase * 1.8) * .25) * def.fairwayW;
     const edge = fi.d + (n2 - .5) * .8;
-    const fair = 1 - smooth(width, width + .55, edge);
-    paintWeights[i*3] = fair;
-    const collar = 1 - smooth(width + 1.05, width + 1.8, edge);
-    tmp.copy(cRough).lerp(cDark, .12 + n2 * .18);
-    tmp.lerp(cCollar, collar);
-    const stripe = Math.floor(fi.t * (fi.hole?.len || 90) / 5) % 2;
-    cut.copy(cFair).multiplyScalar(stripe ? .84 : 1.13);
-    tmp.lerp(cut, fair);
+    const fair = 1 - smooth(width, width + .55, edge), collar = 1 - smooth(width + 1.05, width + 1.8, edge);
+    tmp.copy(cRough).lerp(cDark, clamp(smooth(width + 5, width + 24, edge) * .6 + smooth(.55, .8, noise(x / 19 + 77, z / 19 + 77)) * .5, 0, 1));
+    tmp.lerp(cCollar, collar * .7).lerp(cFair, fair);
+    turf[i * 2] = fair;
     if(fi.hole) {
-      const bx=x-fi.hole.basket[0], bz=z-fi.hole.basket[1], green=Math.hypot(bx,bz*.88);
-      const greenMask=1-smooth(5.7,6.25,green);
-      paintWeights[i*3+1] = greenMask;
-      tmp.lerp(cGreen,greenMask);
-      const fringe=smooth(5.7,6.1,green)*(1-smooth(6.5,7.25,green));
-      tmp.lerp(cFringe,fringe*.8);
-      // Broad exposed pale earth on the low shoulder describes the landing-area shape.
-      // It is a visual soil bank, not a new hazard or separate collision surface.
-      const dx=fi.hole.basket[0]-fi.hole.tee[0],dz=fi.hole.basket[1]-fi.hole.tee[1],length=Math.hypot(dx,dz);
-      const px=x-fi.hole.tee[0],pz=z-fi.hole.tee[1],along=(px*dx+pz*dz)/length,across=(-px*dz+pz*dx)/length;
-      const side=fi.hole.idx%2?-1:1;
-      const soil=((along-length*.76)/(length*.14))**2+((across+side*8.8)/(4.8+Math.sin(along*.19)*.8))**2;
-      const soilMask=(1-smooth(.72,1.08,soil))*smooth(width+.35,width+1.2,edge);
-      tmp.lerp(cSand,soilMask*.96);
-      paintWeights[i*3+2] = soilMask;
-      // Macro turf (8-30 m): most turf drifts olive, damp hollows darken, dry patches (splat.w, bleached to straw by
-      // the material) follow dryNoise. The 2 m vertex grid resolves these wavelengths, so they are baked here.
-      tmp.lerp(cOlive, .45 + noise(x / 14 + 7, z / 14 + 7) * .35);
-      tmp.multiplyScalar(1 - smooth(.56, .82, noise(x / 21 + 77, z / 21 + 77)) * .2);
-      const dry = dryNoise(x, z), tx = x - fi.hole.tee[0], tz = z - fi.hole.tee[1];
-      splats[i * 4 + 3] = smooth(.5, .74, dry) * (1 - greenMask * .7);
-      // Trodden approach: pad wear, a scuff at the sign post, and the driest patches within ~12 m worn through to earth.
-      const cy = Math.cos(fi.hole.yaw), sy = Math.sin(fi.hole.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy, wear = padWear(x, z);
-      splats[i * 4] = Math.max(wear * .8, (1 - smooth(.4, 1.5, Math.hypot(u - 2.4, v + 2.6))) * .65, smooth(.6, .8, dry) * .6 * (1 - smooth(5, 14, Math.hypot(tx, tz))));
-      tmp.multiplyScalar(1 - wear * .18);   // trodden turf around the pad is darker even where no earth shows
+      const h = fi.hole, dx = h.basket[0] - h.tee[0], dz = h.basket[1] - h.tee[1], length = Math.hypot(dx, dz);
+      const px = x - h.tee[0], pz = z - h.tee[1], along = (px * dx + pz * dz) / length, across = (-px * dz + pz * dx) / length;
+      turf[i * 2 + 1] = across + 1.75;   // a stripe edge runs down the line
+      // Broad exposed dry ground on the low shoulder describes the landing-area shape (visual only, not a hazard).
+      const side = h.idx % 2 ? -1 : 1;
+      const soil = ((along - length * .76) / (length * .14)) ** 2 + ((across + side * 8.8) / (4.8 + Math.sin(along * .19) * .8)) ** 2;
+      const soilMask = (1 - smooth(.72, 1.08, soil)) * smooth(width + .35, width + 1.2, edge);
+      // Dry patches follow dryNoise; trodden ground around the basket collects litter and wears to earth at the pole.
+      const dry = dryNoise(x, z), bd = Math.hypot(x - h.basket[0], z - h.basket[1]);
+      splats[i * 4 + 3] = Math.max(smooth(.52, .76, dry) * .85, soilMask * .9, (1 - smooth(2.5, 6, bd)) * .5);
+      splats[i * 4 + 2] = (1 - smooth(1.4, 3.4, bd + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 1.6)) * .95;
+      // Tee: the gravel apron, a scuff at the sign post, and the driest patches within ~12 m worn through to earth.
+      const tx = x - h.tee[0], tz = z - h.tee[1], cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy, wear = padWear(x, z);
+      splats[i * 4] = Math.max(wear, soilMask * .45, (1 - smooth(.4, 1.3, Math.hypot(u - 2.4, v + 2.6))) * .7, smooth(.62, .8, dry) * .5 * (1 - smooth(5, 14, Math.hypot(tx, tz))), (1 - smooth(.3, .8, bd)) * .8);
+      tmp.multiplyScalar(1 - smooth(.2, .9, wear) * .12);   // trodden turf at the apron's edge
     }
-    for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 2.2) tmp.lerp(cSand, smooth(2.2, 1.1, e) * 0.7); }
-    splats[i*4] = Math.max(splats[i*4], smooth(4, 0, fi.d) * smooth(.1, .3, fi.t) * (1-smooth(.7,.95,fi.t)) * .25);
-    for (const p of ponds) { const e=((x-p.x)/p.rx)**2+((z-p.z)/p.rz)**2; splats[i*4+1]=Math.max(splats[i*4+1],smooth(2.2,1.25,e)); paintWeights[i*3+2]=Math.max(paintWeights[i*3+2],smooth(2.2,1.25,e)); }
-
+    for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 2.2) tmp.lerp(cSand, smooth(2.2, 1.1, e) * 0.7); splats[i * 4 + 1] = Math.max(splats[i * 4 + 1], smooth(2.2, 1.25, e)); }
     colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3)); geo.computeVertexNormals();
-  if (!grassMap) {   // no tile: bake a soft directional ramp so slopes still read
+  if (!texture('grass')) {   // no tile: bake a soft directional ramp so slopes still read
     const terrainNormals=geo.attributes.normal;
     for(let i=0;i<pos.count;i++) { const light=terrainNormals.getX(i)*.55+terrainNormals.getY(i)*.70+terrainNormals.getZ(i)*.45; const gain=.55+smooth(.28,.90,light)*.6; colors[i*3]*=gain;colors[i*3+1]*=gain;colors[i*3+2]*=gain; }
   }
-  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, map: grassMap, normalMap: grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, splats, { duff: litterTexture(), lite: quality === 'low' }));
-  terrain.receiveShadow = true; group.add(terrain); void paintWeights;
+  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, duff: litterTexture(), lite: quality === 'low' }));
+  terrain.receiveShadow = true; group.add(terrain);
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their
   // inner edge is outside every in-bounds point; the playable height field is untouched.
@@ -372,7 +328,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const x = pos.getX(i), z = pos.getZ(i); let shade = 0, duff = 0, bare = 0;
     for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.3, t.fr * .2, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
     const k = 1 - Math.min(1, shade) * .3; colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
-    splats[i * 4 + 2] = Math.min(1, duff) * .9; splats[i * 4] = Math.max(splats[i * 4], Math.min(1, bare) * .7);
+    splats[i * 4 + 2] = Math.max(splats[i * 4 + 2], Math.min(1, duff) * .9); splats[i * 4] = Math.max(splats[i * 4], Math.min(1, bare) * .7);
   }
 
   const bark = texture('bark', { repeat: [1, 3] });
@@ -514,56 +470,28 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
 
   // --- grass tufts ---
-  // Instanced blade cards root the pad, sign post and basket in the turf, and a second set re-scattered around
-  // each lie breaks the ground plane in front of the camera. Full: a few hundred; Lite: a few dozen. Each card is
-  // tinted olive to straw so the saturated photo tuft matches the turf, darkens toward the root (windMaterial) and
-  // stands on a soft contact-shadow disc that shares its instance matrices. No cast shadows: they read as ground.
-  const tuftMap = texture('tuft', { clamp: true });
-  let scatterNear = null;
+  // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
+  // rough, gone on gravel, litter, sand and the pads. A few photo tufts stand where mowers miss: along the pad's long
+  // edges, at the sign post and round the basket pole, small and green, darkened at the root; no shadow discs. Lite
+  // spends their triangles on the carpet.
+  group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads: holes.map(h => [h.tee[0], h.tee[1], Math.cos(h.yaw), Math.sin(h.yaw)]), lite: quality === 'low', seed }));
+  const tuftMap = quality !== 'low' && texture('tuft', { clamp: true });
   if (tuftMap) {
-    const full = quality !== 'low', tuftRng = makeRng(seed + 733);
+    const tuftRng = makeRng(seed + 733);
     const card = new THREE.PlaneGeometry(1, 1).translate(0, .46, 0);   // rooted 4 cm below grade
     const tuftGeo = mergeGeometries([0, Math.PI, Math.PI / 2, -Math.PI / 2].map(a => card.clone().rotateY(a)));   // both windings, so no DoubleSide normal flip
     const tn = tuftGeo.attributes.normal; for (let i = 0; i < tn.count; i++) tn.setXYZ(i, 0, 1, 0);   // lit like the turf they stand in
     const tuftMat = windMaterial(toonMaterial({ map: tuftMap, alphaTest: .45, roughness: .9 }), windClock, true);
-    const tuftTint = () => col.setRGB(.65 + tuftRng() * .8, .45 + tuftRng() * .22, .22 + tuftRng() * .22);
-    const shadeGeo = new THREE.CircleGeometry(.55, 10).rotateX(-Math.PI / 2).translate(0, .07, 0);   // 3 cm over grade; the offset covers gentle slopes
-    const shadeMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-      map: canvasTex(64, (g, s) => { const r = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); r.addColorStop(0, 'rgba(10,16,6,.7)'); r.addColorStop(.5, 'rgba(10,16,6,.35)'); r.addColorStop(1, 'rgba(10,16,6,0)'); g.clearRect(0, 0, s, s); g.fillStyle = r; g.fillRect(0, 0, s, s); }) });
-    const shaded = im => { const sh = new THREE.InstancedMesh(shadeGeo, shadeMat, im.count); sh.instanceMatrix = im.instanceMatrix; sh.frustumCulled = im.frustumCulled; group.add(sh); return sh; };
-    const onPad = (x, z) => holes.some(h => { const tx = x - h.tee[0], tz = z - h.tee[1], cy = Math.cos(h.yaw), sy = Math.sin(h.yaw); return Math.abs(tx * cy - tz * sy) < 1 && Math.abs(tx * sy + tz * cy) < 1.8; });
-    const place = (im, i, x, z, s) => { e.set(0, tuftRng() * 6.3, 0); q.setFromEuler(e); v.set(x, height(x, z) - .04, z); sc.set(s, s * (.8 + tuftRng() * .4), s); m.compose(v, q, sc); im.setMatrixAt(i, m); };
     const spots = [];
     for (const h of holes) {
       const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), at = (u, w) => [h.tee[0] + u * cy + w * sy, h.tee[1] - u * sy + w * cy];
-      for (let k = 0; k < (full ? 30 : 8); k++) {   // pad edge, long sides twice as often
-        const side = [0, 0, 1, 1, 2, 3][k % 6], off = .1 + tuftRng() * .4, t = tuftRng() * 2 - 1;
-        const uv = side < 2 ? [(side ? 1 : -1) * (.8 + off), t * 1.6] : [t * .8, (side === 2 ? -1 : 1) * (1.6 + off)];
-        spots.push({ p: at(uv[0], uv[1]), s: .2 + tuftRng() * .25 });
-      }
-      for (let k = 0; k < (full ? 6 : 2); k++) { const a = tuftRng() * 6.3, r = .12 + tuftRng() * .35; spots.push({ p: at(2.4 + Math.cos(a) * r, -2.6 + Math.sin(a) * r), s: .22 + tuftRng() * .3 }); }
-      for (let k = 0; k < (full ? 5 : 2); k++) { const a = tuftRng() * 6.3, r = .3 + tuftRng() * .35; spots.push({ p: [h.basket[0] + Math.cos(a) * r, h.basket[1] + Math.sin(a) * r], s: .2 + tuftRng() * .25 }); }
+      for (let k = 0; k < 8; k++) spots.push({ p: at((k % 2 ? 1 : -1) * (.84 + tuftRng() * .12), (tuftRng() * 2 - 1) * 1.5), s: .12 + tuftRng() * .1 });
+      for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .08 + tuftRng() * .2; spots.push({ p: at(2.4 + Math.cos(a) * r, -2.6 + Math.sin(a) * r), s: .14 + tuftRng() * .12 }); }
+      for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .3 + tuftRng() * .3; spots.push({ p: [h.basket[0] + Math.cos(a) * r, h.basket[1] + Math.sin(a) * r], s: .12 + tuftRng() * .1 }); }
     }
     const fixed = new THREE.InstancedMesh(tuftGeo, tuftMat, spots.length);
-    spots.forEach((s, i) => { place(fixed, i, s.p[0], s.p[1], s.s); fixed.setColorAt(i, tuftTint()); });
-    fixed.receiveShadow = true; group.add(fixed); shaded(fixed);
-    const nearCount = full ? 240 : 40, near = new THREE.InstancedMesh(tuftGeo, tuftMat, nearCount);
-    near.instanceMatrix.setUsage(THREE.DynamicDrawUsage); near.frustumCulled = false; near.receiveShadow = true; near.count = 0; group.add(near);
-    const nearShade = shaded(near); nearShade.count = 0;
-    for (let i = 0; i < nearCount; i++) near.setColorAt(i, tuftTint());
-    let nearX = 1e9, nearZ = 1e9;
-    scatterNear = focus => {   // clustered by the turf noise, denser near the lie; the pad top, bald ground, water and out of bounds stay clear
-      if (Math.hypot(focus.x - nearX, focus.z - nearZ) < 2) return; nearX = focus.x; nearZ = focus.z;
-      let n = 0, tries = 0;
-      while (n < nearCount && tries++ < nearCount * 6) {
-        const close = n < nearCount * .3;   // the first third stand within 3.5 m of the lie as bigger cards: blade detail the camera can read
-        const a = tuftRng() * 6.3, r = close ? 1.4 + tuftRng() * 2.1 : 2.8 + 11 * tuftRng() ** 1.5, x = focus.x + Math.cos(a) * r, z = focus.z + Math.sin(a) * r;
-        if (onPad(x, z) || !inBounds(x, z) || inWater(x, z)) continue;
-        const c = clump(x, z); if (tuftRng() > smooth(.36, .6, c) || tuftRng() < padWear(x, z)) continue;
-        place(near, n++, x, z, (close ? .28 + tuftRng() * .24 : .16 + tuftRng() * .3) * (.7 + c * .6));
-      }
-      near.count = nearShade.count = n; near.instanceMatrix.needsUpdate = true;
-    };
+    spots.forEach(({ p: [x, z], s }, i) => { e.set(0, tuftRng() * 6.3, 0); q.setFromEuler(e); v.set(x, height(x, z) - .04, z); sc.set(s, s * (.8 + tuftRng() * .4), s); m.compose(v, q, sc); fixed.setMatrixAt(i, m); fixed.setColorAt(i, col.setRGB(.8 + tuftRng() * .25, .72 + tuftRng() * .2, .7 + tuftRng() * .3)); });
+    fixed.receiveShadow = true; group.add(fixed);
   }
 
   // --- sky, lights, fog ---
@@ -618,10 +546,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough };
   const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; destinationMarkers.forEach((m,j)=>m.visible=j===i); };
-  let lastFx = 0, lastFz = 0;
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
-    if (focus && scatterNear) { const still = Math.hypot(focus.x - lastFx, focus.z - lastFz) < .05; lastFx = focus.x; lastFz = focus.z; if (still) scatterNear(focus); }   // a resting lie, not a flying disc or flyover
     if(view) for(const marker of destinationMarkers) if(marker.visible) {
       const distance=Math.hypot(view.x-marker.position.x,view.z-marker.position.z), size=clamp(distance*.065,1.2,7);
       marker.scale.set(size,size*1.25,1);marker.material.opacity=smooth(7,17,distance);

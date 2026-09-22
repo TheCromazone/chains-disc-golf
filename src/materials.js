@@ -36,42 +36,55 @@ export function cartoonSky() {
   }));
 }
 
-// Ground: worn dirt, sand and leaf litter blend in by splat weight (dirt, sand, duff, dry) after the vertex palette, so
-// bare earth is not tinted green. The palette times the green photo tile lands saturated, so the turf is first pulled
-// toward olive-khaki; the dry weight (10-20 m noise baked per vertex, the same family that clusters the tufts) then
-// bleaches patches to straw, and fragment noise breaks the 2 m vertex interpolation into trodden patches instead of a
-// soft gradient. Full re-samples the tile at the normal map's 8x repeat so the ground under the camera shows blades,
-// not a blurred carpet. Splat weights are optional (empty manifest). lite drops the fine octave and that re-sample.
-export function terrainSplat(material, geometry, weights, { duff = null, lite = false } = {}) {
-  const dirt=texture('dirt'),sand=texture('sand');
-  const splat=!!(weights&&dirt&&sand);
-  if(splat)geometry.setAttribute('splat',new THREE.BufferAttribute(weights,4));
-  material.onBeforeCompile=s=>{
-    if(splat){s.uniforms.dirtTile={value:dirt};s.uniforms.sandTile={value:sand};s.uniforms.duffTile={value:duff||dirt};}
-    s.vertexShader=(splat?'attribute vec4 splat;varying vec4 vSplat;':'')+'varying vec2 vGround;\n'+s.vertexShader;
-    s.vertexShader=s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n'+(splat?'vSplat=splat;':'')+'vGround=position.xz;');
-    s.fragmentShader=(splat?'uniform sampler2D dirtTile;uniform sampler2D sandTile;uniform sampler2D duffTile;varying vec4 vSplat;':'')+'varying vec2 vGround;\n'+
-      'float chainsHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\nfloat chainsNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(chainsHash(i),chainsHash(i+vec2(1,0)),f.x),mix(chainsHash(i+vec2(0,1)),chainsHash(i+vec2(1,1)),f.x),f.y);}\n'+s.fragmentShader;
-    s.fragmentShader=s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
-      { float lum = dot(diffuseColor.rgb, vec3(.3, .59, .11));
-        diffuseColor.rgb = mix(diffuseColor.rgb, lum * vec3(1.3, 1.02, .42), .5);   // DGM turf samples at hue 58-63 deg; the raw product sits near 100
-        float macro = chainsNoise(vGround / 23.) * .6 + chainsNoise(vGround / 6.5 + 3.) * .4;
-        diffuseColor.rgb *= .84 + macro * .3;
-        #ifdef USE_MAP
-        ${lite ? '' : 'diffuseColor.rgb *= .62 + dot(texture2D(map, vMapUv * 5.).rgb, vec3(.33)) * .76;'}
-        #endif
-      }
-      ${splat ? `{ float breakup = chainsNoise(vGround * 1.4 + 5.)${lite ? '' : ' * .65 + chainsNoise(vGround * 4.7 + 17.) * .35'};
-        float dry = smoothstep(.2, .8, vSplat.w + (breakup - .5) * .5);
-        diffuseColor.rgb = mix(diffuseColor.rgb, dot(diffuseColor.rgb, vec3(.3, .59, .11)) * vec3(1.5, 1.28, .7), dry * .8);
-        float dirtW = smoothstep(.28, .72, vSplat.x + (breakup - .5) * .6);
-        float duffW = smoothstep(.2, .7, vSplat.z + (breakup - .5) * .5);
-        diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(duffTile, vGround * .62).rgb, duffW);
-        vec3 earth = texture2D(dirtTile, vGround * .25).rgb; earth = mix(earth, vec3(dot(earth, vec3(.3, .59, .11))), .4) * .8;   // dusty grey-brown, not orange
-        diffuseColor.rgb = mix(diffuseColor.rgb, earth, dirtW);
-        diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(sandTile, vGround * .32).rgb, vSplat.y); }` : ''}`);
+// ---------- ground ----------
+// Photo turf carries blade detail and local hue swings; the vertex palette sets each zone's mean albedo, because every
+// tile is divided by its linear mean (numpy over the shipped JPEGs), so the palette is what the turf averages to.
+// Anti-tiling: two rotated scales of each tile blended by value noise with the variance kept, times a big mottle
+// tile, times macro drift; fairways add mown stripes along the tee-basket line. Worn gravel, sand and leaf litter
+// cover the turf by splat weight (gravel/earth, sand, litter, dry) through one shared noisy edge with a damp rim.
+// GROUND_GLSL is shared with the blade carpet (grass.js): its vertex shader tints and thins each blade with the same
+// functions at the blade's root, so the carpet is the ground it grows from.
+const TILE_MEAN = { lawn: [.1715, .2665, .0543], rough: [.129, .1734, .0524], mottle: [.1503, .2229, .0626] };
+const vec3s = a => `vec3(${a.map(x => x.toFixed(4)).join(',')})`;
+export const GROUND_GLSL = `
+float gHash(vec2 p){vec3 q=fract(p.xyx*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}   // no sin(): cheap and stable on phones
+float gNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(gHash(i),gHash(i+vec2(1,0)),f.x),mix(gHash(i+vec2(0,1)),gHash(i+vec2(1,1)),f.x),f.y);}
+float gBreak(vec2 p){return gNoise(p*1.3+5.)*.6+gNoise(p*4.1+17.)*.4-.5;}   // fingers along every splat edge
+float gDry(float w,float b){return smoothstep(.3,.85,w+b*.5);}
+vec3 gCover(vec4 s,float b){return vec3(smoothstep(.3,.7,s.x+b*.6),s.y,smoothstep(.25,.7,s.z+b*.5));}   // gravel, sand, litter over the turf
+vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-40 m drift, sun-warmed patches, stripes, straw
+  vec3 c=zone*(.84+(gNoise(p/37.)*.6+gNoise(p/11.+5.)*.4)*.32)*mix(vec3(1.),vec3(1.07,1.,.82),smoothstep(.55,.8,gNoise(p/23.+40.)));
+  c*=1.+(smoothstep(-.08,.08,abs(fract(turf.y/7.)-.5)-.25)-.5)*.12*turf.x;   // 3.5 m mown stripes, fairway only
+  return mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
+}`;
+// Fallback when the manifest has no ground tiles: the vertex palette alone (the default color_fragment).
+export function terrainSplat(material, geometry, { splat, turf, duff, lite = false }) {
+  geometry.setAttribute('splat', new THREE.BufferAttribute(splat, 4)); geometry.setAttribute('turf', new THREE.BufferAttribute(turf, 2));
+  const tiles = { gLawn: texture('grass'), gRough: texture('turf_rough'), gMottle: texture('turf_mottle'), gGravel: texture('gravel'), gSand: texture('sand'), gDuff: duff };
+  if (!Object.values(tiles).every(Boolean)) return material;
+  for (const t of Object.values(tiles)) t.anisotropy = 8;   // the tee camera sees the ground at a grazing angle
+  const tile = (name, s) => `gTile(${name},p,${s},${vec3s(TILE_MEAN[name.slice(1).toLowerCase()])})`;
+  material.onBeforeCompile = s => {
+    for (const k in tiles) s.uniforms[k] = { value: tiles[k] };
+    s.vertexShader = 'attribute vec4 splat;attribute vec2 turf;varying vec4 vSplat;varying vec2 vTurf;varying vec2 vGround;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSplat=splat;vTurf=turf;vGround=position.xz;');
+    s.fragmentShader = `uniform sampler2D gLawn,gRough,gMottle,gGravel,gSand,gDuff;varying vec4 vSplat;varying vec2 vTurf;varying vec2 vGround;${GROUND_GLSL}
+      vec3 gTile(sampler2D t,vec2 p,float s,vec3 mean){
+        vec3 a=texture2D(t,p/s).rgb;
+        ${lite ? '' : `vec3 b=texture2D(t,mat2(.8,-.6,.6,.8)*p/(s*1.9)+.37).rgb; float w=smoothstep(.3,.7,gNoise(p/(s*2.7)+11.));
+        a=mean+(mix(a,b,w)-mean)*inversesqrt(w*w+(1.-w)*(1.-w));`}
+        return a/mean;
+      }\n` + s.fragmentShader.replace('#include <color_fragment>', `{ vec2 p=vGround; float br=gBreak(p),dry=gDry(vSplat.w,br);
+        vec3 detail=mix(${tile('gRough', 1.7)},${tile('gLawn', .9)},vTurf.x);
+        detail*=mix(vec3(1.),texture2D(gMottle,mat2(.6,.8,-.8,.6)*p/8.).rgb/${vec3s(TILE_MEAN.mottle)},.85);
+        vec3 c=gTurf(p,vColor,vTurf,dry)*mix(detail,vec3(dot(detail,vec3(.33))),dry*.4);
+        vec3 cov=gCover(vSplat,br);
+        if(cov.z>0.) c=mix(c,texture2D(gDuff,p*.45).rgb,cov.z);
+        if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.4).rgb; g=mix(g,vec3(dot(g,vec3(.3,.59,.11))),.65)*1.55;   // crushed stone: pale grey-beige
+          c=mix(c,g,cov.x)*(1.-cov.x*(1.-cov.x)*.6); }   // damp trodden rim, not a cut line
+        if(cov.y>0.) c=mix(c,texture2D(gSand,p*.32).rgb,cov.y);
+        diffuseColor.rgb=c; }`);
   };
-  material.customProgramCacheKey=()=> 'chains-ground-v4-'+splat+(lite?'-lite':'');
+  material.customProgramCacheKey = () => 'chains-ground-v5' + (lite ? '-lite' : '');
   return material;
 }
 
@@ -129,32 +142,6 @@ export function paintDetail(material, kind) {
         diffuseColor.rgb *= 1. + (grain - .5) * ${(2 * P.strength).toFixed(3)} + (broad - .5) * ${(0.7 * P.strength).toFixed(3)}; }`);
   };
   material.customProgramCacheKey = () => prevKey.call(material) + '|paint-' + kind;
-  return material;
-}
-
-// Blend four painted surface tiles using the same masks as the existing vertex palette.
-// This does not alter terrain height, bounds, collision, lie type, or friction.
-export function paintTerrain(material, geometry, weights) {
-  geometry.setAttribute('paintWeights', new THREE.BufferAttribute(weights, 3));
-  material.onBeforeCompile = s => {
-    s.uniforms.fairPaint = { value: paintTile('grass') };
-    s.uniforms.roughPaint = { value: paintTile('rough') };
-    s.uniforms.greenPaint = { value: paintTile('green') };
-    s.uniforms.sandPaint = { value: paintTile('sand') };
-    s.vertexShader = 'attribute vec3 paintWeights;varying vec3 vPaintWeights;varying vec2 vTileGround;\n' +
-      s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvPaintWeights=paintWeights;vTileGround=position.xz;');
-    s.fragmentShader = 'uniform sampler2D fairPaint;uniform sampler2D roughPaint;uniform sampler2D greenPaint;uniform sampler2D sandPaint;varying vec3 vPaintWeights;varying vec2 vTileGround;\n' +
-      s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-        float fairDetail = (texture2D(fairPaint, vTileGround / 3.8).r - .5) * 2.30;
-        float roughDetail = (texture2D(roughPaint, vTileGround / 2.4).r - .5) * 2.20;
-        float greenDetail = (texture2D(greenPaint, vTileGround / 1.8).r - .5) * 1.40;
-        float sandDetail = (texture2D(sandPaint, vTileGround / 3.5).r - .5) * 1.80;
-        float detail = mix(roughDetail, fairDetail, vPaintWeights.x);
-        detail = mix(detail, greenDetail, vPaintWeights.y);
-        detail = mix(detail, sandDetail, vPaintWeights.z);
-        diffuseColor.rgb *= 1. + detail;`);
-  };
-  material.customProgramCacheKey = () => 'chains-painted-ground-v1';
   return material;
 }
 
