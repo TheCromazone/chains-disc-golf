@@ -152,9 +152,8 @@ function stageClubhouse() {
   for (const h of holes) for (const turn of [-.5, -.25, 0, .25, .5]) {   // the approach line, or swung round the basket to find level ground
     const a = h.way[h.way.length - 2], D = [h.basket[0] - a[0], h.basket[1] - a[1]], L = Math.hypot(D[0], D[1]), c = Math.cos(turn) / L, s = Math.sin(turn) / L;
     const d = [D[0] * c - D[1] * s, D[0] * s + D[1] * c], r = rightOf(d), x = h.basket[0] - d[0] * S.short + r[0] * S.lat, z = h.basket[1] - d[1] * S.short + r[1] * S.lat, cx = x - d[0] * S.wide.back, cz = z - d[1] * S.wide.back;
-    if (world.inWater(x, z) || world.inWater(cx, cz)) continue;
     const bx = h.basket[0] + d[0] * 12, bz = h.basket[1] + d[1] * 12, woods = world.treesNear(bx, bz).reduce((n, t) => n + Math.max(0, 1 - Math.hypot(t.x - bx, t.z - bz) / 12), 0);
-    const score = (d[0] * sun.x + d[1] * sun.z < -.3 ? 100 : 0) + woods - Math.abs(world.height(cx, cz) - world.height(x, z)) * 3;   // sun at the lens's back first, then close woods on level ground
+    const score = (d[0] * sun.x + d[1] * sun.z < -.3 ? 100 : 0) + woods - Math.abs(world.height(cx, cz) - world.height(x, z)) * 3 - (world.inWater(x, z) || world.inWater(cx, cz) ? 1e3 : 0);   // dry feet, then the sun at the lens's back, then close woods on level ground
     if (!best || score > best.score) best = { score, d, r, x, z };
   }
   const { d, r, x, z } = best; menuStage.d = d; menuStage.r = r;
@@ -470,10 +469,10 @@ const DEG = Math.PI / 180;
 // Over-the-left-shoulder aim frame (the Disc Golf Masters broadcast lens): a chest-high camera ~2 m behind the athlete's left
 // shoulder, near level, so he fills the right third cropped at the thigh with his head ~18% from the top. Drives: axis a few
 // degrees right of the aim, pin left of centre, horizon just under the middle. Putts: the axis runs through the basket, dead
-// centre with its band ~45-50% down. On a sloped green the camera rides 40% of the drop (up for downhill, down for uphill, at
-// most 50 cm) and the tilt stops where the head would pass 18% from the top. Wide screens hold the horizontal lens (hfov), portrait the vertical
-// one (a 2:1 phone widens past the hfov rather than crop under 29° tall). Shared by the aim camera and the hole intro's landing.
-// Writes pos/look, returns the vertical fov.
+// centre with its band ~45-50% down; on a sloped green the camera rides 40% of the drop (up for downhill, down for uphill, at
+// most 50 cm) and the tilt stops before the head passes the top fifth. Wide screens hold the horizontal lens (hfov), a 2:1
+// phone widening past it rather than cropping under 29° tall; portrait holds the vertical one. Shared by the aim camera and
+// the hole intro's landing. Writes pos/look, returns the vertical fov.
 const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.3, side: .8, up: 1.3, lift: .4, hfov: 50 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, fov: 56 } } };
 function aimFrame(lie, d, putt, pos, look) {
@@ -712,5 +711,5 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, placeHero, MENU, AIM, THREE };  // debug hook (remote devtools)
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
 }, 60);
