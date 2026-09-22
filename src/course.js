@@ -478,7 +478,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // --- tee pads, signs, baskets ---
   // props.js merges every tee mat, sign, basket and the tournament dressing into two meshes for the whole course. The
   // mat keeps the old pad's box, so its top face still sits under the athlete's soles; baskets keep physics' heights.
-  group.add(...dressCourse({ holes, height, trees, def, quality }));
+  // corridor = the tree loop's clearing half-width, so dressing stands just outside the flight corridor on any course.
+  group.add(...dressCourse({ holes, height, trees, def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW }));
   const baskets = holes.map(h => new THREE.Group().translateX(h.basket[0]).translateY(h.basketY).translateZ(h.basket[1])), destinationMarkers = [];   // positions only: the geometry is merged
   for (const h of holes) {
     // A graphic flag remains readable from the tee without enlarging the physical basket.

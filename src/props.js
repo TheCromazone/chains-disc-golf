@@ -8,7 +8,7 @@
 // (tray .55-.72 m, chains .72-1.34, band 1.34-1.46).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { toonMaterial } from './materials.js';
+import { toonMaterial, windTime, windVec } from './materials.js';
 
 const FONT = '"Barlow Condensed", "Arial Narrow", Impact, sans-serif';
 const NAVY = '#16233d', GOLD = '#f2c318', PARK = '#173a2b';
@@ -41,17 +41,21 @@ function paintMat(g, w, h) {
   const c = pixels(w, h, (x, y) => {
     const fine = hash2(x, y, 3), streak = vnoise(x * .9, y * .22, 5), broad = vnoise(x / 60, y / 60, 7) * .6 + vnoise(x / 17, y / 17, 8) * .4;
     let k = .62 + fine * .3 + streak * .22 + (x % 4 === 0 ? -.12 : 0) + (broad - .5) * .18;
-    const plant = Math.exp(-(((x - w * .5) / (w * .27)) ** 2 + ((y - h * .2) / (h * .11)) ** 2)), run = Math.exp(-(((x - w * .5) / (w * .2)) ** 2)) * sm(.38, .6, y / h) * (1 - sm(.88, 1, y / h));
-    const wear = Math.min(1, plant * .85 + run * .35) * (.7 + broad * .5);
+    const plant = Math.exp(-(((x - w * .5) / (w * .3)) ** 2 + ((y - h * .19) / (h * .12)) ** 2)), run = Math.exp(-(((x - w * .5) / (w * .19)) ** 2)) * sm(.32, .55, y / h) * (1 - sm(.86, 1, y / h));
+    const wear = Math.min(1, plant * .95 + run * .45) * (.65 + broad * .6);
     const edge = Math.min(x, w - 1 - x, y, h - 1 - y), rim = 1 - sm(0, 9, edge) * .28 - .72;
-    let r = 52 * k, gg = 112 * k, b = 44 * k;
-    r += (148 * k - r) * wear * .55; gg += (150 * k - gg) * wear * .45; b += (96 * k - b) * wear * .5;   // flattened pile shows the paler, yellowed backing
+    let r = 68 * k, gg = 132 * k, b = 46 * k;   // sunlit tee turf samples yellow-green in the reference, not lawn blue-green
+    r += (156 * k - r) * wear * .7; gg += (158 * k - gg) * wear * .55; b += (98 * k - b) * wear * .6;   // flattened pile shows the paler, yellowed backing
     const dirt = sm(.8, 1, y / h) * .5 + (1 - sm(0, 26, edge)) * .35, d = sm(.55, .9, vnoise(x / 9, y / 9, 11) + dirt * .6 - .3) * .8;
     r += (92 - r) * d; gg += (74 - gg) * d; b += (50 - b) * d;
     return [r * (1 + rim), gg * (1 + rim), b * (1 + rim)];
   });
   g.drawImage(c, 0, 0, w, h);
   const rnd = rngOf(17);
+  g.lineCap = 'round'; for (let i = 0; i < 9; i++) {   // pivot scuffs where the plant foot turns through the throw
+    const cx = w * (.38 + rnd() * .24), cy = h * (.13 + rnd() * .12), r = 12 + rnd() * 26, a = rnd() * 6.3;
+    g.strokeStyle = `rgba(${rnd() < .5 ? '52,60,30' : '150,150,105'},.35)`; g.lineWidth = 2 + rnd() * 3; g.beginPath(); g.arc(cx, cy, r, a, a + .6 + rnd()); g.stroke();
+  }
   for (let i = 0; i < 26; i++) {   // leaves and needles blown onto the mat, most near the edges
     const x = rnd() < .5 ? rnd() * w * .25 + (rnd() < .5 ? 0 : w * .75) : rnd() * w, y = rnd() * h, a = rnd() * Math.PI, l = 5 + rnd() * 9;
     g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = ['#8a5a2c', '#a8793e', '#6b4a26', '#5d6b2a'][i % 4];
@@ -170,8 +174,9 @@ function kit() {
     col.set(color); const n = g.attributes.position.count, c = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b; }
     g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    if (list === 'print' && !g.attributes.sway) g.setAttribute('sway', new THREE.BufferAttribute(new Float32Array(n), 1));   // 0 = rigid; cloth carries 0 at the pole to 1 at the free edge
     if (!g.index) g.setIndex([...Array(n).keys()]);
-    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k);
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color', list === 'print' && 'sway'].includes(k)) g.deleteAttribute(k);
     lists[list].push(g);
     return g;
   };
@@ -179,7 +184,7 @@ function kit() {
   const sheet = g => { const b = g.clone(), ix = b.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } lists.print.push(b); };
   return { print: (g, region, color) => put('print', g, region, color), cloth: (g, region) => sheet(put('print', g, region)), steel: (g, color = '#c8cdd0') => put('steel', g, 'white', color), lists };
 }
-const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _e = new THREE.Euler(), UP = new THREE.Vector3(0, 1, 0);
+const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _e = new THREE.Euler();
 const pose = (x, y, z, yaw = 0, pitch = 0, roll = 0, sx = 1, sy = sx, sz = sx) => new THREE.Matrix4().compose(_p.set(x, y, z), _q.setFromEuler(_e.set(pitch, yaw, roll, 'YXZ')), _s.set(sx, sy, sz));
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 const cyl = (r0, r1, h, n = 8, open = false) => new THREE.CylinderGeometry(r0, r1, h, n, 1, open);
@@ -225,8 +230,9 @@ function addBasket(K, world, n, full) {
   if (full) hang(.16, .05, 1.37, .87, 12, .035, .13, 8, 3);
   Pr(cyl(.29, .29, .13, full ? 40 : 16, true).translate(0, 1.395, 0), 'band');
   const flag = new THREE.PlaneGeometry(.38, .26, full ? 8 : 2, 1), fp = flag.attributes.position;   // 38 x 26 cm, flying from the mast top
-  for (let i = 0; i < fp.count; i++) { const x = fp.getX(i) + .19; fp.setXYZ(i, x + .008, fp.getY(i) + 1.94, Math.sin(x * 13) * .03 * x / .38); }
-  flag.computeVertexNormals(); K.cloth(flag.applyMatrix4(world), 'flag' + n);
+  const sway = new Float32Array(fp.count);
+  for (let i = 0; i < fp.count; i++) { const x = fp.getX(i) + .19; sway[i] = x / .38; fp.setXYZ(i, x + .008, fp.getY(i) + 1.94, Math.sin(x * 13) * .03 * x / .38); }
+  flag.setAttribute('sway', new THREE.BufferAttribute(sway, 1)); flag.computeVertexNormals(); K.cloth(flag.applyMatrix4(world), 'flag' + n);
   if (full) Pr(cyl(.21, .23, .05, 20).translate(0, .005, 0), 'concrete');   // footing, flush with the turf
 }
 
@@ -239,14 +245,17 @@ function featherGeometry(full) {
   rows.forEach(([y, wk]) => { for (let i = 0; i <= NC; i++) { const s = i / NC, x = s * W * wk; pos.push(x, y, belly(s, wk)); uv.push(x / W, (y - yb) / (yt - yb)); } });
   for (let j = 0; j < rows.length - 1; j++) for (let i = 0; i < NC; i++) { const a = j * (NC + 1) + i, b = a + NC + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  g.setAttribute('sway', new THREE.Float32BufferAttribute(uv.filter((_, i) => i % 2 === 0), 1));   // flutter grows from the pole to the free edge
   const pole = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, yc, 0)];   // up the leading edge, then bent along the rounded top
   for (let k = 0; k <= 4; k++) { const a = Math.PI / 2 * (1 - k / 4 * .7); pole.push(new THREE.Vector3(W * Math.cos(a), yc + (yt - yc) * Math.sin(a), belly(1, Math.cos(a)))); }
   return { cloth: g, pole };
 }
 
-export function dressCourse({ holes, height, trees, def, quality }) {
+export function dressCourse({ holes, height, trees, corridor, def, quality }) {
   const full = quality !== 'low', K = kit(), rnd = rngOf(def.seed * 97 + 5);
   const frame = (h, u, f) => { const [fx, fz] = fwdOf(h); return [h.tee[0] - fz * u + fx * f, h.tee[1] + fx * u + fz * f]; };   // tee-local: u right of the fairway, f toward the basket
+  // u of a spot pad metres outside the flight corridor on one side (-1 left), the half-width sampled where it stands
+  const edge = (h, side, f, pad) => { let u = side * (corridor(...frame(h, side * 9, f)) + pad); u = side * (corridor(...frame(h, u, f)) + pad); return u; };
   const onGround = (h, u, f, rot = 0, sink = .03) => { const [x, z] = frame(h, u, f); return pose(x, height(x, z) - sink, z, h.yaw + rot); };
   const feather = featherGeometry(full);
   const addFeather = (world, design) => {
@@ -315,23 +324,24 @@ export function dressCourse({ holes, height, trees, def, quality }) {
     if (full || i === 0) for (const [u, f, d] of [[-3.6, 6.2, i % 3], [-2.6, 9.8, (i + 1) % 3]]) { const w = green(u, f, .35 + (rnd() - .5) * .3, .05); if (w) addFeather(w, d); }
     if (full) { const b = green(-4.4, 1.9, -Math.PI / 2), c = green(-4.5, 3.9, 0); if (b) addBench(b); if (c) addCan(c); }   // a bench and a bin at the green's edge, left of the approach
     // Every other tee: two sponsor flags down the left edge of the corridor (Full).
-    if (full && i) for (const f of [14, 22]) { const [x, z] = frame(h, -12.5 * def.fairwayW - rnd(), f); if (clearOf(x, z, .8)) addFeather(pose(x, height(x, z) - .05, z, h.yaw + .45 + (rnd() - .5) * .3), (i + f) % 3); }
+    if (full && i) for (const f of [14, 22]) { const [x, z] = frame(h, edge(h, -1, f, 1.6) - rnd(), f); if (clearOf(x, z, .8)) addFeather(pose(x, height(x, z) - .05, z, h.yaw + .45 + (rnd() - .5) * .3), (i + f) % 3); }
   });
-  // Tournament village on hole 1, the clubhouse tee, down the left of the corridor (~9.4 m each side of the centreline
-  // here) and turned back toward the tee so it reads from the pad: the event arch over the gallery walk (both tiers,
-  // ~200 triangles), feather flags receding beyond it (nearer ones would stand in front of it), and on Full the
-  // registration canopy and gallery ropes down both edges.
-  const h1 = holes[0];
-  addArch(onGround(h1, -13.1, 26.5, .45, .02));   // right pillar ~1 m outside the corridor edge
-  [[31.5, -10.5, 1], [36.5, -10.5, 0], [41.5, -10.3, 2], [46.5, -10.1, 1], [11.5, -11, 2]].slice(0, full ? 5 : 3).forEach(([f, u, d]) => {
-    u -= rnd() * .4; for (const df of [0, 2, -2, 4]) { const [x, z] = frame(h1, u, f + df); if (clearOf(x, z, 1.2)) return addFeather(onGround(h1, u, f + df, .45 + (rnd() - .5) * .3, .05), d); }
+  // Tournament village on hole 1, the clubhouse tee, down the left of the corridor and turned back toward the tee so it
+  // reads from the pad: the event arch over the gallery walk (both tiers, ~200 triangles), feather flags receding
+  // beyond it (nearer ones would stand in front of it), and on Full the registration canopy and gallery ropes down both
+  // edges. Every lateral offset is measured from the corridor edge where the prop stands (Pine Hollow: ~9 m).
+  const h1 = holes[0], archYaw = .45, [ar, af] = [edge(h1, -1, 27.5, .9), 27.5], ac = [ar - 3.32 * Math.cos(archYaw), af - 3.32 * Math.sin(archYaw)];
+  const archBase = Math.min(...[-1, 1].map(s => { const [x, z] = frame(h1, ac[0] + s * 3.32 * Math.cos(archYaw), ac[1] + s * 3.32 * Math.sin(archYaw)); return height(x, z); }));
+  { const [x, z] = frame(h1, ac[0], ac[1]); if (clearOf(x, z, 2.5)) addArch(pose(x, archBase - .04, z, h1.yaw + archYaw)); }   // on a slope the high pillar sinks, neither floats
+  [[31.5, 1], [36.5, 0], [41.5, 2], [46.5, 1], [8, 2]].slice(0, full ? 5 : 3).forEach(([f, d]) => {
+    for (const df of [0, 2, -2, 4]) { const u = edge(h1, -1, f + df, 1.3) - rnd() * .4, [x, z] = frame(h1, u, f + df); if (clearOf(x, z, 1.2)) return addFeather(onGround(h1, u, f + df, .45 + (rnd() - .5) * .3, .05), d); }
   });
   if (full) {
-    addTent(onGround(h1, -13.4, 14.5, .6, .02));
-    for (const [u, f0, f1] of [[-9.6, 3, 40], [10.6, 4, 32]]) {   // white rope sagging between painted stakes every 3.5 m
+    { const u = edge(h1, -1, 11.5, 5.3), [x, z] = frame(h1, u, 11.5); if (clearOf(x, z, 2.2)) addTent(onGround(h1, u, 11.5, .6, .02)); }   // just outside the pad camera's left edge, so it never shows as a sliver
+    for (const [side, f0, f1] of [[-1, 3, 40], [1, 4, 32]]) {   // white rope sagging between painted stakes every 3.5 m
       let prev = null;
       for (let f = f0; f <= f1; f += 3.5) {
-        const [x, z] = frame(h1, u, f), y = height(x, z), top = new THREE.Vector3(x, y + .86, z);
+        const [x, z] = frame(h1, edge(h1, side, f, .3), f), y = height(x, z), top = new THREE.Vector3(x, y + .86, z);
         paint(box(.045, .95, .045).translate(x, y + .445, z), '#f1efe8'); paint(box(.06, .05, .06).translate(x, y + .93, z), GOLD);
         if (prev) { const mid = prev.clone().lerp(top, .5); mid.y -= .09; K.print(tube([prev, mid, top], .007, 6, 3), 'white', '#efe9dc'); }
         prev = top;
@@ -347,6 +357,14 @@ export function dressCourse({ holes, height, trees, def, quality }) {
   // Double-sided so cloth reads from behind, but only back faces go into the shadow map: the flat mat and sign faces
   // under a 19° sun would otherwise shadow themselves in bands (acne). Cloth is two sheets, so one always casts.
   const print = new THREE.Mesh(mergeGeometries(K.lists.print), toonMaterial({ map, vertexColors: true, roughness: .82, side: THREE.DoubleSide, shadowSide: THREE.BackSide }));
+  // Cloth ripples along its own normal, a wave running from pole to free edge, livelier as the wind rises (the shadow
+  // pass keeps the rest pose: a few centimetres the eye never checks).
+  print.material.onBeforeCompile = s => {
+    s.uniforms.windTime = windTime; s.uniforms.windVec = windVec;
+    s.vertexShader = 'attribute float sway;uniform float windTime;uniform vec2 windVec;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      transformed += objectNormal * sin(windTime * 4.3 - sway * 5.5 + position.x * .9 + position.z * .7) * (.03 + min(length(windVec), 1.) * .07) * sway;`);
+  };
+  print.material.customProgramCacheKey = () => 'chains-props-print';
   // Galvanised steel is a matte zinc skin: mostly diffuse so a back-lit basket stays silver-white under the dim ambient,
   // with enough metal and a tight enough lobe that chains still glint.
   const steel = new THREE.Mesh(mergeGeometries(K.lists.steel), toonMaterial({ vertexColors: true, metalness: .35, roughness: .38 }));
