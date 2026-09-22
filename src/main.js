@@ -37,8 +37,8 @@ const strHash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ 
 // ---------- renderer / scene ----------
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // shadow.radius softens PCF; the soft variant ignores it
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.88;   // a quarter stop under the old 1.05: the low warm sun carries the brightness, not the fill
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;   // bilinear PCF: soft-edged raking tree shadows without a radius-driven bias
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
 let post = null, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0;

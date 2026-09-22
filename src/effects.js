@@ -19,7 +19,7 @@ export async function loadSky(renderer, url) {
 // The grade is one fullscreen pass: lift and gain, saturation about luma, film grain, corner vignette.
 // SSAO is deliberately absent; the baked canopy occlusion and real shadows carry the ground.
 const GRADE = {
-  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.04, 1, .97) }, uLift: { value: new THREE.Vector3(.012, .014, .018) }, uSat: { value: 1.08 }, uGrain: { value: .02 }, uVignette: { value: .3 }, uTime: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.04, 1, .97) }, uLift: { value: new THREE.Vector3(.012, .014, .018) }, uSat: { value: .82 }, uGrain: { value: .02 }, uVignette: { value: .3 }, uTime: { value: 0 } },
   vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift;uniform float uSat,uGrain,uVignette,uTime;varying vec2 vUv;
     void main(){ vec4 c=texture2D(tDiffuse,vUv); c.rgb=c.rgb*uGain+uLift;
