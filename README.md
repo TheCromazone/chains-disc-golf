@@ -31,7 +31,7 @@ Two photoreal Meshy bodies, rebuilt for Chains in Blender (`tools/build-golfer-v
 
 ### Course trees
 
-Full tier instances Blender trees (`tools/build-trees.py`): tapered branch tubes with crossed photo leaf cards (keyed Higgsfield leaf and pine clusters in `assets/textures/foliage`), three deciduous and three pine variants plus two bushes, alpha-tested with cut-out shadows and a per-instance tint. Lite keeps the embedded low-poly crowns.
+Full tier instances Blender trees (`tools/build-trees.py`): tapered branch tubes with crossed photo leaf cards (keyed Higgsfield leaf and pine clusters in `assets/textures/foliage`), three deciduous and three pine variants plus two bushes, alpha-tested with cut-out shadows. A hemispherical occlusion gradient is baked into the leaf vertex colour (lit top rim, dark core and underside), trunks stay bare for a third to a half of the height so the branch skeleton and sky gaps read, and every instance gets its own tilt, height and a roughly ±10% hue and lightness lean; leaves lit from behind glow through a back-light term in the leaf shader. Lite keeps the embedded low-poly crowns.
 
 ### Game interface
 

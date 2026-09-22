@@ -299,7 +299,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if (!skip && rng() < prob) {
       const s = 0.8 + rng() * 0.55, guardian=side*openSide<0 && fi.t>.18 && fi.t<.52 && fi.d<halfW+12, pine = !guardian && noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine;
       const y = height(x, z), rot = rng() * Math.PI * 2;
-      (pine ? pineSpots : decSpots).push({ x, y, z, s, rot });
+      // per-instance tilt and height so one variant never tiles; hashed from position, so the rng stream (and the layout) stays put
+      (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * .14, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * .14, sy: .9 + noise(x * .53 + 17, z * .53 + 23) * .2 });
       trees.push(pine ? { x, y, z, r: 0.3 * s, h: 6 * s, fy: 7 * s, fr: 2.3 * s } : { x, y, z, r: 0.34 * s, h: 4 * s, fy: 5.8 * s, fr: 3.4 * s });
     } else if (!skip && fi.d > halfW - 1 && fi.d < halfW + 18 && rng() < 0.18) bushes.push({ x, y: height(x, z), z, s: 0.6 + rng() * 0.8, rot: rng() * 6.3 });
     if (!skip && fi.d < halfW + 10 && rng() < (fi.d < halfW ? 0.05 : 0.3)) for (let k = 0; k < 2; k++) { const tx = x + (rng() - 0.5) * 4, tz = z + (rng() - 0.5) * 4; tufts.push({ x: tx, y: height(tx, tz), z: tz, s: 0.7 + rng() * 0.7, rot: rng() * 6.3 }); }
@@ -353,7 +354,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     for(const s of spots){const key=Math.floor(s.x/64)+','+Math.floor(s.z/64);if(!cells.has(key))cells.set(key,[]);cells.get(key).push(s);}
     for(const cell of cells.values()){
       const im=new THREE.InstancedMesh(geo,mat,cell.length);
-      cell.forEach((s,i)=>{e.set(0,s.rot,0);q.setFromEuler(e);v.set(s.x,s.y-.15,s.z);sc.setScalar(s.s);m.compose(v,q,sc);im.setMatrixAt(i,m);if(colorFn)im.setColorAt(i,colorFn(s));});
+      cell.forEach((s,i)=>{e.set(s.tx||0,s.rot,s.tz||0);q.setFromEuler(e);v.set(s.x,s.y-.15,s.z);sc.set(s.s,s.s*(s.sy||1),s.s);m.compose(v,q,sc);im.setMatrixAt(i,m);if(colorFn)im.setColorAt(i,colorFn(s));});
       if(quality!=='low'){const depth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:mat.alphaTest?mat.map:null,alphaTest:mat.alphaTest||0});im.customDepthMaterial=windMaterial(depth,windClock);depth.dispose();}   // leaf cards cut their shadows out too
       im.castShadow=shadow;im.receiveShadow=true;im.instanceMatrix.needsUpdate=true;if(im.instanceColor)im.instanceColor.needsUpdate=true;
       im.computeBoundingSphere();im.computeBoundingBox();group.add(im);clusters.push(im);
@@ -363,7 +364,15 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // Blender trees (tools/build-trees.py): branching trunks with photo leaf cards, several variants per species,
   // instanced per spot with a per-instance tint. Lite keeps the embedded crowns: alpha-tested cards cost fill rate on phones.
   const leafMats = new Map();
-  const leafCard = key => { if (!leafMats.has(key)) { const map = texture(key, { clamp: true }); if (!map) return null; leafMats.set(key, paintDetail(windMaterial(toonMaterial({ map, color: '#ffffff', alphaTest: .42, side: THREE.DoubleSide, vertexColors: true, roughness: .86 }), windClock), 'leaf')); } return leafMats.get(key); };
+  // Leaves lit from behind glow (thin-leaf transmission) and sun-averted cards wrap instead of going flat. After three's
+  // directional loop, directLight.color still holds the sun colour with its shadow applied, so shaded crowns do not glow.
+  const leafLight = mat => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.fragmentShader = s.fragmentShader.replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+    #if NUM_DIR_LIGHTS > 0
+    { vec3 L = directionalLights[0].direction; float back = pow(saturate(dot(-normalize(vViewPosition), L)), 3.);
+      float wrap = saturate((dot(normal, L) + .5) / 1.5);
+      reflectedLight.directDiffuse += diffuseColor.rgb * directLight.color * (wrap * .2 + back * .6); }
+    #endif`); }; mat.customProgramCacheKey = () => prevKey.call(mat) + '|leaf-light'; return mat; };
+  const leafCard = key => { if (!leafMats.has(key)) { const map = texture(key, { clamp: true }); if (!map) return null; leafMats.set(key, leafLight(paintDetail(windMaterial(toonMaterial({ map, color: '#ffffff', alphaTest: .42, side: THREE.DoubleSide, vertexColors: true, roughness: .86 }), windClock), 'leaf'))); } return leafMats.get(key); };
   const importedInstances = (name, spots, shadow = true) => {
     if (quality === 'low') return false;
     const src = model(name); if (!src) return false;
@@ -375,7 +384,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       for (const part of parts) {
         const key = part.material.name.replace(/\.\d+$/, '');
         if (key === 'bark') inst(part.geometry, trunkMat, mine, null, false);
-        else { const mat = leafCard(key); if (!mat) return; inst(part.geometry, mat, mine, s => col.setRGB(.8 + noise(s.x / 19 + 3, s.z / 19) * .2, .84 + noise(s.z / 23, s.x / 23 + 7) * .16, .72 + noise(s.x / 17 + 11, s.z / 17 + 2) * .28), shadow); }
+        else { const mat = leafCard(key); if (!mat) return; inst(part.geometry, mat, mine, s => col.setHSL(.27 + (noise(s.x / 19 + 3, s.z / 19) - .5) * .07, .45, .62 + (noise(s.z / 23, s.x / 23 + 7) - .5) * .14), shadow); }   // hue and lightness lean about ±10% per tree
       }
     });
     return true;
