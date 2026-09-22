@@ -215,11 +215,26 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const waterLevel = (x, z) => { let best = ponds[0], bd = 1e9; for (const p of ponds) { const d = Math.hypot(x - p.x, z - p.z); if (d < bd) { bd = d; best = p; } } return best ? best.level : -100; };
   const inBounds = (x, z) => Math.abs(x) < W / 2 - 6 && Math.abs(z) < H / 2 - 6;
   for (const h of holes) { h.teeY = height(h.tee[0], h.tee[1]); h.basketY = height(h.basket[0], h.basket[1]); h.yaw = Math.atan2(-(h.way[1][0] - h.tee[0]), -(h.way[1][1] - h.tee[1])); }   // pad heading: local +z points behind the pad
+  // One noise family for the turf's wear: three octaves (16, 6.5, 2.8 m) dry patches to straw, the mid and fine
+  // octaves gather the tufts, and the driest ground near a tee wears through to earth. Pad wear is a bald ellipse,
+  // 3 m wide and longer behind the pad (the walk-in) than in front, with a noisy edge so earth bleeds into the turf
+  // in fingers; the tufts read it too so bald ground stays bald.
+  const dryNoise = (x, z) => noise(x / 16 + 41, z / 16 + 41) * .55 + noise(x / 6.5 + 9, z / 6.5 + 9) * .3 + noise(x / 2.8 + 77, z / 2.8 + 77) * .15;
+  const clump = (x, z) => noise(x / 6.5 + 9, z / 6.5 + 9) * .6 + noise(x / 2.8 + 77, z / 2.8 + 77) * .4;
+  const padWear = (x, z) => {
+    let w = 0;
+    for (const h of holes) {
+      const tx = x - h.tee[0], tz = z - h.tee[1]; if (tx * tx + tz * tz > 64) continue;
+      const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy;
+      w = Math.max(w, 1 - smooth(.45, 1.15, (u / 2.6) ** 2 + (v / (v > 0 ? 5 : 3.8)) ** 2 + (noise(x / 1.9 + 91, z / 1.9 + 91) - .5) * .7));
+    }
+    return w;
+  };
 
   // --- terrain mesh ---
   const segX = 260, segZ = 200;
   const geo = new THREE.PlaneGeometry(W, H, segX, segZ); geo.rotateX(-Math.PI / 2);
-  const splats = new Float32Array(geo.attributes.position.count * 3);   // dirt, sand, duff
+  const splats = new Float32Array(geo.attributes.position.count * 4);   // dirt, sand, duff, dry
   const paintWeights = new Float32Array(geo.attributes.position.count * 3);
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
   // The photo tile is washed toward white so it supplies blade grain, not colour: the course palette stays in the
@@ -228,9 +243,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const tint = hex => { const c = new THREE.Color(hex); return grassMap ? c.multiplyScalar(1.14) : c; };
   const cFair = tint(def.grass[0]), cRough = tint(def.grass[1]), cDark = tint(def.grass[2]), cSand = tint(def.grass[3]), tmp = new THREE.Color();
   const cCollar=tint('#397c36'), cGreen=tint('#afd66a'), cFringe=tint('#357b36'), cut=new THREE.Color();
-  // Real turf is olive to straw, not one green. Targets are in vertex-colour space: the green photo tile multiplies
-  // in afterwards, so khaki here reads olive on screen and tan reads straw (reference: DGM tee frames).
-  const cOlive = new THREE.Color('#8c8a66'), cStraw = new THREE.Color('#c8ad85');
+  // Real turf is olive, not one green. The target is in vertex-colour space: the green photo tile multiplies in
+  // afterwards and the material pulls the product toward khaki; straw patches come from the dry splat weight.
+  const cOlive = new THREE.Color('#8c8a66');
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i), y = height(x, z); pos.setY(i, y);
     const fi = fairwayInfo(holes, x, z);
@@ -264,22 +279,20 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       const soilMask=(1-smooth(.72,1.08,soil))*smooth(width+.35,width+1.2,edge);
       tmp.lerp(cSand,soilMask*.96);
       paintWeights[i*3+2] = soilMask;
-      // Macro turf (8-30 m): most turf drifts olive, dry patches go straw, damp hollows darken. The 2 m vertex grid
-      // resolves these wavelengths, so they are baked here instead of costing per-fragment noise on phones.
-      const nA = noise(x / 14 + 7, z / 14 + 7), nB = noise(x / 27 + 31, z / 27 + 31), nC = noise(x / 8.5 + 53, z / 8.5 + 53);
-      tmp.lerp(cOlive, .45 + nA * .35);
-      tmp.lerp(cStraw, smooth(.5, .78, nB * .7 + nC * .3) * .75 * (1 - greenMask * .7));
+      // Macro turf (8-30 m): most turf drifts olive, damp hollows darken, dry patches (splat.w, bleached to straw by
+      // the material) follow dryNoise. The 2 m vertex grid resolves these wavelengths, so they are baked here.
+      tmp.lerp(cOlive, .45 + noise(x / 14 + 7, z / 14 + 7) * .35);
       tmp.multiplyScalar(1 - smooth(.56, .82, noise(x / 21 + 77, z / 21 + 77)) * .2);
-      // Trodden approach: bare ground around the pad, a walk-in tail behind it and a scuff at the sign post.
-      const tx = x - fi.hole.tee[0], tz = z - fi.hole.tee[1], cy = Math.cos(fi.hole.yaw), sy = Math.sin(fi.hole.yaw);
-      const u = tx * cy - tz * sy, v = tx * sy + tz * cy;
-      const wear = 1 - smooth(.5, 1.05, (u / 2) ** 2 + (v / (v > 0 ? 4.4 : 2.7)) ** 2);
-      splats[i * 3] = Math.max(wear * .85, (1 - smooth(.4, 1.5, Math.hypot(u - 2.4, v + 2.6))) * .65);
+      const dry = dryNoise(x, z), tx = x - fi.hole.tee[0], tz = z - fi.hole.tee[1];
+      splats[i * 4 + 3] = smooth(.5, .74, dry) * (1 - greenMask * .7);
+      // Trodden approach: pad wear, a scuff at the sign post, and the driest patches within ~12 m worn through to earth.
+      const cy = Math.cos(fi.hole.yaw), sy = Math.sin(fi.hole.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy, wear = padWear(x, z);
+      splats[i * 4] = Math.max(wear * .8, (1 - smooth(.4, 1.5, Math.hypot(u - 2.4, v + 2.6))) * .65, smooth(.6, .8, dry) * .6 * (1 - smooth(5, 14, Math.hypot(tx, tz))));
       tmp.multiplyScalar(1 - wear * .18);   // trodden turf around the pad is darker even where no earth shows
     }
     for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 2.2) tmp.lerp(cSand, smooth(2.2, 1.1, e) * 0.7); }
-    splats[i*3] = Math.max(splats[i*3], smooth(4, 0, fi.d) * smooth(.1, .3, fi.t) * (1-smooth(.7,.95,fi.t)) * .25);
-    for (const p of ponds) { const e=((x-p.x)/p.rx)**2+((z-p.z)/p.rz)**2; splats[i*3+1]=Math.max(splats[i*3+1],smooth(2.2,1.25,e)); paintWeights[i*3+2]=Math.max(paintWeights[i*3+2],smooth(2.2,1.25,e)); }
+    splats[i*4] = Math.max(splats[i*4], smooth(4, 0, fi.d) * smooth(.1, .3, fi.t) * (1-smooth(.7,.95,fi.t)) * .25);
+    for (const p of ponds) { const e=((x-p.x)/p.rx)**2+((z-p.z)/p.rz)**2; splats[i*4+1]=Math.max(splats[i*4+1],smooth(2.2,1.25,e)); paintWeights[i*3+2]=Math.max(paintWeights[i*3+2],smooth(2.2,1.25,e)); }
 
     colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
@@ -352,12 +365,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = grid.get(key(i + a, j + b)); if (l) for (const t of l) lastList.push(t); }
     return lastList;
   };
-  // Under crowns the turf darkens and litter collects (duff splat). Colour and splat weights only: no height change.
+  // Under crowns the turf darkens and litter collects (duff splat); earth shows at the trunk base. Colour and splat weights only: no height change.
   for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i); let shade = 0, duff = 0;
-    for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.3, t.fr * .2, d); }
+    const x = pos.getX(i), z = pos.getZ(i); let shade = 0, duff = 0, bare = 0;
+    for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.3, t.fr * .2, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
     const k = 1 - Math.min(1, shade) * .3; colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
-    splats[i * 3 + 2] = Math.min(1, duff) * .9;
+    splats[i * 4 + 2] = Math.min(1, duff) * .9; splats[i * 4] = Math.max(splats[i * 4], Math.min(1, bare) * .7);
   }
 
   const bark = texture('bark', { repeat: [1, 3] });
@@ -501,7 +514,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // --- grass tufts ---
   // Instanced blade cards root the pad, sign post and basket in the turf, and a second set re-scattered around
   // each lie breaks the ground plane in front of the camera. Full: a few hundred; Lite: a few dozen. Each card is
-  // tinted olive to straw so the saturated photo tuft matches the turf. No cast shadows: they read as ground.
+  // tinted olive to straw so the saturated photo tuft matches the turf, darkens toward the root (windMaterial) and
+  // stands on a soft contact-shadow disc that shares its instance matrices. No cast shadows: they read as ground.
   const tuftMap = texture('tuft', { clamp: true });
   let scatterNear = null;
   if (tuftMap) {
@@ -511,6 +525,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const tn = tuftGeo.attributes.normal; for (let i = 0; i < tn.count; i++) tn.setXYZ(i, 0, 1, 0);   // lit like the turf they stand in
     const tuftMat = windMaterial(toonMaterial({ map: tuftMap, alphaTest: .45, roughness: .9 }), windClock, true);
     const tuftTint = () => col.setRGB(.65 + tuftRng() * .8, .45 + tuftRng() * .22, .22 + tuftRng() * .22);
+    const shadeGeo = new THREE.CircleGeometry(.55, 10).rotateX(-Math.PI / 2).translate(0, .07, 0);   // 3 cm over grade; the offset covers gentle slopes
+    const shadeMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+      map: canvasTex(64, (g, s) => { const r = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); r.addColorStop(0, 'rgba(10,16,6,.7)'); r.addColorStop(.5, 'rgba(10,16,6,.35)'); r.addColorStop(1, 'rgba(10,16,6,0)'); g.clearRect(0, 0, s, s); g.fillStyle = r; g.fillRect(0, 0, s, s); }) });
+    const shaded = im => { const sh = new THREE.InstancedMesh(shadeGeo, shadeMat, im.count); sh.instanceMatrix = im.instanceMatrix; sh.frustumCulled = im.frustumCulled; group.add(sh); return sh; };
     const onPad = (x, z) => holes.some(h => { const tx = x - h.tee[0], tz = z - h.tee[1], cy = Math.cos(h.yaw), sy = Math.sin(h.yaw); return Math.abs(tx * cy - tz * sy) < 1 && Math.abs(tx * sy + tz * cy) < 1.8; });
     const place = (im, i, x, z, s) => { e.set(0, tuftRng() * 6.3, 0); q.setFromEuler(e); v.set(x, height(x, z) - .04, z); sc.set(s, s * (.8 + tuftRng() * .4), s); m.compose(v, q, sc); im.setMatrixAt(i, m); };
     const spots = [];
@@ -526,20 +544,23 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     }
     const fixed = new THREE.InstancedMesh(tuftGeo, tuftMat, spots.length);
     spots.forEach((s, i) => { place(fixed, i, s.p[0], s.p[1], s.s); fixed.setColorAt(i, tuftTint()); });
-    fixed.receiveShadow = true; group.add(fixed);
+    fixed.receiveShadow = true; group.add(fixed); shaded(fixed);
     const nearCount = full ? 240 : 40, near = new THREE.InstancedMesh(tuftGeo, tuftMat, nearCount);
     near.instanceMatrix.setUsage(THREE.DynamicDrawUsage); near.frustumCulled = false; near.receiveShadow = true; near.count = 0; group.add(near);
+    const nearShade = shaded(near); nearShade.count = 0;
     for (let i = 0; i < nearCount; i++) near.setColorAt(i, tuftTint());
     let nearX = 1e9, nearZ = 1e9;
-    scatterNear = focus => {   // denser near the lie; the pad top, water and out of bounds stay clear
+    scatterNear = focus => {   // clustered by the turf noise, denser near the lie; the pad top, bald ground, water and out of bounds stay clear
       if (Math.hypot(focus.x - nearX, focus.z - nearZ) < 2) return; nearX = focus.x; nearZ = focus.z;
       let n = 0, tries = 0;
-      while (n < nearCount && tries++ < nearCount * 3) {
-        const a = tuftRng() * 6.3, r = 1.3 + 12 * tuftRng() ** 1.5, x = focus.x + Math.cos(a) * r, z = focus.z + Math.sin(a) * r;
+      while (n < nearCount && tries++ < nearCount * 6) {
+        const close = n < nearCount * .3;   // the first third stand within 3.5 m of the lie as bigger cards: blade detail the camera can read
+        const a = tuftRng() * 6.3, r = close ? 1.4 + tuftRng() * 2.1 : 2.8 + 11 * tuftRng() ** 1.5, x = focus.x + Math.cos(a) * r, z = focus.z + Math.sin(a) * r;
         if (onPad(x, z) || !inBounds(x, z) || inWater(x, z)) continue;
-        place(near, n++, x, z, .18 + tuftRng() * .35);
+        const c = clump(x, z); if (tuftRng() > smooth(.36, .6, c) || tuftRng() < padWear(x, z)) continue;
+        place(near, n++, x, z, (close ? .28 + tuftRng() * .24 : .16 + tuftRng() * .3) * (.7 + c * .6));
       }
-      near.count = n; near.instanceMatrix.needsUpdate = true;
+      near.count = nearShade.count = n; near.instanceMatrix.needsUpdate = true;
     };
   }
 
