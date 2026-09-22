@@ -30,6 +30,7 @@ const server = spawn(process.execPath, ['serve.mjs'], { cwd: ROOT, env: { ...pro
 const profile = mkdtempSync(join(tmpdir(), 'chains-capture-'));
 const chrome = spawn(o.chrome, ['--headless=new', `--remote-debugging-port=${cdp}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--ignore-gpu-blocklist',
+  '--disable-gpu-vsync', '--disable-frame-rate-limit',   // uncapped rAF, so frameMs compares builds instead of reading the display's refresh
   `--window-size=${w},${h}`, 'about:blank'], { stdio: 'ignore' });
 process.on('exit', () => { chrome.kill(); server.kill(); try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* temp dir, harmless */ } });
 
