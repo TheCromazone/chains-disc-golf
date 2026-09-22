@@ -36,27 +36,32 @@ export function cartoonSky() {
   }));
 }
 
-// Ground: worn dirt and sand blend in by splat weight, and two octaves of value noise vary the grass tone so the
-// photo tile never reads as a repeating pattern from the tee. Splat weights are optional (empty manifest).
-export function terrainSplat(material, geometry, weights) {
+// Ground: worn dirt, sand and leaf litter blend in by splat weight (dirt, sand, duff) after the vertex palette, so
+// bare earth is not tinted green. Fragment noise breaks the 2 m vertex interpolation into trodden patches instead of
+// a soft gradient, and two octaves of value noise vary the tone so the photo tile never reads as a repeating pattern
+// from the tee. Splat weights are optional (empty manifest). lite drops the fine breakup octave for phones.
+export function terrainSplat(material, geometry, weights, { duff = null, lite = false } = {}) {
   const dirt=texture('dirt'),sand=texture('sand');
   const splat=!!(weights&&dirt&&sand);
-  if(splat)geometry.setAttribute('splat',new THREE.BufferAttribute(weights,2));
+  if(splat)geometry.setAttribute('splat',new THREE.BufferAttribute(weights,3));
   material.onBeforeCompile=s=>{
-    if(splat){s.uniforms.dirtTile={value:dirt};s.uniforms.sandTile={value:sand};}
-    s.vertexShader=(splat?'attribute vec2 splat;varying vec2 vSplat;':'')+'varying vec2 vGround;\n'+s.vertexShader;
+    if(splat){s.uniforms.dirtTile={value:dirt};s.uniforms.sandTile={value:sand};s.uniforms.duffTile={value:duff||dirt};}
+    s.vertexShader=(splat?'attribute vec3 splat;varying vec3 vSplat;':'')+'varying vec2 vGround;\n'+s.vertexShader;
     s.vertexShader=s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n'+(splat?'vSplat=splat;':'')+'vGround=position.xz;');
-    s.fragmentShader=(splat?'uniform sampler2D dirtTile;uniform sampler2D sandTile;varying vec2 vSplat;':'')+'varying vec2 vGround;\n'+
+    s.fragmentShader=(splat?'uniform sampler2D dirtTile;uniform sampler2D sandTile;uniform sampler2D duffTile;varying vec3 vSplat;':'')+'varying vec2 vGround;\n'+
       'float chainsHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\nfloat chainsNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(chainsHash(i),chainsHash(i+vec2(1,0)),f.x),mix(chainsHash(i+vec2(0,1)),chainsHash(i+vec2(1,1)),f.x),f.y);}\n'+s.fragmentShader;
-    s.fragmentShader=s.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+    s.fragmentShader=s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
       { float macro = chainsNoise(vGround / 23.) * .6 + chainsNoise(vGround / 6.5 + 3.) * .4;
         diffuseColor.rgb *= .86 + macro * .28; }
-      ${splat ? `vec3 dirtColor=texture2D(dirtTile,vGround*.25).rgb;
-      vec3 sandColor=texture2D(sandTile,vGround*.32).rgb;
-      diffuseColor.rgb=mix(diffuseColor.rgb,dirtColor,vSplat.x);
-      diffuseColor.rgb=mix(diffuseColor.rgb,sandColor,vSplat.y);` : ''}`);
+      ${splat ? `{ float breakup = chainsNoise(vGround * 1.4 + 5.)${lite ? '' : ' * .65 + chainsNoise(vGround * 4.7 + 17.) * .35'};
+        float dirtW = smoothstep(.28, .72, vSplat.x + (breakup - .5) * .6);
+        float duffW = smoothstep(.2, .7, vSplat.z + (breakup - .5) * .5);
+        diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(duffTile, vGround * .62).rgb, duffW);
+        vec3 earth = texture2D(dirtTile, vGround * .25).rgb; earth = mix(earth, vec3(dot(earth, vec3(.3, .59, .11))), .4) * .8;   // dusty grey-brown, not orange
+        diffuseColor.rgb = mix(diffuseColor.rgb, earth, dirtW);
+        diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(sandTile, vGround * .32).rgb, vSplat.y); }` : ''}`);
   };
-  material.customProgramCacheKey=()=> 'chains-ground-v2-'+splat;
+  material.customProgramCacheKey=()=> 'chains-ground-v3-'+splat+(lite?'-lite':'');
   return material;
 }
 
