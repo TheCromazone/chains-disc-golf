@@ -161,7 +161,7 @@ function stageClubhouse() {
   hero.group.position.set(x, y, z);
   hero.faceDir(d[0] * Math.cos(a) + r[0] * Math.sin(a), d[1] * Math.cos(a) + r[1] * Math.sin(a));   // once: steering faceDir every frame reads as aiming and coils the stance
   const n = world.normal(x, z); menuBlob.position.set(x, y + .03, z); menuBlob.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]));
-  for (const o of course.group.children) if (o.isSprite) o.visible = false;   // the hole balloon is a round thing; startHole's setHole brings it back
+  for (const o of course.group.children) if (o.isSprite && holes.some(h => h.basket[0] === o.position.x && h.basket[1] === o.position.z)) o.visible = false;   // the hole balloons belong to a round; startHole's setHole brings one back
 }
 let heroDisc = null;
 function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
