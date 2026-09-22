@@ -8,6 +8,7 @@ import { model } from './models.js';
 import { modelParts, addModel } from './models.js';
 import { windMaterial, windTime, toonMaterial, paintDetail, terrainSplat } from './materials.js';
 import { washedTexture } from './assets.js';
+import { dressCourse } from './props.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
@@ -475,31 +476,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
 
   // --- tee pads, signs, baskets ---
-  const concreteMap = texture('concrete', { repeat: [1, 2] });
-  const concrete = concreteMap ? toonMaterial({ map: concreteMap, color: '#c9d3cf', roughness: .92 }) : paintDetail(toonMaterial({ color: '#74a899' }), 'concrete');
-  const metal = toonMaterial({ color: '#d9e2e6', metalness: .88, roughness: .3 });
-  const yellow = toonMaterial({ color: '#ffca26', roughness: .5 });
-  const basketGeo = makeBasketGeometry();
-  const baskets = [], destinationMarkers = [];
+  // props.js merges every tee mat, sign, basket and the tournament dressing into two meshes for the whole course. The
+  // mat keeps the old pad's box, so its top face still sits under the athlete's soles; baskets keep physics' heights.
+  group.add(...dressCourse({ holes, height, trees, def, quality }));
+  const baskets = holes.map(h => new THREE.Group().translateX(h.basket[0]).translateY(h.basketY).translateZ(h.basket[1])), destinationMarkers = [];   // positions only: the geometry is merged
   for (const h of holes) {
-    const yaw = h.yaw;
-    const pad = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 3.2), concrete);   // top face sits under the athlete's soles
-    pad.position.set(h.tee[0], h.teeY + 0.02, h.tee[1]); pad.rotation.y = yaw; pad.receiveShadow = true; pad.castShadow = true; group.add(pad);
-    const sign = new THREE.Group();
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.4, 6), trunkMat); post.position.y = 0.7; sign.add(post);
-    const board = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.62, 0.05), new THREE.MeshStandardMaterial({ map: textTexture([`HOLE ${h.idx + 1}`, `PAR ${h.par}  •  ${Math.round(h.len)} m`], { font: 'bold 60px system-ui, sans-serif' }), roughness: 0.7 }));
-    board.position.y = 1.35; board.castShadow = true; sign.add(board);
-    const sx = h.tee[0] + Math.cos(yaw) * 2.4 - Math.sin(yaw) * 2.6, sz = h.tee[1] - Math.sin(yaw) * 2.4 - Math.cos(yaw) * 2.6;   // right of and behind the pad
-    sign.position.set(sx, height(sx, sz), sz); sign.rotation.y = yaw + Math.PI; group.add(sign);
-    const signModel = null;
-    if (signModel) { post.visible = false; board.scale.set(.85, .65, 1); board.position.set(0, 1.30, -.08); board.rotation.y = Math.PI; }
-    const b = new THREE.Group(); b.position.set(h.basket[0], h.basketY, h.basket[1]);
-    const bm = new THREE.Mesh(basketGeo, metal); bm.castShadow = true; b.add(bm);
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(.285, .285, .12, 28, 1, true), yellow); band.position.y = 1.34; b.add(band);
-    const flag = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, 0.03), toonMaterial({ map: textTexture([String(h.idx + 1)], { w: 128, h: 96, bg: '#f2c318', font: 'bold 70px system-ui, sans-serif' }) }));
-    flag.position.set(0, 1.62, 0); flag.rotation.y = yaw; b.add(flag);
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.06, 12), concrete); base.position.y = 0.03; b.add(base);
-    group.add(b); baskets.push(b);
     // A graphic flag remains readable from the tee without enlarging the physical basket.
     const markerCanvas=document.createElement('canvas');markerCanvas.width=128;markerCanvas.height=160;
     const ink=markerCanvas.getContext('2d');ink.fillStyle='#ffffff';ink.beginPath();ink.arc(64,62,55,0,Math.PI*2);ink.fill();
@@ -510,7 +491,6 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const destination=new THREE.Sprite(new THREE.SpriteMaterial({map:markerMap,depthWrite:false,fog:false}));
     destination.position.set(h.basket[0],h.basketY+4,h.basket[1]);destination.scale.set(2,2.5,1);destination.visible=false;
     group.add(destination);destinationMarkers.push(destination);
-    void yellow;
   }
 
   // --- grass tufts ---
@@ -670,19 +650,4 @@ function skyDome(def, sunDir, lite) {
         #include <colorspace_fragment>
       }`,
   }));
-}
-
-function makeBasketGeometry() {
-  const parts = [];
-  const add = (g, x = 0, y = 0, z = 0) => { g.translate(x, y, z); parts.push(g); };
-  add(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 10), 0, 0.75, 0);
-  add(new THREE.CircleGeometry(0.34, 28).rotateX(-Math.PI / 2), 0, 0.62, 0);
-  add(new THREE.TorusGeometry(0.34, 0.012, 6, 32).rotateX(Math.PI / 2), 0, 0.79, 0);
-  add(new THREE.TorusGeometry(0.34, 0.01, 6, 32).rotateX(Math.PI / 2), 0, 0.62, 0);
-  for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2; add(new THREE.CylinderGeometry(0.005, 0.005, 0.17, 4), Math.cos(a) * 0.34, 0.705, Math.sin(a) * 0.34); }
-  add(new THREE.TorusGeometry(0.245, 0.013, 6, 32).rotateX(Math.PI / 2), 0, 1.32, 0);
-  add(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 12), 0, 0.8, 0);
-  const chain = (r0, r1, n, off) => { for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + off; const x0 = Math.cos(a) * r0, z0 = Math.sin(a) * r0, x1 = Math.cos(a) * r1, z1 = Math.sin(a) * r1; const dx = x1 - x0, dz = z1 - z0, dy = 0.8 - 1.32, L = Math.hypot(dx, dy, dz); const g = new THREE.CylinderGeometry(0.006, 0.006, L, 4); g.translate(0, -L / 2, 0); const m = new THREE.Matrix4().lookAt(new THREE.Vector3(0, 0, 0), new THREE.Vector3(dx, dy, dz), new THREE.Vector3(0, 1, 0)); const rot = new THREE.Matrix4().makeRotationX(Math.PI / 2); g.applyMatrix4(rot); g.applyMatrix4(m); g.translate(x0, 1.32, z0); parts.push(g); } };
-  chain(0.245, 0.05, 12, 0); chain(0.16, 0.03, 8, 0.2);
-  return mergeGeometries(parts);
 }
