@@ -143,7 +143,11 @@ blobGrad.addColorStop(0, 'rgba(0,0,0,.72)'); blobGrad.addColorStop(.38, 'rgba(0,
 const menuBlob = new THREE.Mesh(heroBlob.geometry, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(blobCanvas), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); menuBlob.scale.setScalar(.62); menuBlob.visible = false; scene.add(menuBlob);
 function placeHero() {
   hero.setPhase(null);
-  if (cam.mode === 'locker') { const h = holes[0], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); hero.group.position.set(h.tee[0], h.teeY + 0.07, h.tee[1]); hero.faceDir(d[0] / L, d[1] / L); return; }   // locker: on the pad, down the fairway
+  if (cam.mode === 'locker') { const h = holes[0], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); hero.group.position.set(h.tee[0], h.teeY + 0.07, h.tee[1]); hero.faceDir(d[0] / L, d[1] / L); }   // locker: on the pad, down the fairway
+  else stageClubhouse();
+  if (G.phase === 'menu') updateCamera(10);   // the locker pad and the clubhouse green are ~200 m apart: cut between them, don't fly
+}
+function stageClubhouse() {
   const sun = course.sunDir, S = MENU; let best = null;
   for (const h of holes) for (const turn of [-.5, -.25, 0, .25, .5]) {   // the approach line, or swung round the basket to find level ground
     const a = h.way[h.way.length - 2], D = [h.basket[0] - a[0], h.basket[1] - a[1]], L = Math.hypot(D[0], D[1]), c = Math.cos(turn) / L, s = Math.sin(turn) / L;

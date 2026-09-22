@@ -58,7 +58,7 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 .pcard > div { min-width: 0; }
 .pcard b { display: block; font-family: var(--display); font-size: 17px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; overflow: hidden; text-overflow: ellipsis; }
 .pcard .muted { font-size: 10px; }
-.hub-main { width: min(440px, 100%); gap: 10px; padding: 14px; border-radius: 26px; }
+.hub-main { width: min(440px, 100%); gap: 10px; padding: 14px; border-radius: 26px; background: linear-gradient(145deg, #ffffff9e, #e4f7ff66); backdrop-filter: blur(22px) saturate(1.7); -webkit-backdrop-filter: blur(22px) saturate(1.7); }   /* thinner glass than the other sheets: the staged woods tint through */
 .hub-caption { display: flex; justify-content: space-between; align-items: center; padding: 1px 3px 0; }
 .hub-caption .muted { font-size: 10px; }
 .play-cta { min-height: 64px; justify-content: flex-start; gap: 13px; padding: 10px 16px; border-radius: 12px; margin-bottom: 3px; text-align: left; }
@@ -300,10 +300,21 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #pad { padding-bottom: calc(84px + var(--sab)); }
   #waiting { bottom: calc(84px + var(--sab)); }
   #toast { top: 18%; }
-  .overlay.hub { align-items: flex-start; justify-content: flex-start; padding-left: 12px; padding-top: calc(77px + var(--sat)); }
+  .overlay.hub { align-items: flex-start; justify-content: flex-start; padding-left: 12px; padding-top: calc(72px + var(--sat)); }
   .overlay.hub .panel { width: min(400px, 58%); max-height: 100%; }
-  .round-settings { grid-template-columns: auto 1fr; }
-  .round-settings .f:last-child { grid-column: 1/-1; flex-direction: row; justify-content: space-between; align-items: center; }
+  /* a landscape phone has ~300px under the brand: the whole card fits without scrolling */
+  .hub-main { gap: 5px; padding: 10px; }
+  .hub-caption { display: none; }
+  .play-cta { min-height: 50px; padding: 6px 14px; margin-bottom: 0; }
+  .play-cta strong { font-size: 24px; }
+  .mode-btn { min-height: 40px; padding: 8px 12px; }
+  #btnCourses { min-height: 58px; padding: 7px 12px; }
+  #btnCourses .cinfo b { font-size: 18px; margin: 1px 0 2px; }
+  #btnCourses .cinfo .eyebrow { display: none; }   /* the card's art and name already say it; the eyebrow cost a line */
+  .round-settings { gap: 6px; padding: 0; }
+  .round-settings .f { gap: 3px; }
+  .round-settings .seg button { min-height: 28px; padding: 3px 6px; }
+  #btnHelp { min-height: 26px; }
   .overlay.locker { align-items: center; justify-content: flex-start; padding-left: 12px; }
   .overlay.locker .panel { width: min(400px, 55%); max-height: 100%; }
   .brand { font-size: 33px; }
