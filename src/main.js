@@ -151,7 +151,8 @@ function holdDisc(char, mesh, n, spin, throwType) {
     _qg.copy(char.group.quaternion).invert();
     _nrm.set(n[0], n[1], n[2]).applyQuaternion(_qg).applyQuaternion(rel.qInv).applyQuaternion(_qh);
     _off.copy(rel.dir).multiplyScalar(.075).y -= .015; _off.applyQuaternion(rel.qInv).applyQuaternion(_qh);
-  } else { _nrm.copy(CARRY_N).applyQuaternion(_qh); _off.copy(CARRY_OFF).applyQuaternion(_qh); spin = 0; }
+  } else if (char.heroWeight > .5) { char.group.getWorldDirection(_nrm).multiplyScalar(-.3); _nrm.x += Math.sin(spin * 3) * .06; _nrm.z += Math.cos(spin * 3) * .06; _nrm.y = 1; _off.set(0, -.08, 0).applyQuaternion(_qh); spin *= 40; }   // cover shot: spun like a trick on the raised hand, face tipped a little to the lens
+  else { _nrm.copy(CARRY_N).applyQuaternion(_qh); _off.copy(CARRY_OFF).applyQuaternion(_qh); spin = 0; }
   _v.add(_off); setDiscPose(mesh, [_v.x, _v.y, _v.z], [_nrm.x, _nrm.y, _nrm.z], spin);
 }
 function updateHub() { const i = COURSES.findIndex(c => c.id === G.courseId); UI.setHub({ name: G.avatar.name, jersey: G.avatar.jersey, course: COURSES[i], holes: LAYOUTS[i], img: asset('courses', G.courseId) }); }

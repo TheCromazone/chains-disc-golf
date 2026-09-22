@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { cloneModel } from './models.js';
 import { rimLight } from './materials.js';
 import { bodyMaterial } from './body-material.js';
-import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights } from './throw-poses.js';
+import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
 const SLOT = { hair: { roughness: .7, rim: .22 }, headwear: { roughness: .8 }, trim: { roughness: .78 }, frame: { roughness: .42, color: '#1a1c22' }, lens: { roughness: .15, color: '#14171c', metalness: .3, opacity: .86 } };
@@ -135,12 +135,13 @@ export function createGLTFCharacter(avatar) {
     mixer.update(0); settle(); overlay();
     const frame = { qInv: q.invert(), dir }; frames.set(name, frame); return frame;
   }
-  const coilW = () => phase === null ? readyW : readyW * Math.max(0, 1 - phase / .15);
+  const coilW = () => phase === null ? readyW : readyW * stanceFade(phase);
   const api = {
     group, hand, elbow: forearm, joints, avatar, source: 'glb', releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},
     setFace(value) { body.setPalette(value); const g = glassesOf(value); for (const o of glasses) o.visible = o.name === 'glasses_' + g; },
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
+    get heroWeight() { return heroW; },   // how far into the cover-shot pose: holdDisc spins the disc on the raised hand past half
     react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
     update(dt) {
@@ -151,7 +152,7 @@ export function createGLTFCharacter(avatar) {
       else if (mood) { mood.t += dt; sample(mood.name, mood.t); if (mood.t >= (actions.get(mood.name)?.getClip().duration || 2.4)) mood = null; }
       else { name = handed(locomotion || 'idle'); sample(name, time % (actions.get(name)?.getClip().duration || 4)); }   // ponytail: no more practice-swing cycle; the cover-shot pose holds, play('practice') still works
       settle();
-      readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < .15 ? readyW : Math.max(0, readyW - dt / .22);
+      readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < STANCE_FADE ? readyW : Math.max(0, readyW - dt / .22);
       heroW = name?.startsWith('idle') && !locomotion && !aiming ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
       overlay();
     },

@@ -10,7 +10,7 @@ import json, sys
 ROOT = Path(__file__).resolve().parents[1]
 VARIANT = sys.argv[sys.argv.index('--variant') + 1] if '--variant' in sys.argv else 'm'
 TAG = '' if VARIANT == 'm' else '-' + VARIANT; KEY = 'body_' if VARIANT == 'm' else f'body_{VARIANT}_'
-SRC = ROOT / f'art/blender/golfer-v3{TAG}-textures'; OUT = ROOT / f'assets/textures/body{TAG}'; OUT.mkdir(parents=True, exist_ok=True)
+SRC = Path(sys.argv[sys.argv.index('--src') + 1]) if '--src' in sys.argv else ROOT / f'art/blender/golfer-v3{TAG}-textures'; OUT = ROOT / f'assets/textures/body{TAG}'; OUT.mkdir(parents=True, exist_ok=True)
 sizes = {}
 def save(img, name, size, fmt, **kw):
   # masks are four independent channels: Pillow resamples RGBA through premultiplied alpha, which would erase RGB where alpha is 0

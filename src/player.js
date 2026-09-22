@@ -34,7 +34,7 @@ export function randomAvatar(rng = Math.random, overrides = {}) {
   return { ...DEFAULT_AVATAR, ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([k,v])=>[k,pick(v)])), facialHair, eyeColor: pick(EYE_COLORS), skin: pick(AVATAR_OPTIONS.skin), hair: pick(AVATAR_OPTIONS.hair), hairColor: pick(AVATAR_OPTIONS.hairColor), jersey, jerseyStyle: rng() < 0.55 ? 'solid' : pick(JERSEY_STYLES), accent: pick(AVATAR_OPTIONS.accent.filter(c => c !== jersey)), shorts: pick(AVATAR_OPTIONS.shorts), socks: pick(AVATAR_OPTIONS.socks), shoes: pick(AVATAR_OPTIONS.shoes), wristband: rng() < 0.3 ? pick(AVATAR_OPTIONS.wristband) : 'none', headwear: pick(AVATAR_OPTIONS.headwear), headwearColor: pick(AVATAR_OPTIONS.headwearColor), number: Math.floor(rng() * 99) + 1, shades: rng() < 0.5, build: pick(AVATAR_OPTIONS.build), height: pick(AVATAR_OPTIONS.height), hand: rng() < 0.12 ? 'left' : 'right', figure: rng() < 0.5 ? 'female' : 'male', ...overrides };
 }
 
-import { JOINTS, IDLE, K, mirrorPose, keysFor, poseAt, readyPose, heroPose } from './throw-poses.js';
+import { JOINTS, IDLE, K, mirrorPose, keysFor, poseAt, readyPose, heroPose, STANCE_FADE, stanceFade } from './throw-poses.js';
 
 export function createCharacter(opts = {}) {
   const a = { ...DEFAULT_AVATAR, ...(opts.color ? { jersey: opts.color } : {}), ...(opts.skin ? { skin: opts.skin } : {}), ...(opts.cap ? { headwearColor: opts.cap } : {}), ...opts };
@@ -134,8 +134,8 @@ export function createCharacter(opts = {}) {
         if(lefty){a0=mirrorPose(a0);a1=mirrorPose(a1);}
         for(const j of JOINTS){motionA.setFromEuler(motionEuler.fromArray([...a0[j],'XYZ']));motionB.setFromEuler(motionEuler.fromArray([...a1[j],'XYZ']));joints[j].quaternion.copy(motionA).slerp(motionB,u);}
         root.position.y=ROOT_Y+a0.rootY+(a1.rootY-a0.rootY)*u;
-        if(phase<.15&&aimFrames>=2){   // the swipe starts from the coiled aim stance and eases into the clip over its first 15 %
-          const w=1-phase/.15;let r=readyPose(aimType,time);if(lefty)r=mirrorPose(r);
+        if(phase<STANCE_FADE&&aimFrames>=2){   // the swipe starts from the coiled aim stance and morphs into the clip across the windup
+          const w=stanceFade(phase);let r=readyPose(aimType,time);if(lefty)r=mirrorPose(r);
           for(const j of JOINTS)joints[j].quaternion.slerp(motionA.setFromEuler(motionEuler.fromArray([...r[j],'XYZ'])),w);
           root.position.y+=(ROOT_Y+r.rootY-root.position.y)*w;
         }

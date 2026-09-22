@@ -97,21 +97,26 @@ export function poseAt(keys, phase) {
   const out={};for(const j of JOINTS)out[j]=[0,1,2].map(c=>interpolate(j,c));out.rootY=interpolate('rootY',0);out.rootY=-Math.min(...soleHeights(out,false));return out;
 }
 
-// Coiled aim stance per throw family: the first few percent of the clip, scrubbed slowly so the athlete breathes,
-// plus a staggered, knee-bent overlay (backhand and putt lead with the throwing-side foot, the rest with the other).
-// Right-handed; callers mirror. The windup fades it out over its first 15 % so the swipe starts from this pose.
-// The clips open with the disc presented at shoulder height; the stance drops the elbow to the hip and folds the forearm across.
+// Aim stances per throw family, absolute joint angles in the shared contract (right-handed; callers mirror), breathing
+// added per frame; the windup morphs them into the clip (stanceFade below). Spine and head pitch: negative leans forward.
+// Hips pitch forward and every leg is solved so both soles stay planted with the shin near vertical: the rig has no
+// ankle, so a leaning shin tips the foot onto its toe.
 const STANCE = {
-  backhand: { root: [0, .12, 0], spine: [.1, 0, 0], shR: [-.85, .7, .1], elR: [.3, 0, 0], shL: [-.15, 0, .12], elL: [.2, 0, 0], hipR: [.3, 0, 0], knR: [-.3, 0, 0], hipL: [-.15, 0, 0], knL: [-.4, 0, 0] },
-  forehand: { root: [0, -.1, 0], spine: [.08, 0, 0], shR: [-.25, 0, -.2], elR: [-.2, 0, 0], shL: [-.1, 0, .1], elL: [.2, 0, 0], hipL: [.3, 0, 0], knL: [-.3, 0, 0], hipR: [-.15, 0, 0], knR: [-.4, 0, 0] },
-  // putt: feet planted with the throwing-side foot ahead, knees soft rather than crouched, elbow forward with the forearm
-  // near its release pitch so the disc sets chest-high in front, level but for the putt's own nose-up
-  putt: { spine: [-.03, 0, 0], shR: [-.05, 0, -.05], elR: [-.6, 0, 0], shL: [-.1, 0, .2], elL: [.1, 0, 0], hipR: [.05, 0, 0], knR: [.2, 0, 0], hipL: [-.2, 0, 0], knL: [.25, 0, 0] },
+  // backhand: side-on and pre-coiled (pelvis ~70°, chest ~125° off the line), weight settled into bent knees, head turned
+  // back over the leading shoulder to the target, elbow winged out and the disc palm-down across the chest: the set-up a
+  // real reach-back starts from, and the one Disc Golf Masters shows its thrower in
+  backhand: { root: [-.12, 1.22, 0], spine: [-.18, 1.15, .08], head: [.25, -1.4, -.05], shR: [-.3, 1.1, .95], elR: [1.7, 0, 0], shL: [.2, 0, -.12], elL: [.6, 0, 0], hipR: [.72, 0, .42], knR: [-.56, 0, 0], hipL: [.55, 0, -.2], knL: [-.58, 0, 0] },
+  // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
+  // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
+  forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
+  // putt: square to the pin with the throwing-side foot a half step ahead, knees loaded, hips hinged, elbow tucked at
+  // the side and the disc out in front of the belly, eyes up on the chains
+  putt: { root: [-.12, .2, 0], spine: [-.16, -.17, 0], head: [.14, -.05, 0], shR: [-.1, .45, 0], elR: [1.65, 0, 0], shL: [.15, 0, -.1], elL: [.5, 0, 0], hipR: [.76, 0, .1], knR: [-.54, 0, 0], hipL: [.72, 0, -.12], knL: [-.66, 0, 0] },
 };
-// Cover-shot idle for the menu tee and bystanders: weight over the right leg, left knee soft, disc fist raised beside the
-// chest with the forearm near vertical (the roll-free socket then shows the plate to a lens in front), off hand on the hip,
-// head level. Right-handed; callers mirror. Absolute joint values, breathing sway added per frame.
-const HERO = { root: [0, .08, -.03], spine: [.02, -.06, .05], head: [.02, .12, -.02], shR: [-.05, -.55, .45], elR: [2.55, 0, 0], shL: [-.15, 0, -.5], elL: [.36, 0, .96], hipR: [.02, 0, .04], knR: [-.03, 0, 0], hipL: [.2, 0, -.14], knL: [-.42, 0, 0] };
+// Cover-shot idle for the menu tee and bystanders: weight over the right leg, the left knee soft with its toe still on the
+// ground, disc hand raised beside the head with the forearm upright (main.js spins the disc flat on it), off hand on the
+// hip, head level. Right-handed; callers mirror. Absolute joint values, breathing sway added per frame.
+const HERO = { root: [0, .08, -.03], spine: [.02, -.06, .05], head: [.02, .12, -.02], shR: [.45, -.4, .2], elR: [2.6, 0, 0], shL: [-.15, 0, -.5], elL: [.36, 0, .96], hipR: [.02, 0, .04], knR: [-.03, 0, 0], hipL: [.02, 0, -.1], knL: [-.26, 0, 0] };
 export function heroPose(time, rig = RIGS.lite) {
   const pose = { rootY: 0 }; for (const j of JOINTS) pose[j] = [...(HERO[j] || IDLE[j])];
   const breath = Math.sin(time * 1.2);
@@ -120,11 +125,18 @@ export function heroPose(time, rig = RIGS.lite) {
   pose.rootY = -Math.min(...soleHeights(pose, false, rig));
   return pose;
 }
+// The swipe morphs the stance into the clip across most of the windup rather than its first few percent: the coiled,
+// knee-loaded set-up and the clip's reach-back share their shape, and a short fade bobbed the athlete upright between them.
+export const STANCE_FADE = .4;
+export const stanceFade = phase => { const u = Math.min(1, Math.max(0, phase / STANCE_FADE)); return 1 - u * u * (3 - 2 * u); };
 export function readyPose(type, time, rig = RIGS.lite) {
-  const stance = STANCE[type.split('_')[0]] || STANCE.forehand, breath = Math.sin(time * 1.3);
-  const pose = poseAt(keysFor(type), .06 + .04 * Math.sin(time * 1.1));
-  for (const j of JOINTS) { const d = stance[j]; if (d) for (let i = 0; i < 3; i++) pose[j][i] += d[i]; }
+  const stance = STANCE[type.split('_')[0]] || STANCE.forehand, breath = Math.sin(time * 1.3), pose = { rootY: 0 };
+  for (const j of JOINTS) pose[j] = [...(stance[j] || IDLE[j])];
+  const bank = type.endsWith('_io') ? .08 : type.endsWith('_oi') ? -.08 : 0;   // inside-out / outside-in: the shoulders already lean the way the clip banks
+  pose.spine[2] += bank; pose.head[2] -= bank * .6;
+  // breathing and a slow settle of the coil, so the set-up never freezes
   pose.knR[0] -= .02 + .02 * breath; pose.knL[0] -= .02 + .02 * breath; pose.spine[0] += .015 * breath; pose.head[1] += .04 * Math.sin(time * .5);
+  pose.root[1] += .03 * Math.sin(time * .7); pose.spine[1] += .02 * Math.sin(time * .7 + .6); pose.elR[0] += .03 * breath;
   pose.rootY = -Math.min(...soleHeights(pose, false, rig));
   return pose;
 }
