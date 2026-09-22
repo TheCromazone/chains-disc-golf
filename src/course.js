@@ -6,31 +6,33 @@ import { texture } from './assets.js';
 import { canopyGeometry } from './canopies.js';
 import { model } from './models.js';
 import { modelParts, addModel } from './models.js';
-import { windMaterial, windTime, toonMaterial, cartoonSky, paintDetail, terrainSplat } from './materials.js';
+import { windMaterial, windTime, toonMaterial, paintDetail, terrainSplat } from './materials.js';
 import { washedTexture } from './assets.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
 // Course definitions. Everything visual and structural about a course comes from here so the same
-// builder produces three different places. grass = [fairway, rough, deep rough, sand]; sun = [elevation, azimuth],
-// low (20-25°) so trees rake long shadows; fog = [horizon haze colour, FogExp2 density]; hemi = [sky fill, ground fill].
+// builder produces three different places. grass = [fairway, rough, deep rough, sand]; sun = [elevation, azimuth], low
+// (18-21°) and down the fairway of hole 1 (every course's hole 1 runs toward +z, azimuth 0) so the tee shot is back-lit
+// and trees rake long shadows; sky = [cloud coverage threshold, cloud scale, zenith colour]; fog = [horizon haze colour,
+// FogExp2 density: trees 60-80 m back keep about half their contrast]; hemi = [sky fill, ground fill].
 export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
     hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#75bd48', '#3f9842', '#29774a', '#f5dfa4'], leafHue: 0.29,
-    sun: [23, 130], sky: [4, 2.2], sunColor: '#ffd8a0', fog: ['#c9d8e4', 0.0040], hemi: ['#b8cde6', '#33492a'], water: '#2d6f95' },
+    sun: [19, 22], sky: [.5, 1.3, '#7aa6d2'], sunColor: '#ffd3a0', fog: ['#e4e6df', 0.0100], hemi: ['#b8cde6', '#33492a'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
     hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#8bc352', '#55a344', '#397e48', '#f4dd9e'], leafHue: 0.265,
-    sun: [20, 245], sky: [7, 1.4], sunColor: '#ffcd8a', fog: ['#e3d3b6', 0.0036], hemi: ['#c8d3e8', '#4d4a2a'], water: '#4a7f8f' },
+    sun: [18, 340], sky: [.47, 1.1, '#95a9c1'], sunColor: '#ffc98a', fog: ['#f0e3ca', 0.0088], hemi: ['#c8d3e8', '#4d4a2a'], water: '#4a7f8f' },
   { id: 'lake', name: 'Lakeshore Links', tag: 'Water on five holes', blurb: 'Morning light off the lake. Carries, wraps and island greens; every pond is out of bounds.', seed: 41,
     len: [92, 118, 80, 134, 100, 74, 126, 96, 110], dog: { 2: 1, 5: -1, 7: 1 }, ponds: { 0: 'right', 2: 'front', 4: 'carry', 6: 'right', 8: 'front' },
     hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#7dc65a', '#419f50', '#287a51', '#ffe3ac'], leafHue: 0.3,
-    sun: [24, 95], sky: [2.5, 3], sunColor: '#ffe2b6', fog: ['#d5e3ec', 0.0042], hemi: ['#c3daf0', '#2f4f33'], water: '#2a7fa8' },
+    sun: [21, 30], sky: [.55, 1.4, '#78a7d6'], sunColor: '#ffdcae', fog: ['#e6ece9', 0.0096], hemi: ['#c3daf0', '#2f4f33'], water: '#2a7fa8' },
   { id: 'bluff', name: 'Gull Point Bluffs', tag: 'Coastal · exposed · gusty', blurb: 'Headland links above the surf. Nothing stops the wind up here: read the socks, throw low into it and ride it home.', seed: 59,
     len: [98, 124, 88, 142, 110, 80, 156, 96, 118], dog: { 1: 1, 4: -1, 7: 1 }, ponds: { 2: 'right', 5: 'carry', 8: 'front' },
     hills: 2.1, trees: 0.22, pine: 0.7, fairwayW: 1.4, wind: 2.8, grass: ['#a9c65a', '#7fa848', '#5d8a4a', '#e9d9a6'], leafHue: 0.25,
-    sun: [25, 200], sky: [3, 2.4], sunColor: '#ffdcaa', fog: ['#d8e4ea', 0.0038], hemi: ['#c2d6e8', '#4e5a3c'], water: '#3f8fb0' },
+    sun: [20, 345], sky: [.44, 1.2, '#86abcb'], sunColor: '#ffd6a6', fog: ['#e5eaec', 0.0092], hemi: ['#c2d6e8', '#4e5a3c'], water: '#3f8fb0' },
 ];
 export const courseById = id => COURSES.find(c => c.id === id) || COURSES[0];
 export const courseLayout = def => layoutHoles(makeRng(def.seed + 1), def);   // pure: used for the menu mini-maps
@@ -321,7 +323,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
   const hillGeometry=new THREE.BufferGeometry();hillGeometry.setAttribute('position',new THREE.Float32BufferAttribute(hillPositions,3));
   hillGeometry.setAttribute('color',new THREE.Float32BufferAttribute(hillColors,3));hillGeometry.setIndex(hillIndices);
-  group.add(new THREE.Mesh(hillGeometry,new THREE.MeshBasicMaterial({vertexColors:true,fog:false,side:THREE.DoubleSide})));
+  group.add(new THREE.Mesh(hillGeometry,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide})));   // takes the haze: a faint silhouette, not a green cut-out
 
   // --- trees ---
   const trees = [], bushes = [], tufts = [];
@@ -565,40 +567,26 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
 
   // --- sky, lights, fog ---
-  const sky = cartoonSky(); sky.material.uniforms.horizon.value.set(def.fog[0]); scene.add(sky);   // horizon band = fog colour, set before the dome is prefiltered
   const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1]));
-  // Image-based ambient: the course HDRI on Full, the gradient sky prefiltered on Lite. Discs, chains and shoes get real reflections.
-  // Full also shows the HDRI itself, wrapped on the dome (soft clouds, hazy horizon), so the same mesh follows the
-  // menu's sky toggling; Lite keeps the gradient dome and its sphere clouds. scene.background stays the menu's.
+  const sky = skyDome(def, sunDir, quality === 'low'); scene.add(sky);   // its horizon band is the fog colour; the sun disc sits where the key light is
+  // Image-based ambient: the course HDRI on Full, the dome prefiltered on Lite (its sun disc puts a real highlight on
+  // discs and chains). The HDRI itself no longer shows: its baked sun sat at the old elevations and its horizon clipped.
   let envRT = null;
-  if (hdri) { scene.environment = hdri.target.texture; sky.material.dispose(); sky.material = new THREE.MeshBasicMaterial({ map: hdri.texture, color: '#e6e6e6', side: THREE.BackSide, depthWrite: false, fog: false }); }
+  if (hdri) scene.environment = hdri.target.texture;
   else { const pmrem = new THREE.PMREMGenerator(renderer); const envScene = new THREE.Scene(); envScene.add(sky); envRT = pmrem.fromScene(envScene, .04); envScene.remove(sky); scene.add(sky); pmrem.dispose(); scene.environment = envRT.texture; }
   scene.environmentIntensity = .25; scene.background = null;
-  // Exponential haze in the course's horizon colour: the back tree line loses contrast into it.
-  // Fog colour is the sky's horizon colour, always, so the dome's horizon band takes the same value.
+  // Aerial perspective: exponential haze in the bright warm horizon colour, dense enough (FogExp2 squares the depth)
+  // that trees 60-80 m back keep about half their contrast and the tree line at 150 m is a silhouette in the sky.
   scene.fog = new THREE.FogExp2(def.fog[0], def.fog[1]);
-  // One low warm key. The hemisphere is only a cool fill now, so shaded grass drops darker and bluer than the sunlit grass.
-  const sun = new THREE.DirectionalLight(def.sunColor, 3.4); sun.castShadow = true;
+  // One low warm key down hole 1's fairway: the tee shot is back-lit, its halo above the basket, shadows raking toward the camera.
+  const sun = new THREE.DirectionalLight(def.sunColor, 3); sun.castShadow = true;
   const sm = quality === 'low' ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
   // 120 m box following the focus in update(): wide enough that trees off-frame toward the sun still rake shadows across the frame.
   const extent = 60, sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -extent; sc2.right = sc2.top = extent; sc2.near = 1; sc2.far = 400;
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = .02;   // PCFSoft ignores shadow.radius, so the bias no longer tracks a filter width
   scene.add(sun); scene.add(sun.target);
-  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], .35); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], .4); scene.add(hemi);
 
-  // Soft graphic clouds for the gradient dome. They take the haze so the far ones melt into the horizon.
-  const cloudGeo = new THREE.SphereGeometry(1, 12, 8);
-  const cloudMat = new THREE.MeshBasicMaterial({ color: '#f7f6f2' });
-  const cloudGroup = new THREE.Group(); cloudGroup.visible = !hdri; group.add(cloudGroup);
-  const cloudRng = makeRng(seed + 540);
-  for (let i = 0; i < 24; i++) {
-    const x = (cloudRng() - .5) * 950, z = (cloudRng() - .5) * 780, y = 65 + cloudRng() * 45;
-    for (let j = 0; j < 4; j++) {
-      const cloud = new THREE.Mesh(cloudGeo, cloudMat);
-      cloud.position.set(x + j * 10, y + (j === 1 ? 4 : 0), z);
-      cloud.scale.set(14, j === 1 ? 9 : 6, 7); cloudGroup.add(cloud);
-    }
-  }
   // Feathered canopies pool shade around nearby trunks; distance fades them into the same haze.
   // This merged ground-conforming mesh costs one draw, with no shadow map or image request.
   const shadowParts = [];
@@ -639,7 +627,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       marker.scale.set(size,size*1.25,1);marker.material.opacity=smooth(7,17,distance);
       marker.position.y=height(marker.position.x,marker.position.z)+2.7+size*.6;
     }
-    windClock.value=t; cloudGroup.position.x = Math.sin(t * .006) * 5;
+    windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 180); }
   };
@@ -650,6 +638,38 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
   return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose };
+}
+
+// Sky dome for both tiers: horizon haze (the fog colour) up to a soft blue zenith, a warm lobe and a sun disc with its
+// halo where the DirectionalLight actually is, and cumulus from value noise on a planar projection so the clouds
+// flatten and melt into the haze at the horizon. Lite runs two noise octaves, Full four. The 8x disc is tone mapped
+// here on Lite; on Full the OutputPass does that later, so the disc reaches the bloom pass and comes back as a halo.
+function skyDome(def, sunDir, lite) {
+  const [coverage, scale, zenith] = def.sky;
+  return new THREE.Mesh(new THREE.SphereGeometry(1100, 32, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, defines: { OCT: lite ? 2 : 4 },
+    uniforms: { horizon: { value: new THREE.Color(def.fog[0]) }, zenith: { value: new THREE.Color(zenith) }, sunColor: { value: new THREE.Color(def.sunColor) }, sunDir: { value: sunDir }, cloud: { value: new THREE.Vector2(coverage, scale) }, time: { value: 0 } },
+    vertexShader: 'varying vec3 vDir;void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader: `uniform vec3 horizon,zenith,sunColor,sunDir;uniform vec2 cloud;uniform float time;varying vec3 vDir;
+      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+      float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+      float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<OCT;i++){s+=a*noise(p);p=p*2.07+vec2(19.,7.);a*=.5;}return s;}
+      void main(){
+        vec3 d=normalize(vDir);float h=max(d.y,0.),s=max(dot(d,sunDir),0.);
+        vec3 col=mix(horizon,zenith,smoothstep(0.,.6,h));                                   // haze at the horizon up to blue
+        col=mix(col,sunColor*1.1,pow(s,3.)*(1.-smoothstep(0.,.45,h))*.4);                   // warm lobe on the sun's side
+        col+=sunColor*(pow(s,6.)*.1+pow(s,40.)*.35+pow(s,300.)*1.5);                        // haze halo
+        vec2 p=d.xz/(h+.25)*cloud.y+vec2(time*.004,time*.0015);                             // planar projection: clouds flatten toward the horizon
+        float n=fbm(p),cov=smoothstep(cloud.x,cloud.x+.2,n)*smoothstep(.03,.2,h);
+        float lit=clamp((n-fbm(p+normalize(sunDir.xz+vec2(1e-4))*.12))*7.+.55,0.,1.);       // thinner toward the sun = the lit face
+        vec3 cloudCol=mix(mix(horizon,zenith,.4)*.9,mix(vec3(1.),sunColor,.3)*1.12,lit)+sunColor*pow(s,12.)*.25;
+        col=mix(col,cloudCol,cov);
+        col+=sunColor*smoothstep(.9994,.9998,s)*8.*(1.-cov*.9);                             // the disc, 8x so bloom carries it
+        gl_FragColor=vec4(col,1.);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  }));
 }
 
 function makeBasketGeometry() {
