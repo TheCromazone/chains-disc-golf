@@ -1,11 +1,11 @@
 // Set dressing that makes the course read as a cared-for tournament venue: timber-framed turf tee mats, printed tee
-// signs with the hole map, galvanised baskets with drooping chains, a branded band and a number flag, feather flags,
-// banner boards and tee furniture. Every static prop on the course merges into two meshes: 'print' (every painted,
-// printed or wooden surface, one canvas atlas, vertex tint for solid colours) and 'steel' (bare metal, vertex tint).
-// That is two draws plus their shadow draws on either tier however many props stand, where the old per-hole meshes
-// cost ~30. Physics-neutral: the disc only collides with trees and the basket, so props keep out of the flight corridor
-// (fairway half-width in front of each tee) and off the putt line; the basket's visual parts keep physics' heights
-// (tray .55-.72 m, chains .72-1.34, band 1.34-1.46).
+// signs with the hole map, galvanised baskets with drooping chains, a branded band and a number flag, benches, bins,
+// feather flags, and on hole 1 an event arch, a registration canopy and gallery ropes. Every static prop on the course
+// merges into two meshes: 'print' (every painted, printed or wooden surface, one canvas atlas, vertex tint for solid
+// colours) and 'steel' (bare metal, vertex tint). That is two draws plus their shadow draws on either tier however many
+// props stand, where the old per-hole meshes cost ~30. Physics-neutral: the disc only collides with trees and the
+// basket, so props keep out of the flight corridor (the tree-free half-width in front of each tee) and off the putt
+// line; the basket's visual parts keep physics' heights (tray .55-.72 m, chains .72-1.34, band 1.34-1.46).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toonMaterial, windTime, windVec } from './materials.js';
@@ -23,10 +23,12 @@ REGION.bag = [536, 1704, 256, 320]; REGION.band = [1072, 1048, 960, 76]; REGION.
 for (let i = 0; i < 9; i++) REGION['flag' + i] = [1072 + (i % 6) * 144, 1140 + Math.floor(i / 6) * 104, 128, 88];
 const uvRect = name => { const [x, y, w, h] = REGION[name]; return [x / 2048, 1 - (y + h) / 2048, (x + w) / 2048, 1 - y / 2048]; };   // CanvasTexture flips Y
 
-// Per-pixel painters work at the region's native size in a scratch canvas, then draw into the (possibly scaled) atlas.
+// Per-pixel painters shade a scratch canvas at the atlas's own scale (Lite evaluates a quarter of the texels) in
+// region coordinates; callers draw it back at the region size.
+let PX = 1;
 function pixels(w, h, shade) {
-  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'), img = g.createImageData(w, h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const o = (y * w + x) * 4, [r, gg, b] = shade(x, y); img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = b; img.data[o + 3] = 255; }
+  const W = Math.round(w * PX), H = Math.round(h * PX), c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'), img = g.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const o = (y * W + x) * 4, [r, gg, b] = shade(x / PX, y / PX); img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = b; img.data[o + 3] = 255; }
   g.putImageData(img, 0, 0); return c;
 }
 const hash2 = (x, y, s) => { let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(s, 1013904223) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
@@ -75,7 +77,7 @@ function paintWood(g, w, h) {
   for (let i = 0; i < 14; i++) { const y = 6 + rnd() * (h - 12), x = rnd() * w, l = 30 + rnd() * 120; g.lineWidth = .8 + rnd(); g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x + l * .3, y + rnd() * 3 - 1.5, x + l * .7, y + rnd() * 3 - 1.5, x + l, y + rnd() * 2 - 1); g.stroke(); }   // drying checks
   for (let i = 0; i < 5; i++) { const x = rnd() * w, y = 14 + rnd() * (h - 28); g.fillStyle = 'rgba(52,34,20,.8)'; g.beginPath(); g.ellipse(x, y, 5 + rnd() * 4, 3 + rnd() * 2, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(52,34,20,.35)'; g.lineWidth = 1; g.beginPath(); g.ellipse(x, y, 11, 6, 0, 0, 7); g.stroke(); }
 }
-const roundRect = (g, x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r); };
+const roundRect = (g, x, y, w, h, r) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); };   // Safari < 16 has no roundRect
 const fwdOf = h => { const dx = h.way[1][0] - h.tee[0], dz = h.way[1][1] - h.tee[1], L = Math.hypot(dx, dz); return [dx / L, dz / L]; };
 function fitText(g, text, x, y, maxW, font, size) { g.font = `${font} ${size}px ${FONT}`; const m = g.measureText(text).width; if (m > maxW) g.font = `${font} ${Math.floor(size * maxW / m)}px ${FONT}`; g.fillText(text, x, y); }
 
@@ -111,7 +113,7 @@ function paintFeather(g, w, h, i, name) {
   const [bg, fg, accent, big, small] = [[NAVY, '#ffffff', GOLD, 'CHAINS OPEN', '2026 · ' + name.toUpperCase()], ['#f6f4ee', '#d4471b', '#1c2430', 'LOFTWING', 'DISCS · FLY FURTHER'], ['#1f5a3b', '#f3ead2', GOLD, 'BIRDIE BREW', 'COFFEE ROASTERS']][i];
   g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = accent; g.fillRect(0, 0, 14, h);
   g.save(); g.translate(w * .56, h - 18); g.rotate(-Math.PI / 2); g.textBaseline = 'middle'; g.textAlign = 'left';
-  g.fillStyle = fg; fitText(g, big, 0, -14, h * .78, 800, 92); g.fillStyle = i === 1 ? accent : accent; fitText(g, small, 2, 44, h * .6, 700, 30); g.restore();
+  g.fillStyle = fg; fitText(g, big, 0, -14, h * .78, 800, 92); g.fillStyle = accent; fitText(g, small, 2, 44, h * .6, 700, 30); g.restore();
   if (i === 1) { g.fillStyle = fg; g.beginPath(); g.moveTo(w * .3, 60); g.quadraticCurveTo(w * .75, 20, w * .9, 70); g.quadraticCurveTo(w * .6, 55, w * .3, 60); g.fill(); }   // wing mark
   if (i === 2) { g.strokeStyle = fg; g.lineWidth = 6; g.beginPath(); g.arc(w * .58, 70, 34, 0, 7); g.stroke(); g.font = `800 34px ${FONT}`; g.fillStyle = fg; g.textAlign = 'center'; g.fillText('BB', w * .58, 72); }
 }
@@ -126,18 +128,18 @@ function paintFlag(g, w, h, n) {
   g.fillStyle = NAVY; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `800 66px ${FONT}`; g.fillText(String(n), w * .56, h * .44);
 }
 function paintAtlas(canvas, scale, ctx) {
-  const g = canvas.getContext('2d'); g.setTransform(scale, 0, 0, scale, 0, 0); g.fillStyle = '#ffffff'; g.fillRect(0, 0, 2048, 2048);
+  const g = canvas.getContext('2d'); g.setTransform(scale, 0, 0, scale, 0, 0); g.fillStyle = '#ffffff'; g.fillRect(0, 0, 2048, 2048); PX = scale;
   const draw = (name, fn) => { const [x, y, w, h] = REGION[name]; g.save(); g.translate(x, y); g.beginPath(); g.rect(0, 0, w, h); g.clip(); fn(g, w, h); g.restore();
     const px = x * scale, py = y * scale, pw = w * scale, ph = h * scale, b = 8 * scale;   // bleed the edge texels into the gutter so mips do not pick up neighbours
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(canvas, px, py, 1, ph, px - b, py, b, ph); g.drawImage(canvas, px + pw - 1, py, 1, ph, px + pw, py, b, ph);
     g.drawImage(canvas, px - b, py, pw + 2 * b, 1, px - b, py - b, pw + 2 * b, b); g.drawImage(canvas, px - b, py + ph - 1, pw + 2 * b, 1, px - b, py + ph, pw + 2 * b, b); g.restore(); };
   draw('mat', paintMat); draw('wood', paintWood);
-  draw('concrete', (g, w, h) => g.drawImage(pixels(w, h, (x, y) => { const v = 150 + hash2(x, y, 41) * 40 + vnoise(x / 8, y / 8, 42) * 30; return [v, v - 3, v - 8]; }), 0, 0));
-  ctx.holes.forEach((hole, i) => i < 9 && draw('sign' + i, (g, w, h) => paintSign(g, w, h, hole, { ...ctx, sponsor: ['LOFTWING DISCS', 'BIRDIE BREW', 'PINE HOLLOW DGC'][i % 3] })));
+  draw('concrete', (g, w, h) => g.drawImage(pixels(w, h, (x, y) => { const v = 150 + hash2(x, y, 41) * 40 + vnoise(x / 8, y / 8, 42) * 30; return [v, v - 3, v - 8]; }), 0, 0, w, h));
+  ctx.holes.forEach((hole, i) => i < 9 && draw('sign' + i, (g, w, h) => paintSign(g, w, h, hole, { ...ctx, sponsor: ['LOFTWING DISCS', 'BIRDIE BREW', ctx.name.toUpperCase() + ' DGC'][i % 3] })));
   for (let i = 0; i < 3; i++) draw('feather' + i, (g, w, h) => paintFeather(g, w, h, i, ctx.name));
   draw('band', (g, w, h) => paintBand(g, w, h, ctx.name));
   draw('bag', (g, w, h) => {   // ripstop purple with piping, a zip across the top third and a sponsor patch
-    g.drawImage(pixels(w, h, (x, y) => { const k = .86 + hash2(x, y, 61) * .1 + ((x % 6 < 1 || y % 6 < 1) ? -.06 : 0) + vnoise(x / 40, y / 40, 62) * .1; return [78 * k, 50 * k, 128 * k]; }), 0, 0);
+    g.drawImage(pixels(w, h, (x, y) => { const k = .86 + hash2(x, y, 61) * .1 + ((x % 6 < 1 || y % 6 < 1) ? -.06 : 0) + vnoise(x / 40, y / 40, 62) * .1; return [78 * k, 50 * k, 128 * k]; }), 0, 0, w, h);
     g.strokeStyle = '#18161d'; g.lineWidth = 12; g.strokeRect(0, 0, w, h);
     g.fillStyle = '#18161d'; g.fillRect(0, h * .3, w, 9); g.fillStyle = '#b9b6c2'; g.fillRect(w * .7, h * .3 - 4, 12, 22);
     g.fillStyle = '#f4f1ea'; roundRect(g, w * .22, h * .45, w * .56, h * .2, 8); g.fill(); g.fillStyle = '#d4471b'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'LOFTWING', w / 2, h * .55 + 2, w * .5, 800, 40);
@@ -204,7 +206,7 @@ function roundBox(w, h, d, r, seg) {
 
 // Basket: galvanised pole, tray of rim rings and bars over a pressed dish, outer and inner chain sets hanging in
 // catenaries from the rings inside the band to a collar over the tray, the printed band with rolled edges, and a
-// number flag on a mast. Full hangs 20 + 12 chains of 10 segments; Lite 10 chains of 3 and drops the hidden parts.
+// number flag on a mast. Full hangs 24 + 12 chains of 10 and 8 segments; Lite 10 chains of 3 and drops hidden parts.
 function addBasket(K, world, n, full) {
   const S = (g, c) => K.steel(g.applyMatrix4(world), c), Pr = (g, region, c) => K.print(g.applyMatrix4(world), region, c);
   const GALV = '#d5d9db', DARK = '#8c9296';
