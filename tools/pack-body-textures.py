@@ -113,8 +113,9 @@ def clean(alb, m1, m2, maps, rig, lines):
   # an arm texel's normal leaves its arm's axis; the torso side under the armpit faces the arm instead. The scan skins
   # that side to the arm bones, so without this test it turned to skin: a wedge on the back beside the elbow.
   arm_side = lambda s: (x - lines['axisS' + s][0]) * Nn[..., 0] + (z - lines['axisS' + s][1]) * Nn[..., 2] > -.005
+  hems = rig['extras'].get('sleeveHem', {})   # build-golfer-v3.py fits the sleeve onto the arm and ends it here; the scan's longer sleeve below is arm
   for side, up in (('R', upR), ('L', upL)):
-    axis(up, elY + .03, shY - .03, 'axisS' + side); sleeve = line('sleeve' + side, up, angle('axisS' + side), white, skinc, elY + .02, shY + .02); C1[up & (y < sleeve) & arm_side(side)] = SKIN
+    axis(up, elY + .03, shY - .03, 'axisS' + side); sleeve = line('sleeve' + side, up, angle('axisS' + side), white, skinc, elY + .02, shY + .02); C1[up & (y < np.maximum(sleeve, hems.get(side, 0))) & arm_side(side)] = SKIN
   fore &= np.where(x > 0, arm_side('R'), arm_side('L'))
   axis(headp | torso, chinY - .06, chinY - .01, 'axisN'); angN = angle('axisN'); nx, nz = lines['axisN']
   neckzone = (torso | headp | upR | upL) & (np.hypot(x - nx, z - nz) < .11) & (y < chinY + .01) & (y > shY - .1)
@@ -165,9 +166,10 @@ def clean(alb, m1, m2, maps, rig, lines):
   near[near] = (Nn[edge][near] * Nn[sk][i[near]]).sum(-1) > .3
   flat = out.reshape(-1, 3); flat[np.flatnonzero(edge)[near]] = out[sk][i[near]] * .8
   W = np.stack([(C1 == k).astype(np.float32) for k in range(7)], -1); keep = headp & (C1 == C0) & ~neckzone; W[keep] = W7[keep]   # the face keeps its soft iris and brow edges
+  bare = (hit & (C1 == SKIN) & (C0 == JERSEY) & (upR | upL)).astype(np.float32)   # sleeve the fit turned into arm: its baked cloth folds must leave the normal map
   idx = ndimage.distance_transform_edt(~hit, return_distances=False, return_indices=True)   # gutters copy their nearest island texel
-  out, W, beard = out[idx[0], idx[1]], W[idx[0], idx[1]], m2[..., 3][idx[0], idx[1]]
-  return out, np.concatenate([W[..., :4]], -1), np.concatenate([W[..., 4:], beard[..., None]], -1)
+  out, W, beard, bare = out[idx[0], idx[1]], W[idx[0], idx[1]], m2[..., 3][idx[0], idx[1]], bare[idx[0], idx[1]]
+  return out, np.concatenate([W[..., :4]], -1), np.concatenate([W[..., 4:], beard[..., None]], -1), bare
 
 sizes = {}
 def save(img, name, size, fmt, **kw):
@@ -176,7 +178,7 @@ def save(img, name, size, fmt, **kw):
   if fmt == 'PNG': im = Image.merge(im.mode, [ImageOps.posterize(ch, 6 if name.startswith('mask2') and i == 3 else 4) for i, ch in enumerate(im.split())])   # soft masks survive 16 levels (PNG shrinks 2-3x); the beard channel keeps 64 for its zone id + feather
   path = OUT / name; im.save(path, fmt, **kw); sizes[name] = path.stat().st_size; return path
 SHARED_LOD = {'f'}   # the phone LOD is the full body (build-golfer-v3.py --lod-from-full): same UVs, so the same atlas at half size
-lines, full = {}, None
+lines, full, bare = {}, None, None
 for sfx in ('', '_lod'):
   if sfx and VARIANT in SHARED_LOD: alb, m1, m2 = full
   else: alb, m1, m2 = Image.open(SRC / f'albedo{sfx}.png').convert('RGB'), Image.open(SRC / f'mask1{sfx}.png').convert('RGBA'), Image.open(SRC / f'mask2{sfx}.png').convert('RGBA')
@@ -184,13 +186,18 @@ for sfx in ('', '_lod'):
     import numpy as np
     N = alb.size[0]; f = lambda im: np.asarray(im if im.size[0] == N else Image.merge(im.mode, [c.resize((N, N), Image.LANCZOS) for c in im.split()])).astype(np.float32) / 255
     maps = texel_maps(ROOT / f'assets/models/golfer{TAG}{sfx.replace("_", "-")}.glb', N)
-    a, k1, k2 = clean(f(alb), f(m1), f(m2), maps, json.loads((ROOT / f'tools/golfer{TAG}-rig.json').read_text()), lines)
+    a, k1, k2, b = clean(f(alb), f(m1), f(m2), maps, json.loads((ROOT / f'tools/golfer{TAG}-rig.json').read_text()), lines)
     u8 = lambda v, mode: Image.fromarray((np.clip(v, 0, 1) * 255 + .5).astype(np.uint8), mode)
-    alb, m1, m2 = u8(a, 'RGB'), u8(k1, 'RGBA'), u8(k2, 'RGBA')
+    alb, m1, m2 = u8(a, 'RGB'), u8(k1, 'RGBA'), u8(k2, 'RGBA'); bare = b if not sfx else bare
   full = full or (alb, m1, m2)
   save(alb, f'albedo{sfx}.webp', 1024 if sfx else 2048, 'WEBP', quality=76 if sfx else 78, method=5)
   save(m1, f'mask1{sfx}.png', 512 if sfx else 1024, 'PNG', optimize=True); save(m2, f'mask2{sfx}.png', 512 if sfx else 1024, 'PNG', optimize=True)
-save(Image.open(SRC / 'normal.png').convert('RGB'), 'normal.webp', 2048, 'WEBP', quality=80, method=5)
+nrm = Image.open(SRC / 'normal.png').convert('RGB')
+if bare is not None and bare.any():   # bared arm: flat normals, feathered ~1 cm into the sleeve so the hem is not a ridge of cloth folds
+  from scipy import ndimage
+  w = np.clip(ndimage.gaussian_filter(bare, 6) * 1.6, 0, 1)[..., None]; n = np.asarray(nrm).astype(np.float32)
+  nrm = Image.fromarray((n * (1 - w) + np.array([128, 128, 255], np.float32) * w + .5).astype(np.uint8), 'RGB')
+save(nrm, 'normal.webp', 2048, 'WEBP', quality=80, method=5)
 manifest = ROOT / 'assets/manifest.json'; doc = json.loads(manifest.read_text())
 for key, file in (('albedo', 'albedo.webp'), ('albedo_lod', 'albedo_lod.webp'), ('normal', 'normal.webp'), ('mask1', 'mask1.png'), ('mask2', 'mask2.png'), ('mask1_lod', 'mask1_lod.png'), ('mask2_lod', 'mask2_lod.png')):
   doc['textures'][KEY + key] = f'textures/body{TAG}/' + file

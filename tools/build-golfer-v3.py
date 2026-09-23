@@ -2,7 +2,9 @@
 Run: blender -b -P tools/build-golfer-v3.py -- [--source <meshy.glb>] [--variant m|f] [--preview <dir>]
 Reads a Meshy 7 image-to-3D athlete (~100k triangles, 24-joint auto-rig, 2048 baked albedo), straightens
 its A-pose into the ChainsRig rest (arms and legs vertical), curls the fingers into a rim grip, merges the
-24 joint weights into the eleven ChainsRig bones, decimates to a game body and a phone LOD (the face keeps
+24 joint weights into the eleven ChainsRig bones, fits the scan's loose tee onto the body as a jersey (fit_shirt: shorter
+sleeves on the arm, a waist taper, armpit weights that let the throwing arm rise without a wing of shirt), decimates to a
+game body and a phone LOD (the face keeps
 most of its triangles), unwraps each body afresh so no triangle straddles a texture seam, then bakes from the
 untouched high-res copy: albedo, tangent normals, ambient occlusion, and a world-position map that classifies
 every texel into recolourable regions (skin, shirt, shorts, hair, socks, shoes, iris, beard zones).
@@ -227,6 +229,93 @@ def curl_fingers(body, J):
       p[:, 0] = piv[0] + dx * ca - dy * sa; p[:, 1] = piv[1] + dx * sa + dy * ca
     REPORT.setdefault('hands', {})[side] = {'length': float(L), 'tipDrop': float(h[1] - p[box][:, 1].min()), 'tipIn': float(s * (p[box][:, 0] - h[0]).max())}
   set_coords(body, p)
+
+SLEEVE = .17   # the fitted sleeve ends this far below the shoulder joint; pack-body-textures.py recolours the scan's longer sleeve below it as arm
+def fit_shirt(body, RIG, ref=None, rewire=True):
+  """The scan wears a loose tee: its sleeves stand off the arm and reach the elbow, its sides hang straight from the chest to
+  the thigh, and the auto-rig skinned the flank under each armpit to the upper arm, so the raised throwing arm dragged the
+  shirt's side out into a wing. In the rest pose (arms hanging): the flank facing each arm goes to the chest bones, the sleeve
+  and the arm's back and front up to the joint go wholly to the arm, and the chest and back beside the joint to the torso; the
+  sleeve and shoulder cap are pulled toward the arm's axis and the sleeve shortened; the torso is tapered from the armpit to
+  the waist (sides in, lower back forward), widens again to the hips and eases back to the shorts' own width at the cuffs.
+  ref: the full body's measurements, so the phone LOD is fitted to the same shape. rewire: the weight moves read which side
+  of the armpit a vertex faces from its normal; the female scan's doubled, partly flipped cloth layers would be torn apart
+  by that (twin layers riding different bones), so she keeps her weights and gets only the shape, which is position-only."""
+  c = coords(body); n = len(c); x, y, z = c[:, 0], c[:, 1], c[:, 2]
+  nb = np.empty(n * 3, np.float32); body.data.vertices.foreach_get('normal', nb); nb = nb.reshape(n, 3); nrm = np.stack([nb[:, 0], nb[:, 2], -nb[:, 1]], 1)
+  W = {b: weights(body, b) for b in BONES}; W0 = {b: w.copy() for b, w in W.items()}
+  ss = lambda a, b, t: (lambda u: u * u * (3 - 2 * u))(np.clip((t - a) / (b - a), 0, 1))   # smoothstep; a > b runs downhill
+  hipY = (RIG['hipR'][1] + RIG['hipL'][1]) / 2; kneeY = (RIG['knR'][1] + RIG['knL'][1]) / 2
+  d = np.zeros_like(c); geo = {'hem': {}}
+  for side, s in (('R', 1), ('L', -1)):
+    sh, el = 'sh' + side, 'el' + side; S, E = RIG[sh], RIG[el]
+    if ref: ax, az, rs, apex = ref[side]
+    else:   # the arm's axis and radius from its skin above the elbow (hers is a few coarse rings: the whole elbow region, else the joint)
+      low = (W[sh] + W[el] > .9) & (y > E[1] + .02) & (y < E[1] + .07) & (s * x > .06)
+      if low.sum() < 8: low = (W[sh] + W[el] > .5) & (y > E[1] - .12) & (y < E[1] + .1) & (s * x > .03)
+      ax, az, rs = (float(np.median(x[low])), float(np.median(z[low])), 0) if low.sum() >= 6 else (S[0], S[2], .034)
+      rs = rs or float(np.median(np.hypot(x[low] - ax, z[low] - az)))
+    dx, dz = x - ax, z - az; r = np.hypot(dx, dz); out = (dx * nrm[:, 0] + dz * nrm[:, 2]) / np.maximum(r, 1e-6)   # +1: the normal leaves the arm's axis
+    flank = (out < -.3) & (s * x > .03) & (s * x < s * ax - .01) & (y > E[1]) & (y < S[1] - .03) & (r < .16)   # torso side facing the arm
+    if not ref: apex = float(np.percentile(y[flank], 95)) if flank.sum() > 10 else S[1] - .12   # the armpit: top of that flank
+    geo[side] = (ax, az, rs, apex)
+    if rewire:
+      f = flank * (1 - ss(apex - .03, apex + .05, y)) * ss(.15, .45, -out)
+      moved = f * (W[sh] + W[el]); W[sh] *= 1 - f; W[el] *= 1 - f
+      tor = W['spine'] + W['root']; share = np.where(tor > 1e-3, W['spine'] / np.maximum(tor, 1e-3), (y > (RIG['root'][1] + RIG['spine'][1]) / 2).astype(np.float32))
+      W['spine'] += moved * share; W['root'] += moved * (1 - share)
+      f2 = (y > apex - .08) * (1 - ss(s * ax - .08, s * ax - .02, s * x)); moved2 = f2 * W[sh]; W[sh] -= moved2; W['spine'] += moved2   # chest and back medial of the joint
+      sleeve = (out > .1) & (s * x > .05) & (r < rs * 2.8) & (y > E[1]) & (y < apex)
+      upper = (s * x > s * ax - .03) & (r < .1) & (y >= apex) & (y < S[1])
+      g = sleeve * (1 - ss(apex - .07, apex, y)) + upper * ss(s * ax - .03, s * ax, s * x) * (1 - ss(S[1] - .07, S[1] - .01, y)); tor = W['spine'] + W['root']
+      W[sh] += g * tor; W['spine'] *= 1 - g; W['root'] *= 1 - g
+    # toward the arm's axis, as much as the vertex rides the arm: below the new hem onto the arm's own radius, above it the
+    # sleeve keeps a few millimetres of cloth and a fifth of its slack
+    hem = S[1] - SLEEVE; rarm = rs * (1.1 + .45 * ss(E[1], S[1], y)); geo['hem'][side] = round(float(hem), 4)
+    below = 1 - ss(hem - .012, hem, y); rt = rarm + (1 - below) * (rarm * .08 + .004)
+    m = np.clip(W[sh], 0, 1) * (1 - ss(.10, .16, r)) * ss(E[1] + .02, E[1] + .06, y) * (1 - ss(S[1] + .01, S[1] + .07, y)) * (s * x > .03)
+    ex = np.maximum(0, r - rt) * m * (1 - .2 * (1 - below))
+    d[:, 0] -= ex * dx / np.maximum(r, 1e-6); d[:, 2] -= ex * dz / np.maximum(r, 1e-6)
+  # torso taper from 1 cm sections of the surface (the decimated torso has few vertices, its edges are dense enough), arms excluded
+  apex = min(geo['R'][3], geo['L'][3]); tw = 1 - np.clip(W['shR'] + W['elR'] + W['shL'] + W['elL'], 0, 1)
+  body.data.calc_loop_triangles(); T = np.empty(len(body.data.loop_triangles) * 3, np.int32); body.data.loop_triangles.foreach_get('vertices', T); T = T.reshape(-1, 3); A = c[T]
+  def section(yy):
+    s = A[:, :, 1] - yy; q = []
+    for i, j in ((0, 1), (1, 2), (2, 0)):
+      m = (s[:, i] < 0) != (s[:, j] < 0); u = (s[m, i] / (s[m, i] - s[m, j]))[:, None]
+      q.append(np.concatenate([A[m, i] + u * (A[m, j] - A[m, i]), tw[T[m, i]][:, None] * (1 - u) + tw[T[m, j]][:, None] * u], 1))
+    q = np.concatenate(q); return q[q[:, 3] > .5]
+  ys = np.arange(kneeY + .1, apex + .005, .01); st = np.full((len(ys), 4), np.nan)
+  for k, yy in enumerate(ys):
+    q = section(yy)
+    if len(q) >= 12: x0 = float(np.median(q[:, 0])); st[k] = x0, np.percentile(np.abs(q[:, 0] - x0), 95), np.percentile(q[:, 2], 3), np.percentile(q[:, 2], 97)
+  ok = ~np.isnan(st[:, 0]); st = np.stack([np.interp(ys, ys[ok], st[ok, i]) for i in range(4)], 1)
+  med = lambda v: np.array([np.median(v[max(0, i - 3):i + 4]) for i in range(len(v))])   # a stray hand or fold in a band or two must not set the taper
+  bx0, bhw, bzf, bzb = (med(st[:, i]) for i in range(4)); bhw = np.minimum(bhw, 1.15 * np.median(bhw))
+  top = ys > apex - .06
+  chw, czf, czb = ref['chest'] if ref else (float(bhw[top].mean()), float(bzf[top].mean()), float(bzb[top].mean())); geo['chest'] = (chw, czf, czb); zc = (czf + czb) / 2
+  # half-width: the chest's at the armpit, the same at the waist, 1.22 x it at the hip joints; the back comes forward ~16 %
+  # toward the waist (lumbar curve) and the belly flattens a little
+  key = [hipY, hipY + .45 * (apex - hipY), apex - .1]
+  sx = np.minimum(1, np.interp(ys, key, [1.22, 1.0, 1.02]) * chw / np.maximum(bhw, 1e-3))
+  szb = np.minimum(1, (zc + (czb - zc) * np.interp(ys, key, [1.0, .84, 1.0]) - zc) / np.maximum(bzb - zc, 1e-3))
+  szf = np.minimum(1, (zc + (czf - zc) * np.interp(ys, key, [1.02, .92, 1.0]) - zc) / np.minimum(bzf - zc, -1e-3))
+  # below the hip joints the shorts ease back out to their own width at the cuffs (the thighs under them never move): held
+  # wide under a fitted shirt they read as puffy
+  cuffY = kneeY + .12; legs = ys < hipY
+  sx = np.where(legs, 1 - (1 - np.interp(hipY, ys, sx)) * np.clip((ys - cuffY) / (hipY - cuffY), 0, 1), sx)
+  fz = ss(hipY - .16, hipY - .02, ys) * ss(apex + .01, apex - .08, ys); fx = np.where(legs, ss(apex + .01, apex - .08, ys), fz)
+  sx, szb, szf = 1 - (1 - sx) * fx, 1 - (1 - szb) * fz, 1 - (1 - szf) * fz
+  inb = (y > ys[0]) & (y < ys[-1]); X0 = np.interp(y, ys, bx0); SX = np.interp(y, ys, sx); SZ = np.where(z > zc, np.interp(y, ys, szb), np.interp(y, ys, szf))
+  d[:, 0] += inb * tw * (X0 + (x - X0) * SX - x); d[:, 2] += inb * tw * (zc + (z - zc) * SZ - z)
+  set_coords(body, c + d)
+  for b in BONES:
+    ch = np.nonzero(np.abs(W[b] - W0[b]) > 1e-4)[0]; vg = body.vertex_groups[b]
+    for i in ch.tolist():
+      if W[b][i] > 1e-4: vg.add([i], float(W[b][i]), 'REPLACE')
+      else: vg.remove([i])
+  REPORT.setdefault('fit', []).append({'arms': {k: [round(float(v), 4) for v in geo[k]] for k in 'RL'}, 'chest': [round(v, 4) for v in geo['chest']], 'waistScale': round(float(sx[np.argmin(np.abs(ys - key[1]))]), 3), 'maxMove': round(float(np.linalg.norm(d, axis=1).max()), 4)})
+  log('fit', json.dumps(REPORT['fit'][-1])); return geo
 
 def decimate_split(body, J, budget, share=.3):
   """Two passes with an explicit budget: first the body collapses while the face and hands are pinned (weight 0
@@ -640,12 +729,14 @@ def build(lod, shared):
   bpy.data.objects.remove(hi, do_unlink=True)
   J = straighten(arm); bake_pose(arm, body); remap_weights(body)
   curl_fingers(body, J)
-  head = measure_head(body, J); ground = measure_ground(body, J)
-  if not lod: shared['ground'] = ground; shared['head'] = head
-  HEAD_C, HEAD_R, EYE_Y, TOP_Y, FACE_Z = tuple(head['centre']), tuple(head['radii']), head['eyeY'], head['top'], head['faceZ']
   RIG = {'root': J['Hips'], 'spine': J['Spine02'], 'head': J['neck'], 'shR': J['RightArm'], 'elR': J['RightForeArm'], 'shL': J['LeftArm'], 'elL': J['LeftForeArm'],
          'hipR': J['RightUpLeg'], 'knR': J['RightLeg'], 'hipL': J['LeftUpLeg'], 'knL': J['LeftLeg']}
   RIG = {k: [float(x) for x in v] for k, v in RIG.items()}
+  fit = fit_shirt(body, RIG, shared.get('fit'), rewire=VARIANT == 'm')
+  if not lod: shared['fit'] = fit
+  head = measure_head(body, J); ground = measure_ground(body, J)
+  if not lod: shared['ground'] = ground; shared['head'] = head
+  HEAD_C, HEAD_R, EYE_Y, TOP_Y, FACE_Z = tuple(head['centre']), tuple(head['radii']), head['eyeY'], head['top'], head['faceZ']
   hand = [J['RightHand'][i] - J['RightForeArm'][i] + (0, -.075, -.012)[i] for i in range(3)]
   REPORT['handR'] = [float(x) for x in J['RightHand']]
   wr = wrist_radius(body, J)
@@ -660,7 +751,8 @@ def build(lod, shared):
   leg = float(J['RightUpLeg'][1]); ref = ROOT / 'tools/golfer-rig.json'
   leg_scale = 1.0 if VARIANT == 'm' or not ref.exists() else leg / float(json.loads(ref.read_text())['extras'].get('legLength', leg))
   extras = {'handOffset': hand, 'headCentre': list(HEAD_C), 'headRadii': list(HEAD_R), 'eyeY': head['eyeY'], 'faceZ': head['faceZ'], 'chinY': head['chin'],
-            'chestZ': chest['chestZ'], 'chestY': chest['chestY'], 'regionLum': region_lum, 'skinMean': skin_mean, 'height': float(coords(body)[:, 1].max()), 'legLength': leg, 'legScale': leg_scale, 'figure': VARIANT}
+            'chestZ': chest['chestZ'], 'chestY': chest['chestY'], 'regionLum': region_lum, 'skinMean': skin_mean, 'height': float(coords(body)[:, 1].max()), 'legLength': leg, 'legScale': leg_scale, 'figure': VARIANT,
+            'sleeveHem': fit['hem']}
   build_rig(meshes(), RIG, extras)
   if not lod: shared['rig'] = RIG; shared['hand'] = hand; shared['extras'] = extras
   return RIG
