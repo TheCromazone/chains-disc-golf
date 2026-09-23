@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texture } from './assets.js';
-import { canopyGeometry, IMPOSTOR } from './canopies.js';
+import { canopyGeometry, IMPOSTOR, IMPOSTOR_ROWS, TREE_DIMS } from './canopies.js';
 import { model } from './models.js';
 import { modelParts, addModel } from './models.js';
 import { windMaterial, windTime, toonMaterial, paintDetail, terrainSplat } from './materials.js';
@@ -277,11 +277,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const trees = [], bushes = [], tufts = [];
   const pineSpots = [], decSpots = [];
   // Species by stand, variant by tree: Scots pines gather in stands among the spruces, birches in groves among the broadleaves.
-  // DIMS at scale 1, measured off tools/build-trees.py: trunk radius, trunk height the disc can hit, crown centre, crown radius.
-  const DIMS = { birch: [.2, 15, 12, 4.2], broad: [.32, 8, 9.8, 5.8], spruce: [.3, 17, 7.5, 4.2], scots: [.3, 18, 16.5, 4.2] };
+  // DIMS at scale 1, measured by tools/build-trees.py off the models it draws: trunk radius, trunk height the disc can hit,
+  // crown centre, crown radius.
+  const DIMS = TREE_DIMS;
   const kindOf = (x, z, pine) => pine ? (noise(x / 55 + 300, z / 55 + 300) > .62 ? 'scots' : 'spruce') : (noise(x / 45 + 200, z / 45 + 200) > .47 ? 'birch' : 'broad');
-  for (let gx = -W / 2 + 8; gx < W / 2 - 8; gx += 5) for (let gz = -H / 2 + 8; gz < H / 2 - 8; gz += 5) {
-    const x = gx + (rng() - 0.5) * 4.5, z = gz + (rng() - 0.5) * 4.5;
+  const stand = (x, z) => {   // where a tree may stand: off the fairway, out of each tee's clearing, ponds and pads
     const fi = fairwayInfo(holes, x, z);
     const halfW = (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW;
     let skip = fi.d < halfW;
@@ -295,15 +295,25 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if(fi.t<.16 && fi.d<halfW+15) skip=true;
     for (const p of ponds) if (((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) skip = true;
     for (const f of flats) if (Math.hypot(x - f.x, z - f.z) < 7) skip = true;
+    return { fi, halfW, side, openSide, skip };
+  };
+  // per-instance tilt, height and girth (a stout or a slender tree: trunk and crown width together) so one variant never
+  // tiles; hashed from position, so the rng stream (and the layout) stays put. The record scales with the drawn tree.
+  const VARIANTS = {}; for (const v in IMPOSTOR) VARIANTS[v.replace(/\d+$/, '')] = (VARIANTS[v.replace(/\d+$/, '')] || 0) + 1;   // how many each species has
+  const plant = (x, z, s, rot, kind, pine) => {
+    const y = height(x, z), D = DIMS[kind], sy = .92 + noise(x * .53 + 17, z * .53 + 23) * .16, g = .84 + noise(x * .47 + 61, z * .47 + 19) * .36;
+    (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.min(VARIANTS[kind] - 1, Math.floor(noise(x * .37 + 13, z * .37 + 5) * VARIANTS[kind])), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * .12, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * .12, sy, g });
+    const t = { x, y, z, r: D[0] * s * g, h: D[1] * s * sy, fy: D[2] * s * sy, fr: D[3] * s * (g + sy) / 2 }; trees.push(t); return t;
+  };
+  for (let gx = -W / 2 + 8; gx < W / 2 - 8; gx += 5) for (let gz = -H / 2 + 8; gz < H / 2 - 8; gz += 5) {
+    const x = gx + (rng() - 0.5) * 4.5, z = gz + (rng() - 0.5) * 4.5;
+    const { fi, halfW, side, openSide, skip } = stand(x, z);
     const edge = Math.min(W / 2 - Math.abs(x), H / 2 - Math.abs(z));
     const grove=.12+1.35*smooth(.32,.70,noise(x/21+3,z/21+11));
     const prob = edge < 25 ? 0.85 : (fi.d < halfW + 8 ? 0.14 : 0.62) * def.trees * grove;
     if (!skip && rng() < prob) {
       const s = 0.8 + rng() * 0.55, guardian=side*openSide<0 && fi.t>.18 && fi.t<.52 && fi.d<halfW+12, pine = !guardian && noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine;
-      const y = height(x, z), rot = rng() * Math.PI * 2, kind = kindOf(x, z, pine), D = DIMS[kind];
-      // per-instance tilt and height so one variant never tiles; hashed from position, so the rng stream (and the layout) stays put
-      (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + (kind === 'scots' ? 0 : Math.floor(noise(x * .37 + 13, z * .37 + 5) * 2)), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * .08, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * .08, sy: .92 + noise(x * .53 + 17, z * .53 + 23) * .16 });
-      trees.push({ x, y, z, r: D[0] * s, h: D[1] * s, fy: D[2] * s, fr: D[3] * s });
+      const rot = rng() * Math.PI * 2; plant(x, z, s, rot, kindOf(x, z, pine), pine);
     } else if (!skip && fi.d > halfW - 1 && fi.d < halfW + 18 && rng() < 0.18) bushes.push({ x, y: height(x, z), z, s: 0.6 + rng() * 0.8, rot: rng() * 6.3 });
     if (!skip && fi.d < halfW + 10 && rng() < (fi.d < halfW ? 0.05 : 0.3)) for (let k = 0; k < 2; k++) { const tx = x + (rng() - 0.5) * 4, tz = z + (rng() - 0.5) * 4; tufts.push({ x: tx, y: height(tx, tz), z: tz, s: 0.7 + rng() * 0.7, rot: rng() * 6.3 }); }
   }
@@ -326,6 +336,19 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = grid.get(key(i + a, j + b)); if (l) for (const t of l) lastList.push(t); }
     return lastList;
   };
+  // Understorey: young trees (the stand's own species at 30-50% scale, 5-9 m) in the band just inside each tree line, from
+  // their own rng so the main layout never moves. They fill the wall low down, between and in front of the mature trunks,
+  // so a tree line reads as layered forest rather than a row of poles with sky between them; none within 16 m of a basket,
+  // so the putting lane stays open. They are trees like any other: a record for the disc, both LODs.
+  const urng = makeRng(seed * 131 + 17);
+  for (let gx = -W / 2 + 12; gx < W / 2 - 12; gx += 6) for (let gz = -H / 2 + 12; gz < H / 2 - 12; gz += 6) {
+    const x = gx + (urng() - .5) * 5, z = gz + (urng() - .5) * 5, pick = urng(), s = .3 + urng() * .2, rot = urng() * Math.PI * 2;
+    const { fi, halfW, skip } = stand(x, z);
+    if (skip || fi.d < halfW + 5 || fi.d > halfW + 38 || pick > .5 * def.trees * smooth(.25, .6, noise(x / 17 + 71, z / 17 + 29))) continue;
+    if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 16) || treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < 2.8)) continue;
+    const pine = noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine, t = plant(x, z, s, rot, pine ? 'spruce' : kindOf(x, z, false), pine);
+    const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
+  }
   // Under crowns the turf goes thin, pale and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
   // earth shows at the trunk base. Colour and splat weights only: no height change.
   for (let i = 0; i < pos.count; i++) {
@@ -369,31 +392,65 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
   // Tree LOD. Full draws the Blender trees within treeNear (62 m) of the eye and a camera-facing impostor beyond; Lite draws
   // impostors everywhere (treeNear 0). Both sides test the same eye, refreshed every quarter second by treeLod() from update(),
-  // per tree in the vertex shader, so every tree is exactly one of the two. The 3D trees sit in 32 m cells whose visibility
-  // follows the same tick, which keeps the submitted triangles to the cells that can hold a near tree.
-  const treeEye = { value: new THREE.Vector3(1e9, 0, 1e9) }, treeNear = { value: quality === 'low' ? 0 : 62 }, nearCells = [];
+  // per tree in the vertex shader, so every tree is exactly one of the two. Each variant/material pair is one instanced mesh
+  // that treeLod() refills from a 32 m grid with just the trees near the eye (plus a 4 m margin, so the shader decides), so
+  // a frame submits one draw per pair and only near trees, and the tick's work scales with the trees near the eye.
+  const treeEye = { value: new THREE.Vector3(1e9, 0, 1e9) }, treeNear = { value: quality === 'low' ? 0 : 62 }, nearSets = [];
+  const treeDisc = { value: new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[2]), THREE.MathUtils.degToRad(def.sun[3])) };   // the sun's visible disc (the sky section's discDir)
   let lodT = -1;
-  const treeLod = (view, t) => { if (t - lodT < .25) return; lodT = t; treeEye.value.copy(view); for (const c of nearCells) { const p = c.boundingSphere.center, r = c.boundingSphere.radius + treeNear.value; c.visible = (p.x - view.x) ** 2 + (p.z - view.z) ** 2 < r * r; } };
+  const LOD_CELL = 32, lodKey = (i, j) => i * 100000 + j;
+  const treeLod = (view, t) => { if (t - lodT < .25) return; lodT = t; treeEye.value.copy(view);
+    const R = treeNear.value + 4, i0 = Math.floor((view.x - R) / LOD_CELL), i1 = Math.floor((view.x + R) / LOD_CELL), j0 = Math.floor((view.z - R) / LOD_CELL), j1 = Math.floor((view.z + R) / LOD_CELL);
+    for (const { im, mats, cols, pos, byCell } of nearSets) {
+      const dm = im.instanceMatrix, dc = im.instanceColor; let n = 0;
+      for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (const k of byCell.get(lodKey(i, j)) || []) {
+        if ((pos[k * 2] - view.x) ** 2 + (pos[k * 2 + 1] - view.z) ** 2 > R * R) continue;
+        dm.array.set(mats.subarray(k * 16, k * 16 + 16), n * 16); if (dc) dc.array.set(cols.subarray(k * 3, k * 3 + 3), n * 3); n++;
+      }
+      im.count = n; dm.clearUpdateRanges(); dm.addUpdateRange(0, n * 16); dm.needsUpdate = true;
+      if (dc) { dc.clearUpdateRanges(); dc.addUpdateRange(0, n * 3); dc.needsUpdate = true; }
+    } };
   const near3d = mat => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.treeEye = treeEye; s.uniforms.treeNear = treeNear;
     s.vertexShader = 'uniform vec3 treeEye;uniform float treeNear;\n' + s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       #ifdef USE_INSTANCING
       if (distance(instanceMatrix[3].xz, treeEye.xz) > treeNear) gl_Position = vec4(2., 2., 2., 1.);
       #endif`); }; mat.customProgramCacheKey = () => prevKey.call(mat) + '|near3d'; return mat; };
+  // A lobed crown reads solid from the side, but the sun still gets through between its leaves: the shadow pass drops about
+  // a third of the leaf clumps (a hash of each clump's baked tint, so the same ones every frame), and the ground under a
+  // crown is dappled with sun flecks instead of lying in one dark pool.
+  const sunGaps = mat => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
+    s.vertexShader = 'attribute vec4 color;varying float vGap;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvGap = fract(sin(dot(color.rgb, vec3(12.9898, 78.233, 37.719)) * 43.758) * 437.585);');
+    s.fragmentShader = 'varying float vGap;\n' + s.fragmentShader.replace('void main() {', 'void main() {\n\tif (vGap < .34) discard;'); };
+    mat.customProgramCacheKey = () => prevKey.call(mat) + '|gaps'; return mat; };
   const inst = (geo, mat, spots, colorFn, shadow = true, lod = false) => {
-    const cells=new Map(), size=lod?32:64;
+    if (lod) {   // near-tree set: every tree's matrix and tint precomputed, drawn only once treeLod() picks it
+      const n = spots.length, mats = new Float32Array(n * 16), cols = colorFn ? new Float32Array(n * 3) : null, pos = new Float32Array(n * 2), byCell = new Map();
+      spots.forEach((s, i) => { e.set(s.tx || 0, s.rot, s.tz || 0); q.setFromEuler(e); v.set(s.x, s.y - .15, s.z); sc.set(s.s * (s.g || 1), s.s * (s.sy || 1), s.s * (s.g || 1)); m.compose(v, q, sc).toArray(mats, i * 16);
+        if (colorFn) colorFn(s).toArray(cols, i * 3); pos[i * 2] = s.x; pos[i * 2 + 1] = s.z;
+        const k = lodKey(Math.floor(s.x / LOD_CELL), Math.floor(s.z / LOD_CELL)); if (!byCell.has(k)) byCell.set(k, []); byCell.get(k).push(i); });
+      const im = new THREE.InstancedMesh(geo, mat, n); im.count = 0; im.frustumCulled = false;   // it always surrounds the eye
+      if (colorFn) im.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
+      im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: mat.alphaTest ? mat.map : null, alphaTest: mat.alphaTest || 0 });
+      im.customDepthMaterial = near3d(windMaterial(depth, windClock)); depth.dispose();   // leaf cards cut their shadows out too
+      if (mat.alphaTest) sunGaps(im.customDepthMaterial);
+      im.castShadow = shadow; im.receiveShadow = true; group.add(im); nearSets.push({ im, mats, cols, pos, byCell });
+      return;
+    }
+    const cells=new Map(), size=64;
     for(const s of spots){const key=Math.floor(s.x/size)+','+Math.floor(s.z/size);if(!cells.has(key))cells.set(key,[]);cells.get(key).push(s);}
     for(const cell of cells.values()){
       const im=new THREE.InstancedMesh(geo,mat,cell.length);
-      cell.forEach((s,i)=>{e.set(s.tx||0,s.rot,s.tz||0);q.setFromEuler(e);v.set(s.x,s.y-.15,s.z);sc.set(s.s,s.s*(s.sy||1),s.s);m.compose(v,q,sc);im.setMatrixAt(i,m);if(colorFn)im.setColorAt(i,colorFn(s));});
-      if(quality!=='low'){const depth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:mat.alphaTest?mat.map:null,alphaTest:mat.alphaTest||0});im.customDepthMaterial=windMaterial(depth,windClock);if(lod)near3d(im.customDepthMaterial);depth.dispose();}   // leaf cards cut their shadows out too
+      cell.forEach((s,i)=>{e.set(s.tx||0,s.rot,s.tz||0);q.setFromEuler(e);v.set(s.x,s.y-.15,s.z);sc.set(s.s*(s.g||1),s.s*(s.sy||1),s.s*(s.g||1));m.compose(v,q,sc);im.setMatrixAt(i,m);if(colorFn)im.setColorAt(i,colorFn(s));});
+      if(quality!=='low'){const depth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:mat.alphaTest?mat.map:null,alphaTest:mat.alphaTest||0});im.customDepthMaterial=windMaterial(depth,windClock);depth.dispose();}   // leaf cards cut their shadows out too
       im.castShadow=shadow;im.receiveShadow=true;im.instanceMatrix.needsUpdate=true;if(im.instanceColor)im.instanceColor.needsUpdate=true;
-      im.computeBoundingSphere();im.computeBoundingBox();group.add(im);(lod?nearCells:clusters).push(im);
+      im.computeBoundingSphere();im.computeBoundingBox();group.add(im);clusters.push(im);
     }
   };
   const col = new THREE.Color();
   // Full: the Blender trees (tools/build-trees.py over the tools/build-foliage.py atlas). A variant is a branch skeleton
-  // ('bark' / 'bark_birch') plus leaf-spray cards ('leaves'), instanced per 32 m cell with a per-tree tint. Wood and leaves
-  // share the wind, so the limbs carry their clumps as they sway, and both cast shadows.
+  // ('bark' / 'bark_birch') plus leaf-spray cards ('leaves'), one near-tree set per variant and material (see treeLod) with a
+  // per-tree tint. Wood and leaves share the wind, so the limbs carry their clumps as they sway, and both cast shadows.
   const full = quality !== 'low', leafAtlas = full && texture('leaves', { clamp: true, flipY: false }), leafNormals = full && texture('leaves_n', { clamp: true, flipY: false, srgb: false });   // Lite never fetches them
   // Canopy shading on top of three's PBR loop. Vertex colour rgb tints the albedo and its alpha is the build's sky visibility,
   // which dims ambient light fully and sunlight a little (the shadow map does the rest), so sunlit clumps stay bright while the
@@ -403,27 +460,41 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // passes it through as a warm yellow-green, strongest looking into the sun (thin-leaf translucency), and directLight.color
   // still carries the shadow after three's directional loop, so leaves in shade do not glow; specular is damped to a third
   // (a matte blade against the low sun otherwise reads as grey sheen); alpha grows with the mip level (capped, so a card seen
-  // edge-on does not fill in) so distant crowns keep their coverage. An impostor overwrites bakedAO and leafMask from its maps.
+  // edge-on does not fill in) so distant crowns keep their coverage. An impostor overwrites bakedAO, leafMask and rimGlow from
+  // its maps and sets sunOcc, the self-shadow the shadow map gives the 3D crowns.
   const canopy = (mat, leaf = true) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
-    s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `float bakedAO = 1., leafMask = 1., rimGlow = 1.;
+    s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `float bakedAO = 1., leafMask = 1., rimGlow = 1., sunOcc = 1., anyFace = 0.;
       #if defined( USE_COLOR_ALPHA )
       diffuseColor.rgb *= vColor.rgb; bakedAO = vColor.a;
       #elif defined( USE_COLOR )
       diffuseColor.rgb *= vColor;
       #endif`).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
-      reflectedLight.indirectDiffuse *= bakedAO; reflectedLight.directDiffuse *= mix(1., bakedAO, .3);` + (leaf ? `
+      reflectedLight.indirectDiffuse *= bakedAO; reflectedLight.directDiffuse *= mix(1., bakedAO, .3) * sunOcc;` + (leaf ? `
       reflectedLight.directSpecular *= .3 * bakedAO; reflectedLight.indirectSpecular *= .3 * bakedAO;
-      reflectedLight.indirectDiffuse *= 1. + .5 * leafMask;   // a thin blade takes sky light on both faces
+      reflectedLight.indirectDiffuse *= mix(vec3(1.), vec3(1.4, 1.5, 1.05), leafMask);   // a thin blade takes sky light on both faces, and inside a canopy that light comes filtered green through other leaves
       #if NUM_DIR_LIGHTS > 0
-      { vec3 L = directionalLights[0].direction, sun = directionalLights[0].color; float into = pow(saturate(dot(-normalize(vViewPosition), L)), 2.);
-        float thru = saturate(.3 - dot(normal, L)) * (.2 + 1.3 * into) * leafMask * mix(.4, 1., bakedAO) * rimGlow;
+      { vec3 L = directionalLights[0].direction, sun = directionalLights[0].color, V = -normalize(vViewPosition);
+        // forward scatter peaks toward the visible disc (low in the frame at the tee), not the high key light that casts the shadows;
+        // within a few degrees of the disc thin foliage blazes (the tight lobe), so crowns against the sun ring it with light
+        float disc = saturate(dot(V, normalize((viewMatrix * vec4(treeDisc, 0.)).xyz)));
+        float into = max(pow(saturate(dot(V, L)), 2.), pow(disc, 4.)) + 4. * pow(disc, 60.);
+        float thru = mix(saturate(.3 - dot(normal, L)), 1., anyFace) * (.2 + 1.5 * into) * leafMask * mix(.4, 1., bakedAO) * rimGlow;
         // light reaches a back-lit leaf through several leaves, not only through gaps: soften its shadow to 35% for this term
         float lit = mix(.35, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
         reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(.8, .95, .36);
         // sunlight scattered leaf to leaf through the crown: a soft yellow-green fill that follows the sun, not the shadow map,
         // so the shaded side of a back-lit crown reads green instead of black
-        reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .18 * bakedAO * leafMask * vec3(1., 1., .45); }
+        reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * leafMask * vec3(1., 1., .4); }
       #endif` : ''));
+    // Haze on foliage: the scene's fog, eased to 80% on crowns within ~60 m (rising to all of it by 240 m, where the tree line
+    // melts into the sky) and to about half where the view runs toward the sun's disc, so a crown in the glare keeps its dark
+    // core and lit rim under the veil instead of going one flat cream.
+    s.uniforms.treeDisc = treeDisc;
+    s.fragmentShader = 'uniform vec3 treeDisc;\n' + s.fragmentShader;
+    s.fragmentShader = s.fragmentShader.replace('#include <fog_fragment>', `vec3 treeClear = gl_FragColor.rgb;
+      #include <fog_fragment>
+      { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 16.);
+        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.8, 1., smoothstep(60., 240., length(vViewPosition))) * (1. - .22 * glare)); }`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * 1024.; diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
       #include <alphatest_fragment>`); };
@@ -435,9 +506,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const woodMats = { bark: wood(bark), bark_birch: wood(full && texture('bark_birch')) };
   // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
-  // conifers sit darker and bluer than the broadleaves; each tree is then yellower or bluer, lighter or darker by about 12%.
-  const KIND_TINT = { spruce: [.5, .72, .88], scots: [.74, .84, .82] };
-  const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5, k = KIND_TINT[s.kind] || [1, 1, 1]; return col.setRGB((1.14 + h * .16) * k[0], 1.02 * k[1], (.74 - h * .2) * k[2]).multiplyScalar(1.3 + noise(s.z / 23, s.x / 23 + 7) * .35); };
+  // conifers sit darker than the broadleaves (a deep green, not grey-blue); stands drift yellower or bluer, lighter or darker by
+  // about 12%, and each tree differs from its neighbours by as much again, so no two crowns in a row read the same.
+  const KIND_TINT = { spruce: [.56, .78, .62], scots: [.8, .88, .6] };
+  const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5 + (noise(s.x * .53 + 7, s.z * .53 + 3) - .5) * .8, k = KIND_TINT[s.kind] || [1, 1, 1];
+    return col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.88 + noise(s.x * .61 + 11, s.z * .61 + 17) * .26)); };
   for (const b of bushes) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
   const planted = (name, spots, shadow = true, lod = true) => {
     const src = quality !== 'low' && leafFull && model(name); if (!src) return false;
@@ -448,29 +521,37 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     return true;
   };
   // Impostors: tools/build-trees.py renders every variant side-on into a 256 x 512 cell (albedo, then the crown normals'
-  // x and y, the sky visibility and a leaf mask) and writes the card extents to src/impostors.js. One instanced card per
-  // tree turns about the vertical to face the camera (the sun, in the shadow pass) and lights through the same canopy
-  // shading as the 3D leaves, so a far crown is dark into the sun with lit, glowing rims like the near ones.
+  // x and y, crown depth and a leaf mask) and writes the card extents to src/impostors.js. One instanced card per tree turns
+  // about the vertical to face the camera (the sun, in the shadow pass), leans as its 3D instance leans, and lights through
+  // the same canopy shading as the 3D leaves, so a far crown is dark into the sun with lit, glowing rims like the near ones.
   const impMap = texture('impostors'), impNormal = texture('impostors_n', { srgb: false });
   const billboard = s => { s.uniforms.treeEye = treeEye; s.uniforms.treeNear = treeNear;
     s.vertexShader = 'attribute float impCell;uniform vec3 treeEye;uniform float treeNear;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;\n' + s.vertexShader
       .replace('#include <begin_vertex>', `vec3 impO = instanceMatrix[3].xyz, impT = cameraPosition - impO; impT.y = 0.; impT = normalize(impT + vec3(1e-4, 0., 0.));
         vImpR = vec3(impT.z, 0., -impT.x); vImpT = impT; vImpFlip = sign(instanceMatrix[0].x);
-        vec3 transformed = impO + vImpR * position.x * instanceMatrix[0].x + vec3(0., position.y * instanceMatrix[1].y, 0.);`)
+        vec3 transformed = impO + vImpR * position.x * instanceMatrix[0].x + vec3(instanceMatrix[1].x, instanceMatrix[1].y, instanceMatrix[1].z) * position.y;   // the column's x and z lean the card as the 3D tree leans`)
       .replace('#include <project_vertex>', `vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.); gl_Position = projectionMatrix * mvPosition;
         if (distance(impO.xz, treeEye.xz) < treeNear) gl_Position = vec4(2., 2., 2., 1.);`)
       .replace('#include <worldpos_vertex>', 'vec4 worldPosition = modelMatrix * vec4(transformed, 1.);')
-      .replace('#include <uv_vertex>', '#include <uv_vertex>\nvMapUv = vec2((mod(impCell, 4.) + uv.x) * .25, 1. - (floor(impCell / 4.) + 1. - uv.y) * .5);'); };
+      .replace('#include <uv_vertex>', `#include <uv_vertex>\nvMapUv = vec2((mod(impCell, 4.) + uv.x) * .25, 1. - (floor(impCell / 4.) + 1. - uv.y) / ${IMPOSTOR_ROWS}.);`); };
   const impMat = impMap && impNormal && canopy(Object.assign(toonMaterial({ map: impMap, alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: .85 }), { onBeforeCompile: s => { billboard(s); s.uniforms.impNormal = { value: impNormal };
-    // an impostor receives no shadow, so only its thin rim transmits fully; the crown's core facing the camera sits in its own shade
+    // An impostor receives no shadow. Its blue channel is crown depth (sky visibility times how thin the crown is along the view
+    // ray): back-lit, sunlight reaches the camera-facing leaves only through thin foliage, so direct light falls with depth
+    // squared and only the thin rim transmits, while a crown lit from behind the camera keeps its lit face.
     s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
-      normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * tz, 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); rimGlow = mix(.3, 1., smoothstep(.15, .75, 1. - tz)); }`); }, customProgramCacheKey: () => 'chains-impostor' }));
+      normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * tz, 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); rimGlow = smoothstep(.34, .82, n.z); anyFace = 1.;   // the billboard's normals are a crown average: thinness, not facing, gates what it transmits
+      #if NUM_DIR_LIGHTS > 0
+      sunOcc = mix(1., n.z * n.z, smoothstep(-.2, .6, dot(-normalize(vViewPosition), directionalLights[0].direction)) * leafMask);
+      #endif
+      }`); }, customProgramCacheKey: () => 'chains-impostor' }));
   const impDepth = impMat && Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: billboard, customProgramCacheKey: () => 'chains-impostor-depth' });
   const impostors = (spots, shadow = true) => {
     if (!impMat || !spots.length) return false;
     const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).translate(0, .5, 0), impMat, spots.length), cells = new Float32Array(spots.length);
     spots.forEach((s, i) => { const [w, h, b, c] = IMPOSTOR[s.variant] || IMPOSTOR.bush0, sy = s.s * (s.sy || 1), flip = noise(s.x * .71 + 5, s.z * .71 + 9) > .5 ? -1 : 1;
-      m.makeScale(w * s.s * flip, h * sy, 1).setPosition(s.x, s.y - .15 + b * sy, s.z); im.setMatrixAt(i, m); im.setColorAt(i, leafTint(s)); cells[i] = c; });
+      m.makeScale(w * s.s * (s.g || 1) * flip, h * sy, 1).setPosition(s.x, s.y - .15 + b * sy, s.z);
+      m.elements[4] = -(s.tz || 0) * Math.cos(s.rot || 0) * h * sy; m.elements[6] = ((s.tx || 0) + (s.tz || 0) * Math.sin(s.rot || 0)) * h * sy;   // the 3D instance's tilt (tx, rot, tz) as the tip's offset
+      im.setMatrixAt(i, m); im.setColorAt(i, leafTint(s)); cells[i] = c; });
     im.geometry.setAttribute('impCell', new THREE.InstancedBufferAttribute(cells, 1));
     // One card per tree over the whole course: one draw. It casts (turned to the sun) but does not receive: the camera-facing
     // card crosses its own sun-facing caster at the trunk, so it would shadow half of itself.
