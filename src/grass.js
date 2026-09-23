@@ -39,7 +39,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   // Tiles: [size m, anchor distance ahead of the camera m, thinning from, gone at (m from the eye), roots per side].
   // Each clump drops out at its own random distance inside the thinning band, so density falls off smoothly instead of
   // stepping at a fade line; the far tile's clumps spread twice as wide (its spacing is three times the near one's).
-  const layers = lite ? [[8, 3.2, 3, 5.8, 22]] : [[11, 4.5, 3.5, 8.5, 80], [34, 14, 9, 19, 60]], roots = [];
+  const layers = lite ? [[8, 3.2, 3, 5.8, 22]] : [[11, 4.5, 3.5, 8.5, 80], [34, 14, 9, 19, 60], [76, 39, 24, 62, 80], [130, 66, 55, 95, 48]], roots = [];
   layers.forEach(([, , , , m], l) => { for (let i = 0; i < m; i++) for (let k = 0; k < m; k++) roots.push((i + rnd()) / m, (k + rnd()) / m, rnd(), l); });
   geo.setAttribute('aRoot', new THREE.InstancedBufferAttribute(new Float32Array(roots), 4)); geo.instanceCount = roots.length / 4;
 
@@ -64,17 +64,18 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         bladeNormal=vec3(0.,1.,0.);vBlade=vec3(0.);vTip=0.;
         if(distance(root,gEye.xz)>drop+.6||max(abs(rel.x),abs(rel.y))>L.x*.5-.02){bladePos=vec3(root.x,-1e3,root.y);return;}   // gone: a zero-area triangle, no fetches
         vec3 gn;vec4 ga=gHeightAt(root,gn);float dCam=distance(vec3(root.x,ga.x,root.y),gEye);
-        float k=smoothstep(drop+.6,drop,dCam)*smoothstep(L.x*.5,L.x*.5-.8,max(abs(rel.x),abs(rel.y)));   // zero at the wrap edge: roots jump unseen
+        float k=smoothstep(drop+.6,drop,dCam)*(aRoot.w>2.5?smoothstep(42.,54.,dCam):aRoot.w>1.5?smoothstep(13.,18.,dCam):1.)*smoothstep(L.x*.5,L.x*.5-.8,max(abs(rel.x),abs(rel.y)));   // zero at the wrap edge: roots jump unseen
         vec2 guv=(root+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W / nx)},${f(segZ / H / nz)})+vec2(${f(.5 / nx)},${f(.5 / nz)});
         vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,ga.zw,br);
         float through=step(.9,fract(aRoot.z*7.7));   // one clump in ten pushes up through the litter, ragged
         float grow=1.-max(max(cov.x,cov.y),cov.z*(1.-through));
         for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);grow*=smoothstep(.05,.3,max(abs(q.x)-.8,abs(q.y)-1.6));}
         float keep=${lite ? '1.' : 'mix(.55,1.,fract(aRoot.z*23.9))'}*mix(1.,.5,through*cov.z);   // each clump drops its own subset of blades: no two share a silhouette
-        float sc=k*smoothstep(.04,.6,grow)*step(fract(aBlade.y*13.1+aRoot.z*7.3),keep),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // grass thins into path, gravel and litter edges
+        float sc=k*step(mix(.06,.5,fract(aRoot.z*5.3)),grow)*step(fract(aBlade.y*13.1+aRoot.z*7.3),keep),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // each clump gives up at its own point of the thinning into path, gravel and litter: a ragged edge of whole tufts, not a fade
         float hs=mix(.9+cl*.8,.55+cl*.4,fair)*(.8+.4*fract(aRoot.z*13.7))*sc;   // x the 4.5-10 cm blades, in 0.3-1 m clumps: rough 3-17 cm, fairway 2-9 cm
+        hs*=1.+(1.-smoothstep(.5,.9,grow))*(.6+cl*1.4);   // the fringe a mower misses stands taller: tufts to 40 cm along every trail, apron and bed edge
         float yaw=aRoot.z*6.2832,cs=cos(yaw),sn=sin(yaw);mat2 R=mat2(cs,sn,-sn,cs);
-        vec3 bp=position*vec3(1.,hs,1.);bp.xz=R*(position.xz*(aRoot.w>.5?2.:1.)+aSide*max(1.,dCam/6.)*mix(.4,1.,sc));   // far blades widen to stay a pixel wide
+        vec3 bp=position*vec3(1.,hs,1.);bp.xz=R*(position.xz*(1.+aRoot.w)+aSide*max(1.,dCam/6.)*mix(.4,1.,sc));   // far blades widen to stay a pixel wide
         float t=aBlade.x,t2=t*hs,gust=.55+.45*sin(windTime*3.1+root.x*.31-root.y*.27);
         bp.x+=(sin(windTime*1.7+root.x*.5+root.y*.3)*.012+windVec.x*.04*gust)*t2;bp.z+=(cos(windTime*1.3+root.y*.4)*.008+windVec.y*.04*gust)*t2;
         bladePos=vec3(root.x,ga.x-.01,root.y)+bp*step(.001,sc);   // a dropped blade collapses to a point
