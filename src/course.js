@@ -731,8 +731,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     g.setAttribute('shadowAlpha',new THREE.Float32BufferAttribute(alpha,1));g.setIndex(indices);shadowParts.push(g);
   };
-  // A trunk standing on the ground hides about half the sky at its foot, a quarter half a diameter out, none at 2.5 diameters.
-  for(const t of trees) groundShadow(t.x,t.z,t.r,t.r,[1,2.2,6],[.55,.25,0],8);
+  // A trunk standing on the ground hides most of the sky at its foot (the flare and the roots, which the collider radius
+  // leaves out), about half of it a third of a diameter out, none at 3 diameters: the base sits in a pool. 32 triangles a tree.
+  for(const t of trees) groundShadow(t.x,t.z,t.r,t.r,[1,1.7,6],[.7,.45,0],8);
   for(const h of holes) {
     groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,[0,.48,.82,1.2],[.16,.12,.05,0],20);
     groundShadow(h.basket[0],h.basket[1],1,1,[0,.2,.27,.42,.75],[.35,.4,.62,.25,0],16);   // the tray's .34 m dish hides the sky from the footing; a dark crease where the footing meets the ground
