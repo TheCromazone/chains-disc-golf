@@ -534,21 +534,24 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // ground line ~65% down as in the reference, the canopy's haze opening the top half); P.x pans the pin to 39%, so its base
 // plate stands clear left of the swipe pill, the banners drop to the left edge's framing and the bench leaves frame; and 1.2 m
 // to his side (27°) the pin's parallax opens ~100 px (at 640) between it and the banners, his back still on the right third.
+// That aimed past the pin: the critics read the basket as low and left (39% across, cage 60% down) with the frame's centre
+// holding only trunks. Now the axis runs through the pin (P.x ~0, cage ~50% down, base plate ~72%, just above the swipe pill)
+// and the camera sits 0.85 m to his side (20°), so his back keeps the right third (chest ~78%) without the wider swing.
 // The camera stays level and slides its lens
 // instead (cam.shift, applyViewOffset), so a green below the lie drops into frame without tipping the trunks inward (pitched
 // down onto the tray, it read as looking into a pit). It takes the height (lo-hi) that sets the athlete's eyes at P.eye and the
-// basket band at P.band (half-frame units above centre: 19% and 54% from the top), so uphill, flat and downhill greens frame
+// basket band at P.band (half-frame units above centre: 19% and 42% from the top), so uphill, flat and downhill greens frame
 // alike; a short putt's bigger basket lifts the band until its base plate stays over P.base (86%, a phone's 82%). On the
-// course's downhill putts (every green sits ~1 m under a 6.5 m lie) that puts the lens ~1.5 m up. A short phone (puttS) holds
-// the pin at 38% and the band at the midline: its 29° lens is set by the swipe ring, not hfov.
+// course's downhill putts (every green sits ~1 m under a 6.5 m lie) that puts the lens ~1.75 m over the lie (the eyes-to-band gap fixes it). A short phone (puttS) holds
+// the pin at 48% and the band at 44%: its 29° lens is set by the swipe ring, not hfov.
 // Out of the lo-hi range the band wins until the eyes would pass P.eye. A lateral nudge of up to P.nudge clears trunks from
 // behind the basket (puttDodge). Portrait keeps its lift rule. Wide screens hold the horizontal lens (hfov), a 2:1 phone
 // widening past it rather than cropping under P.vmin tall (29° on a short phone, whose swipe ring takes the frame's lower
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.3, side: 1.2, lo: .9, hi: 1.9, eye: .62, band: -.08, base: -.72, x: .22, nudge: [-.05, .15], hfov: 50, vmin: 10 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.3, side: .85, lo: .9, hi: 1.9, eye: .62, band: .16, base: -.72, x: -.02, nudge: [-.05, .15], hfov: 50, vmin: 10 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
-AIM.puttS = { ...AIM.putt, eye: .6, band: -.02, base: -.64, x: .24 };   // a short phone: the swipe pill and ring fill the lower third's middle, so the pin stands further left (38%) with its base plate beside them
+AIM.puttS = { ...AIM.putt, eye: .6, band: .12, base: -.64, x: .03 };   // a short phone: the pin stands near the midline (48%) with the band high enough that its base plate stays over the swipe pill
 function aimFrame(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = portrait ? AIM.tall[putt ? 'putt' : 'drive'] : putt ? innerHeight > 520 ? AIM.putt : AIM.puttS : AIM.drive;
   const vt = portrait ? Math.tan(P.fov * DEG / 2) : Math.max(Math.tan((innerHeight > 520 && P.vmin || 14.5) * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least on a short phone, so it keeps headroom
