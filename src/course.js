@@ -249,7 +249,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const terrainNormals=geo.attributes.normal;
     for(let i=0;i<pos.count;i++) { const light=terrainNormals.getX(i)*.55+terrainNormals.getY(i)*.70+terrainNormals.getZ(i)*.45; const gain=.55+smooth(.28,.90,light)*.6; colors[i*3]*=gain;colors[i*3+1]*=gain;colors[i*3+2]*=gain; }
   }
-  const pads = holes.map(h => [h.tee[0], h.tee[1], Math.cos(h.yaw), Math.sin(h.yaw)]);   // the ground shades round them and the carpet stays off them
+  const pads = holes.flatMap(h => [0, 1.8].map(k => [h.tee[0] - Math.sin(h.yaw) * k, h.tee[1] - Math.cos(h.yaw) * k, Math.cos(h.yaw), Math.sin(h.yaw)]));   // 1.6 x 3.2 m rectangles the ground shades round and the carpet stays off: two cover each 5 m mat (props.js)
   // Lite drops the blade normal map: the turf photo already carries the grain, and the fetch buys back the splat cost.
   const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, lite: quality === 'low' }));
   terrain.receiveShadow = true; group.add(terrain);
@@ -506,10 +506,13 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
 
   // --- tee pads, signs, baskets ---
-  // props.js merges every tee mat, sign, basket and the tournament dressing into two meshes for the whole course. The
-  // mat keeps the old pad's box, so its top face still sits under the athlete's soles; baskets keep physics' heights.
-  // corridor = the tree loop's clearing half-width, so dressing stands just outside the flight corridor on any course.
-  group.add(...dressCourse({ holes, height, trees, def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW }));
+  // props.js merges every tee mat, sign, basket and the tournament dressing into four meshes for the whole course. The
+  // mat's top face still sits under the athlete's soles (its 5 m reach is why `pads` holds two rectangles per tee);
+  // baskets keep physics' heights. corridor = the tree loop's clearing half-width, so dressing stands just outside the
+  // flight corridor on any course. The one prop in play, hole 1's event arch, hands its legs and beam to the flight
+  // model as capsules.
+  const dressing = dressCourse({ holes, height, trees, bushes, def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW });
+  group.add(...dressing.meshes);
   const baskets = holes.map(h => new THREE.Group().translateX(h.basket[0]).translateY(h.basketY).translateZ(h.basket[1])), destinationMarkers = [];   // positions only: the geometry is merged
   for (const h of holes) {
     // A graphic flag remains readable from the tee without enlarging the physical basket.
@@ -617,7 +620,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
   // 0 on the fairway, 1 in the rough: the flight model uses it for skip, roll and slide friction.
   const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
-  const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough };
+  const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough, capsules: dressing.capsules };
   const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; destinationMarkers.forEach((m,j)=>m.visible=j===i); };
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
