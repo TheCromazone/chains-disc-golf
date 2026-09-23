@@ -135,7 +135,7 @@ const LAYOUTS = COURSES.map(courseLayout);
 // off-shoulder and the woods past it closing the top of the frame. Trees inside ~25 m keep 95% of their contrast
 // through the haze, so staging close is what clears the fog. Of the greens whose approach runs away from the sun (the
 // low key then lights his face and the woods instead of haloing him) the one with the most trees past it wins.
-const MENU = { short: 5, lat: 1.7, face: .2, wide: { back: 4.4, up: .85, aim: 1, x: .5, fov: 28 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
+const MENU = { short: 5, lat: 1.7, face: .2, wide: { back: 3.3, up: .8, aim: 1.2, x: .5, fov: 28 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
 const menuStage = { d: [0, 1], r: [-1, 0] };
 // Contact shade under the clubhouse hero: the key light sits behind the lens, so his own shadow falls out of sight behind him.
 const blobCanvas = document.createElement('canvas'); blobCanvas.width = blobCanvas.height = 64; const blobInk = blobCanvas.getContext('2d'), blobGrad = blobInk.createRadialGradient(32, 32, 0, 32, 32, 32);
