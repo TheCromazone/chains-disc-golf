@@ -542,7 +542,15 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
           vCrownP = ((im * vec4(transformed, 1.)).xyz - (im * vec4(0., treeCrown.x, 0., 1.)).xyz) / vCrownR.xyx;
           vClump = fract(sin(dot(vColor.rgb, vec3(12.9898, 78.233, 37.719)) * 43.758) * 437.585); }
         #endif`);
-      s.fragmentShader = '#define CROWN\n#define CLUMP_LIGHT 1.6\n#define SKY_HOLES .5\nvarying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;\n' + s.fragmentShader;
+      s.fragmentShader = `#define CROWN
+#define CLUMP_LIGHT 1.6
+#define SKY_HOLES .5
+varying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;
+float crownHash(vec3 p) { p = fract(p * .1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
+float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+  return mix(mix(mix(crownHash(i), crownHash(i + vec3(1, 0, 0)), f.x), mix(crownHash(i + vec3(0, 1, 0)), crownHash(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(crownHash(i + vec3(0, 0, 1)), crownHash(i + vec3(1, 0, 1)), f.x), mix(crownHash(i + vec3(0, 1, 1)), crownHash(i + 1.), f.x), f.y), f.z); }
+` + s.fragmentShader;
     }
     s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `float bakedAO = 1., leafMask = 1., sunOcc = 1., anyFace = 0., crownDepth = 1., sunThin = 1.;
       #if defined( USE_COLOR_ALPHA )
@@ -552,10 +560,17 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       #endif
       #ifdef CROWN
       crownDepth = saturate(length(vCrownP));
+      // clump-scale light and shade (w3: "a grainy speckle of same-sized flecks at even density"): crown-space patches ~1 m
+      // across run 30% darker to 25% brighter, so the variation that survives at 640 px is clump against clump
+      float crownN = crownNoise(vCrownP * 2.4 + 17.);
+      diffuseColor.rgb *= .7 + .55 * crownNoise(vCrownP * 4.5 + 3.);
       #endif`).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
       reflectedLight.indirectDiffuse *= bakedAO; reflectedLight.directDiffuse *= mix(1., bakedAO, .3) * sunOcc;` + (leaf ? `
       reflectedLight.directSpecular *= .3 * bakedAO; reflectedLight.indirectSpecular *= .3 * bakedAO;
       reflectedLight.indirectDiffuse *= mix(vec3(1.), vec3(1.5, 1.45, .8), leafMask);   // a thin blade takes sky light on both faces, and inside a canopy that light comes filtered yellow-green through other leaves (the shaded side of a stand reads olive, not the sky's teal)
+      #ifdef CROWN
+      reflectedLight.indirectDiffuse *= mix(vec3(.75, .92, 1.5), vec3(1.), crownDepth);   // but the heart of a 3D crown sits in the sky's own cooler fill (w3 critics read its shade as black-olive)
+      #endif
       #if NUM_DIR_LIGHTS > 0
       { vec3 L = directionalLights[0].direction, sun = directionalLights[0].color, V = -normalize(vViewPosition);
         #ifdef CROWN
@@ -590,7 +605,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       }
       #endif` : ''));
     // 3D leaves sample the atlas half a mip sharper: at 40-60 m the default level had blurred each spray into a soft blob
-    if (crown) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )'));
+    // w3 verdicts: at 640 px the crowns read as per-pixel speckle, a lit leaf beside a dark one on every texel, where the
+    // reference varies clump to clump. So the leaf shape (alpha) stays sharp but its colour comes 2.5 mips blurrier: one spray
+    // is one soft tone and the variation that reads is the clumps' light and shade, not leaf-to-leaf albedo noise.
+    if (crown) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )')
+      .replace('diffuseColor *= sampledDiffuseColor;', 'diffuseColor *= vec4(mix(sampledDiffuseColor.rgb, texture2D(map, vMapUv, 2.5).rgb, .75), sampledDiffuseColor.a);'));
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', `{ float l = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
         diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, .7);
         diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .3, diffuseColor.rgb, crownDepth * crownDepth); }
@@ -617,8 +636,14 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       #endif
       #ifdef CROWN
       diffuseColor.a *= 1. - SKY_HOLES * smoothstep(.7, 1., crownDepth) * step(.6, vClump);   // some outer clumps thin out: sky holes and a broken edge, not a solid silhouette
-      #endif
-      #include <alphatest_fragment>`); };
+      // w3 verdicts (the framing oak: "a dense mass with almost no sky holes", "no dark hollow voids between clumps"): pockets
+      // ~1-1.5 m across cut through the outer third of the crown, fixed to the crown (crown-space noise), so the shell breaks
+      // into separate clumps with the dark interior showing between them and sky through the rim
+      if (crownN * smoothstep(.55, .95, crownDepth) > .6) diffuseColor.a = 0.;
+      diffuseColor.a = smoothstep(.25, .75, diffuseColor.a); if (diffuseColor.a < .01) discard;
+      #else
+      #include <alphatest_fragment>
+      #endif`); };
     mat.customProgramCacheKey = () => prevKey.call(mat) + (leaf ? '|leaf' : '|wood') + (crown ? '|crown' : ''); return mat; };
   // alphaToCoverage: both tiers draw into multisampled targets (Full's 4x scene target, Lite's antialiased canvas), so the
   // alpha-tested edge resolves to sample coverage and leaf silhouettes come out soft instead of stair-stepped.
@@ -632,7 +657,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const ys = pts.map(v => v[0]), y0 = q(ys, .03), y1 = q(ys, .97), ym = (y0 + y1) / 2;
     const lo = q(pts.filter(v => v[0] < ym).map(v => v[1]), .95), hi = q(pts.filter(v => v[0] >= ym).map(v => v[1]), .95);
     return new THREE.Vector4(ym, lo, Math.max(2 * hi - lo, .3, hi * .25), (y1 - y0) / 2); };
-  const leafFull = g => near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.7, -.7), alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock), true, crownOf(g)));
+  const leafFull = g => near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.3, -.3), alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock), true, crownOf(g)));
   const wood = map => map && near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false));
   const woodMats = { bark: wood(bark), bark_birch: wood(full && texture('bark_birch')) };
   // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
