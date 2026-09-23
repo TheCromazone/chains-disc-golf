@@ -134,7 +134,10 @@ export const STANCE = {
   // F .1), the forearm reaching level toward the lens so it foreshortens (wrist R .17, F .38, level with the shoulder),
   // the plate level ~7 cm under the shoulder reaching back across the chest, as the Disc Golf Masters address shows it;
   // the chest turned ~9° further from the target (more coil, and square enough to the lens that the disc crosses it).
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [.37, -1.5, -.05], shR: [-.152, .316, 1.904], elR: [1.618, -.342, 0], shL: [.6, 0, -.1], elL: [.4, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // Round 12: still "an arm stuck straight out with a sleeve web". Solved in screen space against the tee camera to the
+  // Disc Golf Masters frame: elbow bent ~88°, upper arm lowered and forward, the hand hanging off a level forearm just
+  // outside the chest with the plate edge-on and level, reaching back across the shirt (GRIP.cock re-solved with it).
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [.37, -1.5, -.05], shR: [.111, .639, 1.388], elR: [1.528, -.171, 0], shL: [.6, 0, -.1], elL: [.4, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
@@ -165,7 +168,7 @@ export const stanceFade = phase => { const u = Math.min(1, Math.max(0, phase / S
 // the same elbow-out address as his, solved for her shorter arm with the elbow ~8 cm less abducted (further out her
 // sleeve shears), the forearm roll still under 20°. Round 10: re-solved with the cocked grip like his (her forearm roll
 // ~70°, at the edge of where her skin shears). Round 11: his level-forearm address, re-solved for her arm (roll ~20°).
-export const STANCE_F = { backhand: { shR: [-.178, .3, 1.921], elR: [1.641, -.335, 0] } };
+export const STANCE_F = {};   // round 12: his screen-space address (small forearm roll, under where her skin shears) fits her arm too; re-solve if her disc misses the seat
 export function readyPose(type, time, rig = RIGS.lite, over = null) {
   const family = type.split('_')[0], stance = { ...(STANCE[family] || STANCE.forehand), ...over?.[family] }, breath = Math.sin(time * 1.3), pose = { rootY: 0 };
   for (const j of JOINTS) pose[j] = [...(stance[j] || IDLE[j])];
