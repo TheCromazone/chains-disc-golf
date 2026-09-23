@@ -109,9 +109,10 @@ const STANCE = {
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
-  // putt: square to the pin with the throwing-side foot a half step ahead, knees loaded, hips hinged, elbow tucked at
-  // the side and the disc out in front of the belly, eyes up on the chains
-  putt: { root: [-.12, .2, 0], spine: [-.16, -.17, 0], head: [.14, -.05, 0], shR: [-.1, .45, 0], elR: [1.65, 0, 0], shL: [.15, 0, -.1], elL: [.5, 0, 0], hipR: [.76, 0, .1], knR: [-.54, 0, 0], hipL: [.72, 0, -.12], knL: [-.66, 0, 0] },
+  // putt: square to the pin with the throwing-side foot a half step ahead, knees loaded, hips hinged, the putter set in
+  // both hands in front of the belly and a little to the off side, where the camera over the off shoulder still sees it,
+  // eyes up on the chains
+  putt: { root: [-.12, .2, 0], spine: [-.16, -.17, 0], head: [.14, -.05, 0], shR: [.1, .65, -.05], elR: [1.5, 0, 0], shL: [-.1, -.1, -.3], elL: [1.6, 0, 0], hipR: [.76, 0, .1], knR: [-.54, 0, 0], hipL: [.72, 0, -.12], knL: [-.66, 0, 0] },
 };
 // Cover-shot idle for the menu tee and bystanders: weight over the right leg, the left knee soft with its toe still on the
 // ground, disc hand raised beside the head with the forearm upright (main.js spins the disc flat on it), off hand on the

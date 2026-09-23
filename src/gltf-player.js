@@ -14,6 +14,7 @@ const DOME_HATS = new Set(['cap', 'backcap', 'beanie', 'bucket']), BIG_HAIR = ne
 const _v = new THREE.Vector3(), _e = new THREE.Vector3(), _f = new THREE.Vector3(), _gi = new THREE.Quaternion(), _q = new THREE.Quaternion(), _eu = new THREE.Euler();
 const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0);   // FLIP: half turn about the forearm, puts the carried disc's face on the knuckle side, where a lens in front sees it
 const glassesOf = a => a.glasses && a.glasses !== 'none' ? a.glasses : a.shades ? 'sport' : 'none';
+const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
 // The female scan keeps folded slivers and ~1600 flipped triangles; Blender's vertex normals follow them and the cloth
 // shades as dark shards. Rebuild them once per loaded body: every face oriented to agree with the normals it replaces,
 // area-weighted, shared across UV-seam duplicates, then relaxed over the neighbours (the head keeps its own detail).
@@ -66,7 +67,9 @@ export function createGLTFCharacter(avatar) {
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
     if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (female && o.isSkinnedMesh) relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
-    owned.add(o.material); o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
+    // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
+    // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge
+    owned.add(o.material); o.castShadow = true; o.receiveShadow = false; if (o.isSkinnedMesh) o.boundingSphere = REACH;
   });
   if (!joints.elR || !joints.root || !body) return null;
   actor.updateMatrixWorld(true);
