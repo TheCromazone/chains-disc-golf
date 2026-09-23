@@ -89,7 +89,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     uKnit: { value: texture('jersey_pattern', { srgb: false }) },   // athletic mesh knit (mean .49): the cloth reads as fabric up close and mips to nothing far away
     uPrint: { value: printTexture(avatar.number) },
     uArm: { value: new THREE.Vector4(-1, -1, -1, -1) },   // skeleton indices of the four arm bones (gltf-player.js): the 'pro' shirt's panels need arm vs torso
-    uPanelN: { value: prefix === 'body_f_' ? 0 : 1 }, uStrands: { value: 1 },
+    uPanelN: { value: prefix === 'body_f_' ? 0 : 1 }, uStrands: { value: 1 }, uSleeve: { value: 1e3 },
   };
   const chestY = spec.chestY || 1.3, box = (PRINT[prefix] || PRINT.body_);
   u.uPrintF = { value: new THREE.Vector4(chestY + box.front[0], ...box.front.slice(1)) }; u.uPrintB = { value: new THREE.Vector4(chestY + box.back[0], ...box.back.slice(1)) };
@@ -106,7 +106,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     // per-region roughness: skin keeps a soft sheen, hair and cloth stay matte (a glossy jersey or scalp reads as plastic).
     // Skin also scatters: direct light wraps a little past the terminator with a warm tint, the cheap stand-in for
     // subsurface that keeps a face from looking like painted vinyl.
-    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { vec3 j = vJerseyPos; bool back = j.z > 0.; vec4 b = back ? uPrintB : uPrintF;   // after the jersey style, so the print sits on its panels; seen from its own side, the print reads left to right
         vec2 q = vec2((back ? j.x : -j.x) / b.y + .5, (j.y - b.x) / b.z + .5);
         if (q.x > 0. && q.x < 1. && q.y > 0. && q.y < 1.) diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * chainsJersey); }
@@ -127,6 +127,10 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         // the armpit (skin shared between the torso and an upper arm) is the scan's bare underarm; with the arm raised across the
         // chest in the backhand address it stretches into a pale membrane in front of the shirt. A T-shirt drapes fabric there:
         { float pit = smoothstep(.08, .25, vArmW) * (1. - smoothstep(.75, .92, vArmW)) * (1. - vElbow); w[1] += w[0] * pit; w[0] *= 1. - pit; }
+        // the scan's sleeve stops high on the upper arm, and at the tee that bare arm read as "a uniform pale-peach cylinder"
+        // merging with the elbow: the sleeve runs on down to ~2/5 above the elbow (uSleeve, bind-pose height; the arm hangs
+        // straight there), loose and long like the reference's cut. Its fabric takes the scanned skin's shading as the folds
+        float sleeveK = w[0] * smoothstep(.45, .6, vArmW) * smoothstep(uSleeve - .005, uSleeve + .005, vJerseyPos.y); w[1] += sleeveK; w[0] -= sleeveK;
         vec3 col = base;
         // skin keeps the scan's own variation (cheeks, knuckles, veins): shift it by the ratio of the chosen tone to the scan's mean skin, with a light pull toward the tone itself
         // then a quarter of its chroma goes: under the warm course sun the palette tones rendered as orange, fake-tanned skin
@@ -142,6 +146,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
           shifted *= mix(vec3(1.), vec3(1.02, .78, .78), min(chainsCav, 1.)) * (1. + (chainsMot - .5) * vec3(.34, .06, .0));
           col = mix(col, shifted, w[0]); }
         for (int i = 1; i < 7; i++) { float d = mix(1., clamp(lum / uMean[i], .25, 1.8), uDetail[i]); col = mix(col, uPal[i] * d, w[i]); }
+        col = mix(col, uPal[1] * mix(1., clamp(lum / uMean[0], .45, 1.4), .9), sleeveK);   // measured against the skin it was, or the pale scan lit the sleeve past the shirt
         // the scan's own short hair is a smooth cap ("sits like a helmet"): strands, as noise stretched along the way hair lies
         // (down the sides and back, front to back over the crown), in tone, roughness and a bump the sheen breaks on
         chainsHairK = mix(vec3(120., 26., 120.), vec3(120., 120., 26.), smoothstep(.35, .8, vBindN.y)); chainsHair = w[3] * uStrands;   // a shaved head (hair 'none') keeps a smooth scalp
@@ -170,5 +175,5 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     material.userData.jerseyAccent?.value.set(a.accent);
   };
   setPalette(avatar);
-  return { material, setPalette, mask: u.uMask1.value, arms: ix => u.uArm.value.set(...ix), dispose: () => u.uPrint.value.dispose() };
+  return { material, setPalette, mask: u.uMask1.value, arms: ix => u.uArm.value.set(...ix), sleeve: y => { u.uSleeve.value = y; }, dispose: () => u.uPrint.value.dispose() };
 }
