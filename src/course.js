@@ -408,6 +408,13 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       #ifdef USE_INSTANCING
       if (distance(instanceMatrix[3].xz, treeEye.xz) > treeNear) gl_Position = vec4(2., 2., 2., 1.);
       #endif`); }; mat.customProgramCacheKey = () => prevKey.call(mat) + '|near3d'; return mat; };
+  // A lobed crown reads solid from the side, but the sun still gets through between its leaves: the shadow pass drops about
+  // a third of the leaf clumps (a hash of each clump's baked tint, so the same ones every frame), and the ground under a
+  // crown is dappled with sun flecks instead of lying in one dark pool.
+  const sunGaps = mat => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
+    s.vertexShader = 'attribute vec4 color;varying float vGap;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvGap = fract(sin(dot(color.rgb, vec3(12.9898, 78.233, 37.719)) * 43.758) * 437.585);');
+    s.fragmentShader = 'varying float vGap;\n' + s.fragmentShader.replace('void main() {', 'void main() {\n\tif (vGap < .34) discard;'); };
+    mat.customProgramCacheKey = () => prevKey.call(mat) + '|gaps'; return mat; };
   const inst = (geo, mat, spots, colorFn, shadow = true, lod = false) => {
     if (lod) {   // near-tree set: every tree's matrix and tint precomputed, drawn only once treeLod() picks it
       const n = spots.length, mats = new Float32Array(n * 16), cols = colorFn ? new Float32Array(n * 3) : null, pos = new Float32Array(n * 2), byCell = new Map();
@@ -419,6 +426,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: mat.alphaTest ? mat.map : null, alphaTest: mat.alphaTest || 0 });
       im.customDepthMaterial = near3d(windMaterial(depth, windClock)); depth.dispose();   // leaf cards cut their shadows out too
+      if (mat.alphaTest) sunGaps(im.customDepthMaterial);
       im.castShadow = shadow; im.receiveShadow = true; group.add(im); nearSets.push({ im, mats, cols, pos, byCell });
       return;
     }
