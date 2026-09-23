@@ -44,6 +44,7 @@ TAG = '' if VARIANT == 'm' else '-' + VARIANT; KEY = 'body_' if VARIANT == 'm' e
 SRC = Path(sys.argv[sys.argv.index('--src') + 1]) if '--src' in sys.argv else ROOT / f'art/blender/golfer-v3{TAG}-textures'; OUT = ROOT / f'assets/textures/body{TAG}'; OUT.mkdir(parents=True, exist_ok=True)
 BLENDER = os.environ.get('BLENDER', r'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe')
 SKIN, JERSEY, SHORTS, HAIR, SOCKS, SHOES, IRIS = range(7)
+ARM_KEEP = {'m': (.65, .05, .55, .65)}   # per scan, arm skin: share of detail kept round a 5 cm mean, cell, pull to the median hue, brightness floor
 
 def texel_maps(glb, N):
   """Bind-pose position, bone weights, face normal and coverage per texel of the body's atlas."""
@@ -151,8 +152,10 @@ def clean(alb, m1, m2, maps, rig, lines):
   # so their finger-gap shadow and knuckle creases match the geometry and are what separates the fingers at game distance:
   # hand texels keep most of theirs (at a third, and lifted to 85 % of the median, the hands read as fused mittens). Then
   # every texel takes the limb's median hue at its own brightness (most of the way).
+  # The m2 scan's arms are clean (no blotches) and their shading is the muscle (deltoid, biceps, forearm): flattened to a
+  # third, they read as the "thin plastic arm" the critics named, so they keep most of it
   wristY = J['elR'][1] + rig['hand'][1] + .075; arms = hit & (C1 == SKIN) & part('elR', 'elL', 'shR', 'shL'); handT = arms & (y < wristY + .02)
-  for sel, keep, size, hue, floor in ((handT, .75, .015, .8, .55), (arms & ~handT, .35, .05, .75, .85)):
+  for sel, keep, size, hue, floor in ((handT, .75, .015, .8, .55), (arms & ~handT, *ARM_KEEP.get(VARIANT, (.35, .05, .75, .85)))):
     if sel.sum() < 50: continue
     m = voxel_mean(sel, size); v = m + keep * (out[sel] - m); L = v @ np.array([.2126, .7152, .0722], np.float32)
     M = np.median(v, 0); ML = float(M @ np.array([.2126, .7152, .0722])); v = (1 - hue) * v + hue * M[None] * np.clip(L / ML, floor, 1.25)[:, None]

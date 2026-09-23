@@ -783,7 +783,7 @@ def build(lod, shared):
   extras = {'handOffset': hand, 'headCentre': list(HEAD_C), 'headRadii': list(HEAD_R), 'eyeY': head['eyeY'], 'faceZ': head['faceZ'], 'chinY': head['chin'],
             'chestZ': chest['chestZ'], 'chestY': chest['chestY'], 'regionLum': region_lum, 'skinMean': skin_mean, 'height': float(coords(body)[:, 1].max()), 'legLength': leg, 'legScale': leg_scale, 'figure': VARIANT,
             'sleeveHem': fit['hem'], 'shirtHem': round((RIG['hipR'][1] + RIG['hipL'][1]) / 2 + .055, 4)}   # the jersey ends at the hip: pack-body-textures.py turns the scan's tee below it into shorts
-  if VARIANT == 'm': extras['hairCards'] = [.7, .15, .018]   # gltf-player.js hairCards: the m2 scan's hair is real volume, so its cards run shorter and flatter along it
+  if VARIANT == 'm': extras['hairCards'] = 0   # gltf-player.js: the m2 scan's hair is sculpted volume in locks; cards over it read as a curly helmet
   build_rig(meshes(), RIG, extras)
   if not lod: shared['rig'] = RIG; shared['hand'] = hand; shared['extras'] = extras
   return RIG
