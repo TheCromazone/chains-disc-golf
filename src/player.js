@@ -26,7 +26,7 @@ export const AVATAR_OPTIONS = {
   hand: ['right', 'left'],
   figure: ['male', 'female'],
 };
-export const DEFAULT_AVATAR = { hand: 'right', figure: 'male', ...FACE_DEFAULTS, name: 'You', skin: '#d9a382', hair: 'short', hairColor: '#3b2a1c', jersey: '#ff4d3d', jerseyStyle: 'solid', accent: '#ffffff', shorts: '#23262e', socks: '#f4f4f4', shoes: '#f1f1f1', wristband: 'none', headwear: 'none', headwearColor: '#151820', number: 7, shades: false, build: 'athletic', height: 'average' };
+export const DEFAULT_AVATAR = { hand: 'right', figure: 'male', ...FACE_DEFAULTS, name: 'You', skin: '#d9a382', hair: 'short', hairColor: '#3b2a1c', jersey: '#ff4d3d', jerseyStyle: 'pro', accent: '#ffffff', shorts: '#23262e', socks: '#f4f4f4', shoes: '#f1f1f1', wristband: 'none', headwear: 'none', headwearColor: '#151820', number: 7, shades: false, build: 'athletic', height: 'average' };
 export function randomAvatar(rng = Math.random, overrides = {}) {
   const pick = a => a[Math.floor(rng() * a.length)];
   const jersey = overrides.jersey || pick(AVATAR_OPTIONS.jersey);
