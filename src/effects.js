@@ -61,12 +61,13 @@ class LightShafts extends Pass {
       void main(){ vec2 dt=(uSun-vUv)/256.; float s=0.; for(int i=0;i<16;i++) s+=texture2D(tMask,vUv+dt*(float(i)-4.)).r; gl_FragColor=vec4(vec3(s/16.),1.); }`);
     // Veiling glare: a sun just behind the leaves still floods the lens round it, whatever the gaps. A broad warm bloom
     // centred on the disc plus a tight core, so the frame shows where the sun sits (the tee's upper left) and the
-    // canopy there hazes over, without the shafts' need for open sky. Only for a hidden disc: in open sky (the flyover) the
+    // canopy there hazes over, without the shafts' need for open sky. The broad part stays small and tight (it was twice as
+    // wide and strong, and washed the tee's upper-left canopy into one flat cream-yellow sheet with no leaf edges in it). Only for a hidden disc: in open sky (the flyover) the
     // bloom already spreads it, and the veil on top washed half the frame milky.
     this.add = quad(`uniform sampler2D tMask,tDepth;uniform vec3 uTint,uGlow;uniform vec2 uSun;uniform float uAspect;varying vec2 vUv;
       void main(){ vec2 d=(vUv-uSun)*vec2(uAspect,1.); float r2=dot(d,d),open=0.;
         for(int i=0;i<12;i++){ float a=float(i)*2.3998,r=.004+.0025*float(i); open+=step(.99999,texture2D(tDepth,uSun+vec2(cos(a)/uAspect,sin(a))*r).x); }
-        gl_FragColor=vec4(texture2D(tMask,vUv).r*uTint+uGlow*(1.-open/12.)*(exp(-r2*7.)*.55+exp(-r2*60.)*.45),1.); }`, { blending: THREE.AdditiveBlending, transparent: true });
+        gl_FragColor=vec4(texture2D(tMask,vUv).r*uTint+uGlow*(1.-open/12.)*(exp(-r2*14.)*.3+exp(-r2*60.)*.5),1.); }`, { blending: THREE.AdditiveBlending, transparent: true });
   }
   setSize(w, h) { this.a.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2)); this.b.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2)); this.u.uAspect.value = w / h; }
   render(renderer, writeBuffer, readBuffer) {
