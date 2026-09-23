@@ -22,7 +22,7 @@ export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
     hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#689a3c', '#588a38', '#446f33', '#e3cf9a'], leafHue: 0.29,
-    sun: [24, 38, 12, 10, 5.6], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .007], hemi: ['#a5c6ee', '#e8d0a0'], water: '#2d6f95' },
+    sun: [24, 38, 12, 10, 5.6], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .0045], hemi: ['#a5c6ee', '#e8d0a0'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
     hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#74a03e', '#65933a', '#4f7434', '#e6d29c'], leafHue: 0.265,
@@ -470,8 +470,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // trunk shadows (trunks and stems keep casting whole). Crowns shade themselves by the same map, so their depths keep
   // most of their shade. gapSun: toward the key sun (the sky section's sunDir), and the cut: .75 opens about half the crown.
   // gapHole: the pin (x, z) and the cut within 15 m of it. It was 1.3, which opened every crown there and left the putt
-  // lawn one even sunlit sheet crossed only by trunk bars; .96 lets the crowns over the green cast dappled pools again.
-  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector3(0, 0, .96) };
+  // lawn one even sunlit sheet crossed only by trunk bars; .96 lets the crowns over the green cast dappled pools again. w4 putt
+  // verdicts at .96: the floor round the pin sat in one shade with shapeless smears, basket and flags casting nothing; 1.15
+  // puts sun on it again, crossed by trunk, flag and pole shadows and crown pools.
+  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector3(0, 0, 1.15) };
   const canopyGaps = (mat, open = 1) => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole;
     s.vertexShader = 'varying vec3 vGap;\n' + (s.vertexShader.includes('#include <project_vertex>') ? s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       { vec4 g = vec4(position, 1.);
@@ -827,9 +829,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const envRT = pmrem.fromScene(envScene, .04, 1, 2000); envScene.remove(sky); sky.material.uniforms.ground.value = 0; scene.add(sky); pmrem.dispose();
   // w3-8 putt verdict ("one flat milky grey-green veil behind the basket; trees just past the pin as pale as the farthest"):
   // the air itself is bright, like the reference's far tree line (~195,180,160), and the fog chunk keeps it off everything
-  // within 28 m, so the midground stays dark and green and only the far rows lift, step by step, into luminous air: a
+  // within 34 m, so the midground stays dark and green and only the far rows lift, step by step, into luminous air: a
   // faintly cool grey away from the sun, a brighter near-white toward it.
-  haze.multiply(new THREE.Color(1.45, 1.55, 1.7)); warm.multiply(new THREE.Color(1.9, 1.85, 1.8));
+  // w4 putt verdicts ("murky mid-tone", "one warm cream tint that never cools with distance"): bluer and brighter, and
+  // thinner (pine's density .007 -> .0045, clear to 34 m), so far rows lift toward sky-tinted air with their silhouettes kept.
+  haze.multiply(new THREE.Color(1.74, 2, 2.55)); warm.multiply(new THREE.Color(1.9, 1.85, 1.8));
   Object.assign(FOG.haze, { r: haze.r, g: haze.g, b: haze.b }); Object.assign(FOG.warm, { r: warm.r, g: warm.g, b: warm.b });
   scene.environment = envRT.texture; scene.environmentIntensity = .5; scene.background = null;
   // Aerial perspective: see the fog chunk above skyDome(). def.fog[1] is an exponential density per metre of eye distance.
@@ -923,7 +927,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
-const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 28, y: 2.25, z: 20, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
+const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
 // nothing: its loop pass is skipped and the sun samples its map inside the cascade's box (sunShadow() in the shadow chunk).
@@ -956,7 +960,7 @@ reflectedLight.indirectDiffuse *= mix( vec3( .9, .87, .8 ), vec3( 1. ), sunVis )
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. );
 	#ifdef FOG_EXP2
-		float fogRise = vFogRay.y / 14., fogRun = max( fogDist - fogShape.x, 0. ), fogFactor = 1. - exp( - fogDensity * fogShape.y * fogRun * fogRun / ( fogRun + fogShape.z ) * exp( - max( cameraPosition.y - fogShape.w, 0. ) / 14. ) * ( fogRise > .01 ? ( 1. - exp( - fogRise ) ) / fogRise : 1. ) );   // the haze thins with height (14 m scale, integrated along the ray, and from the ground under the eye, so the flyover drone starts in thinner air): a stand's crowns keep their shape over a hazier floor. None within 28 m (fogShape.x), then the optical depth grows with the square of the run over the next ~20 m and linearly after (pine, eye 1.7 m up: 6% at 40 m, 15% at 50, 24% at 60, 41% at 80, 77% at 150). w3-8 putt verdict: a thin ramp from 8 m left the woods 20-80 m one mid-grey tone, near rows as pale as the far ones; now the rows round the pin keep their dark trunks and green and the far ones lift in steps into bright air. (w3-4: a 38% veil at 80 m read as cream because the air was a dim beige; it is a bright, near-neutral grey now, see the course section)
+		float fogRise = vFogRay.y / 14., fogRun = max( fogDist - fogShape.x, 0. ), fogFactor = 1. - exp( - fogDensity * fogShape.y * fogRun * fogRun / ( fogRun + fogShape.z ) * exp( - max( cameraPosition.y - fogShape.w, 0. ) / 14. ) * ( fogRise > .01 ? ( 1. - exp( - fogRise ) ) / fogRise : 1. ) );   // the haze thins with height (14 m scale, integrated along the ray, and from the ground under the eye, so the flyover drone starts in thinner air): a stand's crowns keep their shape over a hazier floor. None within 34 m (fogShape.x), then the optical depth grows with the square of the run over the next ~30 m and linearly after (pine, eye 1.7 m up: 1% at 40 m, 11% at 60, 25% at 80, 37% at 100, 61% at 150; w4 putt verdicts: birches 30-50 m out read as washed ghosts and the rest one flat pale wall). w3-8 putt verdict: a thin ramp from 8 m left the woods 20-80 m one mid-grey tone, near rows as pale as the far ones; now the rows round the pin keep their dark trunks and green and the far ones lift in steps into bright air. (w3-4: a 38% veil at 80 m read as cream because the air was a dim beige; it is a bright, near-neutral grey now, see the course section)
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
