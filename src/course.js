@@ -828,7 +828,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The glare a shade warmer than the key (its light took the long way through the air), and ~40% of the key's strength:
   // any brighter and the tee's back third, which looks into the lobe, goes to a milky cream veil.
   Object.assign(FOG.glow, { r: sunColor.r * .42, g: sunColor.g * .39, b: sunColor.b * .33 });
-  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG, gap: { hole: gapHole, aim: gapAim } };   // effects.js aims the light shafts at the disc; FOG for the debug hook
+  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG, gap: { hole: gapHole, aim: gapAim }, putt: PUTT_AIR };   // effects.js aims the light shafts at the disc; FOG for the debug hook
   const sky = skyDome(def, quality === 'low'); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
   // green-brown bounce from below (the dome's `ground` switch) and the sun's aureole glints in discs, chains and water.
@@ -914,6 +914,15 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
     if (view) treeLod(view, t, focus);   // trees: 3D near the eye, impostors beyond (the trees section)
     if (view) FOG.shape.w = height(view.x, view.z);   // the haze thins with height above the ground, not above the eye: the flyover drone looks through thinner air
+    // Near the pin the air thickens, as the broadcast's long putt lens compresses the woods behind the basket (w4-5 putt
+    // verdicts: the stand 30-45 m out, 25-40 m past the pin, took no haze at all under the tee's 34 m clear zone and read as
+    // "a flat wall a few metres behind the pin"). Within ~15 m of the basket the clear zone shrinks to 22 m and the ramp
+    // steepens (30 m 5%, 40 m 17%, 60 m 38%, 100 m 66%), so birches just past the pin keep their bark and each row behind
+    // them lifts a step; the air turns a darker, faintly green grey (the tee's near-white bank read as "a fog bank as
+    // bright as the sunlit dirt" under a canopy) and keeps its warm lift toward the sun. The tee (85 m out) keeps its crisp air.
+    if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
+      Object.assign(FOG.shape, { x: m(34, P.clear), y: m(2.25, P.density), z: m(30, P.knee) });
+      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm), g: warm.g * m(1, P.warm), b: warm.b * m(1, P.warm) }); }
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
@@ -935,6 +944,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
+const PUTT_AIR = { clear: 22, density: 3.3, knee: 10, haze: [.62, .59, .5], warm: .85 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
