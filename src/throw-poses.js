@@ -101,7 +101,7 @@ export function poseAt(keys, phase) {
 // added per frame; the windup morphs them into the clip (stanceFade below). Spine and head pitch: negative leans forward.
 // Hips pitch forward and every leg is solved so both soles stay planted with the shin near vertical: the rig has no
 // ankle, so a leaning shin tips the foot onto its toe.
-const STANCE = {
+export const STANCE = {
   // backhand: side-on and pre-coiled (pelvis ~70°, chest ~135° off the line), weight settled into bent knees, head turned
   // back over the leading shoulder to the target, the off arm hanging loose: the set-up a real reach-back starts from, and
   // the one Disc Golf Masters shows its thrower in; the chest hunched over the disc (a bolt-upright torso read as a
@@ -110,8 +110,12 @@ const STANCE = {
   // upper arm out toward the target at shoulder height, the elbow open ~80°, the forearm sloping ~27° down to the hand, the
   // thumb side turned to the lens so the thumb sits on the plate and the fingers hook under the rim, the disc level ~20 cm
   // under the shoulder reaching back toward the chest. Critics read earlier solves (the forearm pointed at the lens, a
-  // dangling forearm, a wrist bent 80-90°, an elbow folded shut) as a chicken wing or a disc hanging off a broken wrist
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-.56, .133, 2.027], elR: [1.403, -.174, 0], shL: [.26, 0, -.3], elL: [.9, 0, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // dangling forearm, a wrist bent 80-90°, an elbow folded shut) as a chicken wing or a disc hanging off a broken wrist.
+  // Re-solved (round 7) for the Disc Golf Masters address: the upper arm forward toward the lens, the elbow folded ~130° so
+  // the forearm lies across the chest, the hand out on the target side with the disc level ~19 cm under the shoulder and
+  // ~21 cm in front of the sternum. The upper arm held out sideways at shoulder height with the disc out by the hip read as
+  // "a mannequin with one arm lifted". The off arm bends ~60° and stands off the hip (hanging straight read as limp)
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-.509, -.162, -1.466], elR: [2.295, 2.849, 0], shL: [.35, 0, -.5], elL: [1.1, 0, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
