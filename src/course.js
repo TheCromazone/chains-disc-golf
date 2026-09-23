@@ -576,7 +576,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // The sky fill: the course's blue desaturated toward white. The dome's environment light already carries the blue, so a
   // saturated hemisphere on top turned brown mulch in shade neutral grey; this keeps shade warm with a slight cool cast.
   const hemi = new THREE.HemisphereLight(new THREE.Color(def.hemi[0]).lerp(new THREE.Color(1, 1, 1), .45), def.hemi[1], .5); scene.add(hemi);
-  // Shade fill (the chunk above skyDome()): sunlight scattered back into the sun's shadow, ~a quarter of the key, a touch cool.
+  // Shade fill (the chunk above skyDome()): sunlight scattered back into the sun's shadow, ~30% of the key, a touch cool.
   Object.assign(SHADE, { r: .3 * .92, g: .3, b: .3 * 1.12 });
 
   // Contact occlusion, multiplied into whatever is under it: tight rings where a trunk or the basket meets the ground (the
@@ -595,7 +595,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     g.setAttribute('shadowAlpha',new THREE.Float32BufferAttribute(alpha,1));g.setIndex(indices);shadowParts.push(g);
   };
-  // A trunk standing on the ground hides about half the sky at its foot, a sixth at one diameter out, almost none at three.
+  // A trunk standing on the ground hides about half the sky at its foot, a quarter half a diameter out, none at 2.5 diameters.
   for(const t of trees) groundShadow(t.x,t.z,t.r,t.r,[1,2.2,6],[.55,.25,0],8);
   for(const h of holes) {
     groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,[0,.48,.82,1.2],[.16,.12,.05,0],20);
