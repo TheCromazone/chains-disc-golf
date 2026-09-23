@@ -926,9 +926,13 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // the optical depth creeps in (eye distance 40 m 4%, 50 m 12%, 60 m 21%, 80 m 39%, 100 m 55%, 150 m 80%): rows at 20 m
     // past the pin keep full dark trunks, 40 m a light veil, 80 m most of the way to the air, which is a cool blue-grey
     // (#aab8c6-ish on screen) instead of the green-grey that read as fog.
+    // w5-2 putt verdict ("a flat milky lavender-grey veil, far trunks cardboard silhouettes; shaded fill dim and muddy"): the air
+    // keeps the woods' own light and dark (FOG.air, the fog chunk) and stops at 80%, so it can be brighter and neutral (the
+    // lavender came from the blue gains) and a little thicker: rows 40-100 m out read as lit and shaded trees in bright air.
+    // The sky fill a fifth up here, so shade under the canopy reads as open-air shade, not a muddy brown.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
       Object.assign(FOG.shape, { x: m(34, P.clear), y: m(2.25, P.density), z: m(30, P.knee) });
-      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm), g: warm.g * m(1, P.warm), b: warm.b * m(1, P.warm) }); }
+      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm), g: warm.g * m(1, P.warm), b: warm.b * m(1, P.warm) }); Object.assign(FOG.air, { x: m(0, P.structure), y: m(1, P.cap), z: P.range[0], w: P.range[1] }); hemi.intensity = 1.5 * m(1, P.fill); scene.environmentIntensity = .5 * m(1, P.fill); }
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
@@ -950,9 +954,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
-const PUTT_AIR = { clear: 28, density: 4.6, knee: 50, haze: [.48, .54, .66], warm: .85 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
-const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
-for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
+const PUTT_AIR = { clear: 28, density: 5.2, knee: 50, haze: [.82, .84, .88], warm: 1, structure: 1.2, cap: .8, range: [.6, 1.5], fill: 1.6 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains, FOG.air's structure, cap and structure range, sky-fill gain
+const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 }, air: { x: 0, y: 1, z: 1, w: 1 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
+for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape }, fogAir: { value: FOG.air } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
 // nothing: its loop pass is skipped and the sun samples its map inside the cascade's box (sunShadow() in the shadow chunk).
 // So after the loop directLight still holds the sun with its shadow, which the canopy and blade shaders read. Shade is
@@ -980,7 +984,7 @@ reflectedLight.indirectDiffuse *= mix( vec3( .9, .87, .8 ), vec3( 1. ), sunVis )
 #endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
-  fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogWarm, fogGlow;\n\tuniform vec4 fogShape;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
+  fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogWarm, fogGlow;\n\tuniform vec4 fogShape, fogAir;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. );
 	#ifdef FOG_EXP2
@@ -992,7 +996,11 @@ reflectedLight.indirectDiffuse *= mix( vec3( .9, .87, .8 ), vec3( 1. ), sunVis )
 	#ifdef TONE_MAPPING
 		fogTint = toneMapping( fogTint );
 	#endif
-	gl_FragColor.rgb = mix( mix( gl_FragColor.rgb, vec3( dot( gl_FragColor.rgb, vec3( .2126, .7152, .0722 ) ) ), .8 * fogFactor ), linearToOutputTexel( vec4( fogTint, 1. ) ).rgb, fogFactor );   // what the haze veils also loses its colour first: far greens go grey-green row by row, not a saturated olive under a tinted wash
+	vec3 fogOut = linearToOutputTexel( vec4( fogTint, 1. ) ).rgb;
+	float fogLum = dot( gl_FragColor.rgb, vec3( .2126, .7152, .0722 ) );
+	fogFactor = min( fogFactor, fogAir.y );
+	fogOut *= mix( 1., clamp( sqrt( fogLum / max( dot( fogOut, vec3( .2126, .7152, .0722 ) ), 1e-3 ) ), fogAir.z, fogAir.w ), fogAir.x );   // fogAir (the putt only, see PUTT_AIR): sunlit air in front of a sunlit crown is brighter than in front of a shaded trunk, so the veil keeps the woods' light and dark (square root: half the contrast) and never passes fogAir.y, so rows 60-100 m out stay trees in bright air, not one lavender card
+	gl_FragColor.rgb = mix( mix( gl_FragColor.rgb, vec3( fogLum ), .8 * fogFactor ), fogOut, fogFactor );   // what the haze veils also loses its colour first: far greens go grey-green row by row, not a saturated olive under a tinted wash
 #endif`,
   // Sun shadows: the stock PCF kernel spaced at `radius` texels leaves blocky rings under leafy canopies. 16 taps on a
   // Vogel disk turned per pixel (white noise: IGN's diagonals show without TAA) give the same cost a smooth penumbra, grain
