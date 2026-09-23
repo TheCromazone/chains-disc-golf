@@ -4,8 +4,8 @@
 // and a registration canopy. Every static prop on the course merges into four meshes: 'print' (every painted, printed
 // or wooden surface, one canvas atlas, vertex tint for solid colours), 'steel' (bare metal, vertex tint), 'arch' (the
 // arch's printed skin on the same atlas, single-sided so a chase camera flying through its beam sees through it rather
-// than a screen of navy) and the soft contact shade under the props' feet. Four draws plus three shadow draws on either
-// tier however many props stand. Only the arch is in play (its legs and beam go to the flight model as capsules); every
+// than a screen of navy) and the soft contact shade under the props' feet. Four draws plus three shadow draws (two on
+// Lite) however many props stand. Only the arch is in play (its legs and beam go to the flight model as capsules); every
 // other prop keeps out of the flight corridor (the tree-free half-width in front of each tee) and off the putt line,
 // and the basket's visual parts keep physics' heights (tray .55-.72 m, chains .72-1.34, band 1.34-1.46).
 import * as THREE from 'three';
@@ -437,9 +437,9 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // head, on a 16:9 screen and a 2.2:1 phone alike: 11.2 m clear span, beam underside 6.2 m over the play line (a
   // full-power drive passes ~4 m up there; a lofted, overhand or blade throw clips it) and never below the eye's line to
   // the top of the pin marker, so the marker hangs in the opening. Its legs and beam go to the flight model as capsules.
-  // Gallery ropes on white stakes run from the pad to its legs with a sponsor A-board on each rope turned to the tee; a
-  // staff cart and a feather flag stand off its left leg, more flags recede beyond, and the registration canopy sits
-  // just outside the pad camera's left edge (Full), so it never shows as a sliver.
+  // Gold gallery tape on white stakes runs from the pad to its legs with a sponsor A-board on each line turned to the
+  // tee; the staff cart parks off the left line, a feather flag stands by the left leg with another beyond, and the
+  // registration canopy sits just outside the pad camera's left edge (Full), so it never shows as a sliver.
   const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], archU = .5;
   let archF = 33;
   for (const af of [33, 31, 35, 29, 37]) if ([-1, 1].every(s => clearOf(...frame(h1, archU + s * legX, af), 1.5))) { archF = af; break; }
