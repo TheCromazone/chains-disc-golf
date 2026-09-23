@@ -829,7 +829,7 @@ float sunVis = 1.;
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
-	vec3 fogTint = ( fogHaze.g > 0. ? mix( fogHaze, fogWarm, fogCos2 * fogCos2 ) : fogColor ) + fogGlow * ( fogCos2 * fogCos2 * fogCos2 * .2 + pow( fogCos, 24. ) * 2.5 );   // toward the sun the air is sunlit, a warm pale cream (a clear blue there read as a lavender-grey fog card), away from it sky blue; aerosols scatter mostly forward: a broad warm cast, then a hard glare cone round the disc
+	vec3 fogTint = ( fogHaze.g > 0. ? mix( fogHaze, fogWarm, fogCos2 ) : fogColor ) + fogGlow * ( fogCos2 * fogCos2 * fogCos2 * .2 + pow( fogCos, 24. ) * 2.5 );   // toward the sun the air is sunlit, a warm pale cream (a clear blue there read as a lavender-grey fog card), away from it sky blue; aerosols scatter mostly forward: a broad warm cast, then a hard glare cone round the disc
 	#ifdef TONE_MAPPING
 		fogTint = toneMapping( fogTint );
 	#endif
@@ -908,7 +908,7 @@ function skyDome(def, lite) {
       void main(){
         vec3 d=normalize(vDir);float h=max(d.y,0.),s=max(dot(d,sunDir),0.),s2=s*s;
         vec3 scatter=glow*(s2*s2*s2*.2+pow(s,24.)*2.5);                                      // the fog chunk's lobe
-        vec3 col=mix(mix(haze,warm,s2*s2),mix(blue,zenith,smoothstep(.03,.45,h)),smoothstep(0.,.12,h))+scatter*mix(1.,.25,smoothstep(0.,.2,h));
+        vec3 col=mix(mix(haze,warm,s2),mix(blue,zenith,smoothstep(.03,.45,h)),smoothstep(0.,.12,h))+scatter*mix(1.,.25,smoothstep(0.,.2,h));
         col+=sunColor*(pow(s,8.)*.1+pow(s,90.)*.8)*smoothstep(-.02,.04,d.y);                  // aureole: open sky round the disc outshines the hazed ground, so the treeline rims
         vec2 p=d.xz/(h+.2)*cloud.y+vec2(time*.004,time*.0015);                               // planar projection: clouds flatten toward the horizon
         float n=fbm(p),cov=smoothstep(cloud.x,cloud.x+.1,n)*smoothstep(.02,.14,h);           // a short ramp keeps cumulus edges crisp
