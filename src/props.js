@@ -302,6 +302,12 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // u of a spot pad metres outside the flight corridor on one side (-1 left), the half-width sampled where it stands
   const edge = (h, side, f, pad) => { let u = side * (corridor(...frame(h, side * 9, f)) + pad); u = side * (corridor(...frame(h, u, f)) + pad); return u; };
   const onGround = (h, u, f, rot = 0, sink = .03) => { const [x, z] = frame(h, u, f); return pose(x, height(x, z) - sink, z, h.yaw + rot); };
+  // the same, pitched and rolled to the ground under a wheelbase (+-hx across, +-hz along its own axes)
+  const fitted = (h, u, f, rot, hx, hz, sink = .02) => {
+    const [x, z] = frame(h, u, f), yaw = h.yaw + rot, c = Math.cos(yaw), s = Math.sin(yaw), g = (a, b) => height(x + a * hx * c + b * hz * s, z - a * hx * s + b * hz * c);
+    const fr = g(-1, 1) + g(1, 1), bk = g(-1, -1) + g(1, -1), rt = g(1, 1) + g(1, -1), lt = g(-1, 1) + g(-1, -1);
+    return pose(x, (fr + bk) / 4 - sink, z, yaw, -Math.atan2((fr - bk) / 2, 2 * hz), Math.atan2((rt - lt) / 2, 2 * hx));
+  };
   // contact shade under a prop placed by `world`: half-extents in its own frame, offset (ox, oz) from its origin
   const blobs = [], shadeUnder = (world, hx, hz, core, k, ox = 0, oz = 0) => { const e = world.elements; blobs.push([e[12] + e[0] * ox + e[8] * oz, e[14] + e[2] * ox + e[10] * oz, Math.atan2(e[8], e[10]), hx, hz, core, k]); };
   const feather = featherGeometry(full);
@@ -364,13 +370,12 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
       for (const [ex, ez] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) K.steel(box(.05, hgt, .05).translate(x + ex * (leg / 2 - .02), y0 + hgt / 2, ez * (deep / 2 - .02)).applyMatrix4(world), AL);
       const pl = box(leg + .36, 1, deep + .36, 3, 1, 3).translate(x, .5, 0).applyMatrix4(world), pp = pl.attributes.position;
       for (let i = 0; i < pp.count; i++) pp.setY(i, pp.getY(i) > .5 ? y0 : height(pp.getX(i), pp.getZ(i)) - .08);
-      pl.computeVertexNormals(); paint(pl, '#202326');
+      pl.computeVertexNormals(); paint(pl, '#8a8781');   // cast-concrete ballast
       K.steel(box(leg + .12, .04, deep + .12).translate(x, y0 + .02, 0).applyMatrix4(world), '#5d6368');   // the truss's base plate
       shadeUnder(world, leg / 2 + .55, deep / 2 + .7, .5, .55, x, 0);
     });
     skin(box(2 * legX + leg, beam, deep).translate(0, yb + beam / 2, 0), 'white', '#1a2a48');
-    for (const z of [1, -1]) skin(new THREE.PlaneGeometry(2 * legX + leg - .08, beam - .08).rotateY(z < 0 ? Math.PI : 0).translate(0, yb + beam / 2, z * face), 'archBeam');
-    for (const [ey, ez] of [[0, -1], [0, 1], [1, -1], [1, 1]]) K.steel(box(2 * legX + leg + .01, .05, .05).translate(0, yb + ey * beam + (ey ? -.02 : .02), ez * (deep / 2 - .02)).applyMatrix4(world), AL);
+    for (const z of [1, -1]) skin(new THREE.PlaneGeometry(2 * legX + leg - .08, beam - .08).rotateY(z < 0 ? Math.PI : 0).translate(0, yb + beam / 2, z * face), 'archBeam');   // no extrusions on the beam: a chase camera passing through it would meet them as bars across the screen
   };
   // Low sponsor A-board: two printed panels leaning together on a steel frame, 2 x .56 m.
   const addBoard = (world, design) => {
@@ -378,10 +383,11 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     for (const x of [-.98, .98]) for (const z of [1, -1]) K.steel(at(box(.03, .74, .03), pose(x, .35, z * .12, 0, -z * .3), world), '#2e3134');
     shadeUnder(world, 1.2, .42, .6, .42);
   };
-  // Tournament staff cart parked off the chute: white two-seat tub, navy canopy on struts, cargo bed. Nose toward +z.
-  // The gel-coat body and canopy go in the steel batch for its tighter highlight: painted plastic, not matte print.
+  // Tournament staff cart parked off the chute: a blue two-seat tub (it has to hold its own against the glare that
+  // hazes the left of the tee frame), white canopy on struts, cargo bed. Nose toward +z. The gel-coat body and canopy
+  // go in the steel batch for its tighter highlight: painted plastic, not matte print.
   const addCart = world => {
-    const W = '#eceeed', D = '#1b1d20', gloss = (g, c) => K.steel(g.applyMatrix4(world), c);
+    const W = '#2c5da8', D = '#1b1d20', gloss = (g, c) => K.steel(g.applyMatrix4(world), c);
     gloss(roundBox(1.18, .36, 2.3, .09, 2).translate(0, .5, 0), W);
     gloss(roundBox(1.12, .46, .5, .06, 2).translate(0, .8, .9), W);   // front cowl
     for (const x of [-.36, .36]) paint(at(cyl(.055, .055, .03, 10).rotateX(Math.PI / 2), pose(x, .9, 1.15), world), '#fffbe6');   // headlamps
@@ -391,7 +397,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     paint(at(roundBox(1.08, .5, .1, .04, 1), pose(0, 1.18, -.24), world), D);
     paint(at(box(1.12, .3, .66), pose(0, .82, -.74), world), '#3a3f44');   // cargo bed
     paint(at(cyl(.17, .17, .03, 12).rotateX(-1.1), pose(-.25, 1.12, .52), world), D);   // steering wheel
-    gloss(roundBox(1.26, .07, 1.62, .03, 1).translate(0, 2, .06), NAVY);
+    gloss(roundBox(1.26, .07, 1.62, .03, 1).translate(0, 2, .06), '#eef0ef');
     for (const [x, z, p] of [[-.54, .7, .12], [.54, .7, .12], [-.54, -.52, 0], [.54, -.52, 0]]) K.steel(at(cyl(.02, .02, 1.3, 6), pose(x, 1.33, z, 0, p), world), '#c4c9cc');
     for (const [x, z] of [[-.56, .8], [.56, .8], [-.56, -.78], [.56, -.78]]) { paint(at(cyl(.23, .23, .2, full ? 14 : 8).rotateZ(Math.PI / 2), pose(x, .23, z), world), D); K.steel(at(cyl(.12, .12, .21, 8).rotateZ(Math.PI / 2), pose(x, .23, z), world), '#9aa0a4'); }
     shadeUnder(world, .82, 1.42, .55, .6);
@@ -437,8 +443,8 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], archU = .5;
   let archF = 33;
   for (const af of [33, 31, 35, 29, 37]) if ([-1, 1].every(s => clearOf(...frame(h1, archU + s * legX, af), 1.5))) { archF = af; break; }
-  // each leg's plinth top: 14 cm over the ground at its centre, its skirt cut to the ground (dug in on the uphill side)
-  const feet = [-1, 1].map(s => frame(h1, archU + s * legX, archF)), footY = feet.map(p => height(...p) + .14);
+  // each leg's plinth top: 24 cm over the ground at its centre, its skirt cut to the ground (dug in on the uphill side)
+  const feet = [-1, 1].map(s => frame(h1, archU + s * legX, archF)), footY = feet.map(p => height(...p) + .24);
   const eye = h1.teeY + 1.42, pin = h1.basketY + 2.7 + 1.225 * Math.min(7, .065 * (L1 + 2.3));   // aim camera's eye 2.3 m behind the pad; marker top (course.js: 2.7 + .6 size up, 1.25 size tall, size .065/m)
   const yb = Math.max(height(...frame(h1, 0, archF)) + 6.2, eye + (pin - eye) * (archF + 2.3) / (L1 + 2.3) + .35, ...footY.map(y => y + 4.2));
   const [ax, az] = frame(h1, archU, archF); addArch(pose(ax, 0, az, h1.yaw), yb, footY);
@@ -464,7 +470,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const bushFree = (u, f, r) => { const [x, z] = frame(h1, u, f); return !bushes.some(b => (b.x - x) ** 2 + (b.z - z) ** 2 < (r + b.s) ** 2); };
   for (const [u, f] of [[-7.6, archF - 14], [-7.9, archF - 12], [-7.2, archF - 16], [-8.3, archF - 9], [-8.6, archF - 6]]) {
     if (!clearOf(...frame(h1, u, f), 1.9) || ![0, .2, .4, .6].every(k => bushFree(u + (-.75 - u) * k, f + (-2.3 - f) * k, k ? .9 : 1.6))) continue;
-    addCart(onGround(h1, u, f, Math.atan2(-.75 - u, f + 2.3) + .9, .02)); break;
+    addCart(fitted(h1, u, f, Math.atan2(-.75 - u, f + 2.3) + .9, .56, .79)); break;
   }
   [[archU - legX - 2, archF + 1.5, 2], [edge(h1, -1, archF + 9, 1.3), archF + 9, 1], [edge(h1, -1, 8, 1.3), 8, 0]].slice(0, full ? 3 : 2).forEach(([u0, f, d]) => {
     for (const df of [0, 2, -2, 4]) { const u = u0 - rnd() * .4, [x, z] = frame(h1, u, f + df); if (clearOf(x, z, 1.2)) return addFeather(onGround(h1, u, f + df, .45 + (rnd() - .5) * .3, .05), d); }
