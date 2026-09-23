@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { cloneModel, model } from './models.js';
 import { rimLight } from './materials.js';
-import { bodyMaterial, skinDirect, skinShade } from './body-material.js';
+import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL } from './body-material.js';
 import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
@@ -199,6 +199,46 @@ function handMorphs(mesh, handOffset, lod) {
   return g.userData.grip = { seats, hands, rests };
 }
 
+// Hair shells over the scan's own short hair. Its cap is painted on the skull, and every tee critic read it as "a solid dark
+// shell with a hard edge, no strands": the head's triangles are copied `layers` times into one skinned mesh (one draw), each
+// copy pushed out along the normal and drooping a little, and a layer keeps a texel only where the hair mask is set and the
+// strand's length (fine noise stretched along the way hair lies, times ~5 cm locks) reaches it. The outline breaks into
+// locks, roots darken and tips catch the light. Shared per loaded body; the mask decides per texel, so the face drops out.
+function hairShells(skin, layers) {
+  const g = skin.geometry; if (g.userData.shells?.layers === layers) return g.userData.shells.geo;
+  const head = skin.skeleton.bones.findIndex(b => b.name === 'head'), si = g.attributes.skinIndex, sw = g.attributes.skinWeight, idx = g.index.array;
+  const onHead = i => { for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === head && sw.getComponent(i, k) > .5) return true; return false; };
+  const map = new Map(), src = [], tri = [];
+  for (let f = 0; f < idx.length; f += 3) if (onHead(idx[f]) && onHead(idx[f + 1]) && onHead(idx[f + 2])) for (let k = 0; k < 3; k++) { let j = map.get(idx[f + k]); if (j === undefined) { map.set(idx[f + k], j = src.length); src.push(idx[f + k]); } tri.push(j); }
+  const n = src.length, geo = new THREE.BufferGeometry(), shell = new Float32Array(n * layers), index = [];
+  for (const name of ['position', 'normal', 'uv', 'skinIndex', 'skinWeight']) {
+    const A = g.attributes[name], s = A.itemSize, out = new Float32Array(n * layers * s);
+    for (let v = 0; v < n; v++) for (let c = 0; c < s; c++) { const x = A.getComponent(src[v], c); for (let L = 0; L < layers; L++) out[(L * n + v) * s + c] = x; }
+    geo.setAttribute(name, new THREE.BufferAttribute(out, s));
+  }
+  for (let L = 0; L < layers; L++) { shell.fill((L + 1) / layers, L * n, (L + 1) * n); for (const j of tri) index.push(j + L * n); }
+  geo.setAttribute('shell', new THREE.BufferAttribute(shell, 1)); geo.setIndex(index);
+  g.userData.shells = { layers, geo }; return geo;
+}
+function hairShellMaterial(mask) {
+  const m = new THREE.MeshStandardMaterial({ roughness: .62 }), u = { uHairMask: { value: mask } };
+  m.onBeforeCompile = s => {
+    Object.assign(s.uniforms, u);
+    s.vertexShader = 'attribute float shell; varying float vShell; varying vec3 vHP, vHN; varying vec2 vHUv;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vShell = shell; vHP = position; vHN = normal; vHUv = uv;
+      transformed += normal * shell * .024 - vec3(0., shell * shell * .018, 0.);`);   // ~2 cm of volume past the scan's cap, the ends falling a little
+    s.fragmentShader = 'uniform sampler2D uHairMask; varying float vShell; varying vec3 vHP, vHN; varying vec2 vHUv;\n' + NOISE_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      { float hm = smoothstep(.35, .8, texture2D(uHairMask, vHUv).a);
+        vec3 flow = mix(vec3(1., .2, 1.), vec3(1., 1., .2), smoothstep(.35, .8, vHN.y));   // strands run down the sides and back, front to back on top
+        float s = chainsNoise(vHP * flow * 160.) * .6 + chainsNoise(vHP * flow * 370.) * .4, lock = chainsNoise(vHP * flow * 48. + 5.), clump = chainsNoise(vHP * 14. + 2.);
+        lock = smoothstep(.2, .8, lock);   // noise huddles round .5: stretched, or every layer survives to one smooth outer shell
+        if (vShell > hm * (.12 + .95 * lock * (.6 + .8 * clump)) * (.6 + .6 * s)) discard;   // ~2 cm locks, longer in ~7 cm clumps: the outline breaks into locks rather than fuzz
+        diffuseColor.rgb *= mix(.55, 1.6, vShell) * (.6 + .8 * s) * (.75 + .5 * lock); }`).replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(.62, .42, vShell);');   // dark at the roots, lighter and glossier toward the sunlit tips
+  };
+  m.customProgramCacheKey = () => 'chains-hair-shells';
+  return m;
+}
+
 export function createGLTFCharacter(avatar) {
   const female = avatar.figure === 'female', key = female ? 'golfer_f' : 'golfer';
   // the phone LOD has its own texture set (its UVs differ). Lite loads the LOD under the full name too, so ask the loader
@@ -239,6 +279,11 @@ export function createGLTFCharacter(avatar) {
   const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); into[name] = h; };
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.hands)) mount(geo, name, gripHands, 'grip_');
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.rests)) mount(geo, name, restHands, 'rest_');
+  const shellMat = hairShellMaterial(body.mask), shells = new THREE.SkinnedMesh(hairShells(skin, lod ? 6 : 14), shellMat); owned.add(shellMat);
+  shells.name = 'hair_shells'; shells.position.copy(skin.position); shells.quaternion.copy(skin.quaternion); shells.scale.copy(skin.scale); skin.parent.add(shells);
+  shells.bind(skin.skeleton, skin.bindMatrix); shells.boundingSphere = REACH; shells.receiveShadow = true;
+  const hairShow = a => { shells.visible = a.hair === 'short' && (a.headwear || 'none') === 'none'; shellMat.color.set(a.hairColor); };
+  hairShow(avatar);
   actor.updateMatrixWorld(true);
   const headC = spec.headCentre;   // the chest and back prints are part of the body material (body-material.js PRINT)
   // Disc socket: a roll-free wrist frame under the group rather than a child of the forearm bone. The clips roll the arm
@@ -335,7 +380,7 @@ export function createGLTFCharacter(avatar) {
   const seat = () => skin.geometry.userData.grip.seats[forearm.name];
   const api = {
     group, hand, elbow: forearm, joints, avatar, source: 'glb', releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},
-    setFace(value) { body.setPalette(value); gripSkin(value); const g = glassesOf(value); for (const o of glasses) o.visible = o.name === 'glasses_' + g; },
+    setFace(value) { body.setPalette(value); gripSkin(value); hairShow(value); const g = glassesOf(value); for (const o of glasses) o.visible = o.name === 'glasses_' + g; },
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
     get heroWeight() { return heroW; },   // how far into the cover-shot pose: holdDisc spins the disc on the raised hand past half

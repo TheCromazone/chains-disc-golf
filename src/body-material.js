@@ -164,5 +164,5 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     material.userData.jerseyAccent?.value.set(a.accent);
   };
   setPalette(avatar);
-  return { material, setPalette, arms: ix => u.uArm.value.set(...ix), dispose: () => u.uPrint.value.dispose() };
+  return { material, setPalette, mask: u.uMask1.value, arms: ix => u.uArm.value.set(...ix), dispose: () => u.uPrint.value.dispose() };
 }
