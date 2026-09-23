@@ -68,8 +68,9 @@ export function createGLTFCharacter(avatar) {
     if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (female && o.isSkinnedMesh) relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
-    // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge
-    owned.add(o.material); o.castShadow = true; o.receiveShadow = false; if (o.isSkinnedMesh) o.boundingSphere = REACH;
+    // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
+    // Receives the sun's shadow too: an athlete standing in a tree's shade stayed fully sunlit and read as pasted in.
+    owned.add(o.material); o.castShadow = true; o.receiveShadow = true; if (o.isSkinnedMesh) o.boundingSphere = REACH;
   });
   if (!joints.elR || !joints.root || !body) return null;
   actor.updateMatrixWorld(true);
