@@ -20,3 +20,7 @@ for(const [id,keys] of Object.entries(K)){
  const lead=['backhand','putt'].includes(id.split('_')[0])?0:1,feet=soleHeights(poseAt(keys,.8));assert(feet[lead]<.001&&feet[1-lead]>.06,`${id} braces lead leg and frees trailing foot`);
 }
 console.log('All eleven throws and both hands: 2,222 support samples stay on the floor, visible knee loading, braced lead and lifted trailing foot.');
+// Aim stances and the cover-shot idle on the photoreal rig: both soles planted (no floating foot) through the breathing cycle, either hand.
+{const {readyPose,heroPose,RIGS}=await import('../src/throw-poses.js');
+ for(const id of [...Object.keys(THROWS),'hero'])for(const left of [false,true])for(let t=0;t<8;t+=.5){let p=id==='hero'?heroPose(t,RIGS.glb):readyPose(id,t,RIGS.glb);if(left)p=mirrorPose(p);const feet=soleHeights(p,true,RIGS.glb);assert(Math.abs(Math.min(...feet))<1e-7,`${id} stance support sole on the floor`);assert(Math.max(...feet)<.025,`${id} stance keeps both feet planted (${Math.max(...feet).toFixed(3)} m)`);}
+ console.log('Aim stances and cover-shot idle keep both feet planted for either hand.');}

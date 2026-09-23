@@ -3,10 +3,10 @@
 // prints and recolouring follow whatever body Blender exported. The male and female bodies share the rig,
 // the clips and every hair, headwear and glasses variant.
 import * as THREE from 'three';
-import { cloneModel } from './models.js';
+import { cloneModel, model } from './models.js';
 import { rimLight } from './materials.js';
 import { bodyMaterial } from './body-material.js';
-import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights } from './throw-poses.js';
+import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
 const SLOT = { hair: { roughness: .7, rim: .22 }, headwear: { roughness: .8 }, trim: { roughness: .78 }, frame: { roughness: .42, color: '#1a1c22' }, lens: { roughness: .15, color: '#14171c', metalness: .3, opacity: .86 } };
@@ -14,10 +14,44 @@ const DOME_HATS = new Set(['cap', 'backcap', 'beanie', 'bucket']), BIG_HAIR = ne
 const _v = new THREE.Vector3(), _e = new THREE.Vector3(), _f = new THREE.Vector3(), _gi = new THREE.Quaternion(), _q = new THREE.Quaternion(), _eu = new THREE.Euler();
 const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0);   // FLIP: half turn about the forearm, puts the carried disc's face on the knuckle side, where a lens in front sees it
 const glassesOf = a => a.glasses && a.glasses !== 'none' ? a.glasses : a.shades ? 'sport' : 'none';
+const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
+// The female scan keeps folded slivers and ~1600 flipped triangles; Blender's vertex normals follow them and the cloth
+// shades as dark shards. Rebuild them once per loaded body: every face oriented to agree with the normals it replaces,
+// area-weighted, shared across UV-seam duplicates, then relaxed over the neighbours (the head keeps its own detail).
+// ponytail: a flood-filled consistent winding looked the same here; the one remaining dark wedge on her upper back is a
+// real fold of the scan, which only a mesh fix removes.
+function relaxNormals(g, headBone, passes = 3) {
+  if (g.userData.relaxed) return; g.userData.relaxed = true;
+  const pos = g.attributes.position, nrm = g.attributes.normal, idx = g.index.array, n = pos.count, weld = new Int32Array(n), key = new Map();
+  for (let i = 0; i < n; i++) { const k = Math.round(pos.getX(i) * 1e4) + ',' + Math.round(pos.getY(i) * 1e4) + ',' + Math.round(pos.getZ(i) * 1e4); let w = key.get(k); if (w === undefined) key.set(k, w = key.size); weld[i] = w; }
+  const W = key.size, was = new Float32Array(W * 3), acc = new Float32Array(W * 3), head = new Uint8Array(W), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  for (let i = 0; i < n; i++) { const w = weld[i] * 3; was[w] += nrm.getX(i); was[w + 1] += nrm.getY(i); was[w + 2] += nrm.getZ(i); for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === headBone && sw.getComponent(i, k) > .5) head[weld[i]] = 1; }
+  const links = Array.from({ length: W }, () => new Set());
+  for (let f = 0; f < idx.length; f += 3) {
+    const p = [idx[f], idx[f + 1], idx[f + 2]], q = p.map(i => weld[i]);
+    a.fromBufferAttribute(pos, p[0]); b.fromBufferAttribute(pos, p[1]).sub(a); c.fromBufferAttribute(pos, p[2]).sub(a); b.cross(c);   // area-weighted face normal
+    const s = q.reduce((d, w) => d + b.x * was[w * 3] + b.y * was[w * 3 + 1] + b.z * was[w * 3 + 2], 0) < 0 ? -1 : 1;
+    for (const w of q) { acc[w * 3] += s * b.x; acc[w * 3 + 1] += s * b.y; acc[w * 3 + 2] += s * b.z; }
+    links[q[0]].add(q[1]).add(q[2]); links[q[1]].add(q[0]).add(q[2]); links[q[2]].add(q[0]).add(q[1]);
+  }
+  const unit = v => { for (let w = 0; w < W; w++) { const l = Math.hypot(v[w * 3], v[w * 3 + 1], v[w * 3 + 2]) || 1; v[w * 3] /= l; v[w * 3 + 1] /= l; v[w * 3 + 2] /= l; } return v; };
+  let cur = unit(acc);
+  for (let pass = 0; pass < passes; pass++) {
+    const next = cur.slice();
+    for (let w = 0; w < W; w++) if (!head[w]) for (const o of links[w]) { next[w * 3] += .5 * cur[o * 3]; next[w * 3 + 1] += .5 * cur[o * 3 + 1]; next[w * 3 + 2] += .5 * cur[o * 3 + 2]; }
+    cur = unit(next);
+  }
+  for (let i = 0; i < n; i++) { const w = weld[i] * 3; nrm.setXYZ(i, cur[w], cur[w + 1], cur[w + 2]); }
+  nrm.needsUpdate = true;
+}
 
 export function createGLTFCharacter(avatar) {
-  const female = avatar.figure === 'female';
-  const src = cloneModel((female ? 'golfer_f' : 'golfer') + (avatar.lod ? '_lod' : '')); if (!src) return null;
+  const female = avatar.figure === 'female', key = female ? 'golfer_f' : 'golfer';
+  // the phone LOD has its own texture set (its UVs differ). Lite loads the LOD under the full name too, so ask the loader
+  // rather than guess from the triangle count: the female LOD keeps ~9.7k triangles and passed for the full body (patchwork)
+  const lod = !!avatar.lod || model(key) === model(key + '_lod');
+  const src = cloneModel(key + (avatar.lod ? '_lod' : '')); if (!src) return null;
   const group = new THREE.Group(), actor = src.scene; group.add(actor);
   const joints = {}, owned = new Set(), glasses = [];
   const colors = { hair: avatar.hairColor, headwear: avatar.headwearColor, trim: avatar.accent };
@@ -30,24 +64,17 @@ export function createGLTFCharacter(avatar) {
     if (o.name.startsWith('glasses_')) { glasses.push(o); o.visible = o.name === 'glasses_' + glassesOf(avatar); }
     if (o.name.startsWith('accessory_wristband')) o.visible = avatar.wristband === 'both' || avatar.wristband === (o.name.endsWith('R') ? 'right' : 'left');
     if (!o.isMesh) return;
-    const key = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (key === 'body') { body = bodyMaterial(spec, avatar, o.geometry.index.count < 27000, female ? 'body_f_' : 'body_'); o.material = body.material; }
-    else { const slot = SLOT[key] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[key] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
-    owned.add(o.material); o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
+    const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (female && o.isSkinnedMesh) relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); }
+    else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
+    // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
+    // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
+    // Receives the sun's shadow too: an athlete standing in a tree's shade stayed fully sunlit and read as pasted in.
+    owned.add(o.material); o.castShadow = true; o.receiveShadow = true; if (o.isSkinnedMesh) o.boundingSphere = REACH;
   });
   if (!joints.elR || !joints.root || !body) return null;
   actor.updateMatrixWorld(true);
-  const headC = spec.headCentre;
-  // chest and back prints: club mark and number, placed on the measured torso
-  const printCanvas = document.createElement('canvas'); printCanvas.width = 256; printCanvas.height = 256;
-  const ink = printCanvas.getContext('2d'); ink.fillStyle = avatar.accent; ink.textAlign = 'center';
-  ink.font = 'bold 30px system-ui'; ink.fillText('CHAINS', 128, 60);
-  ink.font = 'bold 116px system-ui'; ink.fillText(String(avatar.number), 128, 184);
-  const print = new THREE.CanvasTexture(printCanvas); print.colorSpace = THREE.SRGBColorSpace;
-  const printGeo = new THREE.PlaneGeometry(.2, .2);
-  const printMat = new THREE.MeshBasicMaterial({ map: print, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }); owned.add(printMat);
-  const chestY = (spec.chestY || 1.30) - joints.spine.getWorldPosition(_v).y, chestZ = spec.chestZ || [.13, .13];
-  for (const side of [-1, 1]) { const badge = new THREE.Mesh(printGeo, printMat); badge.position.set(0, chestY, side * ((side < 0 ? chestZ[0] : chestZ[1]) + .004)); badge.rotation.y = side < 0 ? Math.PI : 0; badge.rotation.x = side < 0 ? -.1 : .1; joints.spine.add(badge); }
+  const headC = spec.headCentre;   // the chest and back prints are part of the body material (body-material.js PRINT)
   // Disc socket: a roll-free wrist frame under the group rather than a child of the forearm bone. The clips roll the arm
   // through the pull (palm up at the reach-back, palm down at release), so a bone-mounted disc wobbles and ends up on the
   // open palm; this frame takes the forearm's heading and pitch only, so the plate stays level from the coiled stance to
@@ -77,9 +104,10 @@ export function createGLTFCharacter(avatar) {
   // Aim stance. main.js steers faceDir every frame for the player lining up a throw and for the menu hero; only the player
   // also grips the disc for a throw (holdDisc asks releaseFrame for the selected type), so two steered frames plus a grip
   // request mean "aiming" and the coiled stance blends over the idle clip, following the throw picker through aimType.
-  // The hero and bystanders get the cover-shot pose instead. ponytail: inferred rather than a setStance() call because
-  // main.js is shared; add the call if a second consumer needs the state.
-  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, readyW = 0, heroW = 0, aimType = 'backhand';
+  // The menu hero, whose disc holdDisc carries outside any throw (carry()), gets the cover-shot pose instead; bystanders,
+  // who hold no visible disc, keep the relaxed idle clip rather than raising an empty hand. ponytail: inferred rather than
+  // a setStance() call because main.js is shared; add the call if a second consumer needs the state.
+  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand';
   function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; group.updateMatrixWorld(true); }
   function blendTo(pose, w, base = null) {   // slerp the bones toward a shared-contract pose: over the mixer output, or over the windup pose the clip was baked from
     // (the mixer skips bones whose value did not change, so a held windup phase is rebuilt from the shared keys instead of read back)
@@ -135,28 +163,30 @@ export function createGLTFCharacter(avatar) {
     mixer.update(0); settle(); overlay();
     const frame = { qInv: q.invert(), dir }; frames.set(name, frame); return frame;
   }
-  const coilW = () => phase === null ? readyW : readyW * Math.max(0, 1 - phase / .15);
+  const coilW = () => phase === null ? readyW : readyW * stanceFade(phase);
   const api = {
     group, hand, elbow: forearm, joints, avatar, source: 'glb', releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},
     setFace(value) { body.setPalette(value); const g = glassesOf(value); for (const o of glasses) o.visible = o.name === 'glasses_' + g; },
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
+    get heroWeight() { return heroW; },   // how far into the cover-shot pose: holdDisc spins the disc on the raised hand past half
+    carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
     react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
     update(dt) {
-      frameDt = dt; time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false;
+      frameDt = dt; time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false; carries = carryHit ? carries + 1 : 0; carryHit = false;
       const aiming = phase === null && !mood && !locomotion && aimFrames >= 2 && grips >= 1;
       let name = null;
       if (phase !== null) { const a = actions.get(throwType); sample(throwType, phase * (a?.getClip().duration || 1)); }
       else if (mood) { mood.t += dt; sample(mood.name, mood.t); if (mood.t >= (actions.get(mood.name)?.getClip().duration || 2.4)) mood = null; }
       else { name = handed(locomotion || 'idle'); sample(name, time % (actions.get(name)?.getClip().duration || 4)); }   // ponytail: no more practice-swing cycle; the cover-shot pose holds, play('practice') still works
       settle();
-      readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < .15 ? readyW : Math.max(0, readyW - dt / .22);
-      heroW = name?.startsWith('idle') && !locomotion && !aiming ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
+      readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < STANCE_FADE ? readyW : Math.max(0, readyW - dt / .22);
+      heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
       overlay();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
-    dispose() { mixer.stopAllAction(); mixer.uncacheRoot(actor); print.dispose(); printGeo.dispose(); for (const m of owned) m.dispose(); actor.traverse(o => { if (o.isSkinnedMesh) o.skeleton.dispose(); }); }
+    dispose() { mixer.stopAllAction(); mixer.uncacheRoot(actor); body.dispose(); for (const m of owned) m.dispose(); actor.traverse(o => { if (o.isSkinnedMesh) o.skeleton.dispose(); }); }
   };
   api.update(0); return api;
 }
