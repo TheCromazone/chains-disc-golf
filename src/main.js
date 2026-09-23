@@ -511,25 +511,29 @@ const DEG = Math.PI / 180;
 cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's level camera looking down onto the green), eased like the pose
 // Over-the-left-shoulder aim frame (the Disc Golf Masters broadcast lens): a chest-high camera ~2 m behind the athlete's left
 // shoulder, near level, so he fills the right third cropped at the thigh. Drives: axis a few degrees right of the aim, pin
-// left of centre, horizon just under the middle, head ~18% from the top. Putts: a 32° (tall) lens 1.9 m from the athlete and
-// ~21° round his left side, so the frame reads in three depths: he stands big on the right third cut at the hip (the reference's
-// own crop: his back x 0.62-0.92, head top ~9%), the putting hand and disc clear of his body, the whole basket (flag to base
-// plate) mid-frame at the reference's size, the banners and trunks behind it small. Close in on a normal lens, not a long lens
-// from further back: at 36° from 2.4 m he was cut at the knee and the basket read small; a 22-26° lens from 2.4-2.8 m sized
+// left of centre, horizon just under the middle, head ~18% from the top. Putts: a 32° (tall) lens 2.3 m from the athlete and
+// ~24° round his left side, so the frame reads in three depths: he stands on the right third cut at the upper thigh (the
+// reference's own crop: his back x 0.66-0.93, head top ~13%), the putting hand and disc clear of his body, the whole basket (flag
+// to base plate) mid-frame at the reference's size, the banners and trunks behind it small. Close in on a normal lens, not a long
+// lens from further back: at 36° from 2.4 m he was cut at the knee and the basket read small; a 22-26° lens from 2.4-2.8 m sized
 // both right but blew the banners up as tall as the athlete (as a 40° wide lens from 3.5 m flattened everything into one
-// crowded layer); square behind him he was a slab of jersey hiding the disc. The camera stays level and slides its lens
+// crowded layer); square behind him he was a slab of jersey hiding the disc. From 1.9 m at 21° his hair sat ~8% from the top
+// edge and the basket ~80% down, pinched between the banners and his disc hand (critics: cramped, basket low and hemmed in);
+// the extra 0.25 m round his side swings the banners left and him right by parallax, clearing ~100 px (of 640) each side of the
+// cage. The camera stays level and slides its lens
 // instead (cam.shift, applyViewOffset), so a green below the lie drops into frame without tipping the trunks inward (pitched
 // down onto the tray, it read as looking into a pit). It takes the height (lo-hi) that sets the athlete's eyes at P.eye and the
-// basket band at P.band (half-frame units above centre: 19% and 52% from the top, the reference's own marks), so uphill, flat
-// and downhill greens frame alike. That wide a gap puts the lens at chest height (~1.4 m over a lie 1.2 m above the pin), the
-// band near edge-on against the far woods and haze; eyes-to-band at 19%/44% sat it at 1.7 m, looking down onto the tray over
-// a foreground of dirt with the basket lost against the ground and shrubs behind it. A short phone keeps 44% (puttS).
+// basket band at P.band (half-frame units above centre: 22% and 42% from the top, the reference's own marks: cage centre on
+// the midline, base plate ~70% down), so uphill, flat and downhill greens frame alike. On the course's downhill putts (every
+// green sits ~1 m under a 6.5 m lie) that puts the lens ~1.8 m up, just over his eyes; at 1.9 m back the same marks meant
+// 1.7 m and a tray seen from above over a dirt foreground, but from 2.3 m he no longer towers over it. A short phone keeps
+// the band at 40% (puttS).
 // Out of the lo-hi range the band wins until the eyes would pass P.eye. A lateral nudge of up to P.nudge clears trunks from
 // behind the basket (puttDodge). Portrait keeps its lift rule. Wide screens hold the horizontal lens (hfov), a 2:1 phone
 // widening past it rather than cropping under P.vmin tall (29° on a short phone, whose swipe ring takes the frame's lower
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 1.8, side: .7, lo: .9, hi: 1.8, eye: .62, band: -.04, nudge: [-.05, .15], hfov: 54, vmin: 10 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.1, side: .95, lo: .9, hi: 1.9, eye: .55, band: .16, nudge: [-.05, .15], hfov: 54, vmin: 10 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
 AIM.puttS = { ...AIM.putt, band: .2 };   // a short phone's 29° lens: the band sits higher, so the (now larger) basket's base plate clears the swipe ring's pill
 function aimFrame(lie, d, putt, pos, look) {
