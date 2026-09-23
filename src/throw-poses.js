@@ -151,12 +151,7 @@ export const STANCE = {
   // ~.25 rad further to the target: the reference's head sits low between the shoulders seen from three-quarters behind,
   // and the upright head on a long neck read as a full profile bolted onto a square chest. The
   // off elbow softens ~10° more (hanging straight to the thigh, critics read the free arm as dead).
-  // Round 16 (run 5): every critic, winning or losing, still read the disc at belly height under a low elbow as "holding a
-  // plate", and the straight off arm as limp. Solved in screen space against the tee camera to the reference's shoulder-relative
-  // offsets (elbow ~40 px toward the target and level with the shoulder at 640, disc centre ~40 px under it), plate level: the
-  // elbow now leads at shoulder height with the forearm dropping to the rim, the disc pulled across the chest; the off arm
-  // swings forward with the elbow bent ~57° so the hand counterbalances in front of the hip.
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.02, -1.75, -.12], shR: [-.589, 1.253, 2.069], elR: [.625, -.603, 0], shL: [.3, 0, -.25], elL: [1, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.02, -1.75, -.12], shR: [.377, 1.121, .914], elR: [.832, -.359, 0], shL: [.6, 0, -.1], elL: [.58, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
