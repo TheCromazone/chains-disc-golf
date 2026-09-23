@@ -114,8 +114,9 @@ def clean(alb, m1, m2, maps, rig, lines):
   # that side to the arm bones, so without this test it turned to skin: a wedge on the back beside the elbow.
   arm_side = lambda s: (x - lines['axisS' + s][0]) * Nn[..., 0] + (z - lines['axisS' + s][1]) * Nn[..., 2] > -.005
   hems = rig['extras'].get('sleeveHem', {})   # build-golfer-v3.py fits the sleeve onto the arm and ends it here; the scan's longer sleeve below is arm
+  old = {}
   for side, up in (('R', upR), ('L', upL)):
-    axis(up, elY + .03, shY - .03, 'axisS' + side); sleeve = line('sleeve' + side, up, angle('axisS' + side), white, skinc, elY + .02, shY + .02); C1[up & (y < np.maximum(sleeve, hems.get(side, 0))) & arm_side(side)] = SKIN
+    axis(up, elY + .03, shY - .03, 'axisS' + side); old[side] = sleeve = line('sleeve' + side, up, angle('axisS' + side), white, skinc, elY + .02, shY + .02); C1[up & (y < np.maximum(sleeve, hems.get(side, 0))) & arm_side(side)] = SKIN
   fore &= np.where(x > 0, arm_side('R'), arm_side('L'))
   axis(headp | torso, chinY - .06, chinY - .01, 'axisN'); angN = angle('axisN'); nx, nz = lines['axisN']
   neckzone = (torso | headp | upR | upL) & (np.hypot(x - nx, z - nz) < .11) & (y < chinY + .01) & (y > shY - .1)
@@ -144,17 +145,16 @@ def clean(alb, m1, m2, maps, rig, lines):
   for k, keep, size in ((SHORTS, .4, .015), (JERSEY, .45, .012)):   # near-black shorts carry sensor noise; the jersey keeps its folds, loses its streaks
     sel = hit & (C1 == k)
     if sel.sum() > 50: out[sel] = keep * out[sel] + (1 - keep) * voxel_mean(sel, size)
-  # hands and forearms: the scan baked finger-gap shadow, knuckle creases and a few dark smears into the skin, and the grip
-  # morph (gltf-player.js) re-poses the fingers so that shading matches nothing; at game distance it read as black blotches
-  # on the knuckles, and its arms carry brown blotches a few centimetres across that the skin shader deepens. Hand texels
-  # keep a third of their deviation from a 1.5 cm mean, arm texels a third of theirs from a 5 cm mean (the blotches are
-  # bigger than the fine detail, which the normal map carries anyway); then every texel takes the limb's median hue at
-  # its own brightness (most of the way), and nothing stays darker than 85 % of the median.
+  # hands and forearms: the scan's arms carry brown blotches a few centimetres across that the skin shader deepens, so arm
+  # texels keep a third of their deviation from a 5 cm mean. The hands rest open as scanned (the grip is a runtime morph),
+  # so their finger-gap shadow and knuckle creases match the geometry and are what separates the fingers at game distance:
+  # hand texels keep most of theirs (at a third, and lifted to 85 % of the median, the hands read as fused mittens). Then
+  # every texel takes the limb's median hue at its own brightness (most of the way).
   wristY = J['elR'][1] + rig['hand'][1] + .075; arms = hit & (C1 == SKIN) & part('elR', 'elL', 'shR', 'shL'); handT = arms & (y < wristY + .02)
-  for sel, keep, size, hue in ((handT, .35, .015, .85), (arms & ~handT, .35, .05, .75)):
+  for sel, keep, size, hue, floor in ((handT, .75, .015, .8, .55), (arms & ~handT, .35, .05, .75, .85)):
     if sel.sum() < 50: continue
     m = voxel_mean(sel, size); v = m + keep * (out[sel] - m); L = v @ np.array([.2126, .7152, .0722], np.float32)
-    M = np.median(v, 0); ML = float(M @ np.array([.2126, .7152, .0722])); v = (1 - hue) * v + hue * M[None] * np.clip(L / ML, .85, 1.25)[:, None]
+    M = np.median(v, 0); ML = float(M @ np.array([.2126, .7152, .0722])); v = (1 - hue) * v + hue * M[None] * np.clip(L / ML, floor, 1.25)[:, None]
     out[sel] = v
   # the scan's white collar and sleeve trims sit right against the skin, and the masks' soft edge (resampling, filtering)
   # blends some skin weight over them: a pale fringe. Jersey texels within 8 mm of skin take the skin's colour, darkened
@@ -166,7 +166,19 @@ def clean(alb, m1, m2, maps, rig, lines):
   near[near] = (Nn[edge][near] * Nn[sk][i[near]]).sum(-1) > .3
   flat = out.reshape(-1, 3); flat[np.flatnonzero(edge)[near]] = out[sk][i[near]] * .8
   W = np.stack([(C1 == k).astype(np.float32) for k in range(7)], -1); keep = headp & (C1 == C0) & ~neckzone; W[keep] = W7[keep]   # the face keeps its soft iris and brow edges
-  bare = (hit & (C1 == SKIN) & (C0 == JERSEY) & (upR | upL)).astype(np.float32)   # sleeve the fit turned into arm: its baked cloth folds must leave the normal map
+  # the fitted sleeve: its hem is a level cut round the arm, so the texel grid staircased it; blend the two regions over
+  # ±4 mm of height instead. Below it the scan's own sleeve became arm: its cloth folds and the ridge of its old cuff leave
+  # the normal map, fading in over 3 cm under the old cuff so no ring shows round the upper arm. The sleeve itself was
+  # pulled onto the arm, so the loose folds baked into it crumpled like paper once the arm rose: it keeps a third of them.
+  bare = np.zeros(C1.shape, np.float32); ss = lambda a, b, t: (lambda u: u * u * (3 - 2 * u))(np.clip((t - a) / (b - a), 0, 1))
+  for side, up in (('R', upR), ('L', upL)):
+    h = hems.get(side)
+    if h is None: continue
+    arm = hit & up & arm_side(side) & np.isin(C1, [SKIN, JERSEY])
+    band = arm & (np.abs(y - h) < .006); jw = ss(h - .004, h + .004, y[band]); W[band, JERSEY] = jw; W[band, SKIN] = 1 - jw
+    lo = old[side] - .06; aw = B[..., bi['sh' + side]] + B[..., bi['el' + side]]   # by skin weight, so the fold strength fades out across the shoulder rather than stepping at the bone boundary
+    bared = hit & arm_side(side) & np.isin(C1, [SKIN, JERSEY]) & (y > lo) & (aw > .2); lb = lo[bared]
+    bare[bared] = np.maximum(bare[bared], ss(lb, lb + .03, y[bared]) * ss(.2, .8, aw[bared]) * (1 - .33 * ss(h - .002, h + .006, y[bared])))
   idx = ndimage.distance_transform_edt(~hit, return_distances=False, return_indices=True)   # gutters copy their nearest island texel
   out, W, beard, bare = out[idx[0], idx[1]], W[idx[0], idx[1]], m2[..., 3][idx[0], idx[1]], bare[idx[0], idx[1]]
   return out, np.concatenate([W[..., :4]], -1), np.concatenate([W[..., 4:], beard[..., None]], -1), bare
@@ -193,9 +205,9 @@ for sfx in ('', '_lod'):
   save(alb, f'albedo{sfx}.webp', 1024 if sfx else 2048, 'WEBP', quality=76 if sfx else 78, method=5)
   save(m1, f'mask1{sfx}.png', 512 if sfx else 1024, 'PNG', optimize=True); save(m2, f'mask2{sfx}.png', 512 if sfx else 1024, 'PNG', optimize=True)
 nrm = Image.open(SRC / 'normal.png').convert('RGB')
-if bare is not None and bare.any():   # bared arm: flat normals, feathered ~1 cm into the sleeve so the hem is not a ridge of cloth folds
+if bare is not None and bare.any():   # bared arm (clean(): already feathered in 3D): flat normals
   from scipy import ndimage
-  w = np.clip(ndimage.gaussian_filter(bare, 6) * 1.6, 0, 1)[..., None]; n = np.asarray(nrm).astype(np.float32)
+  w = np.clip(ndimage.gaussian_filter(bare, 1.5), 0, 1)[..., None]; n = np.asarray(nrm).astype(np.float32)
   nrm = Image.fromarray((n * (1 - w) + np.array([128, 128, 255], np.float32) * w + .5).astype(np.uint8), 'RGB')
 save(nrm, 'normal.webp', 2048, 'WEBP', quality=80, method=5)
 manifest = ROOT / 'assets/manifest.json'; doc = json.loads(manifest.read_text())

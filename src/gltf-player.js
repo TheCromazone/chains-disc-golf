@@ -55,13 +55,13 @@ function relaxNormals(g, headBone, passes = 3) {
 //      at the thigh, the other stances, the throw until release).
 //  0/1 grip (R/L): the backhand power grip: the palm against the rim, the fingers bent a little at the knuckles and hooked
 //      hard at the middle and end joints so they wrap under the rim where the lens sees them, fanned apart so they read as
-//      four fingers, the thumb pad on top 2 cm in from the rim, and the wrist cocked ~63° so the disc lies level under a
-//      forearm folded down across the chest (throw-poses.js STANCE.backhand). The stance pairs it with a seat (disc centre
+//      four fingers, the thumb pad on top 2 cm in from the rim, and the wrist flexed so the disc lies level beside the
+//      hand with the forearm across the chest (throw-poses.js STANCE.backhand). The stance pairs it with a seat (disc centre
 //      and normal in the forearm bone's frame) that sits the rim in the fingers' curl. Folded flat under the plate at the
 //      knuckles instead, the fingers hid under the disc and the hand read as a paw pressed on top of it.
 // Joints as shares of the hanging hand's wrist-to-fingertip drop: knuckles .55, middle joints .79, end joints .9.
 const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal first
-const GRIP = { fingers: [[.9, .9], [.79, 1.6], [.55, .6]], spread: .45, seat: -.015, bend: -1.1 };
+const GRIP = { fingers: [[.9, .9], [.79, 1.6], [.55, .6]], spread: .45, seat: -.015, bend: 0, flex: 1.35, wrist: [.12, -.12] };   // wrist: flexed ~77° (a sideways cock that far read as a broken wrist), blended over ~5 cm that end above the thumb's base (inside the blend it tore into a flap)
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
 function handMorphs(mesh, handOffset) {
@@ -104,10 +104,10 @@ function handMorphs(mesh, handOffset) {
     if (fingers) R.forEach((r, k) => { if (T[k] > .9) { const dist = r.distanceTo(base); if (dist > far) { far = dist; d0 = r.clone().sub(base).normalize(); } } });
     if (d0) { const d1 = new THREE.Vector3(px - .017, c.y + .025, c.z - .015).sub(base).normalize(), axis = d0.clone().cross(d1).normalize(), ang = Math.acos(THREE.MathUtils.clamp(d0.dot(d1), -1, 1));
       P.forEach((q, k) => { if (T[k] > 0) { turn(q, base, axis, T[k] * ang); N[k].applyAxisAngle(axis, T[k] * ang); } }); }
-    // the wrist: the hand below it cocks toward the little finger about the joint
-    const origin = new THREE.Vector3();
-    R.forEach((r, k) => { const w = smooth(.09 * L, -.12 * L, r.y); if (w > 0) { turn(P[k], origin, X, w * GRIP.bend); N[k].applyAxisAngle(X, w * GRIP.bend); } });
-    c.applyAxisAngle(X, GRIP.bend); const cn = new THREE.Vector3(0, 1, 0).applyAxisAngle(X, GRIP.bend);
+    // the wrist: the hand below the joint cocks toward the little finger (bend) and flexes toward the palm (flex)
+    const qw = new THREE.Quaternion().setFromAxisAngle(Z, GRIP.flex).multiply(new THREE.Quaternion().setFromAxisAngle(X, GRIP.bend)), qi = new THREE.Quaternion(), qk = new THREE.Quaternion();
+    R.forEach((r, k) => { const w = smooth(GRIP.wrist[0] * L, GRIP.wrist[1] * L, r.y); if (w > 0) { qk.copy(qi).slerp(qw, w); P[k].applyQuaternion(qk); N[k].applyQuaternion(qk); } });
+    c.applyQuaternion(qw); const cn = new THREE.Vector3(0, 1, 0).applyQuaternion(qw);
     seats[name] = { c: new THREE.Vector3(c.x * side + W.x - E.x, c.y + W.y - E.y, c.z + W.z - E.z), n: new THREE.Vector3(cn.x * side, cn.y, cn.z) };
     const delta = (Q, M) => {
       const dp = new Float32Array(n * 3), dn = new Float32Array(n * 3);

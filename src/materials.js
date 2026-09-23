@@ -201,12 +201,17 @@ export function windMaterial(source, clock, grass=false) {
 // ---------- jersey styles ----------
 // Accent pattern from bind-pose position, so the skinned athlete and the Lite ellipsoid share one look
 // without UVs. unit = metres per position unit (the Lite torso is a unit sphere: pass its radius and centre).
-// 'pro': a sublimated match shirt, the jersey colour on the chest, back and sleeves with side panels and sleeve undersides in
-// a deep shade of it, the way a tour jersey tapers the torso. side comes from the athlete material (chainsPanel: cloth that
-// faces sideways off the torso, and the arm's underside) or, on the Lite ellipsoid, from the torso's width.
+// 'pro': a sublimated tour shirt: side panels and sleeve undersides in a deep shade of the jersey colour (a tapered torso),
+// the hem fading darker, and a halftone of trim-coloured diamonds over the chest and shoulders that thins toward the waist.
+// side comes from the athlete material (chainsPanel: cloth that faces sideways off the torso, and the arm's underside) or,
+// on the Lite ellipsoid, from the torso's width. The diamonds are antialiased by their screen footprint so they never
+// shimmer into moire at a distance.
 export const JERSEY_STYLES = ['solid', 'hoops', 'stripes', 'sash', 'sleeves', 'split', 'chevron', 'pro'];
 const JERSEY_MASKS = ['m = 0.;', 'm = step(.5, fract((j.y - 1.31) / .15));', 'm = step(.5, fract((j.x + .055) / .11));', 'm = 1. - smoothstep(.045, .06, abs(j.x * .8 + (j.y - 1.24) * .6));',
-  'm = step(.17, abs(j.x));', 'm = step(0., j.x);', 'm = 1. - smoothstep(.05, .065, abs(abs(j.x) * .7 + (j.y - 1.36)));', 'side = chainsPanel >= 0. ? chainsPanel : smoothstep(.1, .14, abs(j.x));'];
+  'm = step(.17, abs(j.x));', 'm = step(0., j.x);', 'm = 1. - smoothstep(.05, .065, abs(abs(j.x) * .7 + (j.y - 1.36)));',
+  `side = max(chainsPanel >= 0. ? chainsPanel : smoothstep(.1, .14, abs(j.x)), .3 * (1. - smoothstep(.92, 1.2, j.y)));
+    { vec2 c = vec2(j.x * .7 + j.z * .7, j.y) / .024, f = fract(c) - .5; float d = abs(f.x) + abs(f.y), r = .42 * smoothstep(1.02, 1.44, j.y), aa = max(fwidth(c.x) + fwidth(c.y), .02);
+      m = .22 * (1. - smoothstep(r - aa, r + aa, d)) * (1. - side) * (1. - smoothstep(.35, .7, aa)); }`];
 export function jerseyStyle(material, style, accent, unit = 1, center = [0, 0, 0], gate = '1.') {
   const index = Math.max(0, JERSEY_STYLES.indexOf(style));
   const prev = material.onBeforeCompile, prevKey = material.customProgramCacheKey;

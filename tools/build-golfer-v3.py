@@ -292,6 +292,12 @@ def fit_shirt(body, RIG, ref=None, rewire=True):
   inb = (y > ys[0]) & (y < ys[-1]); X0 = np.interp(y, ys, bx0); SX = np.interp(y, ys, sx); SZ = np.where(z > zc, np.interp(y, ys, szb), np.interp(y, ys, szf))
   d[:, 0] += inb * tw * (X0 + (x - X0) * SX - x); d[:, 2] += inb * tw * (zc + (z - zc) * SZ - z)
   set_coords(body, c + d)
+  # the scan's own cuff, now bare arm a few centimetres under the new hem, stays a ridge round the upper arm: relax that band
+  bm = bmesh.new(); bm.from_mesh(body.data); bm.verts.ensure_lookup_table(); cc = c + d
+  for side, s in (('R', 1), ('L', -1)):
+    h = geo['hem'][side]; band = np.nonzero((W['sh' + side] + W['el' + side] > .6) & (s * cc[:, 0] > .05) & (cc[:, 1] > h - .08) & (cc[:, 1] < h - .003))[0]
+    for _ in range(6): bmesh.ops.smooth_vert(bm, verts=[bm.verts[i] for i in band.tolist()], factor=.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+  bm.to_mesh(body.data); bm.free()
   for b in BONES:
     ch = np.nonzero(np.abs(W[b] - W0[b]) > 1e-4)[0]; vg = body.vertex_groups[b]
     for i in ch.tolist():
