@@ -66,7 +66,7 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // joints (degrees, toward the palm). Thumb: joint points.
 // taper: the forearm's last 11 cm narrow by this share into the wrist (critics read the scan's forearm as a tube of one width
 // down into the hand, "no clear wrist")
-const GRIP = { rim: -.092, flex: .5, tilt: .6, wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [.168, -.186, .118], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [30, 95, 55]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [28, 97, 55]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [30, 98, 55]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [36, 100, 55]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .023, -.048], [-.06, .025, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
@@ -157,22 +157,27 @@ function handMorphs(mesh, handOffset, lod) {
     const gh = gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod);
     // the wrist flex, blended across the joint; the grip hand and the tucked scan bend together
     const qw = new THREE.Quaternion().setFromAxisAngle(Z, GRIP.flex), qi = new THREE.Quaternion(), qk = new THREE.Quaternion();
-    const bend = v => { const w = smooth(GRIP.wrist[0] * L, GRIP.wrist[1] * L, v.y); if (w > 0) v.applyQuaternion(qk.copy(qi).slerp(qw, w)); return v; };
+    const bend = (v, q = qw) => { const w = smooth(GRIP.wrist[0] * L, GRIP.wrist[1] * L, v.y); if (w > 0) v.applyQuaternion(qk.copy(qi).slerp(q, w)); return v; };
+    // the gripping hand is also cocked (GRIP.cock, before the flex, blended across the same band so the wrist bends rather
+    // than steps): the plate's normal leaves the flex plane, so a thumb-up hand holds the disc level at the end of a forearm
+    // lying across the chest. With flex and tilt alone the disc was level only with the palm turned down, which a forearm
+    // reaching toward the target from an elbow in front of the ribs cannot do (the solve folded it into a chicken wing)
+    const qg = qw.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...GRIP.cock, 'XYZ')));
     // tuck: the scanned hand folds into a small core inside the grip hand's palm
     const taper = v => { const s = taperAt(v.y); v.x = cx + (v.x - cx) * s; v.z = cz + (v.z - cz) * s; return v; };
     const TP = R.map(r => { const t = smooth(.014, -.004, r.y); return bend(taper(new THREE.Vector3(r.x + (cx + (r.x - cx) * .15 - r.x) * t, r.y + (-.016 + (r.y + .016) * .08 - r.y) * t, r.z + (cz + (r.z - cz) * .15 - r.z) * t))); });   // all of it inside the grip palm: half-tucked, the scan's thumb base stood out of it as a flap
     const FP = fore.map(i => bend(taper(local(i).clone()))), FN = fore.map(i => new THREE.Vector3(nrm.getX(i) * side, nrm.getY(i), nrm.getZ(i)));   // the forearm above the hand: tapered only
-    const c = gh.seat.clone().applyQuaternion(qw), cn = gh.seatN.applyQuaternion(qw);
+    const c = gh.seat.clone().applyQuaternion(qg), cn = gh.seatN.applyQuaternion(qg);
     seats[name] = { c: new THREE.Vector3(c.x * side + W.x - E.x, c.y + W.y - E.y, c.z + W.z - E.z), n: new THREE.Vector3(cn.x * side, cn.y, cn.z) };
     // the grip hand's geometry in the forearm bone's frame (bind orientation is identity), mirrored for the left
-    const handGeo = h => {
-      const gp = new Float32Array(h.p.length); for (let i = 0; i < h.p.length; i += 3) { bend(_v.set(h.p[i], h.p[i + 1], h.p[i + 2])); gp[i] = _v.x * side + W.x - E.x; gp[i + 1] = _v.y + W.y - E.y; gp[i + 2] = _v.z + W.z - E.z; }
+    const handGeo = (h, q) => {
+      const gp = new Float32Array(h.p.length); for (let i = 0; i < h.p.length; i += 3) { bend(_v.set(h.p[i], h.p[i + 1], h.p[i + 2]), q); gp[i] = _v.x * side + W.x - E.x; gp[i + 1] = _v.y + W.y - E.y; gp[i + 2] = _v.z + W.z - E.z; }
       const gi = side > 0 ? h.i : h.i.map((v, i) => i % 3 === 1 ? h.i[i + 1] : i % 3 === 2 ? h.i[i - 1] : v);
       const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(gp, 3)); geo.setIndex(gi); geo.computeVertexNormals();
       const ao = new Float32Array(h.ao.length * 3); h.ao.forEach((v, i) => ao.set([v, v, v], i * 3)); geo.setAttribute('color', new THREE.BufferAttribute(ao, 3));
       return geo;
     };
-    hands[name] = handGeo(gh); rests[name] = handGeo(gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod, true));   // the rest hand shares the grip's wrist flex, so the tucked scan wrist bends to meet either
+    hands[name] = handGeo(gh, qg); rests[name] = handGeo(gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod, true));   // the rest hand shares the grip's wrist flex, so the tucked scan wrist bends to meet either
     const delta = (Q, M, idx = hand) => {
       const dp = new Float32Array(n * 3), dn = new Float32Array(n * 3);
       idx.forEach((i, k) => {
