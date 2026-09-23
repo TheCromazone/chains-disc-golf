@@ -561,6 +561,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       s.fragmentShader = `#define CROWN
 #define CLUMP_LIGHT 1.6
 #define SKY_HOLES .9
+#define CROWN_NORMAL .6
+#define CROWN_CORE_CUT .85
 varying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;
 float crownHash(vec3 p) { p = fract(p * .1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
 float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
@@ -628,7 +630,15 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       .replace('diffuseColor *= sampledDiffuseColor;', 'diffuseColor *= vec4(mix(sampledDiffuseColor.rgb, texture2D(map, vMapUv, 2.5).rgb, .75), sampledDiffuseColor.a);'));
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', `{ float l = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
         diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, .55);
-        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .4, diffuseColor.rgb, crownDepth * crownDepth); }
+        #ifdef CROWN
+        // w6 verdicts ("no dark interior hollows", "no cooler, darker leaves inside the crown"): measured, the leaves we see sit
+        // at .5-1.1 of the envelope, where depth squared barely dimmed them. Now the half-depth leaves go to a quarter, greyed
+        // and cooled (the shade inside a crown is lit by the sky, not the sun), grading to full colour only at the outer shell.
+        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .45) * vec3(.24, .28, .33), diffuseColor.rgb, smoothstep(.5, 1., crownDepth));
+        #else
+        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .4, diffuseColor.rgb, crownDepth * crownDepth);
+        #endif
+        }
       #include <lights_physical_fragment>`);
     // Haze on foliage: the scene's fog, eased to 35% on crowns within 40 m (a near crown keeps its dark core and lit rim; at 80%
     // the glare side of the tee went one flat grey-lime veil) and rising to all of it by 150 m, so a stand reads in layers, each
@@ -661,6 +671,12 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       { float fd = smoothstep(20., 100., length(vViewPosition)) * (1. - sunAir.x) * (1. - .7 * pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.)), l = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
         outgoingLight = mix(vec3(l), outgoingLight, 1. - .45 * fd) * (.15 * pow(l / .15, 1. - .55 * fd) / l); }
       #include <opaque_fragment>`);
+    // w6 verdicts ("evenly sized clumps, each lit the same saturated yellow-green on its lit side: stacked sprite cards"): every
+    // clump's baked normal gave it its own lit face, so the crown had no light and shade of its own. The leaf normal now leans
+    // CROWN_NORMAL of the way to the crown envelope's (the ellipsoid's gradient), so the sun side of a crown is lit and the rest
+    // grades into shade as one volume, and the atlas and clump normals only break that up.
+    if (crown) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      normal = normalize(mix(normal, normalize((viewMatrix * vec4(vCrownP / vCrownR.xyx + vec3(0., 1e-4, 0.), 0.)).xyz), CROWN_NORMAL));`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
       #ifndef CROWN
@@ -671,7 +687,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // w3 verdicts (the framing oak: "a dense mass with almost no sky holes", "no dark hollow voids between clumps"): pockets
       // ~1-1.5 m across cut through the outer third of the crown, fixed to the crown (crown-space noise), so the shell breaks
       // into separate clumps with the dark interior showing between them and sky through the rim
-      if (crownN * smoothstep(.45, .95, crownDepth) > .47 - .09 * (1. - smoothstep(20., 45., length(vViewPosition)))) diffuseColor.a = 0.;   // near crowns (the framing tree over the tee) open wider: w6 "solid lumpy blobs, almost no sky holes". Colour pass only: the shadow keeps its own cut
+      { float nearK = 1. - smoothstep(20., 45., length(vViewPosition));   // w6-2: the framing crown seen from below stayed one dark solid underside (its leaves sit at half depth, under the cut): a near crown's pockets now run through its heart too, so sky shows through it
+        if (crownN * max(smoothstep(.45, .95, crownDepth), CROWN_CORE_CUT * nearK) > .47 - .09 * nearK) diffuseColor.a = 0.; }   // near crowns (the framing tree over the tee) open wider: w6 "solid lumpy blobs, almost no sky holes". Colour pass only: the shadow keeps its own cut
       diffuseColor.a = smoothstep(.25, .75, diffuseColor.a); if (diffuseColor.a < .01) discard;
       #else
       #include <alphatest_fragment>
