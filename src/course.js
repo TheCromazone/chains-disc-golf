@@ -22,7 +22,7 @@ export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
     hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#689a3c', '#588a38', '#446f33', '#e3cf9a'], leafHue: 0.29,
-    sun: [33, 48, 12, 0, 5], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .011], hemi: ['#a5c6ee', '#e8d0a0'], water: '#2d6f95' },
+    sun: [24, 38, 12, 10, 5.6], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .011], hemi: ['#a5c6ee', '#e8d0a0'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
     hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#74a03e', '#65933a', '#4f7434', '#e6d29c'], leafHue: 0.265,
@@ -415,6 +415,26 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       #ifdef USE_INSTANCING
       if (distance(instanceMatrix[3].xz, treeEye.xz) > treeNear) gl_Position = vec4(2., 2., 2., 1.);
       #endif`); }; mat.customProgramCacheKey = () => prevKey.call(mat) + '|near3d'; return mat; };
+  // Canopy gaps, in the leaves' shadow pass only: a crown's cards overlap so densely that it cast one solid pool and the
+  // woods floor went evenly dim, trunk shadows lost inside it. Light-plane noise (columns along the sun's ray, fixed to the
+  // unswayed crown) cuts holes 1-3 m across clean through each crown, so the ground takes sunlit patches between long
+  // trunk shadows (trunks and stems keep casting whole). Crowns shade themselves by the same map, so their depths keep
+  // most of their shade. gapSun: toward the key sun (the sky section's sunDir), and the cut: .75 opens about half the crown.
+  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector3(0, 0, 1.3) };
+  const canopyGaps = mat => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole;
+    s.vertexShader = 'varying vec3 vGap;\n' + s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      { vec4 g = vec4(position, 1.);
+      #ifdef USE_INSTANCING
+      g = instanceMatrix * g;
+      #endif
+      vGap = (modelMatrix * g).xyz; }`);
+    s.fragmentShader = `uniform vec4 gapSun;uniform vec3 gapHole;varying vec3 vGap;
+      float gapHash(vec2 p) { vec3 q = fract(p.xyx * .1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+      float gapNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(gapHash(i), gapHash(i + vec2(1., 0.)), f.x), mix(gapHash(i + vec2(0., 1.)), gapHash(i + 1.), f.x), f.y); }
+      ` + s.fragmentShader.replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
+      { vec3 r = normalize(cross(vec3(0., 1., 0.), gapSun.xyz)), u = cross(gapSun.xyz, r); vec2 p = vec2(dot(vGap, r), dot(vGap, u)) / 3.2;
+        if (gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25 < mix(gapHole.z, gapSun.w, smoothstep(15., 45., distance(vGap.xz, gapHole.xy)))) discard; }`); };
+    mat.customProgramCacheKey = () => prevKey.call(mat) + '|gaps'; return mat; };
   const inst = (geo, mat, spots, colorFn, shadow = true, lod = false) => {
     if (lod) {   // near-tree set: every tree's matrix and tint precomputed, drawn only once treeLod() picks it
       const n = spots.length, mats = new Float32Array(n * 16), cols = colorFn ? new Float32Array(n * 3) : null, pos = new Float32Array(n * 2), byCell = new Map();
@@ -425,7 +445,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       if (colorFn) im.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
       im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: mat.alphaTest ? mat.map : null, alphaTest: mat.alphaTest || 0 });
-      im.customDepthMaterial = near3d(windMaterial(depth, windClock)); depth.dispose();   // leaf cards cut their shadows out too: the sun gets through a crown only where its cards leave gaps
+      im.customDepthMaterial = canopyGaps(near3d(windMaterial(depth, windClock))); depth.dispose();   // leaf cards cut their shadows out too: the sun gets through a crown only where its cards leave gaps
       im.castShadow = shadow; im.receiveShadow = true; group.add(im); nearSets.push({ im, mats, cols, pos, byCell });
       return;
     }
@@ -517,13 +537,14 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     // Haze on foliage: the scene's fog, eased to 35% on crowns within 40 m (a near crown keeps its dark core and lit rim; at 80%
     // the glare side of the tee went one flat grey-lime veil) and rising to all of it by 150 m, so a stand reads in layers, each
     // row back paler than the one before, and to about a third again where the view runs toward the sun's disc, so crowns
-    // against the glare stand as dark, rim-lit silhouettes instead of pale grey-olive puffs.
+    // against the glare stand as dark, rim-lit silhouettes instead of pale grey-olive puffs. Trunks and stems take 80% from 15 m:
+    // bark 15-40 m out has to fall back into the haze row by row, and it has no lit rim to lose.
     s.uniforms.treeDisc = treeDisc;
     s.fragmentShader = 'uniform vec3 treeDisc;\n' + s.fragmentShader;
     s.fragmentShader = s.fragmentShader.replace('#include <fog_fragment>', `vec3 treeClear = gl_FragColor.rgb;
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 16.);
-        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.35, 1., smoothstep(40., 150., length(vViewPosition))) * (1. - .65 * glare)); }`);
+        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(40., 150., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare)); }`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
       #include <alphatest_fragment>`); };
@@ -752,7 +773,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
     if (view) treeLod(view, t);   // trees: 3D near the eye, impostors beyond (the trees section)
-    windClock.value=t; sky.material.uniforms.time.value = t;
+    windClock.value=t; sky.material.uniforms.time.value = t; if (world.basket) gapHole.value.set(world.basket.x, world.basket.z, gapHole.value.z);
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
       if (near) { aim.set(focus.x - (view?.x ?? focus.x), 0, focus.z - (view?.z ?? focus.z)); const l = aim.length(); [FLECK.x, FLECK.y] = place(near, aim.multiplyScalar(l > .1 ? 5 / l : 0).add(focus), nearTexel); } }
@@ -803,7 +824,7 @@ float sunVis = 1.;
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. ), fogCos2 = fogCos * fogCos;
 	#ifdef FOG_EXP2
-		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 20., 0. ) * smoothstep( 20., 110., fogDist ) );   // eased in over 20-110 m: the play and the woods round it stay clear (from 12 m the tee's hill went a milky tan), the stands beyond fade in layers
+		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 10., 0. ) * smoothstep( 10., 80., fogDist ) );   // eased in over 10-80 m: the play stays clear, trunks 20-40 m out already sit a step back (at 20-110 m the putt's woods stood flat and evenly bright), the stands beyond fade in layers
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
@@ -886,8 +907,8 @@ function skyDome(def, lite) {
       void main(){
         vec3 d=normalize(vDir);float h=max(d.y,0.),s=max(dot(d,sunDir),0.),s2=s*s;
         vec3 scatter=glow*(s2*s2*s2*.2+pow(s,24.)*2.5);                                      // the fog chunk's lobe
-        vec3 col=mix(haze,mix(blue,zenith,smoothstep(.03,.45,h)),smoothstep(0.,.12,h))+scatter*mix(1.,.4,smoothstep(0.,.35,h));
-        col+=sunColor*(pow(s,8.)*.2+pow(s,90.)*.8)*smoothstep(-.02,.04,d.y);                  // aureole: open sky round the disc outshines the hazed ground, so the treeline rims
+        vec3 col=mix(haze,mix(blue,zenith,smoothstep(.03,.45,h)),smoothstep(0.,.12,h))+scatter*mix(1.,.25,smoothstep(0.,.2,h));
+        col+=sunColor*(pow(s,8.)*.1+pow(s,90.)*.8)*smoothstep(-.02,.04,d.y);                  // aureole: open sky round the disc outshines the hazed ground, so the treeline rims
         vec2 p=d.xz/(h+.2)*cloud.y+vec2(time*.004,time*.0015);                               // planar projection: clouds flatten toward the horizon
         float n=fbm(p),cov=smoothstep(cloud.x,cloud.x+.1,n)*smoothstep(.02,.14,h);           // a short ramp keeps cumulus edges crisp
         float core=smoothstep(cloud.x,cloud.x+.32,n);                                        // thick belly vs thin rim
