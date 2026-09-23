@@ -105,7 +105,7 @@ def clean(alb, m1, m2, maps, rig, lines):
       lines[name] = [round(float(np.take(med, range(i - 2, i + 3), mode='wrap').mean()), 4) for i in idx]
     sm = np.array(lines[name]); return np.interp((ang + np.pi) / (2 * np.pi) * bins - .5, np.arange(-1, bins + 1), np.concatenate([[sm[-1]], sm, [sm[0]]]))
   axis(hips, hipY - .1, hipY + .08, 'axisT'); angT = angle('axisT')
-  hem = line('hem', hips, angT, white, dark, hipY - .12, hipY + .1); above_hem = y > hem
+  hem = line('hem', hips, angT, white, dark, hipY - .12, hipY + .1); above_hem = y > np.maximum(hem, rig['extras'].get('shirtHem', 0))   # the fitted jersey ends at the hip (build-golfer-v3.py), the scan's tee hung to the thigh
   C1 = C0.copy(); C1[hit & (hips | upR | upL)] = JERSEY; C1[~above_hem & torso] = SHORTS
   for side, th in (('R', thighR), ('L', thighL)):
     axis(th, knY + .05, hipY - .05, 'axisC' + side); ang = angle('axisC' + side)

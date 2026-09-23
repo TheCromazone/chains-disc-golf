@@ -104,10 +104,12 @@ export function poseAt(keys, phase) {
 const STANCE = {
   // backhand: side-on and pre-coiled (pelvis ~70°, chest ~135° off the line), weight settled into bent knees, head turned
   // back over the leading shoulder to the target, the off arm hanging loose: the set-up a real reach-back starts from, and
-  // the one Disc Golf Masters shows its thrower in. The throwing arm was solved (shR, elR incl. the forearm's roll) for
-  // the elbow out near shoulder height and the forearm drawn back across the chest toward the aim camera, so the disc,
-  // seated level in the hand by the grip morph (gltf-player.js), is pulled in to the chest yet still reads against the grass
-  backhand: { root: [-.12, 1.22, 0], spine: [-.18, 1.15, .08], head: [.25, -1.4, -.05], shR: [-.152, .553, 1.444], elR: [1.72, -1.222, 0], shL: [.18, 0, -.14], elL: [.62, 0, 0], hipR: [.72, 0, .42], knR: [-.56, 0, 0], hipL: [.55, 0, -.2], knL: [-.58, 0, 0] },
+  // the one Disc Golf Masters shows its thrower in. The throwing arm was solved numerically (shR, elR incl. the forearm's
+  // roll) against the aim camera: elbow up and out at shoulder height, forearm folded down across the chest, the disc
+  // level in the grip morph's seat (gltf-player.js, wrist cocked ~63°) and held in front of the chest ~25 cm under the
+  // shoulder. The earlier solve pointed the forearm at the lens with the wrist cocked 90°: from the camera the arm read as
+  // straight and the disc dangled from a limp wrist a forearm's length off the chest
+  backhand: { root: [-.12, 1.22, 0], spine: [-.18, 1.15, .08], head: [.25, -1.4, -.05], shR: [-.855, .67, 2.282], elR: [1.871, -1.402, 0], shL: [.18, 0, -.14], elL: [.62, 0, 0], hipR: [.72, 0, .42], knR: [-.56, 0, 0], hipL: [.55, 0, -.2], knL: [-.58, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },

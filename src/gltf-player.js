@@ -47,19 +47,26 @@ function relaxNormals(g, headBone, passes = 3) {
   nrm.needsUpdate = true;
 }
 
-// Backhand set-up grip, one morph target per hand. The rig has no wrist or finger bones and the scan's hand hangs half
-// open, so a disc placed against it sat beside an open palm. The morph folds the fingers flat under the plate at the
-// knuckles with the tips curling up to its underside, lays the thumb pad on top 2 cm in from the rim and cocks the wrist
-// so the hand hangs from a forearm pointed at the lens; the stance pairs it with a seat (disc centre and normal in the
-// forearm bone's frame) that rests the rim's lower edge in the knuckle crease, so no fist hangs under the disc. Built
-// once per body from its bind pose, hand-local and mirrored so the palm faces -x on either side, with lengths in units
-// of the hand's own wrist-to-fingertip drop so the female scan and the phone LODs fit too.
-const GRIP = { mcp: 1.57, pip: .45, dip: .3, fmcp: .5, fpip: .74, fdip: .87, bend: -1.57 };
+// Hands: four morph targets per body. The rig has no finger or wrist bones, and the scan's hands hang half open (the build
+// leaves them so), which is what the off hand and every bystander show: a relaxed hand, not a fist. The disc hand's shapes
+// are morphs, built once per body from its bind pose, hand-local and mirrored so the palm faces -x on either side, with
+// lengths in units of the hand's own wrist-to-fingertip drop so the female scan and the phone LODs fit too.
+//  2/3 hook (R/L): the fingers curled round a rim, whenever the hand holds a disc outside the backhand set-up (the carry
+//      at the thigh, the other stances, the throw until release).
+//  0/1 grip (R/L): the backhand power grip: the palm against the rim, the fingers bent a little at the knuckles and hooked
+//      hard at the middle and end joints so they wrap under the rim where the lens sees them, fanned apart so they read as
+//      four fingers, the thumb pad on top 2 cm in from the rim, and the wrist cocked ~63° so the disc lies level under a
+//      forearm folded down across the chest (throw-poses.js STANCE.backhand). The stance pairs it with a seat (disc centre
+//      and normal in the forearm bone's frame) that sits the rim in the fingers' curl. Folded flat under the plate at the
+//      knuckles instead, the fingers hid under the disc and the hand read as a paw pressed on top of it.
+// Joints as shares of the hanging hand's wrist-to-fingertip drop: knuckles .55, middle joints .79, end joints .9.
+const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal first
+const GRIP = { fingers: [[.9, .9], [.79, 1.6], [.55, .6]], spread: .45, seat: -.015, bend: -1.1 };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
-function gripMorph(mesh, handOffset) {
+function handMorphs(mesh, handOffset) {
   const g = mesh.geometry; if (g.userData.grip) return g.userData.grip;
-  const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = pos.count, seats = {}, dP = [], dN = [];
+  const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = pos.count, seats = {}, grips = [], hooks = [];
   const Z = new THREE.Vector3(0, 0, -1), X = new THREE.Vector3(1, 0, 0), m = new THREE.Matrix4(), p = new THREE.Vector3(), o = new THREE.Vector3();
   for (const [name, side] of [['elR', 1], ['elL', -1]]) {
     const b = mesh.skeleton.bones.findIndex(x => x.name === name), E = new THREE.Vector3().setFromMatrixPosition(m.copy(mesh.skeleton.boneInverses[b]).invert());
@@ -67,42 +74,53 @@ function gripMorph(mesh, handOffset) {
     const local = i => p.set((pos.getX(i) - W.x) * side, pos.getY(i) - W.y, pos.getZ(i) - W.z);
     const hand = []; let tip = 0;
     for (let i = 0; i < n; i++) { let w = 0; for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === b) w += sw.getComponent(i, k); if (w > .3 && local(i).y < .02) { hand.push(i); tip = Math.min(tip, p.y); } }
+    const P = hand.map(i => local(i).clone()), N = hand.map(i => new THREE.Vector3(nrm.getX(i) * side, nrm.getY(i), nrm.getZ(i)));
+    // everything past the hinge line (weighted by mask, blended over ±band) rotates toward the palm about the line's centre;
+    // R is the shape the weights and pivot are read from, so hinges applied distal first compose like a finger's joints
+    const hinge = (R, y0, band, ang, mask) => {
+      let sx = 0, c = 0; R.forEach((r, k) => { if (Math.abs(r.y - y0) < band * .75 && mask(k) > .5) { sx += r.x; c++; } });
+      if (!c) return; o.set(sx / c, y0, 0);
+      R.forEach((r, k) => { const w = mask(k) * smooth(y0 + band, y0 - band, r.y); if (w > 0) { turn(P[k], o, Z, w * ang); N[k].applyAxisAngle(Z, w * ang); } });
+    };
+    const L = -tip, R = P.map(v => v.clone()), N0 = N.map(v => v.clone());
     // fingers vs thumb: split at the gap in front of the index finger (~.25 L forward of the wrist); a wider ramp left the
     // index finger half-folded and half-thumb, hanging under the disc as a lump
-    const L = -tip, F = new Float32Array(n), T = new Float32Array(n);
-    for (const i of hand) { local(i); F[i] = smooth(-.28 * L, -.22 * L, p.z); T[i] = (1 - F[i]) * smooth(-.12 * L, -.3 * L, p.y); }
-    const P = hand.map(i => local(i).clone()), N = hand.map(i => new THREE.Vector3(nrm.getX(i) * side, nrm.getY(i), nrm.getZ(i)));
-    const hinge = (frac, ang) => {   // everything past the hinge line rotates toward the palm about the finger's own centre line
-      const y0 = -frac * L; let sx = 0, c = 0;
-      hand.forEach((i, k) => { const r = local(i); if (Math.abs(r.y - y0) < .036 * L && F[i] > .5) { sx += r.x; c++; } });
-      if (!c) return; o.set(sx / c, y0, 0);
-      hand.forEach((i, k) => { const w = F[i] * smooth(y0 + .048 * L, y0 - .048 * L, local(i).y); if (w > 0) { turn(P[k], o, Z, w * ang); N[k].applyAxisAngle(Z, w * ang); } });
-    };
-    // seat, measured on the rest hand: the rim's outer edge against the palm, centred on the finger band; with fingers, the
-    // rim's lower edge (1.6 cm under the disc's mid-plane) rests on the folded fingers' pads at the knuckle line
+    const F = R.map(r => smooth(-.28 * L, -.22 * L, r.z)), T = R.map((r, k) => (1 - F[k]) * smooth(-.12 * L, -.3 * L, r.y));
+    // fingers only where the scan modelled them: the female scan's hands are ~30-point mittens that folds break into shards
+    const fingers = hand.length > 200;
+    for (const [f, a] of HOOK) hinge(R, -f * L, (fingers ? .03 : .06) * L, a * (fingers ? 1 : .6), k => F[k]);
+    const hook = [P.map(v => v.clone()), N.map(v => v.clone())]; P.forEach((q, k) => q.copy(R[k])); N.forEach((q, k) => q.copy(N0[k]));
+    // seat: the rim's outer edge against the palm, centred on the finger band, its lower edge (1.6 cm under the disc's
+    // mid-plane) on the fingers folded at the knuckles
     let px = 0, zc = 0, zn = 0;
-    for (const i of hand) { local(i); if (p.y < -.2 * L && p.y > -.4 * L) { px = Math.min(px, p.x); } if (F[i] > .5 && p.y < -.5 * L) { zc += p.z; zn++; } }
-    // fingers only where the scan modelled them: the female scan's hands are ~30-point mittens that the hinges fold into shards
-    const fingers = hand.length > 200, c = new THREE.Vector3(px - .102, fingers ? .024 - GRIP.fmcp * L : -.3 * L, zn ? zc / zn : 0);
-    if (fingers) { hinge(GRIP.fdip, GRIP.dip); hinge(GRIP.fpip, GRIP.pip); hinge(GRIP.fmcp, GRIP.mcp); }   // distal first: each pivot is read from the rest shape
+    R.forEach((r, k) => { if (r.y < -.2 * L && r.y > -.4 * L) px = Math.min(px, r.x); if (F[k] > .5 && r.y < -.5 * L) { zc += r.z; zn++; } });
+    const kn = GRIP.fingers[GRIP.fingers.length - 1][0], c = new THREE.Vector3(px - .102, fingers ? GRIP.seat - kn * L : -.3 * L, zn ? zc / zn : 0);
+    if (fingers) {   // spread from the knuckles so the folded fingers part, then fold them
+      P.forEach((q, k) => { const t = F[k] * Math.max(0, (-kn * L - R[k].y) / L); q.z += (R[k].z - c.z) * GRIP.spread * t; });
+      for (const [f, a] of GRIP.fingers) hinge(R, -f * L, .03 * L, a, k => F[k]);
+    }
     // the thumb swings about its base until its pad lies on the plate 2 cm in from the rim
     const base = new THREE.Vector3(0, -.15 * L, -.18 * L); let far = -1, d0 = null;
-    if (fingers) hand.forEach((i, k) => { if (T[i] > .9) { const r = local(i), dist = r.distanceTo(base); if (dist > far) { far = dist; d0 = r.clone().sub(base).normalize(); } } });
+    if (fingers) R.forEach((r, k) => { if (T[k] > .9) { const dist = r.distanceTo(base); if (dist > far) { far = dist; d0 = r.clone().sub(base).normalize(); } } });
     if (d0) { const d1 = new THREE.Vector3(px - .017, c.y + .025, c.z - .015).sub(base).normalize(), axis = d0.clone().cross(d1).normalize(), ang = Math.acos(THREE.MathUtils.clamp(d0.dot(d1), -1, 1));
-      hand.forEach((i, k) => { if (T[i] > 0) { turn(P[k], base, axis, T[i] * ang); N[k].applyAxisAngle(axis, T[i] * ang); } }); }
+      P.forEach((q, k) => { if (T[k] > 0) { turn(q, base, axis, T[k] * ang); N[k].applyAxisAngle(axis, T[k] * ang); } }); }
     // the wrist: the hand below it cocks toward the little finger about the joint
     const origin = new THREE.Vector3();
-    hand.forEach((i, k) => { const w = smooth(.09 * L, -.12 * L, local(i).y); if (w > 0) { turn(P[k], origin, X, w * GRIP.bend); N[k].applyAxisAngle(X, w * GRIP.bend); } });
+    R.forEach((r, k) => { const w = smooth(.09 * L, -.12 * L, r.y); if (w > 0) { turn(P[k], origin, X, w * GRIP.bend); N[k].applyAxisAngle(X, w * GRIP.bend); } });
     c.applyAxisAngle(X, GRIP.bend); const cn = new THREE.Vector3(0, 1, 0).applyAxisAngle(X, GRIP.bend);
     seats[name] = { c: new THREE.Vector3(c.x * side + W.x - E.x, c.y + W.y - E.y, c.z + W.z - E.z), n: new THREE.Vector3(cn.x * side, cn.y, cn.z) };
-    const dp = new Float32Array(n * 3), dn = new Float32Array(n * 3);
-    hand.forEach((i, k) => {
-      dp[i * 3] = P[k].x * side + W.x - pos.getX(i); dp[i * 3 + 1] = P[k].y + W.y - pos.getY(i); dp[i * 3 + 2] = P[k].z + W.z - pos.getZ(i);
-      dn[i * 3] = N[k].x * side - nrm.getX(i); dn[i * 3 + 1] = N[k].y - nrm.getY(i); dn[i * 3 + 2] = N[k].z - nrm.getZ(i);
-    });
-    dP.push(new THREE.BufferAttribute(dp, 3)); dN.push(new THREE.BufferAttribute(dn, 3));
+    const delta = (Q, M) => {
+      const dp = new Float32Array(n * 3), dn = new Float32Array(n * 3);
+      hand.forEach((i, k) => {
+        dp[i * 3] = Q[k].x * side + W.x - pos.getX(i); dp[i * 3 + 1] = Q[k].y + W.y - pos.getY(i); dp[i * 3 + 2] = Q[k].z + W.z - pos.getZ(i);
+        dn[i * 3] = M[k].x * side - nrm.getX(i); dn[i * 3 + 1] = M[k].y - nrm.getY(i); dn[i * 3 + 2] = M[k].z - nrm.getZ(i);
+      });
+      return [new THREE.BufferAttribute(dp, 3), new THREE.BufferAttribute(dn, 3)];
+    };
+    grips.push(delta(P, N)); hooks.push(delta(...hook));
   }
-  g.morphAttributes.position = dP; g.morphAttributes.normal = dN; g.morphTargetsRelative = true;
+  const all = [...grips, ...hooks];   // 0/1 grip R/L, 2/3 hook R/L
+  g.morphAttributes.position = all.map(t => t[0]); g.morphAttributes.normal = all.map(t => t[1]); g.morphTargetsRelative = true;
   return g.userData.grip = { seats };
 }
 
@@ -125,7 +143,7 @@ export function createGLTFCharacter(avatar) {
     if (o.name.startsWith('accessory_wristband')) o.visible = avatar.wristband === 'both' || avatar.wristband === (o.name.endsWith('R') ? 'right' : 'left');
     if (!o.isMesh) return;
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); gripMorph(o, handOffset); o.updateMorphTargets(); skin = o; } }
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); handMorphs(o, handOffset); o.updateMorphTargets(); skin = o; body.arms(['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n))); } }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
     // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
@@ -167,7 +185,7 @@ export function createGLTFCharacter(avatar) {
   // The menu hero, whose disc holdDisc carries outside any throw (carry()), gets the cover-shot pose instead; bystanders,
   // who hold no visible disc, keep the relaxed idle clip rather than raising an empty hand. ponytail: inferred rather than
   // a setStance() call because main.js is shared; add the call if a second consumer needs the state.
-  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand';
+  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, hookW = 0, aimType = 'backhand';
   function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; group.updateMatrixWorld(true); }
   function blendTo(pose, w, base = null) {   // slerp the bones toward a shared-contract pose: over the mixer output, or over the windup pose the clip was baked from
     // (the mixer skips bones whose value did not change, so a held windup phase is rebuilt from the shared keys instead of read back)
@@ -247,7 +265,9 @@ export function createGLTFCharacter(avatar) {
       settle();
       readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < STANCE_FADE ? readyW : Math.max(0, readyW - dt / .22);
       heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
-      skin.morphTargetInfluences[lefty ? 1 : 0] = gripW();
+      // the disc hand hooks round the rim while it holds one (a bystander's hands hang open) and lets go just after release
+      const gw = gripW(), holding = phase !== null ? phase < .68 : carries >= 1 || grips >= 1, mi = skin.morphTargetInfluences;
+      hookW = THREE.MathUtils.clamp(hookW + (holding ? 1 : -1) * dt * 8, 0, 1); mi[lefty ? 1 : 0] = gw; mi[lefty ? 3 : 2] = hookW * (1 - gw);
       overlay();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },

@@ -1,8 +1,8 @@
 """Chains athlete v3: photoreal Meshy bodies re-rigged on ChainsRig.
 Run: blender -b -P tools/build-golfer-v3.py -- [--source <meshy.glb>] [--variant m|f] [--preview <dir>]
 Reads a Meshy 7 image-to-3D athlete (~100k triangles, 24-joint auto-rig, 2048 baked albedo), straightens
-its A-pose into the ChainsRig rest (arms and legs vertical), curls the fingers into a rim grip, merges the
-24 joint weights into the eleven ChainsRig bones, fits the scan's loose tee onto the body as a jersey (fit_shirt: shorter
+its A-pose into the ChainsRig rest (arms and legs vertical; the hands stay half open, the runtime morphs the disc hand's
+grip), merges the 24 joint weights into the eleven ChainsRig bones, fits the scan's loose tee onto the body as a jersey (fit_shirt: shorter
 sleeves on the arm, a waist taper, armpit weights that let the throwing arm rise without a wing of shirt), decimates to a
 game body and a phone LOD (the face keeps
 most of its triangles), unwraps each body afresh so no triangle straddles a texture seam, then bakes from the
@@ -212,23 +212,6 @@ def set_coords(body, c):
 
 def hand_box(c, h):
   return (np.abs(c[:, 0] - h[0]) < .08) & (np.abs(c[:, 2] - h[2]) < .1) & (c[:, 1] < h[1] + .015) & (c[:, 1] > h[1] - .26)
-
-def curl_fingers(body, J):
-  """The scan's fingers hang straight. Bend them around a disc rim: three hinges per finger (knuckle, middle,
-  tip) rotate everything below the hinge toward the palm, blended over a couple of centimetres so the skin
-  stretches instead of creasing. Fingertips end up hooked where the rim of a hanging disc sits."""
-  c = coords(body); p = c.copy()
-  for side, s in (('Right', -1), ('Left', 1)):   # the right palm faces -x (the thigh), so its fingertips swing toward -x
-    h = np.array(J[side + 'Hand'], np.float32); box = hand_box(c, h)
-    tip = c[box][:, 1].min(); L = h[1] - tip   # hand length, wrist to fingertip
-    for frac, deg in ((.53, 38), (.76, 62), (.9, 34)):
-      y0 = h[1] - frac * L; w = np.clip((y0 + .012 - c[:, 1]) / .024, 0, 1) * box
-      piv = p[box][np.argmin(np.abs(c[box][:, 1] - y0) + np.abs(c[box][:, 2] - h[2]) * .3)]   # a vertex on the hinge line, in its already-bent position
-      a = w * math.radians(deg) * s; ca, sa = np.cos(a), np.sin(a)
-      dx, dy = p[:, 0] - piv[0], p[:, 1] - piv[1]
-      p[:, 0] = piv[0] + dx * ca - dy * sa; p[:, 1] = piv[1] + dx * sa + dy * ca
-    REPORT.setdefault('hands', {})[side] = {'length': float(L), 'tipDrop': float(h[1] - p[box][:, 1].min()), 'tipIn': float(s * (p[box][:, 0] - h[0]).max())}
-  set_coords(body, p)
 
 SLEEVE = .17   # the fitted sleeve ends this far below the shoulder joint; pack-body-textures.py recolours the scan's longer sleeve below it as arm
 def fit_shirt(body, RIG, ref=None, rewire=True):
@@ -727,8 +710,7 @@ def build(lod, shared):
   head = measure_head(body, Ja)
   region_lum, skin_mean = bake_textures(body, hi, Ja, head, lod)
   bpy.data.objects.remove(hi, do_unlink=True)
-  J = straighten(arm); bake_pose(arm, body); remap_weights(body)
-  curl_fingers(body, J)
+  J = straighten(arm); bake_pose(arm, body); remap_weights(body)   # the hands stay as scanned, half open: gltf-player.js hooks the disc hand round the rim with morphs
   RIG = {'root': J['Hips'], 'spine': J['Spine02'], 'head': J['neck'], 'shR': J['RightArm'], 'elR': J['RightForeArm'], 'shL': J['LeftArm'], 'elL': J['LeftForeArm'],
          'hipR': J['RightUpLeg'], 'knR': J['RightLeg'], 'hipL': J['LeftUpLeg'], 'knL': J['LeftLeg']}
   RIG = {k: [float(x) for x in v] for k, v in RIG.items()}
@@ -752,7 +734,7 @@ def build(lod, shared):
   leg_scale = 1.0 if VARIANT == 'm' or not ref.exists() else leg / float(json.loads(ref.read_text())['extras'].get('legLength', leg))
   extras = {'handOffset': hand, 'headCentre': list(HEAD_C), 'headRadii': list(HEAD_R), 'eyeY': head['eyeY'], 'faceZ': head['faceZ'], 'chinY': head['chin'],
             'chestZ': chest['chestZ'], 'chestY': chest['chestY'], 'regionLum': region_lum, 'skinMean': skin_mean, 'height': float(coords(body)[:, 1].max()), 'legLength': leg, 'legScale': leg_scale, 'figure': VARIANT,
-            'sleeveHem': fit['hem']}
+            'sleeveHem': fit['hem'], 'shirtHem': round((RIG['hipR'][1] + RIG['hipL'][1]) / 2 + .055, 4)}   # the jersey ends at the hip: pack-body-textures.py turns the scan's tee below it into shorts
   build_rig(meshes(), RIG, extras)
   if not lod: shared['rig'] = RIG; shared['hand'] = hand; shared['extras'] = extras
   return RIG
