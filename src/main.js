@@ -135,7 +135,7 @@ const LAYOUTS = COURSES.map(courseLayout);
 // off-shoulder and the woods past it closing the top of the frame. Trees inside ~25 m keep 95% of their contrast
 // through the haze, so staging close is what clears the fog. Of the greens whose approach runs away from the sun (the
 // low key then lights his face and the woods instead of haloing him) the one with the most trees past it wins.
-const MENU = { short: 5, lat: 1.7, face: .45, wide: { back: 4.4, up: .85, aim: 1, x: .5, fov: 28 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
+const MENU = { short: 5, lat: 1.7, face: .2, wide: { back: 4.4, up: .85, aim: 1, x: .5, fov: 28 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
 const menuStage = { d: [0, 1], r: [-1, 0] };
 // Contact shade under the clubhouse hero: the key light sits behind the lens, so his own shadow falls out of sight behind him.
 const blobCanvas = document.createElement('canvas'); blobCanvas.width = blobCanvas.height = 64; const blobInk = blobCanvas.getContext('2d'), blobGrad = blobInk.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -157,7 +157,7 @@ function stageClubhouse() {
     if (!best || score > best.score) best = { score, d, r, x, z };
   }
   const { d, r, x, z } = best; menuStage.d = d; menuStage.r = r;
-  const y = world.height(x, z), a = Math.PI + S.face;   // three-quarter to the lens, turned into the frame
+  const y = world.height(x, z), a = Math.PI + S.face;   // square to the lens (eye contact, like a title screen), a touch toward the panel
   hero.group.position.set(x, y, z);
   hero.faceDir(d[0] * Math.cos(a) + r[0] * Math.sin(a), d[1] * Math.cos(a) + r[1] * Math.sin(a));   // once: steering faceDir every frame reads as aiming and coils the stance
   const n = world.normal(x, z); menuBlob.position.set(x, y + .03, z); menuBlob.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]));
