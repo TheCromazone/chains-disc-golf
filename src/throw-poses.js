@@ -114,8 +114,10 @@ export const STANCE = {
   // Re-solved (round 7) for the Disc Golf Masters address: the upper arm forward toward the lens, the elbow folded ~130° so
   // the forearm lies across the chest, the hand out on the target side with the disc level ~19 cm under the shoulder and
   // ~21 cm in front of the sternum. The upper arm held out sideways at shoulder height with the disc out by the hip read as
-  // "a mannequin with one arm lifted". The off arm bends ~60° and stands off the hip (hanging straight read as limp)
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-.509, -.162, -1.466], elR: [2.295, 2.849, 0], shL: [.35, 0, -.5], elL: [1.1, 0, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // "a mannequin with one arm lifted". Round 8: the upper arm lifted ~.2 rad more so the disc sits cocked at the chest
+  // (at belt height the forearm read as a stiff diagonal), and the off arm hangs loose against the ribs, elbow soft, the
+  // hand beside the thigh (bent ~60° and held off the hip it read as a claw gripping an invisible ball)
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-.309, .038, -1.466], elR: [2.295, 2.849, 0], shL: [.6, 0, -.1], elL: [.4, 0, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
@@ -141,8 +143,9 @@ export function heroPose(time, rig = RIGS.lite) {
 export const STANCE_FADE = .4;
 export const stanceFade = phase => { const u = Math.min(1, Math.max(0, phase / STANCE_FADE)); return 1 - u * u * (3 - 2 * u); };
 // The female scan's forearm skin shears into a flat fin past ~70° of forearm roll, so her backhand address folds the arm
-// with the upper arm out toward the target instead (disc level at the same chest height, solved the same way).
-export const STANCE_F = { backhand: { shR: [-1.59, .766, 3.115], elR: [2.062, .323, 0] } };
+// with the upper arm out toward the target instead; round 8 swings it forward and opens the elbow so the forearm lies
+// across her chest with the disc cocked there too (the round-7 solve hung it at the belt under a raised elbow).
+export const STANCE_F = { backhand: { shR: [-1.39, .966, 3.115], elR: [1.9, .323, 0] } };
 export function readyPose(type, time, rig = RIGS.lite, over = null) {
   const family = type.split('_')[0], stance = { ...(STANCE[family] || STANCE.forehand), ...over?.[family] }, breath = Math.sin(time * 1.3), pose = { rootY: 0 };
   for (const j of JOINTS) pose[j] = [...(stance[j] || IDLE[j])];
