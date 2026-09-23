@@ -1,19 +1,24 @@
-// Set dressing that makes the course read as a cared-for tournament venue: timber-framed turf tee mats, printed tee
-// signs with the hole map, galvanised baskets with drooping chains, a branded band and a number flag, benches, bins,
-// feather flags, and on hole 1 an event arch over the fairway, a roped gallery chute with sponsor boards, a staff cart
-// and a registration canopy. Every static prop on the course merges into four meshes: 'print' (every painted, printed
-// or wooden surface, one canvas atlas, vertex tint for solid colours), 'steel' (bare metal, vertex tint), 'arch' (the
-// arch's printed skin on the same atlas, single-sided so a chase camera flying through its beam sees through it rather
-// than a screen of navy) and the soft contact shade under the props' feet. Four draws plus three shadow draws (two on
-// Lite) however many props stand. Only the arch is in play (its legs and beam go to the flight model as capsules); every
+// Set dressing that makes the course read as a cared-for tournament venue: timber-framed turf tee mats set in edged
+// gravel beds, printed tee signs with the hole map, galvanised baskets with drooping chains, a branded band and a number
+// flag, benches, bins, feather flags, and on hole 1 an event arch over the fairway, a roped gallery chute with event
+// signs on legs, the course crew's UTV, a registration canopy and white canopies in the haze beyond. Every static prop
+// merges into a handful of meshes: 'print' (every painted, printed or wooden surface, one canvas atlas, vertex tint for
+// solid colours), 'steel' (bare metal, vertex tint), 'arch' (the arch's printed skin on the same atlas, single-sided so a
+// chase camera flying through its beam sees through it rather than a screen of navy), 'paint' (the UTV's clear coat,
+// Full only), the gravel beds and the soft contact shade under the props' feet. Six draws plus four shadow draws (two on
+// Lite) however many props stand, all weathered by one shader chunk (GRIME). Only the arch is in play (its legs and beam go to the flight model as capsules); every
 // other prop keeps out of the flight corridor (the tree-free half-width in front of each tee) and off the putt line,
 // and the basket's visual parts keep physics' heights (tray .55-.72 m, chains .72-1.34, band 1.34-1.46).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toonMaterial, windTime, windVec } from './materials.js';
+import { texture } from './assets.js';
 
 const FONT = '"Barlow Condensed", "Arial Narrow", Impact, sans-serif';
 const NAVY = '#16233d', GOLD = '#f2c318', PARK = '#173a2b';
+// The crushed-stone bed round every tee mat, tee-local: u right of the play line, f toward the basket (the mat spans
+// f -1.72..3.52 with its frame). course.js's `pads` are its four 1.6 x 3.2 m rectangles: keep the two in step.
+export const BED = { u: 1.6, f0: -2.2, f1: 4.2 };
 const rngOf = seed => { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s ^ (s >>> 15), 2246822519) >>> 0, s = Math.imul(s ^ (s >>> 13), 3266489917) >>> 0, (s ^ (s >>> 16)) >>> 0) / 4294967296); };
 
 // ---------- atlas ----------
@@ -24,6 +29,7 @@ for (let i = 0; i < 3; i++) REGION['feather' + i] = [536 + i * 176, 1048, 160, 6
 REGION.bag = [536, 1704, 256, 320]; REGION.band = [1072, 1048, 960, 76]; REGION.valance = [1072, 1352, 960, 96]; REGION.archBeam = [1072, 1464, 960, 104]; REGION.archLeg0 = [1072, 1600, 120, 440]; REGION.archLeg1 = [1208, 1600, 120, 440]; REGION.archSide = [1344, 1600, 56, 440];
 for (let i = 0; i < 9; i++) REGION['flag' + i] = [1072 + (i % 6) * 144, 1140 + Math.floor(i / 6) * 104, 128, 88];
 for (let i = 0; i < 4; i++) REGION['board' + i] = [1416 + (i % 2) * 312, 1600 + Math.floor(i / 2) * 120, 296, 84];
+REGION.utvDecal = [1416, 1816, 400, 100];
 const uvRect = name => { const [x, y, w, h] = REGION[name]; return [x / 2048, 1 - (y + h) / 2048, (x + w) / 2048, 1 - y / 2048]; };   // CanvasTexture flips Y
 
 // Per-pixel painters shade a scratch canvas at the atlas's own scale (Lite evaluates a quarter of the texels) in
@@ -79,6 +85,9 @@ function paintWood(g, w, h) {
   const rnd = rngOf(29); g.strokeStyle = 'rgba(30,20,12,.55)';
   for (let i = 0; i < 14; i++) { const y = 6 + rnd() * (h - 12), x = rnd() * w, l = 30 + rnd() * 120; g.lineWidth = .8 + rnd(); g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x + l * .3, y + rnd() * 3 - 1.5, x + l * .7, y + rnd() * 3 - 1.5, x + l, y + rnd() * 2 - 1); g.stroke(); }   // drying checks
   for (let i = 0; i < 5; i++) { const x = rnd() * w, y = 14 + rnd() * (h - 28); g.fillStyle = 'rgba(52,34,20,.8)'; g.beginPath(); g.ellipse(x, y, 5 + rnd() * 4, 3 + rnd() * 2, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(52,34,20,.35)'; g.lineWidth = 1; g.beginPath(); g.ellipse(x, y, 11, 6, 0, 0, 7); g.stroke(); }
+  for (let i = 0; i < 7; i++) { const x = rnd() * w, y = rnd() * h, r = 20 + rnd() * 50, gr = g.createRadialGradient(x, y, 0, x, y, r);   // silvered, sun-greyed patches and damp stains
+    gr.addColorStop(0, rnd() < .6 ? 'rgba(168,164,152,.38)' : 'rgba(38,30,22,.4)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
+  g.strokeStyle = 'rgba(214,196,160,.5)'; for (let i = 0; i < 10; i++) { const x = rnd() * w, y = rnd() * h, l = 8 + rnd() * 26, a = (rnd() - .5) * .6; g.lineWidth = .6 + rnd() * 1.4; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }   // spike and shoe scuffs to fresh wood
 }
 const roundRect = (g, x, y, w, h, r) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); };   // Safari < 16 has no roundRect
 const fwdOf = h => { const dx = h.way[1][0] - h.tee[0], dz = h.way[1][1] - h.tee[1], L = Math.hypot(dx, dz); return [dx / L, dz / L]; };
@@ -120,7 +129,7 @@ function paintFeather(g, w, h, i, name) {
   if (i === 1) { g.fillStyle = fg; g.beginPath(); g.moveTo(w * .3, 60); g.quadraticCurveTo(w * .75, 20, w * .9, 70); g.quadraticCurveTo(w * .6, 55, w * .3, 60); g.fill(); }   // wing mark
   if (i === 2) { g.strokeStyle = fg; g.lineWidth = 6; g.beginPath(); g.arc(w * .58, 70, 34, 0, 7); g.stroke(); g.font = `800 34px ${FONT}`; g.fillStyle = fg; g.textAlign = 'center'; g.fillText('BB', w * .58, 72); }
 }
-// Low sponsor A-boards on the gallery rope: the event, the two invented sponsors and the host club.
+// Event signs on the gallery rope: the event, the two invented sponsors and the host club.
 function paintBoard(g, w, h, i, name) {
   const [bg, fg, accent, big, small] = [[NAVY, '#ffffff', GOLD, 'CHAINS OPEN 2026', name.toUpperCase() + '  ·  DISC GOLF CHAMPIONSHIP'], ['#f6f4ee', '#d4471b', '#1c2430', 'LOFTWING', 'DISCS  ·  FLY FURTHER'], ['#1f5a3b', '#f3ead2', GOLD, 'BIRDIE BREW', 'COFFEE ROASTERS'], [PARK, '#ffffff', GOLD, name.toUpperCase(), 'DISC GOLF CLUB  ·  HOST']][i];
   g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = accent; g.fillRect(0, h - 8, w, 8);
@@ -195,28 +204,55 @@ function paintAtlas(canvas, scale, ctx) {
   for (let i = 0; i < 4; i++) draw('board' + i, (g, w, h) => paintBoard(g, w, h, i, ctx.name));
   draw('valance', (g, w, h) => { g.fillStyle = NAVY; g.fillRect(0, 0, w, h); g.fillStyle = GOLD; g.fillRect(0, h - 10, w, 10); g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'CHAINS OPEN 2026  ·  REGISTRATION', w / 2, h * .45, w - 60, 800, 60); });
   for (let i = 0; i < 9; i++) draw('flag' + i, (g, w, h) => paintFlag(g, w, h, i + 1));
+  draw('utvDecal', (g, w, h) => {   // crew livery on the UTV's bed sides, on its own paint colour (a decal on the clear coat)
+    g.fillStyle = '#2459a6'; g.fillRect(0, 0, w, h); g.fillStyle = GOLD; g.fillRect(0, h * .74, w, 7); g.fillStyle = '#ffffff'; g.fillRect(0, h * .74 + 10, w, 3);
+    g.textAlign = 'left'; g.textBaseline = 'middle'; fitText(g, 'CHAINS OPEN', 8, h * .36, w * .56, 800, 46); g.fillStyle = GOLD; fitText(g, 'COURSE CREW', w * .6, h * .38, w * .38, 700, 26);
+  });
 }
 
 // ---------- geometry kit ----------
-function kit() {
-  const lists = { print: [], steel: [], arch: [] }, col = new THREE.Color();
+function kit(height, full) {
+  const lists = { print: [], steel: [], arch: [], paint: [] }, col = new THREE.Color(), cells = new Map();
+  // ground under x, z on a 25 cm lattice: the parts of one prop share a handful of samples (a basket's chains, one)
+  const under = (x, z) => { const i = Math.round(x * 4), j = Math.round(z * 4), k = i * 8192 + j; let y = cells.get(k); if (y === undefined) cells.set(k, y = height(i / 4, j / 4)); return y; };
   // Remaps a placed part's 0..1 UVs into an atlas region, tints it (linear vertex colour) and queues it for one merge.
-  const put = (list, g, region = 'white', color = '#ffffff') => {
+  // lift: each vertex's height over the turf under it, which the weathering (GRIME below) dusts and muds; `clean`
+  // raises it (metres) to thin the dirt on a part that lives at ground level anyway, Infinity for none at all.
+  const put = (list, g, region = 'white', color = '#ffffff', clean = 0) => {
     const uv = g.attributes.uv, [u0, v0, u1, v1] = uvRect(region);
     for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0));
-    col.set(color); const n = g.attributes.position.count, c = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) { c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b; }
-    g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    col.set(color); const p = g.attributes.position, n = p.count, c = new Float32Array(n * 3), lift = new Float32Array(n);
+    for (let i = 0; i < n; i++) { c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b; lift[i] = clean === Infinity ? 99 : p.getY(i) - under(p.getX(i), p.getZ(i)) + clean; }
+    g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.setAttribute('lift', new THREE.BufferAttribute(lift, 1));
     if (list === 'print' && !g.attributes.sway) g.setAttribute('sway', new THREE.BufferAttribute(new Float32Array(n), 1));   // 0 = rigid; cloth carries 0 at the pole to 1 at the free edge
     if (!g.index) g.setIndex([...Array(n).keys()]);
-    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color', list === 'print' && 'sway'].includes(k)) g.deleteAttribute(k);
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color', 'lift', list === 'print' && 'sway'].includes(k)) g.deleteAttribute(k);
     lists[list].push(g);
     return g;
   };
   // Cloth: a second sheet with reversed winding, so the back-face-only shadow pass always has a face to draw.
   const sheet = g => { const b = g.clone(), ix = b.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } lists.print.push(b); };
-  return { print: (g, region, color) => put('print', g, region, color), cloth: (g, region) => sheet(put('print', g, region)), steel: (g, color = '#c8cdd0') => put('steel', g, 'white', color), arch: (g, region, color) => put('arch', g, region, color), lists };
+  return { print: (g, region, color, clean) => put('print', g, region, color, clean), cloth: (g, region) => sheet(put('print', g, region)), steel: (g, color = '#c8cdd0', clean) => put('steel', g, 'white', color, clean), arch: (g, region, color) => put('arch', g, region, color),
+    paint: (g, color, region = 'white') => full ? put('paint', g, region, color) : region === 'white' && put('steel', g, 'white', color), lists };   // clear-coated vehicle paint on Full; Lite folds it into steel and drops decals
 }
+// Weathering shared by the three prop materials, so nothing on the course reads as fresh CG: dust and dried mud splashed
+// up the lowest ~35 cm of whatever stands on the turf (vLift, metres), its edge broken by 3D value noise into splashes,
+// matte where it lies; and a broad grime mottle over every face so no painted part is one flat colour. Lite keeps one
+// noise octave.
+const GRIME_V = s => { s.vertexShader = 'attribute float lift;varying float vLift;varying vec3 vWp;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvLift=lift;vWp=position;'); };   // the merged props sit at the origin: position is world space
+const GRIME_F = (s, lite) => {
+  s.fragmentShader = `varying float vLift;varying vec3 vWp;
+float wHash(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+float wNoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
+  return mix(mix(mix(wHash(i),wHash(i+vec3(1,0,0)),f.x),mix(wHash(i+vec3(0,1,0)),wHash(i+vec3(1,1,0)),f.x),f.y),mix(mix(wHash(i+vec3(0,0,1)),wHash(i+vec3(1,0,1)),f.x),mix(wHash(i+vec3(0,1,1)),wHash(i+vec3(1,1,1)),f.x),f.y),f.z);}\n` + s.fragmentShader
+    .replace('#include <color_fragment>', `#include <color_fragment>
+      float nA=wNoise(vWp*5.3),nB=${lite ? '.5' : 'wNoise(vWp*17.+3.7)'};
+      float grime=1.-smoothstep(0.,.36,vLift+(nA-.5)*.2+(nB-.5)*.08);
+      diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.2,.17,.135)*(.7+.6*nB),grime*(.3+.5*grime));   // dried mud: lightens black rubber, darkens white paint
+      diffuseColor.rgb*=.9+.2*${lite ? 'nA' : 'wNoise(vWp*1.9+11.)'};`)
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,1.,grime*.8);')
+    .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor*=1.-grime*.8;');
+};
 // Soft contact shade where props meet the turf, the occlusion the sun's shadow map is too coarse to draw: one
 // ground-hugging 5x5 grid per foot, dark in a rounded-rect core (`core` of the half-extents) and fading to nothing at
 // the edge, faded out with distance like course.js's canopy pools. blobs: [x, z, yaw, half x, half z, core, strength].
@@ -241,14 +277,6 @@ const ring = (r, t, n, m = 5) => new THREE.TorusGeometry(r, t, m, n).rotateX(Mat
 const tube = (pts, r, seg, sides) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), seg, r, sides, false);
 // a local part (built in the prop's own frame) placed by the prop's world matrix
 const at = (g, local, world) => g.applyMatrix4(local).applyMatrix4(world);
-// Flat gallery tape `w` tall hung from a to b (Vector3s), sagging `sag` at mid-span.
-function tape(a, b, sag, w) {
-  const pos = [], idx = [], N = 6;
-  for (let i = 0; i <= N; i++) { const t = i / N, y = a.y + (b.y - a.y) * t - sag * 4 * t * (1 - t), x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t; pos.push(x, y + w / 2, z, x, y - w / 2, z); }
-  for (let i = 0; i < N * 2; i += 2) idx.push(i, i + 1, i + 2, i + 2, i + 1, i + 3);
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((N + 1) * 4), 2)); g.setIndex(idx); g.computeVertexNormals();
-  return g;
-}
 // Padded box: every vertex of a subdivided box pulled onto a rounded shell of radius r (soft goods, cushions).
 function roundBox(w, h, d, r, seg) {
   const g = new THREE.BoxGeometry(w, h, d, seg, seg, seg), p = g.attributes.position, n = g.attributes.normal, v = new THREE.Vector3(), c = new THREE.Vector3(), hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
@@ -257,6 +285,27 @@ function roundBox(w, h, d, r, seg) {
     v.sub(c).normalize(); n.setXYZ(i, v.x, v.y, v.z); v.multiplyScalar(r).add(c); p.setXYZ(i, v.x, v.y, v.z);
   }
   return g;
+}
+
+// A straight tube from a to b (Vector3s), open-ended: cage bars, poles.
+const rod = (a, b, r, n = 6) => { const d = new THREE.Vector3().subVectors(b, a), L = d.length(); return cyl(r, r, L, n, true).applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.divideScalar(L))).translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); };
+// Solid-colour parts whose generator writes UVs in metres (extrusions) sample the atlas's white patch.
+const solid = g => { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, .5, .5); return g; };
+// Fender flare: an arc band round a wheel, r0-r1 from angle a0 to a1 (0 = forward, in the z-y plane), `w` wide
+// across x, centred on the axle.
+function flare(r0, r1, a0, a1, w, n) {
+  const s = new THREE.Shape(); s.absarc(0, 0, r1, a0, a1, false); s.absarc(0, 0, r0, a1, a0, true);
+  return solid(new THREE.ExtrudeGeometry(s, { depth: w, bevelEnabled: false, curveSegments: n }).rotateY(-Math.PI / 2).translate(w / 2, 0, 0));
+}
+// Knobby UTV tyre, axle along x: a lathe of the carcass with rounded shoulders and two staggered rows of chevron lugs.
+function tyreGeometry(full) {
+  const R = .31, hw = .13, sh = .05, prof = [new THREE.Vector2(.19, -hw)];
+  for (let i = 0; i <= 4; i++) { const a = i / 4 * Math.PI / 2; prof.push(new THREE.Vector2(R - sh + Math.sin(a) * sh, -hw + sh - Math.cos(a) * sh)); }
+  for (let i = 0; i <= 4; i++) { const a = i / 4 * Math.PI / 2; prof.push(new THREE.Vector2(R - sh + Math.cos(a) * sh, hw - sh + Math.sin(a) * sh)); }
+  prof.push(new THREE.Vector2(.19, hw));
+  const parts = [new THREE.LatheGeometry(prof, full ? 28 : 14).rotateZ(Math.PI / 2)], N = full ? 18 : 12;
+  for (let i = 0; i < N; i++) for (const s of [-1, 1]) parts.push(box(.1, .075, .045).rotateZ(s * .35).translate(s * .056, 0, R + .012).rotateX((i + (s > 0 ? .5 : 0)) / N * Math.PI * 2));
+  return mergeGeometries(parts);
 }
 
 // Basket: galvanised pole, tray of rim rings and bars over a pressed dish, outer and inner chain sets hanging in
@@ -309,7 +358,7 @@ function featherGeometry(full) {
 }
 
 export function dressCourse({ holes, height, trees, bushes = [], corridor, def, quality }) {
-  const full = quality !== 'low', K = kit(), rnd = rngOf(def.seed * 97 + 5);
+  const full = quality !== 'low', K = kit(height, full), rnd = rngOf(def.seed * 97 + 5);
   const frame = (h, u, f) => { const [fx, fz] = fwdOf(h); return [h.tee[0] - fz * u + fx * f, h.tee[1] + fx * u + fz * f]; };   // tee-local: u right of the fairway, f toward the basket
   // u of a spot pad metres outside the flight corridor on one side (-1 left), the half-width sampled where it stands
   const edge = (h, side, f, pad) => { let u = side * (corridor(...frame(h, side * 9, f)) + pad); u = side * (corridor(...frame(h, u, f)) + pad); return u; };
@@ -352,10 +401,11 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     ['#e4412b', '#f3c21b', '#2f9fd8', '#62c23c', '#f07ab8', '#f4f4f0', '#ff8a1e'].slice(0, full ? 7 : 3).forEach((c, k) => paint(at(cyl(.105, .105, .021, full ? 16 : 8).rotateZ(Math.PI / 2 + (k - 3) * .06), pose(-.14 + k * .045, .88 + (k % 3) * .014, .01), world), c));   // standing like books
   };
   // Pop-up event canopy: 3 x 3 m, navy roof, printed valance, a draped registration table underneath.
-  const addTent = world => {
+  const addTent = (world, white = false) => {   // white: a plain vendor/players' canopy, walled at the back, for the village beyond the arch
     for (const [x, z] of [[-1.47, -1.47], [1.47, -1.47], [-1.47, 1.47], [1.47, 1.47]]) K.steel(at(box(.04, 2.12, .04), pose(x, 1.06, z), world), '#c4c9cc');
-    paint(at(new THREE.ConeGeometry(2.12, .85, 4, 1, true).rotateY(Math.PI / 4), pose(0, 2.54, 0), world), NAVY);
-    for (let k = 0; k < 4; k++) K.print(at(new THREE.PlaneGeometry(3, .3), pose(Math.sin(k * Math.PI / 2) * 1.5, 1.97, Math.cos(k * Math.PI / 2) * 1.5, k * Math.PI / 2), world), 'valance');
+    paint(at(new THREE.ConeGeometry(2.12, .85, 4, 1, true).rotateY(Math.PI / 4), pose(0, 2.54, 0), world), white ? '#f1f1ee' : NAVY);
+    for (let k = 0; k < 4; k++) { const v = at(new THREE.PlaneGeometry(3, .3), pose(Math.sin(k * Math.PI / 2) * 1.5, 1.97, Math.cos(k * Math.PI / 2) * 1.5, k * Math.PI / 2), world); if (white) paint(v, '#ecebe6'); else K.print(v, 'valance'); }
+    if (white) paint(at(new THREE.PlaneGeometry(2.96, 1.9), pose(0, .98, -1.47), world), '#e6e5df');
     paint(at(box(1.8, .74, .72), pose(0, .37, -.6), world), '#f1f1ee');
     paint(at(box(1.82, .03, .74), pose(0, .755, -.6), world), '#f7f7f4');
     for (const [x, z] of [[-1.47, -1.47], [1.47, -1.47], [-1.47, 1.47], [1.47, 1.47]]) shadeUnder(world, .16, .16, 0, .45, x, z);
@@ -390,42 +440,132 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     skin(box(2 * legX + leg, beam, deep).translate(0, yb + beam / 2, 0), 'white', '#1a2a48');
     for (const z of [1, -1]) skin(new THREE.PlaneGeometry(2 * legX + leg - .08, beam - .08).rotateY(z < 0 ? Math.PI : 0).translate(0, yb + beam / 2, z * face), 'archBeam');   // no extrusions on the beam: a chase camera passing through it would meet them as bars across the screen
   };
-  // Low sponsor A-board: two printed panels leaning together on a steel frame, 2 x .56 m.
-  const addBoard = (world, design) => {
-    for (const z of [1, -1]) K.print(at(new THREE.PlaneGeometry(2, .56), pose(0, .41, z * .11, z < 0 ? Math.PI : 0, -.3), world), 'board' + design);   // each leans back toward the other
-    for (const x of [-.98, .98]) for (const z of [1, -1]) K.steel(at(box(.03, .74, .03), pose(x, .35, z * .12, 0, -z * .3), world), '#2e3134');
-    shadeUnder(world, 1.2, .42, .6, .55);
+  // Event sign: a printed 2 x .57 m composite panel in a black edge frame, bolted to two square steel posts that stand
+  // on T-feet held down with sandbags, so its legs show and it stands on its own like the ones at a real event.
+  const addSign = (world, design) => {
+    const y0 = .5, ph = .57;
+    for (const z of [1, -1]) K.print(at(new THREE.PlaneGeometry(2, ph), pose(0, y0 + ph / 2, z * .016, z < 0 ? Math.PI : 0), world), 'board' + design);
+    paint(at(box(2.05, ph + .05, .028), pose(0, y0 + ph / 2, 0), world), '#1e2023');
+    for (const x of [-.8, .8]) {
+      K.steel(at(box(.045, y0 + ph + .06, .045), pose(x, (y0 + ph + .06) / 2, -.04), world), '#44484c');
+      K.steel(at(box(.06, .035, .62), pose(x, .018, -.04), world), '#3a3d40');   // T-foot across the panel
+      paint(at(roundBox(.4, .12, .24, .055, 2), pose(x + (x < 0 ? .03 : -.03), .075, -.22, x < 0 ? .12 : -.1), world), '#56533f');   // sandbag on the foot
+      shadeUnder(world, .26, .4, .25, .6, x, -.08);
+    }
   };
-  // Tournament staff cart parked off the chute: a blue two-seat tub (it has to hold its own against the glare that
-  // hazes the left of the tee frame), white canopy on struts, cargo bed. Nose toward +z. The gel-coat body and canopy
-  // go in the steel batch for its tighter highlight: painted plastic, not matte print.
-  const addCart = world => {
-    const W = '#2c5da8', D = '#1b1d20', gloss = (g, c) => K.steel(g.applyMatrix4(world), c);
-    gloss(roundBox(1.18, .36, 2.3, .09, 2).translate(0, .5, 0), W);
-    gloss(roundBox(1.12, .46, .5, .06, 2).translate(0, .8, .9), W);   // front cowl
-    for (const x of [-.36, .36]) paint(at(cyl(.055, .055, .03, 10).rotateX(Math.PI / 2), pose(x, .9, 1.15), world), '#fffbe6');   // headlamps
-    paint(at(roundBox(1.22, .1, .1, .04, 1), pose(0, .4, 1.18), world), D); paint(at(roundBox(1.22, .1, .1, .04, 1), pose(0, .4, -1.14), world), D);   // bumpers
-    gloss(box(1.06, .2, .5).translate(0, .76, .06), W);   // seat pedestal
-    paint(at(roundBox(1.08, .14, .56, .05, 1), pose(0, .9, .06), world), D);
-    paint(at(roundBox(1.08, .5, .1, .04, 1), pose(0, 1.18, -.24), world), D);
-    paint(at(box(1.12, .3, .66), pose(0, .82, -.74), world), '#3a3f44');   // cargo bed
-    paint(at(cyl(.17, .17, .03, 12).rotateX(-1.1), pose(-.25, 1.12, .52), world), D);   // steering wheel
-    gloss(roundBox(1.26, .07, 1.62, .03, 1).translate(0, 2, .06), '#eef0ef');
-    for (const [x, z, p] of [[-.54, .7, .12], [.54, .7, .12], [-.54, -.52, 0], [.54, -.52, 0]]) K.steel(at(cyl(.02, .02, 1.3, 6), pose(x, 1.33, z, 0, p), world), '#c4c9cc');
-    for (const [x, z] of [[-.56, .8], [.56, .8], [-.56, -.78], [.56, -.78]]) { paint(at(cyl(.23, .23, .2, full ? 14 : 8).rotateZ(Math.PI / 2), pose(x, .23, z), world), D); K.steel(at(cyl(.12, .12, .21, 8).rotateZ(Math.PI / 2), pose(x, .23, z), world), '#9aa0a4'); }
-    shadeUnder(world, .82, 1.42, .55, .62);
-    for (const [x, z] of [[-.56, .8], [.56, .8], [-.56, -.78], [.56, -.78]]) shadeUnder(world, .2, .3, .2, .7, x, z);   // where the tyres press into the turf
+  // Side-by-side utility vehicle, the course crew's: 3.0 x 1.5 x 1.98 m on 1.95 m of wheelbase, nose +z, origin on the
+  // ground between the axles. Clear-coated paint (hood, fascia, fender flares, sills, bed sides, tailgate with the crew
+  // livery), a glossy black tube cage and moulded roof with an amber beacon; knobby tyres on alloys, vinyl seats and
+  // textured charcoal plastics in print; a cargo bed with a cooler, two cones and a bundle of rolled feather flags.
+  // The lift grime muds its lowest 35 cm on its own.
+  const addUTV = world => {
+    const BODY = '#2459a6', PLA = '#2b2d30', RUB = '#222223', CAGE = '#1b1c1e', VINYL = '#3a3d42', UNDER = '#17181a', I = new THREE.Matrix4(), V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const S = (g, c, m = I) => K.steel(at(g, m, world), c), P = (g, c, m = I) => K.print(at(g, m, world), 'white', c), B = (g, m = I) => K.paint(at(g, m, world), BODY), hi = full ? 2 : 1;
+    const tyre = tyreGeometry(full), axle = .335;
+    for (const [x, z] of [[-.6, .97], [.6, .97], [-.6, -.97], [.6, -.97]]) {
+      const s = Math.sign(x), wm = pose(x, axle, z);
+      P(tyre.clone(), RUB, wm);
+      S(cyl(.19, .19, .2, full ? 16 : 8, true).rotateZ(Math.PI / 2), '#3f4448', wm);   // rim barrel
+      S(cyl(.18, .18, .02, full ? 16 : 8).rotateZ(Math.PI / 2).translate(s * .085, 0, 0), '#34393d', wm);   // dished face
+      S(ring(.172, .013, full ? 20 : 10, 3).rotateZ(Math.PI / 2).translate(s * .095, 0, 0), '#aab0b5', wm);   // machined lip
+      if (full) for (let k = 0; k < 5; k++) S(box(.022, .13, .04).translate(s * .098, .088, 0).rotateX(k * Math.PI * .4), '#8f969c', wm);
+      S(cyl(.045, .055, .04, 8).rotateZ(Math.PI / 2).translate(s * .105, 0, 0), '#26292c', wm);   // hub
+      B(flare(.4, .47, .42, Math.PI - .42, .3, full ? 10 : 6), pose(x, axle, z));
+      for (const [y, dz] of [[.27, .07], [.39, -.07]]) P(box(.36, .03, .05).translate(-s * .2, 0, 0), UNDER, pose(x, y, z + dz));   // suspension arms
+      shadeUnder(world, .19, .28, .2, .75, x, z);
+    }
+    P(box(.9, .06, 2.7), UNDER, pose(0, .31, 0));   // skid plates and frame between the wheels
+    // front clip: hood pitched down to the nose, fascia with a black grille, lamps in housings, bumper and brush guard
+    B(roundBox(1.36, .09, .9, .04, hi), pose(0, .905, 1.02, 0, .13));
+    B(roundBox(1.0, .42, .14, .05, hi), pose(0, .63, 1.43));
+    P(box(.6, .19, .02), '#101112', pose(0, .6, 1.505));
+    for (const x of [-.31, .31]) { P(box(.27, .11, .03), '#141516', pose(x, .77, 1.49)); S(roundBox(.22, .075, .03, .015, 1), '#f2eedd', pose(x, .77, 1.502)); }
+    P(roundBox(1.18, .1, .12, .04, 1), PLA, pose(0, .42, 1.5));
+    for (const x of [-.44, .44]) P(rod(V(x, .42, 1.55), V(x, .78, 1.58), .022, full ? 8 : 4), PLA);
+    P(rod(V(-.46, .78, 1.58), V(.46, .78, 1.58), .022, full ? 8 : 4), PLA);
+    // cab: floor, dash, column and wheel, two vinyl seats on a storage pedestal, rockers, painted sill panels
+    P(box(1.26, .04, 1.1), PLA, pose(0, .44, -.02));
+    P(roundBox(1.24, .25, .16, .04, hi), PLA, pose(0, .96, .56));
+    P(rod(V(-.3, .95, .5), V(-.3, 1.07, .37), .02, 6), PLA);
+    P(ring(.17, .016, full ? 22 : 12, full ? 5 : 3), PLA, pose(-.3, 1.08, .36, 0, -.82));
+    P(box(1.2, .33, .52), PLA, pose(0, .6, -.25));
+    for (const x of [-.3, .3]) {
+      P(roundBox(.54, .13, .5, .05, hi), VINYL, pose(x, .81, -.22));
+      P(roundBox(.54, .5, .12, .05, hi), VINYL, pose(x, 1.1, -.5, 0, -.18));
+      P(roundBox(.3, .15, .1, .04, 1), VINYL, pose(x, 1.44, -.57, 0, -.18));
+    }
+    for (const s of [-1, 1]) { P(roundBox(.08, .12, 1.0, .03, 1), PLA, pose(s * .67, .4, 0)); B(roundBox(.05, .32, .6, .02, 1), pose(s * .64, .62, -.24)); }
+    // cage: two side hoops (A-pillar, roof rail, B-pillar) and three cross bars, the moulded roof and a beacon
+    const tube = (a, b) => S(rod(a, b, .025, full ? 8 : 4), CAGE);
+    for (const s of [-1, 1]) {
+      const pts = [V(s * .66, .98, .6), V(s * .64, 1.87, .33), V(s * .64, 1.89, -.58), V(s * .68, .88, -.66)];
+      for (let k = 0; k < 3; k++) tube(pts[k], pts[k + 1]);
+      if (full) for (const p of pts.slice(1, 3)) S(new THREE.SphereGeometry(.027, 8, 5).translate(p.x, p.y, p.z), CAGE);
+    }
+    tube(V(-.64, 1.87, .33), V(.64, 1.87, .33)); tube(V(-.64, 1.89, -.58), V(.64, 1.89, -.58)); tube(V(-.673, 1.25, -.631), V(.673, 1.25, -.631));
+    S(roundBox(1.5, .07, 1.06, .03, hi), '#1c1d1f', pose(0, 1.945, -.1));
+    S(cyl(.05, .056, .09, 10), '#ff9a1a', pose(.42, 2.025, -.46)); P(cyl(.07, .07, .025, 10), PLA, pose(.42, 1.99, -.46));
+    // cargo bed: painted sides with black rail caps, black floor and front wall, painted tailgate; tail lamps, hitch
+    P(box(1.36, .05, .94), PLA, pose(0, .86, -1.07));
+    P(box(1.36, .3, .05), PLA, pose(0, 1.02, -.6));
+    for (const s of [-1, 1]) { B(roundBox(.06, .3, .96, .02, 1), pose(s * .7, 1.02, -1.07)); P(box(.09, .03, .97), PLA, pose(s * .7, 1.18, -1.07)); K.paint(at(new THREE.PlaneGeometry(.8, .2), pose(s * .732, 1.01, -1.07, s * Math.PI / 2), world), '#ffffff', 'utvDecal'); }
+    B(roundBox(1.36, .3, .05, .015, 1), pose(0, 1.02, -1.55));
+    P(box(1.0, .4, .9), UNDER, pose(0, .6, -1.05));
+    P(roundBox(1.1, .09, .1, .03, 1), PLA, pose(0, .46, -1.56)); P(box(.07, .06, .14), '#2a2c2e', pose(0, .41, -1.64));
+    for (const x of [-.55, .55]) S(roundBox(.13, .06, .03, .01, 1), '#a3161c', pose(x, .8, -1.585));
+    // load: a cooler, two stacked cones, three feather flags rolled on their poles
+    P(roundBox(.6, .36, .38, .04, hi), '#efefea', pose(.2, 1.07, -1.24)); P(roundBox(.62, .07, .4, .03, 1), '#2c62b3', pose(.2, 1.28, -1.24));
+    for (const k of [0, 1]) { const y = .9 + k * .07; P(cyl(.025, .14, .42, full ? 12 : 8, true), '#f0641c', pose(.42, y + .21, -.8)); P(cyl(.087, .105, .07, full ? 12 : 8, true), '#f2f2ee', pose(.42, y + .17, -.8)); }
+    P(box(.3, .03, .3), '#1f1f1f', pose(.42, .9, -.8));
+    [NAVY, '#1f5a3b', '#f2efe6'].forEach((c, k) => { const a = V(-.52 + k * .1, 1.22, -2), b = V(-.4 + k * .1, 1.24, -.68); P(rod(a.clone().lerp(b, .12), b.clone().lerp(a, .06), .048, full ? 8 : 5), c); S(rod(a, b, .013, 4), '#cfd3d6'); });
+    shadeUnder(world, .86, 1.62, .45, .6);
   };
   const clearOf = (x, z, r) => !trees.some(t => (t.x - x) ** 2 + (t.z - z) ** 2 < (r + t.r * 2) ** 2) && !holes.some(h => h.ponds.some(p => ((x - p.x) / (p.rx * 1.3 + r)) ** 2 + ((z - p.z) / (p.rz * 1.3 + r)) ** 2 < 1));
+  // A 10 x 12 cm landscape timber laid from (u0, f0) to (u1, f1) of hole h, 5 cm proud of the ground and dug in below
+  // it, bending with the ground along its length.
+  const sleeper = (h, u0, f0, u1, f1) => {
+    const [x0, z0] = frame(h, u0, f0), [x1, z1] = frame(h, u1, f1), L = Math.hypot(x1 - x0, z1 - z0);
+    const g = box(L, 1, .1, Math.max(1, Math.round(L / .7)), 1, 1).applyMatrix4(pose((x0 + x1) / 2, 0, (z0 + z1) / 2, Math.atan2(z0 - z1, x1 - x0))), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setY(i, height(p.getX(i), p.getZ(i)) + (p.getY(i) > 0 ? .05 : -.07));
+    g.computeVertexNormals(); K.print(g, 'wood', '#d8d2c8', .1);
+  };
+  // The tee's crushed-stone bed (see the tee loop): one ground-hugging grid per tee in the ground's own gravel photo
+  // (course.js's paths), a shade cooler and fresher, in world-scaled UVs. It darkens where it butts against the mat's
+  // frame and the edging timbers (the occlusion the shadow map cannot resolve). One draw for every tee.
+  const gravelBed = () => {
+    const pos = [], uv = [], loc = [], idx = [], NU = 6, NF = 12;
+    for (const h of holes) {
+      const base = pos.length / 3;
+      for (let j = 0; j <= NF; j++) for (let i = 0; i <= NU; i++) {
+        const u = BED.u * (2 * i / NU - 1), f = BED.f0 + (BED.f1 - BED.f0) * j / NF, [x, z] = frame(h, u, f);
+        pos.push(x, height(x, z) + .025, z); uv.push(x / 1.3, z / 1.3); loc.push(u, f);
+      }
+      for (let j = 0; j < NF; j++) for (let i = 0; i < NU; i++) { const a = base + j * (NU + 1) + i, b = a + NU + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('bed', new THREE.Float32BufferAttribute(loc, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const m = toonMaterial({ map: texture('gravel'), color: new THREE.Color(1.16, 1.16, 1.17), roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    m.onBeforeCompile = s => {
+      s.vertexShader = 'attribute vec2 bed;varying vec2 vBed;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvBed=bed;');
+      s.fragmentShader = 'varying vec2 vBed;\n' + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        float edge=min(${BED.u.toFixed(2)}-abs(vBed.x),min(vBed.y-(${BED.f0.toFixed(2)}),${BED.f1.toFixed(2)}-vBed.y)),mat=max(abs(vBed.x)-.92,max(vBed.y-3.52,-1.72-vBed.y));
+        vec2 q=vBed*vec2(1.9,1.3);vec2 i=floor(q),w=fract(q);w=w*w*(3.-2.*w);vec4 hh=fract(sin(vec4(dot(i,vec2(127.1,311.7)),dot(i+vec2(1,0),vec2(127.1,311.7)),dot(i+vec2(0,1),vec2(127.1,311.7)),dot(i+1.,vec2(127.1,311.7))))*43758.5);
+        float n=mix(mix(hh.x,hh.y,w.x),mix(hh.z,hh.w,w.x),w.y);   // raked and trodden patches half a metre across
+        diffuseColor.rgb*=(.84+.3*n)*mix(.5,1.,smoothstep(0.,.14,edge))*mix(.55,1.,smoothstep(0.,.12,mat));`);
+    };
+    m.customProgramCacheKey = () => 'chains-props-bed';
+    const mesh = new THREE.Mesh(g, m); mesh.receiveShadow = true; return mesh;
+  };
 
   holes.forEach((h, i) => {
     // Tee: a 1.6 x 5 m turf mat, the athlete's stance 1.6 m from its back end (its top face sits under his soles at
     // teeY + .07) and a 3.4 m run-up ahead of him, so its front reaches into the bottom of the tee camera's frame; the
-    // landscape-timber frame stands 2 cm proud of the pile, buried 7 cm into the flattened pad earth. course.js keeps
-    // the blade carpet off it (two pad rectangles per tee).
+    // landscape-timber frame stands 2 cm proud of the pile, buried 7 cm into the flattened pad earth. The whole frame
+    // is set in a crushed-stone bed (BED) edged with more timbers; course.js keeps the blade carpet off the bed (its
+    // `pads` are the bed's four rectangles).
     const T = pose(h.tee[0], h.teeY, h.tee[1], h.yaw);
-    K.print(at(box(1.6, .1, 5), pose(0, .02, -.9), T), 'mat');
-    for (const s of [-1, 1]) { K.print(at(box(5.28, .16, .12), pose(s * .86, .01, -.9, Math.PI / 2), T), 'wood'); K.print(at(box(1.6, .16, .12), pose(0, .01, s > 0 ? 1.66 : -3.46), T), 'wood'); }
+    K.print(at(box(1.6, .1, 5), pose(0, .02, -.9), T), 'mat', '#ffffff', Infinity);
+    for (const s of [-1, 1]) { K.print(at(box(5.28, .16, .12), pose(s * .86, .01, -.9, Math.PI / 2), T), 'wood', '#ffffff', .14); K.print(at(box(1.6, .16, .12), pose(0, .01, s > 0 ? 1.66 : -3.46), T), 'wood', '#ffffff', .14); }
+    for (const s of [-1, 1]) { sleeper(h, s * (BED.u + .05), BED.f0 - .1, s * (BED.u + .05), BED.f1 + .1); sleeper(h, -BED.u, s > 0 ? BED.f1 + .05 : BED.f0 - .05, BED.u, s > 0 ? BED.f1 + .05 : BED.f0 - .05); }
     // Sign on two 4x4 posts beside the back half of the pad, facing the walk-in. The aim camera sits 2.3 m behind the
     // pad on a 55° lens: anything level with the pad's front edge lands half-cut at the frame's side, so tee furniture
     // stays behind that line and reads from the flyover instead.
@@ -451,9 +591,9 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // head, on a 16:9 screen and a 2.2:1 phone alike: 11.2 m clear span, beam underside 6 m over the play line (a
   // full-power drive passes ~4 m up there; a lofted, overhand or blade throw clips it) and never below the eye's line to
   // the top of the pin marker, so the marker hangs in the opening. Its legs and beam go to the flight model as capsules.
-  // Gold gallery tape on white stakes runs from the pad to its legs with a sponsor A-board on each line turned to the
-  // tee; the staff cart parks off the left line, a feather flag stands between it and the left leg, and the
-  // registration canopy sits just outside the pad camera's left edge (Full), so it never shows as a sliver.
+  // Gold rope on white posts runs from the pad to its legs with an event sign on each line turned to the tee; the
+  // crew's UTV parks off the left line, a feather flag stands between it and the left leg, the registration canopy
+  // sits just outside the pad camera's left edge (Full), so it never shows as a sliver, and white canopies stand beyond.
   const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], archU = .5;
   let archF = 33;
   for (const af of [33, 31, 35, 29, 37]) if ([-1, 1].every(s => clearOf(...frame(h1, archU + s * legX, af), 1.5))) { archF = af; break; }
@@ -465,32 +605,40 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const top = yb + ARCH.beam / 2;
   feet.forEach(([x, z], j) => capsules.push({ a: [x, footY[j], z], b: [x, top, z], r: .7, tag: 'arch' }));
   capsules.push({ a: [feet[0][0], top, feet[0][1]], b: [feet[1][0], top, feet[1][1]], r: ARCH.beam / 2, tag: 'arch' });
-  // Chute: gold gallery tape sagging between white stakes from ahead of the pad's front corners to the arch's legs
-  // (inside the walking trail on the open side), a sponsor board on each tape line.
+  // Chute: gold rope sagging between white delineator posts from ahead of the pad's front corners to the arch's legs
+  // (inside the walking trail on the open side), an event sign on each rope line.
   for (const s of [-1, 1]) {
     const u0 = s * 2.5, f0 = 5, u1 = archU + s * (legX - .15), f1 = archF - ARCH.deep / 2 - .3, n = Math.max(3, Math.round((f1 - f0) / 3.4)), line = t => [u0 + (u1 - u0) * t, f0 + (f1 - f0) * t];
     let prev = null;
     for (let k = 0; k <= n; k++) {
       const [u, f] = line(k / n), [x, z] = frame(h1, u, f), y = height(x, z), post = new THREE.Vector3(x, y + .84, z);
-      paint(box(.07, .98, .07).translate(x, y + .44, z), '#f4f2ea'); paint(box(.085, .05, .085).translate(x, y + .95, z), GOLD); shadeUnder(pose(x, y, z), .3, .3, 0, .62);
-      if (prev) K.print(tape(prev, post, .1, .032), 'white', '#c9a43e');
+      K.print(cyl(.034, .036, .92, full ? 10 : 6).translate(x, y + .5, z), 'white', '#efece4', -.04); paint(cyl(.042, .042, .05, full ? 10 : 6).translate(x, y + .96, z), GOLD);   // white delineator post, gold cap, the mud of every wet round on it
+      paint(cyl(.1, .16, .09, 4).rotateY(Math.PI / 4).translate(x, y + .03, z), '#1d1e20'); shadeUnder(pose(x, y, z), .3, .3, .2, .7);   // weighted rubber base
+      if (prev) K.print(tube([0, .25, .5, .75, 1].map(t => prev.clone().lerp(post, t).setY(prev.y + (post.y - prev.y) * t - .12 * 4 * t * (1 - t))), .016, 8, full ? 5 : 3), 'white', '#d4ad45');   // sagging gold rope
       prev = post;
     }
-    // turned to face the tee camera; the left one inside the tape so the nearer stakes fall outside it on screen, the
+    // turned to face the tee camera; the left one inside the rope so the nearer posts fall outside it on screen, the
     // right one outside it, wholly behind the athlete rather than peeking past his arm (it reads from the flyover)
-    const [u, f] = line(.5), bu = u + (s < 0 ? .8 : .35); addBoard(onGround(h1, bu, f, Math.atan2(-.75 - bu, f + 2.3), .02), s > 0 ? 1 : 0);
+    const [u, f] = line(.5), bu = u + (s < 0 ? .8 : .35); addSign(onGround(h1, bu, f, Math.atan2(-.75 - bu, f + 2.3), .02), s > 0 ? 1 : 0);
   }
-  // The staff cart takes the first spot clear of trees whose view from the tee camera no bush blocks.
+  // The crew's UTV takes the first spot clear of trees whose view from the tee camera no bush blocks, nose turned
+  // three-quarters to the tee camera.
   const bushFree = (u, f, r) => { const [x, z] = frame(h1, u, f); return !bushes.some(b => (b.x - x) ** 2 + (b.z - z) ** 2 < (r + b.s) ** 2); };
-  for (const [u, f] of [[-7.6, archF - 14], [-7.9, archF - 12], [-7.2, archF - 16], [-8.3, archF - 9], [-8.6, archF - 6]]) {
+  for (const [u, f] of [[-6.9, archF - 14], [-7.4, archF - 12], [-7.2, archF - 16], [-8.3, archF - 9], [-8.6, archF - 6]]) {
     if (!clearOf(...frame(h1, u, f), 1.9) || ![0, .2, .4, .6].every(k => bushFree(u + (-.75 - u) * k, f + (-2.3 - f) * k, k ? .9 : 1.6))) continue;
-    addCart(fitted(h1, u, f, Math.atan2(-.75 - u, f + 2.3) + .9, .56, .79)); break;
+    addUTV(fitted(h1, u, f, Math.atan2(-.75 - u, f + 2.3) + .9, .6, .97)); break;
   }
-  // one feather flag between the cart and the arch's left leg (clear of both on screen), another by the canopy (Full)
+  // one feather flag between the UTV and the arch's left leg (clear of both on screen), another by the canopy (Full)
   [[archU - legX - 1.8, archF - 3, 2], [edge(h1, -1, 8, 1.3), 8, 0]].slice(0, full ? 2 : 1).forEach(([u0, f, d]) => {
     for (const df of [0, 2, -2, 4]) { const u = u0 - rnd() * .4, [x, z] = frame(h1, u, f + df); if (clearOf(x, z, 1.2)) return addFeather(onGround(h1, u, f + df, .45 + (rnd() - .5) * .3, .05), d); }
   });
   if (full) { const u = edge(h1, -1, 11.5, 5.3), [x, z] = frame(h1, u, 11.5); if (clearOf(x, z, 2.2)) addTent(onGround(h1, u, 11.5, .6, .02)); }
+  // Players' village beyond the arch on the left: white canopies half lost in the haze, the first two spots clear of trees.
+  let village = 0;
+  for (const [u, f] of [[-15, 55], [-19.5, 57], [-20.5, 52], [-17, 47], [-22, 60], [-13, 50]]) {
+    if (village >= 2) break; const [x, z] = frame(h1, u, f);
+    if (clearOf(x, z, 2.4)) { addTent(onGround(h1, u, f, .5 + village * .35, .02), true); village++; }
+  }
 
   const atlas = document.createElement('canvas'), scale = full ? 1 : .5; atlas.width = atlas.height = 2048 * scale;
   const ctx = { holes, trees, name: def.name, fairwayW: def.fairwayW };
@@ -503,21 +651,37 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // Cloth ripples along its own normal, a wave running from pole to free edge, livelier as the wind rises (the shadow
   // pass keeps the rest pose: a few centimetres the eye never checks).
   print.material.onBeforeCompile = s => {
-    s.uniforms.windTime = windTime; s.uniforms.windVec = windVec;
+    s.uniforms.windTime = windTime; s.uniforms.windVec = windVec; GRIME_V(s); GRIME_F(s, !full);
     s.vertexShader = 'attribute float sway;uniform float windTime;uniform vec2 windVec;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       transformed += objectNormal * sin(windTime * 4.3 - sway * 5.5 + position.x * .9 + position.z * .7) * (.03 + min(length(windVec), 1.) * .07) * sway;`);
   };
-  print.material.customProgramCacheKey = () => 'chains-props-print';
+  print.material.customProgramCacheKey = () => 'chains-props-print' + full;
   // Galvanised steel is a matte zinc skin: mostly diffuse so a back-lit basket stays silver-white under the dim ambient,
-  // with enough metal and a tight enough lobe that chains still glint.
+  // with enough metal and a tight enough lobe that chains still glint. The UTV's paint and cage share it.
   const steel = new THREE.Mesh(mergeGeometries(K.lists.steel), toonMaterial({ vertexColors: true, metalness: .35, roughness: .38 }));
+  steel.material.onBeforeCompile = s => { GRIME_V(s); GRIME_F(s, !full); };
+  steel.material.customProgramCacheKey = () => 'chains-props-steel' + full;
   // The arch's skin: dye-sublimated polyester, a soft satin sheen. Single-sided (see the top). Stretched thin over the
   // truss it passes some of the daylight behind it, so a face turned from the sun still glows with its own print
   // (a fraction of its albedo): the whites stay white and the navy stays navy instead of both sinking to slate.
   const arch = new THREE.Mesh(mergeGeometries(K.lists.arch), toonMaterial({ map, vertexColors: true, roughness: .62 }));
-  arch.material.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * .22;'); };
-  arch.material.customProgramCacheKey = () => 'chains-props-arch';
+  // A season outdoors: the dye bleaches and greys, more toward the beam that takes the most sun, and rain running off
+  // the beam leaves faint vertical streaks down the legs.
+  arch.material.onBeforeCompile = s => { GRIME_V(s); GRIME_F(s, !full); s.fragmentShader = s.fragmentShader.replace('#include <roughnessmap_fragment>', `{ float l=dot(diffuseColor.rgb,vec3(.3,.59,.11)),up=smoothstep(1.,7.,vLift);
+        diffuseColor.rgb=mix(diffuseColor.rgb,vec3(l)*1.1+.01,.12+.12*up);
+        diffuseColor.rgb*=1.-.14*smoothstep(.55,.95,wNoise(vec3(vWp.x*13.,vWp.y*.4,vWp.z*13.)))*(1.-up*.4); }
+      #include <roughnessmap_fragment>`).replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * .22;'); };
+  arch.material.customProgramCacheKey = () => 'chains-props-arch' + full;
   print.castShadow = print.receiveShadow = steel.receiveShadow = arch.castShadow = arch.receiveShadow = true; steel.castShadow = full;
-  for (const g of [...K.lists.print, ...K.lists.steel, ...K.lists.arch]) g.dispose();
-  return { meshes: [print, steel, arch, contactShade(blobs, height)], capsules };
+  const meshes = [print, steel, arch, gravelBed(), contactShade(blobs, height)];
+  // Vehicle paint (Full): metallic base under a clear coat, so the hood and flanks carry the sky's sharp reflection over
+  // the colour the way car paint does; mud kills the coat as well as the gloss.
+  if (K.lists.paint.length) {
+    const paint = new THREE.Mesh(mergeGeometries(K.lists.paint), new THREE.MeshPhysicalMaterial({ map, vertexColors: true, metalness: .3, roughness: .42, clearcoat: 1, clearcoatRoughness: .07 }));
+    paint.material.onBeforeCompile = s => { GRIME_V(s); GRIME_F(s, false); s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\nmaterial.clearcoat*=1.-grime;'); };
+    paint.material.customProgramCacheKey = () => 'chains-props-paint';
+    paint.castShadow = paint.receiveShadow = true; meshes.push(paint);
+  }
+  for (const g of [...K.lists.print, ...K.lists.steel, ...K.lists.arch, ...K.lists.paint]) g.dispose();
+  return { meshes, capsules };
 }
