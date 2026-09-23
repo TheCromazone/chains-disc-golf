@@ -105,13 +105,13 @@ const STANCE = {
   // backhand: side-on and pre-coiled (pelvis ~70°, chest ~135° off the line), weight settled into bent knees, head turned
   // back over the leading shoulder to the target, the off arm hanging loose: the set-up a real reach-back starts from, and
   // the one Disc Golf Masters shows its thrower in; the chest hunched over the disc (a bolt-upright torso read as a
-  // mannequin). The throwing arm was solved numerically (shR, elR incl. the forearm's roll) against the aim camera for a
-  // compact address: the elbow ~10 cm under the shoulder and open ~105°, the forearm level across the front of the body a
-  // forearm's length off the chest, the wrist flexed toward the palm (grip morph, gltf-player.js) so the disc lies level
-  // beside the hand ~25 cm under the shoulder, its far edge out toward the target. Critics read the earlier solves (the
-  // forearm pointed at the lens, a dangling forearm, a wrist bent 90° sideways, an elbow folded shut) as a chicken wing
-  // or one rubbery tube with the disc hanging off a broken wrist
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-1.341, 1.165, 2.587], elR: [1.303, .286, 0], shL: [.18, 0, -.14], elL: [.62, 0, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // mannequin). The throwing arm was solved numerically (shR, elR incl. the forearm's roll) against the aim camera with
+  // the grip hand (gltf-player.js GRIP: wrist flexed ~29°, the disc's far side raised ~34° off square to the hand): the
+  // upper arm out toward the target at shoulder height, the elbow open ~80°, the forearm sloping ~27° down to the hand, the
+  // thumb side turned to the lens so the thumb sits on the plate and the fingers hook under the rim, the disc level ~20 cm
+  // under the shoulder reaching back toward the chest. Critics read earlier solves (the forearm pointed at the lens, a
+  // dangling forearm, a wrist bent 80-90°, an elbow folded shut) as a chicken wing or a disc hanging off a broken wrist
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-.56, .133, 2.027], elR: [1.403, -.174, 0], shL: [.26, 0, -.3], elL: [.9, 0, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
