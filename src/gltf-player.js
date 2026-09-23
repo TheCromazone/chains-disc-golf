@@ -221,6 +221,10 @@ function hairCards(skin, spec, count) {
     area += b.clone().sub(a).cross(c.clone().sub(a)).length(); tris.push(f); cum.push(area);
   }
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  // per body (rig extras hairCards: length share, lift off the scalp, shortest card kept): the m2 scan's hair is real volume
+  // in locks, so its cards run shorter and flatter along it (full-length ones stood off it as a spiky mop), and a card that
+  // no longer fits its stop line is dropped rather than shrunk to a fleck (dark specks at the nape)
+  const [lenK, liftN, minLen] = spec.hairCards || [1, .25, 0];
   const crown = new THREE.Vector3(hc.x, topY - .015, hc.z + .02), ell = v => Math.hypot((v.x - hc.x) / R.x, (v.y - hc.y) / R.y, (v.z - hc.z) / R.z);
   const S = 5, pos = [], nrm = [], uv = [], root = [], tan = [], col = [], index = [], p = new THREE.Vector3(), n = new THREE.Vector3(), d = new THREE.Vector3(), t = new THREE.Vector3(), w = new THREE.Vector3(), rad = new THREE.Vector3();
   for (let card = 0; card < count; card++) {
@@ -232,9 +236,9 @@ function hairCards(skin, spec, count) {
     const front = p.z < hc.z - .03, side = Math.abs(p.x - hc.x) > .05, back = p.z > hc.z + .035;
     const stopY = (front && !side ? eyeY + .05 : front ? eyeY + .03 : back ? eyeY - .045 : eyeY + .026) + .02 * rnd(), stop = Math.min(stopY, p.y - .012);   // a ragged fringe above the brows, the temples, the sides over the ears' tops, the back at the nape; rooted below its line, a card still lies ~1 cm down (the painted cap's edge showed as a hard line at the nape)
     t.subVectors(p, crown); t.addScaledVector(n, -t.dot(n)); if (t.lengthSq() < 1e-6) t.set(rnd() - .5, 0, rnd() - .5); t.normalize();
-    let len = .03 + .045 * rnd(), pts = null; const e0 = ell(p), jit = new THREE.Vector3(rnd() - .5, 0, rnd() - .5).multiplyScalar(.5);
-    for (let tries = 0; tries < 5 && !pts; tries++, len *= .75) {   // too long for its stop line: shorter, else dropped
-      const q = [p.clone()]; d.copy(t).multiplyScalar(.8).addScaledVector(n, .25).add(jit).normalize();
+    let len = (.03 + .045 * rnd()) * lenK, pts = null; const e0 = ell(p), jit = new THREE.Vector3(rnd() - .5, 0, rnd() - .5).multiplyScalar(.5);
+    for (let tries = 0; tries < 5 && !pts && len >= minLen; tries++, len *= .75) {   // too long for its stop line: shorter, else dropped
+      const q = [p.clone()]; d.copy(t).multiplyScalar(.8).addScaledVector(n, liftN).add(jit).normalize();
       for (let k = 1; k <= S; k++) {
         const x = q[k - 1].clone().addScaledVector(d, len / S);
         const e = ell(x), want = e0 * (1.01 + .035 * k / S) + lift * 2; if (e < want) x.sub(hc).multiplyScalar(want / e).add(hc);   // kept off the skull, each layer a little further out toward the tips

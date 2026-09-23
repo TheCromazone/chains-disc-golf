@@ -130,7 +130,8 @@ def clean(alb, m1, m2, maps, rig, lines):
   # albedo: texels whose colour disagrees with their new region take their nearest trusted 3D neighbours
   jmed = float(np.median(lum[hit & (C0 == JERSEY)])); smed = float(np.median(lum[hit & (C0 == SKIN) & skinc & ~headp]))
   hemband = hips & above_hem & (y < hem + .05)   # the scan's hem stitching and fold shadow
-  trusted = {SKIN: headp & ~neckzone | skinc & (lum < 2.2 * smed) & (lum > .3 * smed), JERSEY: (lum > np.where(hemband, .7, .52) * jmed) & (sat < .3), SHORTS: lum < .06, SOCKS: (lum > .12) & (sat < .3), SHOES: lum < .08}   # the face keeps every texel; the neck under the collar must look like skin (the white trim frayed it)
+  shoe = hit & (C0 == SHOES); shoemax = max(.08, 2.5 * float(np.median(lum[shoe]))) if shoe.any() else .08   # black shoes trust their dark texels; grey ones (m2) all of theirs but the white trim
+  trusted = {SKIN: headp & ~neckzone | skinc & (lum < 2.2 * smed) & (lum > .3 * smed), JERSEY: (lum > np.where(hemband, .7, .52) * jmed) & (sat < .3), SHORTS: lum < .06, SOCKS: (lum > .12) & (sat < .3), SHOES: lum < shoemax}   # the face keeps every texel; the neck under the collar must look like skin (the white trim frayed it)
   out = alb.copy()
   for k, ok in trusted.items():
     cls = hit & (C1 == k); trust = cls & (C0 == k) & ok; bad = cls & ~trust

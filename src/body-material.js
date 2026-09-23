@@ -12,7 +12,11 @@ const BEARD = { none: [0, 0, 0], stubble: [.5, .5, .5], mustache: [1, 0, 0], goa
 const opts = { clamp: true, flipY: false };
 // Region means of the cleaned bakes where the rig extras predate the clean-up (tools/pack-body-textures.py --clean): the
 // scan's own hair only became a region there, and the near-black shorts and shoes lost their bake noise.
-const MEAN_FIX = { body_: { 2: .0045, 3: .011, 5: .0105 }, body_f_: { 2: .0053, 3: .0062, 5: .011 } };
+// The m2 scan (body_) also carries its skin: the cleaned albedo is ~15 % brighter than the build's pre-clean mean, which lit
+// the palette tone pale; these hold the tone where the previous scan rendered it (its cleaned bake sat at .88/.74/.62 of
+// its own mean, the warm, deeper tone the light and grade were tuned on). Its hair mean is set above the measured .035 so
+// the scan's locks sit a fifth darker, level with the hair cards over them (a brown band showed under the cards at the nape).
+const MEAN_FIX = { body_: { 0: .39, 2: .0109, 3: .05, 5: .11 }, body_f_: { 2: .0053, 3: .0062, 5: .011 } }, SKIN_FIX = { body_: [.612, .339, .257] };
 // Club mark and number, screen-printed: drawn once in the HUD's condensed face (alpha only, the accent colour is applied in
 // the shader) and projected along z in bind-pose space, so the print stretches and folds with the cloth. Planes riding the
 // spine bone sank into the skin or hung off it by centimetres as the torso twisted. Boxes: centre height, width, height in
@@ -85,7 +89,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     uMask1: { value: tex('mask1' + suffix, { ...opts, srgb: false }) }, uMask2: { value: tex('mask2' + suffix, { ...opts, srgb: false }) },
     uPal: { value: REGIONS.map(() => new THREE.Color()) }, uMean: { value: new Float32Array(REGIONS.map((r, i) => Math.max(.004, MEAN_FIX[prefix]?.[i] ?? (Array.isArray(spec.regionLum) ? spec.regionLum[i] : spec.regionLum?.[r]) ?? .5))) },
     uDetail: { value: new Float32Array(DETAIL) }, uBeard: { value: new THREE.Vector3() }, uHair: { value: new THREE.Color() },
-    uSkinMean: { value: new THREE.Color().setRGB(...(spec.skinMean || [.35, .22, .16]), THREE.LinearSRGBColorSpace) },   // the scan's own skin colour (linear)
+    uSkinMean: { value: new THREE.Color().setRGB(...(SKIN_FIX[prefix] || spec.skinMean || [.35, .22, .16]), THREE.LinearSRGBColorSpace) },   // the scan's own skin colour (linear)
     uKnit: { value: texture('jersey_pattern', { srgb: false }) },   // athletic mesh knit (mean .49): the cloth reads as fabric up close and mips to nothing far away
     uPrint: { value: printTexture(avatar.number) },
     uArm: { value: new THREE.Vector4(-1, -1, -1, -1) },   // skeleton indices of the four arm bones (gltf-player.js): the 'pro' shirt's panels need arm vs torso
