@@ -45,6 +45,7 @@ SRC = Path(sys.argv[sys.argv.index('--src') + 1]) if '--src' in sys.argv else RO
 BLENDER = os.environ.get('BLENDER', r'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe')
 SKIN, JERSEY, SHORTS, HAIR, SOCKS, SHOES, IRIS = range(7)
 ARM_KEEP = {'m': (.65, .05, .55, .65)}   # per scan, arm skin: share of detail kept round a 5 cm mean, cell, pull to the median hue, brightness floor
+COLLAR = {'m': .016}   # the collar rides this far up the neck (metres): the m2 tee's low scoop left a long pale column of neck at the tee
 
 def texel_maps(glb, N):
   """Bind-pose position, bone weights, face normal and coverage per texel of the body's atlas."""
@@ -121,7 +122,7 @@ def clean(alb, m1, m2, maps, rig, lines):
   fore &= np.where(x > 0, arm_side('R'), arm_side('L'))
   axis(headp | torso, chinY - .06, chinY - .01, 'axisN'); angN = angle('axisN'); nx, nz = lines['axisN']
   neckzone = (torso | headp | upR | upL) & (np.hypot(x - nx, z - nz) < .11) & (y < chinY + .01) & (y > shY - .1)
-  necky = neckzone & (y > line('neck', neckzone, angN, skinc, white, shY - .1, chinY + .01, tol=.05))
+  necky = neckzone & (y > line('neck', neckzone, angN, skinc, white, shY - .1, chinY + .01, tol=.05) + COLLAR.get(VARIANT, 0))
   C1[necky] = np.where(C0[necky] == HAIR, HAIR, SKIN); C1[neckzone & headp & ~necky] = JERSEY   # collar texels skinned to the head bone
   C1[headp & ~neckzone & np.isin(C0, [JERSEY, SHORTS])] = SKIN; C1[(fore | shin) & np.isin(C0, [JERSEY, SHORTS])] = SKIN
   C1[hit & (C1 == -1) & ~headp] = SKIN   # unclassified head texels are the eye whites: raw albedo on purpose
