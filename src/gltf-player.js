@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { cloneModel, model } from './models.js';
 import { rimLight } from './materials.js';
-import { bodyMaterial, skinDirect } from './body-material.js';
+import { bodyMaterial, skinDirect, skinShade } from './body-material.js';
 import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
@@ -70,6 +70,9 @@ const GRIP = { rim: -.092, flex: .5, tilt: .6, wrist: [.12, -.12], press: .003, 
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [30, 95, 55]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [28, 97, 55]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [30, 98, 55]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [36, 100, 55]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .023, -.048], [-.06, .025, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
+// The same hand at rest, for the free hand in the set-up: the scan's hanging hand is one fused mitten ("a mitten under a
+// swollen wrist knob"). Fingers in a loose cascade, more curl toward the little finger; the thumb lies along the index.
+const REST = { curl: [[12, 24, 14], [14, 30, 18], [17, 35, 20], [21, 40, 22]], thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const taperAt = y => 1 - GRIP.taper * smooth(.11, 0, y);   // y: metres above the wrist joint
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); return p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
@@ -94,7 +97,7 @@ function tube(out, pts, radii, seg, steps) {   // a finger: centripetal Catmull-
 }
 // The grip hand in hand-local metres (before the wrist flex), for a hand of drop L and a measured wrist (half sizes a along z,
 // b along x, centre cx, cz). Returns positions, indices, a per-vertex occlusion (dark between the digits) and the seat.
-function gripHand(L, wrist, lod) {
+function gripHand(L, wrist, lod, rest = false) {
   const k = L / .19, seg = lod ? 7 : 10, steps = lod ? 7 : 12, out = { p: [], i: [] }, axes = [];
   const V = (x, y, z) => new THREE.Vector3(x * k, y * k, z * k);
   // palm: from inside the forearm, through the scan's own wrist, out to the knuckle ridge
@@ -103,14 +106,15 @@ function gripHand(L, wrist, lod) {
   const partEnd = [out.p.length / 3];
   // the rim touches the palm at C; the disc's far side rises `tilt` (radians) from square to the hand, toward the forearm,
   // so the hand can lean off vertical with a level disc; the fingers past the knuckle and the thumb's tip turn with the rim
-  const rimY = GRIP.rim * k, x0 = palm[palm.length - 1][2] * k, C = new THREE.Vector3(-x0, rimY, 0), Zt = new THREE.Vector3(0, 0, 1), t = GRIP.tilt;
-  for (const [kn, len, r, curl] of GRIP.fingers) {
+  const rimY = GRIP.rim * k, x0 = palm[palm.length - 1][2] * k, C = new THREE.Vector3(-x0, rimY, 0), Zt = new THREE.Vector3(0, 0, 1), t = rest ? 0 : GRIP.tilt;
+  for (const [f, [kn, len, r, grip]] of GRIP.fingers.entries()) {
+    const curl = rest ? REST.curl[f] : grip;
     const mcp = V(...kn), pts = [mcp.clone().add(V(0, .018, 0)), mcp]; let ang = 0, at = mcp.clone();
     for (let j = 0; j < 3; j++) { ang += curl[j] * Math.PI / 180; at = at.clone().add(new THREE.Vector3(-Math.sin(ang), -Math.cos(ang), 0).multiplyScalar(len[j] * k - (j === 2 ? r[3] * k : 0))); pts.push(at); }
     for (const p of pts.slice(2)) turn(p, C, Zt, -t);
     tube(out, pts, [r[0], ...r].map(x => x * k), seg, steps); axes.push({ pts, r: r[1] * k }); partEnd.push(out.p.length / 3);
   }
-  const tp = GRIP.thumb.map(([x, y, z], j) => j < 3 ? V(x, y, z) : turn(new THREE.Vector3(x * k, rimY + y * k, z * k), C, Zt, -t));
+  const tp = (rest ? REST.thumb : GRIP.thumb).map(([x, y, z], j) => j < 3 || rest ? V(x, y, z) : turn(new THREE.Vector3(x * k, rimY + y * k, z * k), C, Zt, -t));
   tube(out, tp, GRIP.thumbR.map(x => x * k), seg, steps); axes.push({ pts: tp, r: GRIP.thumbR[2] * k }); partEnd.push(out.p.length / 3);
   // occlusion: a digit's surface darkens where another digit's surface is within a centimetre (the gaps that separate them)
   const ao = new Float32Array(out.p.length / 3).fill(1), q = new THREE.Vector3(), segDist = (p, a, b) => { const ab = b.clone().sub(a), t = THREE.MathUtils.clamp(q.copy(p).sub(a).dot(ab) / ab.lengthSq(), 0, 1); return p.distanceTo(a.clone().addScaledVector(ab, t)); };
@@ -124,7 +128,7 @@ function gripHand(L, wrist, lod) {
 }
 function handMorphs(mesh, handOffset, lod) {
   const g = mesh.geometry; if (g.userData.grip) return g.userData.grip;
-  const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = pos.count, seats = {}, hands = {}, tucks = [], hooks = [];
+  const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = pos.count, seats = {}, hands = {}, rests = {}, tucks = [], hooks = [];
   const Z = new THREE.Vector3(0, 0, -1), m = new THREE.Matrix4(), p = new THREE.Vector3(), o = new THREE.Vector3();
   for (const [name, side] of [['elR', 1], ['elL', -1]]) {
     const b = mesh.skeleton.bones.findIndex(x => x.name === name), E = new THREE.Vector3().setFromMatrixPosition(m.copy(mesh.skeleton.boneInverses[b]).invert());
@@ -161,11 +165,14 @@ function handMorphs(mesh, handOffset, lod) {
     const c = gh.seat.clone().applyQuaternion(qw), cn = gh.seatN.applyQuaternion(qw);
     seats[name] = { c: new THREE.Vector3(c.x * side + W.x - E.x, c.y + W.y - E.y, c.z + W.z - E.z), n: new THREE.Vector3(cn.x * side, cn.y, cn.z) };
     // the grip hand's geometry in the forearm bone's frame (bind orientation is identity), mirrored for the left
-    const gp = new Float32Array(gh.p.length); for (let i = 0; i < gh.p.length; i += 3) { bend(_v.set(gh.p[i], gh.p[i + 1], gh.p[i + 2])); gp[i] = _v.x * side + W.x - E.x; gp[i + 1] = _v.y + W.y - E.y; gp[i + 2] = _v.z + W.z - E.z; }
-    const gi = side > 0 ? gh.i : gh.i.map((v, i) => i % 3 === 1 ? gh.i[i + 1] : i % 3 === 2 ? gh.i[i - 1] : v);
-    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(gp, 3)); geo.setIndex(gi); geo.computeVertexNormals();
-    const ao = new Float32Array(gh.ao.length * 3); gh.ao.forEach((v, i) => ao.set([v, v, v], i * 3)); geo.setAttribute('color', new THREE.BufferAttribute(ao, 3));
-    hands[name] = geo;
+    const handGeo = h => {
+      const gp = new Float32Array(h.p.length); for (let i = 0; i < h.p.length; i += 3) { bend(_v.set(h.p[i], h.p[i + 1], h.p[i + 2])); gp[i] = _v.x * side + W.x - E.x; gp[i + 1] = _v.y + W.y - E.y; gp[i + 2] = _v.z + W.z - E.z; }
+      const gi = side > 0 ? h.i : h.i.map((v, i) => i % 3 === 1 ? h.i[i + 1] : i % 3 === 2 ? h.i[i - 1] : v);
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(gp, 3)); geo.setIndex(gi); geo.computeVertexNormals();
+      const ao = new Float32Array(h.ao.length * 3); h.ao.forEach((v, i) => ao.set([v, v, v], i * 3)); geo.setAttribute('color', new THREE.BufferAttribute(ao, 3));
+      return geo;
+    };
+    hands[name] = handGeo(gh); rests[name] = handGeo(gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod, true));   // the rest hand shares the grip's wrist flex, so the tucked scan wrist bends to meet either
     const delta = (Q, M, idx = hand) => {
       const dp = new Float32Array(n * 3), dn = new Float32Array(n * 3);
       idx.forEach((i, k) => {
@@ -178,7 +185,7 @@ function handMorphs(mesh, handOffset, lod) {
   }
   const all = [...tucks, ...hooks];   // 0/1 tuck R/L, 2/3 hook R/L
   g.morphAttributes.position = all.map(t => t[0]); g.morphAttributes.normal = all.map(t => t[1]); g.morphTargetsRelative = true;
-  return g.userData.grip = { seats, hands };
+  return g.userData.grip = { seats, hands, rests };
 }
 
 export function createGLTFCharacter(avatar) {
@@ -213,12 +220,14 @@ export function createGLTFCharacter(avatar) {
   const gripMat = new THREE.MeshStandardMaterial({ roughness: .56, vertexColors: true }); owned.add(gripMat);
   gripMat.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= mix(vec3(1.), vec3(1.02, .78, .78), saturate(1.15 - vColor.g));')   // its AO creases (knuckles, between the fingers) go red like the body's
     .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
-      ${skinDirect('RE_Direct_Grip', '1.')}`); };   // the body shader's skin scatter (body-material.js): without it the hand turned away from the sun read as a brown glove
+      ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.')); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove
   gripMat.customProgramCacheKey = () => 'chains-grip'; rimLight(gripMat, { strength: .1 });
   const gripSkin = a => { const c = gripMat.color.set(a.skin), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.setRGB((l + (c.r - l) * GRIP.chroma) * .93, (l + (c.g - l) * GRIP.chroma) * .96, (l + (c.b - l) * GRIP.chroma) * 1.25).multiplyScalar(GRIP.tone); };   // the body's cooler white balance
   gripSkin(avatar);
   const gripHands = {};
-  for (const [name, geo] of Object.entries(skin.geometry.userData.grip.hands)) { const h = new THREE.Mesh(geo, gripMat); h.name = 'grip_' + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); gripHands[name] = h; }
+  const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); into[name] = h; };
+  for (const [name, geo] of Object.entries(skin.geometry.userData.grip.hands)) mount(geo, name, gripHands, 'grip_');
+  for (const [name, geo] of Object.entries(skin.geometry.userData.grip.rests)) mount(geo, name, restHands, 'rest_');
   actor.updateMatrixWorld(true);
   const headC = spec.headCentre;   // the chest and back prints are part of the body material (body-material.js PRINT)
   // Disc socket: a roll-free wrist frame under the group rather than a child of the forearm bone. The clips roll the arm
@@ -339,8 +348,9 @@ export function createGLTFCharacter(avatar) {
       // the disc back to the hooked scan hand in the first few percent of the swipe, before the seat drifts toward the release
       const grip = gripW() > .9, holding = phase !== null ? phase < .68 : carries >= 1 || grips >= 1, mi = skin.morphTargetInfluences;
       hookW = THREE.MathUtils.clamp(hookW + (holding ? 1 : -1) * dt * 8, 0, 1);
-      mi[lefty ? 1 : 0] = grip ? 1 : 0; mi[lefty ? 0 : 1] = 0; mi[lefty ? 3 : 2] = grip ? 0 : Math.max(.35, hookW); mi[lefty ? 2 : 3] = female ? .35 : .5;
-      gripHands.elR.visible = grip && !lefty; gripHands.elL.visible = grip && lefty;
+      // the free hand too: in the set-up its fused scan hand tucks away under a modelled one at rest (separate fingers)
+      mi[lefty ? 1 : 0] = grip ? 1 : 0; mi[lefty ? 0 : 1] = grip ? 1 : 0; mi[lefty ? 3 : 2] = grip ? 0 : Math.max(.35, hookW); mi[lefty ? 2 : 3] = grip ? 0 : female ? .35 : .5;
+      gripHands.elR.visible = grip && !lefty; gripHands.elL.visible = grip && lefty; restHands.elL.visible = grip && !lefty; restHands.elR.visible = grip && lefty;
       overlay();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
