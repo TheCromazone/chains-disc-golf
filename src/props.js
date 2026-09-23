@@ -396,7 +396,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     K.cloth(feather.cloth.clone().applyMatrix4(world), 'feather' + design);
     K.steel(tube(feather.pole, .012, full ? 12 : 4, 4).applyMatrix4(world), '#d9dcdc');
     K.steel(box(.7, .025, .05).applyMatrix4(world), '#3a3d40'); K.steel(box(.05, .025, .7).applyMatrix4(world), '#3a3d40');
-    shadeUnder(world, .5, .5, 0, .5);
+    shadeUnder(world, .42, .42, .5, .78); shadeUnder(world, .85, .85, .25, .3);   // a tight dark pool where the cross-foot meets the ground (the cloth's own shadow falls off to one side), in a soft skirt
   };
   const paint = (g, color) => K.print(g, 'white', color);   // powder-coated steel, plastic, canvas: dielectric, solid colour
   const addBench = world => {
