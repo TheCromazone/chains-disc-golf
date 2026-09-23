@@ -94,7 +94,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.5,1.25,.3),u*.75)*(1.-u*.3);   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo
         vec3 cov=gCover(vSplat,vTurf.zw,br);
         float reach=smoothstep(.02,.4,vSplat.z+br*.5);   // beyond the litter's edge single leaves stray into the turf
-        if(reach>0.){ vec3 l=texture2D(gDuff,p/1.2).rgb; float ll=dot(l,vec3(.3,.59,.11)); c=mix(c,mix(l,vec3(ll),.35)*1.6,max(cov.z,reach*smoothstep(.05,.11,ll)*.85)); }   // dry, sun-faded litter
+        if(reach>0.){ vec3 l=texture2D(gDuff,p/2.6).rgb; float ll=dot(l,vec3(.3,.59,.11)); c=mix(c,mix(l,vec3(ll),.4)*1.9,max(cov.z,reach*smoothstep(.05,.11,ll)*.85)); }   // dry, sun-faded litter: 4-9 cm leaves, 2-4 cm chips
         if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.3).rgb;   // packed pea gravel, shaded per pebble in the tile; its contrast eases with distance so it cannot speckle
           g=mix(g,${vec3s([.328, .306, .271])},smoothstep(3.,16.,d)*.55)*vec3(1.5,1.43,1.25)*mix(1.,.62,smoothstep(.55,.85,gNoise(p*.8+3.)));   // packed earth shows in patches
           c=mix(c,g,cov.x)*(1.-cov.x*(1.-cov.x)*.6); }   // a damp trodden rim at the turf

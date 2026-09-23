@@ -228,10 +228,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       // Broad exposed dry ground on the low shoulder describes the landing-area shape (visual only, not a hazard).
       const soil = ((along - length * .76) / (length * .14)) ** 2 + ((across + side * 8.8) / (4.8 + Math.sin(along * .19) * .8)) ** 2;
       const soilMask = (1 - smooth(.72, 1.08, soil)) * smooth(width + .35, width + 1.2, edge);
-      // Dry patches follow dryNoise; trodden ground around the basket collects litter and wears to earth at the pole.
+      // Dry patches follow dryNoise. Around the basket the putting circle is trodden to mulch and leaf litter: a lobed,
+      // frayed teardrop drawn out toward the tee, where players stand to putt.
       const dry = dryNoise(x, z), bd = Math.hypot(x - h.basket[0], z - h.basket[1]);
+      const bm = segDist(x, z, h.basket, [h.basket[0] - dx / length * 3, h.basket[1] - dz / length * 3]).d;
       splats[i * 4 + 3] = Math.max(smooth(.47 + fair * .07, .75, dry) * .85, soilMask * .9, (1 - smooth(4, 9, bd)) * .55);   // the unwatered rough dries out more than the fairway
-      splats[i * 4 + 2] = (1 - smooth(2.8, 5.4, bd + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 2.2 + (noise(x / 4.5 + 31, z / 4.5 + 31) - .5) * 3.4)) * .95;   // the putting circle is trodden to mulch, its outline lobed and frayed
+      splats[i * 4 + 2] = (1 - smooth(2.2, 4.6, bm + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 2.4 + (noise(x / 4.5 + 31, z / 4.5 + 31) - .5) * 4.4)) * .95;
       // Tee: the gravel apron, a scuff at the sign post, and the driest patches within ~12 m worn through to earth.
       const tx = x - h.tee[0], tz = z - h.tee[1], cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy, wear = padWear(x, z);
       splats[i * 4] = Math.max(wear, soilMask * .45, (1 - smooth(.4, 1.3, Math.hypot(u - 2.4, v + 2.6))) * .7, smooth(.62, .8, dry) * .5 * (1 - smooth(5, 14, Math.hypot(tx, tz))));

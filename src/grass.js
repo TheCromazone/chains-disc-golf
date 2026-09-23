@@ -39,7 +39,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   // Tiles: [size m, anchor distance ahead of the camera m, thinning from, gone at (m from the eye), roots per side].
   // Each clump drops out at its own random distance inside the thinning band, so density falls off smoothly instead of
   // stepping at a fade line; the far tile's clumps spread twice as wide (its spacing is three times the near one's).
-  const layers = lite ? [[8, 3.2, 3, 5.8, 22]] : [[11, 4.5, 3.5, 8.5, 80], [24, 10, 9, 15, 44]], roots = [];
+  const layers = lite ? [[8, 3.2, 3, 5.8, 22]] : [[11, 4.5, 3.5, 8.5, 80], [34, 14, 9, 19, 60]], roots = [];
   layers.forEach(([, , , , m], l) => { for (let i = 0; i < m; i++) for (let k = 0; k < m; k++) roots.push((i + rnd()) / m, (k + rnd()) / m, rnd(), l); });
   geo.setAttribute('aRoot', new THREE.InstancedBufferAttribute(new Float32Array(roots), 4)); geo.instanceCount = roots.length / 4;
 
@@ -66,7 +66,8 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         vec3 gn;vec4 ga=gHeightAt(root,gn);float dCam=distance(vec3(root.x,ga.x,root.y),gEye);
         float k=smoothstep(drop+.6,drop,dCam)*smoothstep(L.x*.5,L.x*.5-.8,max(abs(rel.x),abs(rel.y)));   // zero at the wrap edge: roots jump unseen
         vec2 guv=(root+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W / nx)},${f(segZ / H / nz)})+vec2(${f(.5 / nx)},${f(.5 / nz)});
-        vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,ga.zw,br);float grow=1.-max(max(cov.x,cov.y),cov.z);
+        vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,ga.zw,br);
+        float grow=1.-max(max(cov.x,cov.y),cov.z*step(fract(aRoot.z*7.7),.9));   // one clump in ten pushes up through the litter
         for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);grow*=smoothstep(.05,.3,max(abs(q.x)-.8,abs(q.y)-1.6));}
         float sc=k*smoothstep(.12,.45,grow),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // grass spills over path and gravel edges
         float hs=mix(.9+cl*.8,.55+cl*.4,fair)*(.8+.4*fract(aRoot.z*13.7))*sc;   // x the 4.5-10 cm blades, in 0.3-1 m clumps: rough 3-17 cm, fairway 2-9 cm
