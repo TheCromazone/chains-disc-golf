@@ -403,7 +403,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // turf; the trodden approach and the worn ring at the pole (terrain section) stay, and trunk feet keep their bare earth.
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i); let shade = 0, duff = 0, bare = 0, lawn = 0;
-    for (const h of holes) { const bd = Math.hypot(x - h.basket[0], z - h.basket[1]); if (bd < 38) lawn = Math.max(lawn, 1 - smooth(22, 34, bd + (noise(x / 6 + 13, z / 6 + 41) - .5) * 8)); }
+    for (const h of holes) { const bx = x - h.basket[0], bz = z - h.basket[1], bd = Math.hypot(bx, bz), L = Math.hypot(h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]), past = (bx * (h.basket[0] - h.tee[0]) + bz * (h.basket[1] - h.tee[1])) / L;
+      if (bd < 70) lawn = Math.max(lawn, 1 - smooth(22, 34, bd - Math.min(Math.max(past, 0), 50) * .55 + (noise(x / 6 + 13, z / 6 + 41) - .5) * 8)); }   // drawn out past the pin, so the putt looks down a green to the far tree line
     for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.4, t.fr * .4, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
     const k = 1 - Math.min(1, shade) * .2 * (1 - lawn); colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
     if (lawn > 0) { tmp.setRGB(colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]).lerp(cFair, lawn * .85); colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
