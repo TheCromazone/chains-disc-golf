@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { cloneModel, model } from './models.js';
 import { rimLight } from './materials.js';
-import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL } from './body-material.js';
+import { bodyMaterial, skinDirect, skinShade } from './body-material.js';
 import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
@@ -71,12 +71,13 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
 const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
-  fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [40, 108, 72]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [38, 110, 72]],
-    [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [40, 110, 72]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [46, 112, 72]]],
-  thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .023, -.048], [-.06, .025, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
+  fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
+    [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
+  thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
 // The same hand at rest, for the free hand in the set-up: the scan's hanging hand is one fused mitten ("a mitten under a
-// swollen wrist knob"). Fingers in a loose cascade, more curl toward the little finger; the thumb lies along the index.
-const REST = { curl: [[12, 24, 14], [14, 30, 18], [17, 35, 20], [21, 40, 22]], thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
+// swollen wrist knob"). Fingers in a loose cascade, more curl toward the little finger; the thumb lies along the index. Curled
+// about twice as far as it first was: straighter, the four fingers read at the tee as "a flat paddle".
+const REST = { curl: [[22, 42, 24], [26, 50, 28], [30, 56, 30], [34, 62, 32]], thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const taperAt = y => 1 - GRIP.taper * smooth(.11, 0, y);   // y: metres above the wrist joint
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); return p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
@@ -200,43 +201,109 @@ function handMorphs(mesh, handOffset, lod) {
   return g.userData.grip = { seats, hands, rests };
 }
 
-// Hair shells over the scan's own short hair. Its cap is painted on the skull, and every tee critic read it as "a solid dark
-// shell with a hard edge, no strands": the head's triangles are copied `layers` times into one skinned mesh (one draw), each
-// copy pushed out along the normal and drooping a little, and a layer keeps a texel only where the hair mask is set and the
-// strand's length (fine noise stretched along the way hair lies, times ~5 cm locks) reaches it. The outline breaks into
-// locks, roots darken and tips catch the light. Shared per loaded body; the mask decides per texel, so the face drops out.
-function hairShells(skin, layers) {
-  const g = skin.geometry; if (g.userData.shells?.layers === layers) return g.userData.shells.geo;
-  const head = skin.skeleton.bones.findIndex(b => b.name === 'head'), si = g.attributes.skinIndex, sw = g.attributes.skinWeight, idx = g.index.array;
+// Hair cards over the scan's own short hair. Its cap is painted on the skull, and every tee critic read it (and the noise
+// shells that followed it) as "a smooth dark shell with a hard outline, no strands": now a mop of alpha-tested cards, strips
+// rooted on the scalp that grow away from the crown and fall under gravity (a fringe forward over the brow, the sides over
+// the ears' tops, the back to the nape), lying in layers over the head and textured from a strand atlas, so the outline
+// breaks into strands and clumps against the sky. One skinned mesh (one draw) on the head bone, built once per loaded body
+// in its bind space; a card whose root lands off the hair mask collapses in the vertex shader, so the face stays clear.
+function hairCards(skin, spec, count) {
+  const g = skin.geometry; if (g.userData.cards?.count === count) return g.userData.cards.geo;
+  const head = skin.skeleton.bones.findIndex(b => b.name === 'head'), si = g.attributes.skinIndex, sw = g.attributes.skinWeight, idx = g.index.array, P = g.attributes.position, N = g.attributes.normal, UV = g.attributes.uv;
   const onHead = i => { for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === head && sw.getComponent(i, k) > .5) return true; return false; };
-  const map = new Map(), src = [], tri = [];
-  for (let f = 0; f < idx.length; f += 3) if (onHead(idx[f]) && onHead(idx[f + 1]) && onHead(idx[f + 2])) for (let k = 0; k < 3; k++) { let j = map.get(idx[f + k]); if (j === undefined) { map.set(idx[f + k], j = src.length); src.push(idx[f + k]); } tri.push(j); }
-  const n = src.length, geo = new THREE.BufferGeometry(), shell = new Float32Array(n * layers), index = [];
-  for (const name of ['position', 'normal', 'uv', 'skinIndex', 'skinWeight']) {
-    const A = g.attributes[name], s = A.itemSize, out = new Float32Array(n * layers * s);
-    for (let v = 0; v < n; v++) for (let c = 0; c < s; c++) { const x = A.getComponent(src[v], c); for (let L = 0; L < layers; L++) out[(L * n + v) * s + c] = x; }
-    geo.setAttribute(name, new THREE.BufferAttribute(out, s));
+  const hc = new THREE.Vector3(...(spec.headCentre || [0, 1.69, -.016])), R = new THREE.Vector3(...(spec.headRadii || [.083, .142, .102])), eyeY = spec.eyeY || hc.y + .03;
+  const tris = [], cum = [], a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(); let area = 0, topY = -1e9;
+  for (let f = 0; f < idx.length; f += 3) {
+    if (!(onHead(idx[f]) && onHead(idx[f + 1]) && onHead(idx[f + 2]))) continue;
+    a.fromBufferAttribute(P, idx[f]); b.fromBufferAttribute(P, idx[f + 1]); c.fromBufferAttribute(P, idx[f + 2]); topY = Math.max(topY, a.y, b.y, c.y);
+    const cy = (a.y + b.y + c.y) / 3, cz = (a.z + b.z + c.z) / 3;
+    if (cy < eyeY - .13 || (cz < hc.z - .03 && cy < eyeY + .04)) continue;   // neck and face: never hair
+    area += b.clone().sub(a).cross(c.clone().sub(a)).length(); tris.push(f); cum.push(area);
   }
-  for (let L = 0; L < layers; L++) { shell.fill((L + 1) / layers, L * n, (L + 1) * n); for (const j of tri) index.push(j + L * n); }
-  geo.setAttribute('shell', new THREE.BufferAttribute(shell, 1)); geo.setIndex(index);
-  g.userData.shells = { layers, geo }; return geo;
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const crown = new THREE.Vector3(hc.x, topY - .015, hc.z + .02), ell = v => Math.hypot((v.x - hc.x) / R.x, (v.y - hc.y) / R.y, (v.z - hc.z) / R.z);
+  const S = 5, pos = [], nrm = [], uv = [], root = [], tan = [], col = [], index = [], p = new THREE.Vector3(), n = new THREE.Vector3(), d = new THREE.Vector3(), t = new THREE.Vector3(), w = new THREE.Vector3(), rad = new THREE.Vector3();
+  for (let card = 0; card < count; card++) {
+    const r = rnd() * area; let lo = 0, hi = cum.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] < r) lo = m + 1; else hi = m; }
+    const f = tris[lo]; let u1 = rnd(), u2 = rnd(); if (u1 + u2 > 1) { u1 = 1 - u1; u2 = 1 - u2; } const bw = [1 - u1 - u2, u1, u2];
+    p.set(0, 0, 0); n.set(0, 0, 0); let ru = 0, rv = 0;
+    for (let k = 0; k < 3; k++) { const i = idx[f + k]; p.x += bw[k] * P.getX(i); p.y += bw[k] * P.getY(i); p.z += bw[k] * P.getZ(i); n.x += bw[k] * N.getX(i); n.y += bw[k] * N.getY(i); n.z += bw[k] * N.getZ(i); ru += bw[k] * UV.getX(i); rv += bw[k] * UV.getY(i); }
+    n.normalize(); const lift = .002 + .01 * rnd(); p.addScaledVector(n, lift);
+    const front = p.z < hc.z - .03, side = Math.abs(p.x - hc.x) > .05, back = p.z > hc.z + .035;
+    const stopY = (front && !side ? eyeY + .05 : front ? eyeY + .03 : back ? eyeY - .045 : eyeY + .026) + .02 * rnd(), stop = Math.min(stopY, p.y - .012);   // a ragged fringe above the brows, the temples, the sides over the ears' tops, the back at the nape; rooted below its line, a card still lies ~1 cm down (the painted cap's edge showed as a hard line at the nape)
+    t.subVectors(p, crown); t.addScaledVector(n, -t.dot(n)); if (t.lengthSq() < 1e-6) t.set(rnd() - .5, 0, rnd() - .5); t.normalize();
+    let len = .03 + .045 * rnd(), pts = null; const e0 = ell(p), jit = new THREE.Vector3(rnd() - .5, 0, rnd() - .5).multiplyScalar(.5);
+    for (let tries = 0; tries < 5 && !pts; tries++, len *= .75) {   // too long for its stop line: shorter, else dropped
+      const q = [p.clone()]; d.copy(t).multiplyScalar(.8).addScaledVector(n, .25).add(jit).normalize();
+      for (let k = 1; k <= S; k++) {
+        const x = q[k - 1].clone().addScaledVector(d, len / S);
+        const e = ell(x), want = e0 * (1.01 + .035 * k / S) + lift * 2; if (e < want) x.sub(hc).multiplyScalar(want / e).add(hc);   // kept off the skull, each layer a little further out toward the tips
+        q.push(x); d.subVectors(x, q[k - 1]).normalize(); d.y -= .32; d.normalize();   // gravity
+      }
+      if (q[S].y >= stop) pts = q;
+    }
+    if (!pts) continue;
+    const base = pos.length / 3, col0 = Math.floor(rnd() * 4), wid = .014 + .008 * rnd(), shade = .75 + .25 * (lift - .002) / .01;
+    for (let k = 0; k <= S; k++) {
+      const x = pts[k]; d.subVectors(pts[Math.min(S, k + 1)], pts[Math.max(0, k - 1)]).normalize(); rad.subVectors(x, hc).divide(R).divide(R).normalize();
+      w.crossVectors(d, rad).normalize().multiplyScalar(wid * (1 - .5 * k / S) / 2);
+      for (const s of [-1, 1]) { pos.push(x.x + s * w.x, x.y + s * w.y, x.z + s * w.z); nrm.push(rad.x, rad.y, rad.z); tan.push(d.x, d.y, d.z); uv.push((col0 + (s < 0 ? .02 : .98)) / 4, k / S); root.push(ru, rv); const v = shade * (.75 + 1. * k / S); col.push(v, v, v); }
+      if (k < S) { const i0 = base + k * 2; index.push(i0, i0 + 2, i0 + 1, i0 + 1, i0 + 2, i0 + 3); }
+    }
+  }
+  const geo = new THREE.BufferGeometry(), nv = pos.length / 3;
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setAttribute('rootUv', new THREE.Float32BufferAttribute(root, 2)); geo.setAttribute('strand', new THREE.Float32BufferAttribute(tan, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(nv * 4).map((_, i) => i % 4 ? 0 : head), 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(new Float32Array(nv * 4).map((_, i) => i % 4 ? 0 : 1), 4));
+  geo.setIndex(index); g.userData.cards = { count, geo }; return geo;
 }
-function hairShellMaterial(mask) {
-  const m = new THREE.MeshStandardMaterial({ roughness: .62 }), u = { uHairMask: { value: mask } };
+// Strand atlas, four columns (one card each): ~40 strands per card in three or four clumps that gather toward the tips,
+// each a wavy line thinning and fading out at its own length, darker at the root. Drawn once, grey (the hair colour tints it).
+let strandAtlas = null;
+function strands() {
+  if (strandAtlas) return strandAtlas;
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 256; const x = cv.getContext('2d'); let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  x.lineCap = 'round';
+  for (let col = 0; col < 4; col++) {
+    const clumps = Array.from({ length: 3 + (col & 1) }, () => 8 + rnd() * 48);
+    for (let s = 0; s < 40; s++) {
+      const cx = clumps[s % clumps.length], x0 = col * 64 + 4 + rnd() * 56, x1 = col * 64 + cx + (rnd() - .5) * 10, end = 150 + rnd() * 104, ph = rnd() * 6, lum = 125 + rnd() * 130;
+      for (let y = 0; y < end; y += 6) {
+        const k = y / end, k2 = (y + 6) / end, xa = x0 + (x1 - x0) * k * k + Math.sin(ph + y * .045) * 2.2, xb = x0 + (x1 - x0) * k2 * k2 + Math.sin(ph + (y + 6) * .045) * 2.2, l = lum * (.55 + .45 * k);
+        x.strokeStyle = `rgba(${l | 0},${l | 0},${l | 0},${(1 - Math.pow(k, 3)).toFixed(3)})`; x.lineWidth = (.9 + rnd() * 1.3) * (1 - .55 * k); x.beginPath(); x.moveTo(xa, y); x.lineTo(xb, y + 6); x.stroke();
+      }
+    }
+  }
+  strandAtlas = new THREE.CanvasTexture(cv); strandAtlas.colorSpace = THREE.SRGBColorSpace; strandAtlas.anisotropy = 4; return strandAtlas;
+}
+function hairCardMaterial(mask) {
+  const m = new THREE.MeshStandardMaterial({ roughness: .55, map: strands(), alphaTest: .42, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true }), u = { uHairMask: { value: mask } };
   m.onBeforeCompile = s => {
     Object.assign(s.uniforms, u);
-    s.vertexShader = 'attribute float shell; varying float vShell; varying vec3 vHP, vHN; varying vec2 vHUv;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-      vShell = shell; vHP = position; vHN = normal; vHUv = uv;
-      transformed += normal * shell * .032 - vec3(0., shell * shell * .03, 0.);`);   // ~3 cm of volume past the scan's cap, the ends falling ~3 cm: at 2 cm the outline still read as a sculpted cap against the sky
-    s.fragmentShader = 'uniform sampler2D uHairMask; varying float vShell; varying vec3 vHP, vHN; varying vec2 vHUv;\n' + NOISE_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-      { float hm = smoothstep(.35, .8, texture2D(uHairMask, vHUv).a);
-        vec3 flow = mix(vec3(1., .2, 1.), vec3(1., 1., .2), smoothstep(.35, .8, vHN.y));   // strands run down the sides and back, front to back on top
-        float s = chainsNoise(vHP * flow * 160.) * .6 + chainsNoise(vHP * flow * 370.) * .4, lock = chainsNoise(vHP * flow * 48. + 5.), clump = chainsNoise(vHP * 14. + 2.);
-        lock = smoothstep(.2, .8, lock);   // noise huddles round .5: stretched, or every layer survives to one smooth outer shell
-        if (vShell > hm * (.12 + .95 * lock * (.6 + .8 * clump)) * (.6 + .6 * s)) discard;   // ~2 cm locks, longer in ~7 cm clumps: the outline breaks into locks rather than fuzz
-        diffuseColor.rgb *= mix(.55, 1.6, vShell) * (.6 + .8 * s) * (.75 + .5 * lock); }`).replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(.62, .42, vShell);');   // dark at the roots, lighter and glossier toward the sunlit tips
+    s.vertexShader = 'uniform sampler2D uHairMask; attribute vec2 rootUv; attribute vec3 strand; varying vec3 vStrand;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      if (texture2D(uHairMask, rootUv).a < .5) transformed = vec3(0.);`)   // rooted off the hair (brow, ear, neck): the whole card collapses to a point
+      .replace('#include <skinnormal_vertex>', `#include <skinnormal_vertex>
+      vec3 st = strand;
+      #ifdef USE_SKINNING
+        st = (skinMatrix * vec4(st, 0.)).xyz;
+      #endif
+      vStrand = normalize((modelViewMatrix * vec4(st, 0.)).xyz);`);
+    // alpha test on the atlas thins a card to nothing a few mips down: the coverage is raised with the mip level instead;
+    // the normal stays the head's own (radial) on both faces, so the cards shade as one volume; a strand-aligned (Kajiya-Kay)
+    // sheen, a white primary and a hair-tinted secondary a little down the strand, is where the sun catches them
+    s.fragmentShader = 'varying vec3 vStrand;\n' + s.fragmentShader.replace('#include <alphatest_fragment>', `{ vec2 dm = vec2(length(dFdx(vMapUv * 256.)), length(dFdy(vMapUv * 256.))); diffuseColor.a *= 1. + .35 * max(0., log2(max(dm.x, dm.y))); }
+      #include <alphatest_fragment>`).replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n normal = normalize(vNormal);')
+      .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
+      void RE_Direct_Hair(const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
+        RE_Direct_Physical(directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight);
+        vec3 H = normalize(directLight.direction + geometryViewDir), t1 = normalize(vStrand - .12 * geometryNormal), t2 = normalize(vStrand + .1 * geometryNormal);
+        float d1 = dot(t1, H), d2 = dot(t2, H), lit = smoothstep(-.2, .35, dot(geometryNormal, directLight.direction));
+        reflectedLight.directSpecular += directLight.color * lit * (.16 * pow(sqrt(max(0., 1. - d1 * d1)), 110.) + .3 * material.diffuseColor * pow(sqrt(max(0., 1. - d2 * d2)), 28.));
+      }
+      #undef RE_Direct
+      #define RE_Direct RE_Direct_Hair`);
   };
-  m.customProgramCacheKey = () => 'chains-hair-shells';
+  m.customProgramCacheKey = () => 'chains-hair-cards';
   return m;
 }
 
@@ -259,7 +326,7 @@ export function createGLTFCharacter(avatar) {
     if (o.name.startsWith('accessory_wristband')) o.visible = avatar.wristband === 'both' || avatar.wristband === (o.name.endsWith('R') ? 'right' : 'left');
     if (!o.isMesh) return;
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; body.arms(['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n))); } }
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const by = i => new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert().elements[13]; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); } }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
     // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
@@ -280,8 +347,8 @@ export function createGLTFCharacter(avatar) {
   const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); into[name] = h; };
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.hands)) mount(geo, name, gripHands, 'grip_');
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.rests)) mount(geo, name, restHands, 'rest_');
-  const shellMat = hairShellMaterial(body.mask), shells = new THREE.SkinnedMesh(hairShells(skin, lod ? 6 : 14), shellMat); owned.add(shellMat);
-  shells.name = 'hair_shells'; shells.position.copy(skin.position); shells.quaternion.copy(skin.quaternion); shells.scale.copy(skin.scale); skin.parent.add(shells);
+  const shellMat = hairCardMaterial(body.mask), shells = new THREE.SkinnedMesh(hairCards(skin, spec, lod ? 700 : 2200), shellMat); owned.add(shellMat);
+  shells.name = 'hair_cards'; shells.position.copy(skin.position); shells.quaternion.copy(skin.quaternion); shells.scale.copy(skin.scale); skin.parent.add(shells);
   shells.bind(skin.skeleton, skin.bindMatrix); shells.boundingSphere = REACH; shells.receiveShadow = true;
   const hairShow = a => { shells.visible = a.hair === 'short' && (a.headwear || 'none') === 'none'; shellMat.color.set(a.hairColor); };
   hairShow(avatar);

@@ -223,6 +223,7 @@ function holdDisc(char, mesh, n, spin, throwType) {
     // edge-on, "a thin hot-pink stick" with no plate or rim; tipped, the plate shows a lit ellipse above a darker rim
     char.hand.getWorldPosition(_gh).sub(_v); _nrm.normalize(); _gh.addScaledVector(_nrm, -_gh.dot(_nrm)).normalize();   // _gh: in-plane, centre to the gripped rim
     _gr.copy(_v).addScaledVector(_gh, .1); _nrm.addScaledVector(_gt.subVectors(camera.position, _v).normalize(), GRIP_TIP * w).normalize();
+    _gt.set(1, 0, 0).applyQuaternion(camera.quaternion); _nrm.addScaledVector(_gt, -_nrm.dot(_gt) * w).normalize();   // and rolled about the view so its rim runs level across the frame: tipped sideways the plate read as a pink blade stabbing down past the hand
     _v.copy(_gr).addScaledVector(_gh.addScaledVector(_nrm, -_gh.dot(_nrm)).normalize(), -.1).addScaledVector(_nrm, -GRIP_SINK * w); }
   setDiscPose(mesh, [_v.x, _v.y, _v.z], [_nrm.x, _nrm.y, _nrm.z], spin);
 }
