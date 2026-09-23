@@ -19,7 +19,7 @@ export function createWindFx(scene, holes, height) {
   geo.setIndex(index);
   const mat = new THREE.ShaderMaterial({
     uniforms: { color: { value: new THREE.Color('#f4fbff') }, strength: { value: 0 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    vertexShader: 'attribute float alpha; varying float vA; void main(){ vA = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    vertexShader: 'attribute float alpha; varying float vA; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.); vA = alpha * smoothstep(2., 5., -mv.z); gl_Position = projectionMatrix * mv; }',   // fades within 5 m: a ribbon brushing the chest-high aim lens would sheet across the frame
     fragmentShader: 'uniform vec3 color; uniform float strength; varying float vA; void main(){ gl_FragColor = vec4(color, vA * strength);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
   });
   const streaks = new THREE.Mesh(geo, mat); streaks.frustumCulled = false; streaks.renderOrder = 3; scene.add(streaks);
