@@ -86,7 +86,7 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 .ccard .cinfo .eyebrow { font-size: 11px; letter-spacing: 1.6px; color: #ffe1a3; }
 .ccard .chev { display: flex; flex: none; padding: 7px; background: #ffffff10; border: 1px solid #ffffff35; border-radius: 50%; }
 .ccard .chev .icon { width: 15px; height: 15px; }
-.ccard.on { color: var(--text); border-color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
+.ccard.on { color: var(--text); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 3px 9px #17496918; }   /* an even 2px ring, the lit chevron says the rest */
 .ccard.on .chev { color: #15241d; background: var(--accent); border-color: var(--accent); }
 #btnCourses { min-height: 96px; padding: 12px 14px; }
 #btnCourses .cinfo b { font-size: 21px; }   /* one hero on the hub card: Play round; the course name sits a step under it */
@@ -207,7 +207,7 @@ td.cur { background: #f4cb6517; }
 .players .row { margin-bottom: 8px; padding: 8px; border-radius: 10px; background: #ffffff08; }
 .players .row button { min-height: 34px; padding: 6px 9px; }
 .code { margin: 6px 0; padding: 14px; border: 1px dashed #f4cb6566; border-radius: 12px; font-size: 42px; font-weight: 800; letter-spacing: 8px; text-align: center; color: var(--accent); }
-.inline-error { border: 1px solid #f79b7755; border-left: 3px solid #f3ad7f; border-radius: 8px; padding: 10px 12px; color: #8f322d; background: #ffdfdba6; font-size: 12px; }
+.inline-error { border: 1px solid #f3ad7f; border-radius: 8px; padding: 10px 12px; color: #8f322d; background: #ffdfdba6; font-size: 12px; }
 .leave-dialog { position: fixed; inset: 0; margin: auto; width: min(380px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; color: var(--text); }
 .leave-dialog::backdrop { background: #164d7770; }
 .leave-dialog p { margin: 0 0 8px; line-height: 1.6; }
