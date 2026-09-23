@@ -22,7 +22,7 @@ export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
     hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#689a3c', '#588a38', '#446f33', '#e3cf9a'], leafHue: 0.29,
-    sun: [32, 55, 11.5, 13, 5], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .0068], hemi: ['#a5c6ee', '#5d6b39'], water: '#2d6f95' },
+    sun: [41, 45, 11.5, 13, 5], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .0068], hemi: ['#a5c6ee', '#74663f'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
     hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#74a03e', '#65933a', '#4f7434', '#e6d29c'], leafHue: 0.265,
@@ -632,9 +632,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const discDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[2]), deg(def.sun[3])), sunColor = new THREE.Color(def.sunColor);
   const haze = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.55, .64, .85));   // a clear sky blue well under the course swatch: distance cools to blue instead of going milky grey-green
   Object.assign(FOG.sun, { x: discDir.x, y: discDir.y, z: discDir.z }); Object.assign(FOG.haze, { r: haze.r, g: haze.g, b: haze.b });
-  // The glare a shade warmer than the key (its light took the long way through the air), and ~half the key's strength:
-  // any brighter and the tee's back third, which looks into the lobe, whites out to a flat cream wall.
-  Object.assign(FOG.glow, { r: sunColor.r * .55, g: sunColor.g * .51, b: sunColor.b * .44 });
+  // The glare a shade warmer than the key (its light took the long way through the air), and ~40% of the key's strength:
+  // any brighter and the tee's back third, which looks into the lobe, goes to a milky cream veil.
+  Object.assign(FOG.glow, { r: sunColor.r * .42, g: sunColor.g * .39, b: sunColor.b * .33 });
   scene.userData.sun = { dir: discDir, color: sunColor };   // effects.js aims the light shafts at the disc
   const sky = skyDome(def, quality === 'low'); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
@@ -642,7 +642,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // The cube camera's far plane has to reach the 1100 m dome.
   const pmrem = new THREE.PMREMGenerator(renderer), envScene = new THREE.Scene(); sky.material.uniforms.ground.value = 1; envScene.add(sky);
   const envRT = pmrem.fromScene(envScene, .04, 1, 2000); envScene.remove(sky); sky.material.uniforms.ground.value = 0; scene.add(sky); pmrem.dispose();
-  scene.environment = envRT.texture; scene.environmentIntensity = .6; scene.background = null;
+  scene.environment = envRT.texture; scene.environmentIntensity = .4; scene.background = null;
   // Aerial perspective: see the fog chunk above skyDome(). def.fog[1] is an exponential density per metre of eye distance.
   scene.fog = new THREE.FogExp2(haze, def.fog[1]);
   // One warm key from the disc's side of hole 1: the tee shot is side-back-lit and the athlete and trunks keep a lit flank.
@@ -650,24 +650,28 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const sm = quality === 'low' ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
   // 120 m box following the focus in update(): wide enough that trees off-frame toward the sun still rake shadows across the frame.
   const extent = 60, sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -extent; sc2.right = sc2.top = extent; sc2.near = 1; sc2.far = 400;
-  sun.shadow.radius = quality === 'low' ? 2 : 2.5; sun.shadow.bias = -0.0004; sun.shadow.normalBias = .04;   // the Vogel taps reach `radius` texels (15 cm on Full, 23 on Lite): a crown 10-20 m up casts about that penumbra; the normal bias covers that slope
+  sun.shadow.radius = 2; sun.shadow.bias = -0.0004; sun.shadow.normalBias = .04;   // Lite: the Vogel taps reach 2 texels (23 cm), about the penumbra of a crown 20 m up; the normal bias covers that slope
   scene.add(sun, sun.target);
   // Full: the near cascade. A second shadow map 24 m across at 2048² (1.2 cm texels) round the play, blended into the
-  // 120 m one over its outer fifth (the shadow chunk above skyDome()); it adds no light of its own. Its penumbra grows with
-  // the blocker's height over the receiver (contact hardening): a basket pole or a trunk's foot cuts a hard line, a leaf
-  // 10 m up a 6 cm soft one. Only 120-210 m from the light (30 m of casters above the focus, the slopes below it) for depth
-  // precision. sunPenumbra.x = texels of penumbra radius per unit of shadow depth (depth range x tan .34° / texel).
+  // 120 m one over its outer fifth (the shadow chunk above skyDome()); it adds no light of its own. On Full both maps grow
+  // their penumbra with the blocker's height over the receiver (contact hardening): a basket pole or a trunk's foot cuts a
+  // hard line, a leaf 10 m up a 6 cm soft one, a pine crown 25 m up across the hill a 15 cm one. The near map spans only
+  // 120-210 m from the light (30 m of casters above the focus, the slopes below it) for depth precision. sunPenumbra: per
+  // map (near, far), texels of penumbra radius per unit of shadow depth (depth range x tan .34° / texel), and the widest.
   const near = quality === 'low' ? null : new THREE.DirectionalLight(sunColor, 0), nearTexel = 24 / 2048;
   if (near) { const c = near.shadow.camera; c.left = c.bottom = -12; c.right = c.top = 12; c.near = 120; c.far = 210; near.castShadow = true; near.shadow.mapSize.set(2048, 2048);
-    near.shadow.bias = -.0003; near.shadow.normalBias = .03; scene.add(near, near.target); Object.assign(PENUMBRA, { x: (c.far - c.near) * .006 / nearTexel, y: 12 }); }
+    near.shadow.bias = -.0003; near.shadow.normalBias = .03; scene.add(near, near.target);
+    Object.assign(PENUMBRA, { x: (c.far - c.near) * .006 / nearTexel, y: 12, z: (sc2.far - sc2.near) * .006 / (extent * 2 / sm), w: 6 }); }
   // The shadow cameras' own axes (Object3D.lookAt from the sun toward the focus, up +y): update() snaps each camera's
   // centre to its texel grid on them, so shadow edges hold still while the camera follows the play instead of crawling.
   const lightR = new THREE.Vector3(0, 1, 0).cross(sunDir).normalize(), lightU = sunDir.clone().cross(lightR), aim = new THREE.Vector3();
   const place = (light, p, texel) => { const a = p.dot(lightR), b = p.dot(lightU);
     light.target.position.copy(p).addScaledVector(lightR, Math.round(a / texel) * texel - a).addScaledVector(lightU, Math.round(b / texel) * texel - b); light.position.copy(light.target.position).addScaledVector(sunDir, 180); };
-  // The sky fill: the course's sky blue over a green-brown bounce, a third of the light on open turf (the sun the other two
-  // thirds), so shade sits 2-2.5 stops under sun and reads cool: it is lit by the blue sky alone.
-  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], 1.6); scene.add(hemi);
+  // The sky fill: the course's sky blue half way to white over an earthy bounce, about a quarter of the light on open turf
+  // (the sun the rest), so shade sits at 40-50% of sun and reads cool: it is lit by the sky alone (the environment map adds
+  // the dome's own blue). Any bluer and brown mulch in shade went a dead charcoal grey instead of the same tan dirt,
+  // darker and a touch cooler; any brighter and sun and shade melted into soft 1.4:1 patches.
+  const hemi = new THREE.HemisphereLight(new THREE.Color(def.hemi[0]).lerp(new THREE.Color(1, 1, 1), .55), def.hemi[1], 1.1); scene.add(hemi);
 
   // Contact occlusion, multiplied into whatever is under it: tight rings where a trunk or the basket meets the ground (the
   // shadow map cannot resolve that corner and the sky fill has no occlusion of its own), and the soft pool under each tee
@@ -739,7 +743,7 @@ for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s 
 // lit by the sky alone (no sunlight put back into it), so it reads cool and sits 2-2.5 stops under sun. The same sun
 // visibility dims reflected sky: whatever shades a surface from the sun, a canopy or the basket's tray, hides most of
 // the sky from it too, so shaded steel stops mirroring blue.
-const PENUMBRA = { x: 0, y: 0 };
+const PENUMBRA = { x: 0, y: 0, z: 0, w: 0 };
 for (const s of Object.values(THREE.ShaderLib)) if (s.uniforms?.directionalLights) Object.assign(s.uniforms, { sunPenumbra: { value: PENUMBRA } });
 const DIR_LOOP = [THREE.ShaderChunk.lights_fragment_begin.indexOf('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )'), THREE.ShaderChunk.lights_fragment_begin.indexOf('#if ( NUM_RECT_AREA_LIGHTS > 0 )')];
 Object.assign(THREE.ShaderChunk, {
@@ -761,7 +765,7 @@ float sunVis = 1.;
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. ), fogCos2 = fogCos * fogCos;
 	#ifdef FOG_EXP2
-		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 12., 0. ) * smoothstep( 12., 60., fogDist ) );   // eased in over 12-60 m: a crown overhead keeps its dark core, distance still goes milky
+		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 12., 0. ) * smoothstep( 20., 110., fogDist ) );   // eased in over 20-110 m: the play and the woods round it stay clear and dark-trunked (a veil from 10 m read as milky fog), the tree line beyond fades
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
@@ -773,8 +777,8 @@ float sunVis = 1.;
 #endif`,
   // Sun shadows: the stock PCF kernel spaced at `radius` texels leaves blocky rings under leafy canopies. 16 taps on a
   // Vogel disk turned per pixel (white noise: IGN's diagonals show without TAA) give the same cost a smooth penumbra, grain
-  // instead of steps. The near cascade (Full) first averages the depth of whatever blocks the sun over its widest
-  // penumbra, then filters over a radius that grows with that blocker's height above the receiver (PCSS).
+  // instead of steps (Lite). Full's sun first averages the depth of whatever blocks it over the widest penumbra, then
+  // filters over a radius that grows with that blocker's height above the receiver (PCSS), in both of its maps.
   shadowmap_pars_fragment: `const vec2 vogel[ 16 ] = vec2[ 16 ]( ${Array.from({ length: 16 }, (_, i) => { const r = Math.sqrt((i + .5) / 16), a = i * 2.39996323; return `vec2( ${(r * Math.cos(a)).toFixed(4)}, ${(r * Math.sin(a)).toFixed(4)} )`; }).join(', ')} );
 vec2 vogelTap( int i, vec2 turn ) { return vec2( vogel[ i ].x * turn.x - vogel[ i ].y * turn.y, vogel[ i ].x * turn.y + vogel[ i ].y * turn.x ); }
 vec2 vogelTurn() { float spin = 6.2831853 * fract( sin( dot( gl_FragCoord.xy, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ); return vec2( cos( spin ), sin( spin ) ); }
@@ -785,23 +789,24 @@ vec2 vogelTurn() { float spin = 6.2831853 * fract( sin( dot( gl_FragCoord.xy, ve
 			shadow *= .0625;
 		`) + `
 #if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 1
-	uniform vec2 sunPenumbra;   // texels of penumbra radius per unit of shadow depth between blocker and receiver; the widest radius
-	float softShadow( sampler2D map, float texel, float bias, vec4 coord ) {
+	uniform vec4 sunPenumbra;   // near map, far map: texels of penumbra radius per unit of shadow depth between blocker and receiver, the widest radius
+	float softShadow( sampler2D map, float texel, float bias, vec4 coord, vec2 pen ) {
 		coord.xyz /= coord.w; coord.z += bias;
+		if ( coord.z > 1. ) return 1.;
 		vec2 turn = vogelTurn() * texel;
 		float blockers = 0., depth = 0.;
-		for ( int i = 0; i < 16; i ++ ) { float d = unpackRGBAToDepth( texture2D( map, coord.xy + vogelTap( i, turn * sunPenumbra.y ) ) ); if ( d < coord.z ) { blockers += 1.; depth += d; } }
-		if ( blockers == 0. || coord.z > 1. ) return 1.;
+		for ( int i = 0; i < 16; i ++ ) { float d = unpackRGBAToDepth( texture2D( map, coord.xy + vogelTap( i, turn * pen.y ) ) ); if ( d < coord.z ) { blockers += 1.; depth += d; } }
+		if ( blockers == 0. ) return 1.;
 		if ( blockers == 16. ) return 0.;
-		float r = clamp( ( coord.z - depth / blockers ) * sunPenumbra.x, .6, sunPenumbra.y ), s = 0.;
+		float r = clamp( ( coord.z - depth / blockers ) * pen.x, 1., pen.y ), s = 0.;
 		for ( int i = 0; i < 16; i ++ ) s += texture2DCompare( map, coord.xy + vogelTap( i, turn * r ), coord.z );
 		return s * .0625;
 	}
 	float sunShadow() {   // the near cascade inside its box, blended out over its outer fifth into the far map
 		vec2 e = abs( vDirectionalShadowCoord[ 1 ].xy / vDirectionalShadowCoord[ 1 ].w - .5 );
 		float w = smoothstep( .5, .4, max( e.x, e.y ) ), s = 1.;
-		if ( w < 1. ) s = getShadow( directionalShadowMap[ 0 ], directionalLightShadows[ 0 ].shadowMapSize, directionalLightShadows[ 0 ].shadowIntensity, directionalLightShadows[ 0 ].shadowBias, directionalLightShadows[ 0 ].shadowRadius, vDirectionalShadowCoord[ 0 ] );
-		if ( w > 0. ) s = mix( s, softShadow( directionalShadowMap[ 1 ], 1. / directionalLightShadows[ 1 ].shadowMapSize.x, directionalLightShadows[ 1 ].shadowBias, vDirectionalShadowCoord[ 1 ] ), w );
+		if ( w < 1. ) s = softShadow( directionalShadowMap[ 0 ], 1. / directionalLightShadows[ 0 ].shadowMapSize.x, directionalLightShadows[ 0 ].shadowBias, vDirectionalShadowCoord[ 0 ], sunPenumbra.zw );
+		if ( w > 0. ) s = mix( s, softShadow( directionalShadowMap[ 1 ], 1. / directionalLightShadows[ 1 ].shadowMapSize.x, directionalLightShadows[ 1 ].shadowBias, vDirectionalShadowCoord[ 1 ], sunPenumbra.xy ), w );
 		return s;
 	}
 #endif`,

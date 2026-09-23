@@ -20,8 +20,8 @@ export async function loadSky() { return null; }
 // Screen-space AO was tried and dropped (r5): too faint at thin contacts, grime in the lawn; the contact rings under trunks
 // and baskets (course.js) and the canopy's baked occlusion carry it.
 const GRADE = {
-  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.03, 1, .96) }, uLift: { value: new THREE.Vector3(0, .003, .01) }, uSat: { value: 1 }, uOlive: { value: .3 },
-    uCool: { value: new THREE.Vector3(.93, .99, 1.1) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uCurve: { value: .4 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.03, 1, .96) }, uLift: { value: new THREE.Vector3(0, .003, .01) }, uSat: { value: 1 }, uOlive: { value: .4 },
+    uCool: { value: new THREE.Vector3(.97, .99, 1.04) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uCurve: { value: .4 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
   vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift,uCool,uWarm;uniform float uSat,uOlive,uCurve,uGrain,uVignette,uTime;varying vec2 vUv;
     void main(){ vec4 c=texture2D(tDiffuse,vUv); c.rgb=clamp(c.rgb*uGain+uLift,0.,1.);
