@@ -325,6 +325,14 @@ def birch_bark(rng):
     dx = (((x - cx + W / 2) % W) - W / 2) / sx; dy = (((y - cy + H / 2) % H) - H / 2) / sy
     scar = dx * dx + dy * dy + (rough - .5) * 1.4 < 1
     img[scar] = img[scar] * .1 + .03
+  # w3 verdicts: at 20-40 m (a pixel is ~15 cm of trunk at 640 px) every mark above is sub-pixel and the birches read as plain
+  # white poles. A mature birch carries big black bands and diamonds, 15-35 cm tall and a third of the way round: those stay
+  # a pixel or two, so a trunk reads black-barred white at any range
+  for _ in range(9):
+    cx, cy = rng.uniform(0, W), rng.uniform(0, H); sx, sy = rng.uniform(60, 170), rng.uniform(18, 38)
+    dx = (((x - cx + W / 2) % W) - W / 2) / sx; dy = (((y - cy + H / 2) % H) - H / 2) / sy
+    scar = np.abs(dx) ** 1.4 + dy * dy + (rough - .5) * 1.1 < 1
+    img[scar] = img[scar] * .08 + .03
   grain = noise((128, 256), 7); img *= (.93 + .1 * grain[..., None])
   return np.concatenate([np.clip(img, 0, 1), np.ones((H, W, 1))], 2)
 
