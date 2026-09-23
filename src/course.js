@@ -300,9 +300,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // per-instance tilt, height and girth (a stout or a slender tree: trunk and crown width together) so one variant never
   // tiles; hashed from position, so the rng stream (and the layout) stays put. The record scales with the drawn tree.
   const VARIANTS = {}; for (const v in IMPOSTOR) VARIANTS[v.replace(/\d+$/, '')] = (VARIANTS[v.replace(/\d+$/, '')] || 0) + 1;   // how many each species has
-  const plant = (x, z, s, rot, kind, pine) => {
-    const y = height(x, z), D = DIMS[kind], sy = .92 + noise(x * .53 + 17, z * .53 + 23) * .16, g = .84 + noise(x * .47 + 61, z * .47 + 19) * .36;
-    (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.min(VARIANTS[kind] - 1, Math.floor(noise(x * .37 + 13, z * .37 + 5) * VARIANTS[kind])), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * .12, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * .12, sy, g });
+  // wide: a quiet (shadowless) stand tree varies twice as much, no taller or stouter than the most (w6: the pines behind the
+  // arch read as cloned straight poles of one girth); shadow casters keep the narrow range, so the light on the floor stays put
+  const plant = (x, z, s, rot, kind, pine, wide = 0) => {
+    const y = height(x, z), D = DIMS[kind], sy = 1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16), g = 1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36), lean = wide ? .22 : .12;
+    (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.min(VARIANTS[kind] - 1, Math.floor(noise(x * .37 + 13, z * .37 + 5) * VARIANTS[kind])), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * lean, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * lean, sy, g });
     const t = { x, y, z, r: D[0] * s * g, h: D[1] * s * sy, fy: D[2] * s * sy, fr: D[3] * s * (g + sy) / 2 }; trees.push(t); return t;
   };
   for (let gx = -W / 2 + 8; gx < W / 2 - 8; gx += 5) for (let gz = -H / 2 + 8; gz < H / 2 - 8; gz += 5) {
@@ -373,7 +375,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 12 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 40) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || inLane({ x, z })) continue;
     if (treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < (young ? 2.2 : 3))) continue;
     const front = fi.d < inner + 2.5, pine = front ? noise(x / 13 + 9, z / 13 + 4) > .55 : noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine;
-    const t = Object.assign(plant(x, z, (young || front ? s : s + .22) * (young && !guard && fi.t > .6 ? 2 : 1), rot, pine ? (front ? 'spruce' : kindOf(x, z, true)) : front ? 'broad' : kindOf(x, z, false), pine), { edge: 1 }); if (young || !guard) (pine ? pineSpots : decSpots).at(-1).quiet = 1;
+    const t = Object.assign(plant(x, z, (young || front ? s : s + .22) * (young && !guard && fi.t > .6 ? 2 : 1), rot, pine ? (front ? 'spruce' : kindOf(x, z, true)) : front ? 'broad' : kindOf(x, z, false), pine, young || !guard), { edge: 1 }); if (young || !guard) (pine ? pineSpots : decSpots).at(-1).quiet = 1;
     const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
   }
   // Clearing stand (w2 verdict: past the arch the tee looked onto a bare, evenly lit grass hill with a few crowns on its
@@ -389,7 +391,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 16 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 26) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7) || inLane({ x, z })) continue;
     if (treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < 3.6)) continue;
     const pine = noise(x / 23 + 7, z / 23 + 61) > .66, kind = pine ? kindOf(x, z, true) : noise(x / 11 + 5, z / 11 + 3) > .72 ? 'birch' : 'broad';
-    const t = Object.assign(plant(x, z, s, rot, kind, pine), { edge: 1 }); (pine ? pineSpots : decSpots).at(-1).quiet = 1;
+    const t = Object.assign(plant(x, z, s, rot, kind, pine, 1), { edge: 1 }); (pine ? pineSpots : decSpots).at(-1).quiet = 1;
     const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
   }
   // Under crowns the turf goes thin, pale and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
@@ -558,7 +560,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         #endif`);
       s.fragmentShader = `#define CROWN
 #define CLUMP_LIGHT 1.6
-#define SKY_HOLES .65
+#define SKY_HOLES .9
 varying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;
 float crownHash(vec3 p) { p = fract(p * .1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
 float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
@@ -603,10 +605,10 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         #endif
         // light reaches a back-lit leaf through several leaves, not only through gaps: soften its shadow to 35% for this term
         float lit = mix(.35, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
-        reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(.92, .95, .4);   // olive, not chartreuse or cream (w3: gold read as cream glare under the bloom)
+        reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(.95, .95, .56);   // olive, not chartreuse or cream (w3: gold read as cream glare under the bloom)
         // sunlight scattered leaf to leaf through the crown: a soft yellow-green fill that follows the sun, not the shadow map,
         // so the shaded side of a back-lit crown reads green instead of black (a fifth of it at the heart of the crown)
-        reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * mix(.2, 1., sunThin) * leafMask * vec3(1., 1., .4);
+        reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * mix(.2, 1., sunThin) * leafMask * vec3(1., 1., .6);
         #ifdef CROWN
         // Clump light (a crown past 30 m read as one flat dark-green mass under the haze): the crown's sun-side shell, lit by
         // the crown-sphere normal with wrap, breaks into warm yellow-green clumps, clump by clump bright or dim, and its heart
@@ -614,7 +616,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         { vec3 o = normalize(vCrownP + vec3(0., 1e-4, 0.)), Lw = (vec4(L, 0.) * viewMatrix).xyz;
           float shell = smoothstep(.5, 1., crownDepth), face = saturate((dot(o, Lw) + .5) / 1.5);
           reflectedLight.directDiffuse *= mix(.45, 1., smoothstep(.3, .9, crownDepth));
-          reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * CLUMP_LIGHT * shell * face * face * mix(.15, 1.3, vClump) * vec3(1.05, 1., .5); }
+          reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * CLUMP_LIGHT * shell * face * face * mix(.15, 1.3, vClump) * vec3(1.05, 1., .66); }
         #endif
       }
       #endif` : ''));
@@ -625,7 +627,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     if (crown) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )')
       .replace('diffuseColor *= sampledDiffuseColor;', 'diffuseColor *= vec4(mix(sampledDiffuseColor.rgb, texture2D(map, vMapUv, 2.5).rgb, .75), sampledDiffuseColor.a);'));
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', `{ float l = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
-        diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, .7);
+        diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, .55);
         diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .4, diffuseColor.rgb, crownDepth * crownDepth); }
       #include <lights_physical_fragment>`);
     // Haze on foliage: the scene's fog, eased to 35% on crowns within 40 m (a near crown keeps its dark core and lit rim; at 80%
@@ -645,7 +647,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare${leaf ? '' : ' * (1. - smoothstep(25., 70., length(vViewPosition)))'}), 1., sunAir.x)); }`);   // a trunk's exemption ends by 70 m: far trunks against the glare took half the floor's haze and stood dark in front of it like cut-outs
     // Leaves stop short of the bloom threshold (2, linear): a crown against the sun blazed past it and the bloom spread every
     // back-lit card into one even yellow haze with no dark core. Clamped by luminance, so the hue holds.
-    if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `outgoingLight *= min(1., mix(1.2, .75, pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 8.)) / max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4));
+    if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `outgoingLight = mix(vec3(dot(outgoingLight, vec3(.2126, .7152, .0722))), outgoingLight, .78);   // w6 verdicts: every crown one oversaturated lime; a real crown's light and shade are greyer than its albedo
+      outgoingLight *= min(1., mix(1.2, .75, pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 8.)) / max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4));
       #include <opaque_fragment>`);
     s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `
       // w3 verdicts ("the tree line behind the arch is one flat row at the near trees' value and contrast"): a crown's light and
@@ -662,11 +665,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       { vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)) - 1., 0., 2.) * .35; }
       #endif
       #ifdef CROWN
-      diffuseColor.a *= 1. - SKY_HOLES * smoothstep(.7, 1., crownDepth) * step(.6, vClump);   // some outer clumps thin out: sky holes and a broken edge, not a solid silhouette
+      diffuseColor.a *= 1. - SKY_HOLES * smoothstep(.7, 1., crownDepth) * step(.5, vClump);   // some outer clumps thin out: sky holes and a broken edge, not a solid silhouette
       // w3 verdicts (the framing oak: "a dense mass with almost no sky holes", "no dark hollow voids between clumps"): pockets
       // ~1-1.5 m across cut through the outer third of the crown, fixed to the crown (crown-space noise), so the shell breaks
       // into separate clumps with the dark interior showing between them and sky through the rim
-      if (crownN * smoothstep(.55, .95, crownDepth) > .53) diffuseColor.a = 0.;
+      if (crownN * smoothstep(.45, .95, crownDepth) > .47 - .09 * (1. - smoothstep(20., 45., length(vViewPosition)))) diffuseColor.a = 0.;   // near crowns (the framing tree over the tee) open wider: w6 "solid lumpy blobs, almost no sky holes". Colour pass only: the shadow keeps its own cut
       diffuseColor.a = smoothstep(.25, .75, diffuseColor.a); if (diffuseColor.a < .01) discard;
       #else
       #include <alphatest_fragment>
@@ -691,7 +694,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
   // conifers sit darker than the broadleaves (a deep green, not grey-blue); stands drift yellower or bluer, lighter or darker by
   // about 12%, and each tree differs from its neighbours by as much again, so no two crowns in a row read the same.
-  const KIND_TINT = { spruce: [.86, .9, .54], scots: [.86, .86, .52] };
+  const KIND_TINT = { spruce: [.78, .9, .8], scots: [.84, .88, .76] };
   const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5 + (noise(s.x * .53 + 7, s.z * .53 + 3) - .5) * .8, k = KIND_TINT[s.kind] || [1, 1, 1];
     return col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.88 + noise(s.x * .61 + 11, s.z * .61 + 17) * .26)); };
   // Bark differs tree to tree as well (a stem greyer or redder, lighter or darker by ~15%), so a stand is not one repeated pole.
