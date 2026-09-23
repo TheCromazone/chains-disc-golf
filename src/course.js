@@ -357,6 +357,25 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const { fi, halfW } = stand(x, z);   // not in another hole's fairway, a pond, a pad or another crown
     if (fi.hole !== h && fi.d < halfW || treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < 4) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7)) continue;
     const t = plant(x, z, FRAME_TREE[2], noise(x, z) * 6.28, 'broad', false), k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null; }
+  // Edge stand: the tree line's front rank. The main stands keep 7.5-12.5 m off the line, so from the tee the far half of a
+  // hole was a bare slope under one hazy row 100 m out. This pass fills the gap between the mown edge and that line, on the
+  // guardian side from 40% of the way out and beyond the open side's walking trail from halfway: young trees and mature ones
+  // (a birch or spruce nearest the fairway, taller broadleaves and pines behind, whose crowns clear the arch's beam from the
+  // tee), so the view down a hole ends in a layered wood with trunks 40-80 m out. Own rng: the main layout, understorey and
+  // framing trees stay put. None within 12 m of a basket, past it or in its putt lane (the green stays open), within 40 m of
+  // a tee (the arch) or over 10.5 m out on the guardian side (the village). Flagged edge: the dressing is laid out without
+  // them, so the props stay exactly where they were. Records and grid like any tree.
+  const erng = makeRng(seed * 197 + 29);
+  for (let gx = -W / 2 + 12; gx < W / 2 - 12; gx += 3) for (let gz = -H / 2 + 12; gz < H / 2 - 12; gz += 3) {
+    const x = gx + (erng() - .5) * 2.6, z = gz + (erng() - .5) * 2.6, pick = erng(), young = erng() < .35, s = young ? .34 + erng() * .2 : .62 + erng() * .4 + .28 * erng(), rot = erng() * Math.PI * 2;
+    const { fi, halfW, side, openSide } = stand(x, z), guard = side * openSide < 0, inner = (guard ? 4 : 9) * def.fairwayW;   // the open side's walking trail runs 5-8 m out
+    if (!fi.hole || fi.d < inner || fi.d > (guard ? Math.min(halfW + 4, 10.5 * def.fairwayW) : halfW + 6) || fi.t < (guard ? .38 : .5) || fi.t > .995 || pick > .8 * Math.min(1, def.trees * 1.4)) continue;
+    if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 12 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 40) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || inLane({ x, z })) continue;
+    if (treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < (young ? 2.2 : 3))) continue;
+    const front = fi.d < inner + 2.5, pine = front ? noise(x / 13 + 9, z / 13 + 4) > .55 : noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine;
+    const t = Object.assign(plant(x, z, young || front ? s : s + .22, rot, pine ? (front ? 'spruce' : kindOf(x, z, true)) : front ? 'birch' : kindOf(x, z, false), pine), { edge: 1 }); if (young || !guard) (pine ? pineSpots : decSpots).at(-1).quiet = 1;
+    const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
+  }
   // Under crowns the turf goes thin, pale and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
   // earth shows at the trunk base. Colour and splat weights only: no height change.
   for (let i = 0; i < pos.count; i++) {
@@ -602,7 +621,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     src.scene.updateMatrixWorld(true);
     src.scene.traverse(o => { if (!o.isMesh) return;
       const variant = o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
-      if (mine.length) inst(g, key === 'leaves' ? leafFull(g) : woodMats[key] || trunkMat, mine, key === 'leaves' ? leafTint : barkTint, shadow, lod); });
+      const mat = key === 'leaves' ? leafFull(g) : woodMats[key] || trunkMat, tint = key === 'leaves' ? leafTint : barkTint, cast = mine.filter(s => !s.quiet), quiet = mine.filter(s => s.quiet);
+      if (cast.length) inst(g, mat, cast, tint, shadow, lod);
+      if (quiet.length) inst(g, mat, quiet, tint, false, lod); });   // quiet trees cast no shadow (a shadow pass triples a tree's triangles): the edge stand's young trees and its open side. Its
+      // guardian-side mature trees still throw the long shadows that dapple the fairway slope.
     return true;
   };
   // Impostors: tools/build-trees.py renders every variant side-on into a 256 x 512 cell (albedo, then the crown normals'
@@ -680,7 +702,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // baskets keep physics' heights. corridor = the tree loop's clearing half-width, so dressing stands just outside the
   // flight corridor on any course. The one prop in play, hole 1's event arch, hands its legs and beam to the flight
   // model as capsules.
-  const dressing = dressCourse({ holes, height, trees, bushes, def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW });
+  const dressing = dressCourse({ holes, height, trees: trees.filter(t => !t.edge), bushes, def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW });
   group.add(...dressing.meshes);
   const baskets = holes.map(h => new THREE.Group().translateX(h.basket[0]).translateY(h.basketY).translateZ(h.basket[1]));   // positions only: the geometry is merged; the pin's distance tag is HUD (#pin, placed by main.js)
 
