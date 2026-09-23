@@ -16,8 +16,9 @@ const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0); 
 const glassesOf = a => a.glasses && a.glasses !== 'none' ? a.glasses : a.shades ? 'sport' : 'none';
 const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
 // The female scan keeps folded slivers and ~1600 flipped triangles; Blender's vertex normals follow them and the cloth
-// shades as dark shards. Rebuild them once per loaded body: every face oriented to agree with the normals it replaces,
-// area-weighted, shared across UV-seam duplicates, then relaxed over the neighbours (the head keeps its own detail).
+// shades as dark shards (the male scan has a few too: dark ticks by his collar and chest print). Rebuild them once per
+// loaded body: every face oriented to agree with the normals it replaces, area-weighted, shared across UV-seam
+// duplicates, then relaxed over the neighbours (the head keeps its own detail).
 // ponytail: a flood-filled consistent winding looked the same here; the one remaining dark wedge on her upper back is a
 // real fold of the scan, which only a mesh fix removes.
 function relaxNormals(g, headBone, passes = 3) {
@@ -46,6 +47,65 @@ function relaxNormals(g, headBone, passes = 3) {
   nrm.needsUpdate = true;
 }
 
+// Backhand set-up grip, one morph target per hand. The rig has no wrist or finger bones and the scan's hand hangs half
+// open, so a disc placed against it sat beside an open palm. The morph folds the fingers flat under the plate at the
+// knuckles with the tips curling up to its underside, lays the thumb pad on top 2 cm in from the rim and cocks the wrist
+// so the hand hangs from a forearm pointed at the lens; the stance pairs it with a seat (disc centre and normal in the
+// forearm bone's frame) that rests the rim's lower edge in the knuckle crease, so no fist hangs under the disc. Built
+// once per body from its bind pose, hand-local and mirrored so the palm faces -x on either side, with lengths in units
+// of the hand's own wrist-to-fingertip drop so the female scan and the phone LODs fit too.
+const GRIP = { mcp: 1.57, pip: .45, dip: .3, fmcp: .5, fpip: .74, fdip: .87, bend: -1.57 };
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
+function gripMorph(mesh, handOffset) {
+  const g = mesh.geometry; if (g.userData.grip) return g.userData.grip;
+  const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = pos.count, seats = {}, dP = [], dN = [];
+  const Z = new THREE.Vector3(0, 0, -1), X = new THREE.Vector3(1, 0, 0), m = new THREE.Matrix4(), p = new THREE.Vector3(), o = new THREE.Vector3();
+  for (const [name, side] of [['elR', 1], ['elL', -1]]) {
+    const b = mesh.skeleton.bones.findIndex(x => x.name === name), E = new THREE.Vector3().setFromMatrixPosition(m.copy(mesh.skeleton.boneInverses[b]).invert());
+    const W = E.clone().add(_v.set(handOffset.x * side, handOffset.y + .075, handOffset.z + .012));   // the wrist joint (build-golfer-v3.py: handOffset = wrist - elbow + (0, -.075, -.012))
+    const local = i => p.set((pos.getX(i) - W.x) * side, pos.getY(i) - W.y, pos.getZ(i) - W.z);
+    const hand = []; let tip = 0;
+    for (let i = 0; i < n; i++) { let w = 0; for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === b) w += sw.getComponent(i, k); if (w > .3 && local(i).y < .02) { hand.push(i); tip = Math.min(tip, p.y); } }
+    // fingers vs thumb: split at the gap in front of the index finger (~.25 L forward of the wrist); a wider ramp left the
+    // index finger half-folded and half-thumb, hanging under the disc as a lump
+    const L = -tip, F = new Float32Array(n), T = new Float32Array(n);
+    for (const i of hand) { local(i); F[i] = smooth(-.28 * L, -.22 * L, p.z); T[i] = (1 - F[i]) * smooth(-.12 * L, -.3 * L, p.y); }
+    const P = hand.map(i => local(i).clone()), N = hand.map(i => new THREE.Vector3(nrm.getX(i) * side, nrm.getY(i), nrm.getZ(i)));
+    const hinge = (frac, ang) => {   // everything past the hinge line rotates toward the palm about the finger's own centre line
+      const y0 = -frac * L; let sx = 0, c = 0;
+      hand.forEach((i, k) => { const r = local(i); if (Math.abs(r.y - y0) < .036 * L && F[i] > .5) { sx += r.x; c++; } });
+      if (!c) return; o.set(sx / c, y0, 0);
+      hand.forEach((i, k) => { const w = F[i] * smooth(y0 + .048 * L, y0 - .048 * L, local(i).y); if (w > 0) { turn(P[k], o, Z, w * ang); N[k].applyAxisAngle(Z, w * ang); } });
+    };
+    // seat, measured on the rest hand: the rim's outer edge against the palm, centred on the finger band; with fingers, the
+    // rim's lower edge (1.6 cm under the disc's mid-plane) rests on the folded fingers' pads at the knuckle line
+    let px = 0, zc = 0, zn = 0;
+    for (const i of hand) { local(i); if (p.y < -.2 * L && p.y > -.4 * L) { px = Math.min(px, p.x); } if (F[i] > .5 && p.y < -.5 * L) { zc += p.z; zn++; } }
+    // fingers only where the scan modelled them: the female scan's hands are ~30-point mittens that the hinges fold into shards
+    const fingers = hand.length > 200, c = new THREE.Vector3(px - .102, fingers ? .024 - GRIP.fmcp * L : -.3 * L, zn ? zc / zn : 0);
+    if (fingers) { hinge(GRIP.fdip, GRIP.dip); hinge(GRIP.fpip, GRIP.pip); hinge(GRIP.fmcp, GRIP.mcp); }   // distal first: each pivot is read from the rest shape
+    // the thumb swings about its base until its pad lies on the plate 2 cm in from the rim
+    const base = new THREE.Vector3(0, -.15 * L, -.18 * L); let far = -1, d0 = null;
+    if (fingers) hand.forEach((i, k) => { if (T[i] > .9) { const r = local(i), dist = r.distanceTo(base); if (dist > far) { far = dist; d0 = r.clone().sub(base).normalize(); } } });
+    if (d0) { const d1 = new THREE.Vector3(px - .017, c.y + .025, c.z - .015).sub(base).normalize(), axis = d0.clone().cross(d1).normalize(), ang = Math.acos(THREE.MathUtils.clamp(d0.dot(d1), -1, 1));
+      hand.forEach((i, k) => { if (T[i] > 0) { turn(P[k], base, axis, T[i] * ang); N[k].applyAxisAngle(axis, T[i] * ang); } }); }
+    // the wrist: the hand below it cocks toward the little finger about the joint
+    const origin = new THREE.Vector3();
+    hand.forEach((i, k) => { const w = smooth(.09 * L, -.12 * L, local(i).y); if (w > 0) { turn(P[k], origin, X, w * GRIP.bend); N[k].applyAxisAngle(X, w * GRIP.bend); } });
+    c.applyAxisAngle(X, GRIP.bend); const cn = new THREE.Vector3(0, 1, 0).applyAxisAngle(X, GRIP.bend);
+    seats[name] = { c: new THREE.Vector3(c.x * side + W.x - E.x, c.y + W.y - E.y, c.z + W.z - E.z), n: new THREE.Vector3(cn.x * side, cn.y, cn.z) };
+    const dp = new Float32Array(n * 3), dn = new Float32Array(n * 3);
+    hand.forEach((i, k) => {
+      dp[i * 3] = P[k].x * side + W.x - pos.getX(i); dp[i * 3 + 1] = P[k].y + W.y - pos.getY(i); dp[i * 3 + 2] = P[k].z + W.z - pos.getZ(i);
+      dn[i * 3] = N[k].x * side - nrm.getX(i); dn[i * 3 + 1] = N[k].y - nrm.getY(i); dn[i * 3 + 2] = N[k].z - nrm.getZ(i);
+    });
+    dP.push(new THREE.BufferAttribute(dp, 3)); dN.push(new THREE.BufferAttribute(dn, 3));
+  }
+  g.morphAttributes.position = dP; g.morphAttributes.normal = dN; g.morphTargetsRelative = true;
+  return g.userData.grip = { seats };
+}
+
 export function createGLTFCharacter(avatar) {
   const female = avatar.figure === 'female', key = female ? 'golfer_f' : 'golfer';
   // the phone LOD has its own texture set (its UVs differ). Lite loads the LOD under the full name too, so ask the loader
@@ -55,8 +115,8 @@ export function createGLTFCharacter(avatar) {
   const group = new THREE.Group(), actor = src.scene; group.add(actor);
   const joints = {}, owned = new Set(), glasses = [];
   const colors = { hair: avatar.hairColor, headwear: avatar.headwearColor, trim: avatar.accent };
-  const spec = actor.getObjectByName('ChainsRig')?.userData || {};
-  let body = null;
+  const spec = actor.getObjectByName('ChainsRig')?.userData || {}, handOffset = new THREE.Vector3(...(spec.handOffset || [0, -.25, 0]));
+  let body = null, skin = null;
   actor.traverse(o => {
     if (o.isBone) joints[o.name] = o;
     if (o.name.startsWith('hair_')) o.visible = o.name === 'hair_' + avatar.hair && !(DOME_HATS.has(avatar.headwear) && BIG_HAIR.has(avatar.hair));
@@ -65,21 +125,21 @@ export function createGLTFCharacter(avatar) {
     if (o.name.startsWith('accessory_wristband')) o.visible = avatar.wristband === 'both' || avatar.wristband === (o.name.endsWith('R') ? 'right' : 'left');
     if (!o.isMesh) return;
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (female && o.isSkinnedMesh) relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); }
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); gripMorph(o, handOffset); o.updateMorphTargets(); skin = o; } }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
     // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
     // Receives the sun's shadow too: an athlete standing in a tree's shade stayed fully sunlit and read as pasted in.
     owned.add(o.material); o.castShadow = true; o.receiveShadow = true; if (o.isSkinnedMesh) o.boundingSphere = REACH;
   });
-  if (!joints.elR || !joints.root || !body) return null;
+  if (!joints.elR || !joints.root || !body || !skin) return null;
   actor.updateMatrixWorld(true);
   const headC = spec.headCentre;   // the chest and back prints are part of the body material (body-material.js PRINT)
   // Disc socket: a roll-free wrist frame under the group rather than a child of the forearm bone. The clips roll the arm
   // through the pull (palm up at the reach-back, palm down at release), so a bone-mounted disc wobbles and ends up on the
   // open palm; this frame takes the forearm's heading and pitch only, so the plate stays level from the coiled stance to
   // release while the grip offset still follows the arm. Its -Y is the forearm (wrist to fingertips).
-  const lefty = avatar.hand === 'left', forearm = joints[lefty ? 'elL' : 'elR'], handOffset = new THREE.Vector3(...(spec.handOffset || [0, -.25, 0]));
+  const lefty = avatar.hand === 'left', forearm = joints[lefty ? 'elL' : 'elR'];
   const hand = new THREE.Group(); hand.name = 'disc_socket'; group.add(hand);
   let heading = 0;
   function placeSocket() {   // returns the forearm direction in group space
@@ -127,10 +187,11 @@ export function createGLTFCharacter(avatar) {
       blendTo(pose, cw, base);
     }
     if (heroW > 0) { let pose = heroPose(time, RIGS.glb); if (lefty) pose = mirrorPose(pose); blendTo(pose, heroW); }
-    // Backhand grip roll. The scan's palms face forward, so a bent elbow turns the palm up and the disc would sit on it like a
-    // tray; rolling the forearm a quarter turn in the stance puts the palm against the rim with the thumb on top. The clip's
-    // release hand is already thumb-up with the palm trailing, so the roll unwinds through the pull. Cosmetic: the socket ignores roll.
-    const family = phase === null ? aimType : throwType, k = phase === null ? cw : phase < .45 ? 1 : phase < .6 ? 1 - (phase - .45) / .15 : 0;
+    // Backhand grip roll through the windup. The scan's palms face forward, so the clip's bent elbow turns the palm up and the
+    // disc would sit on it like a tray; rolling the forearm a quarter turn puts the palm against the rim with the thumb on
+    // top. The clip's release hand is already thumb-up with the palm trailing, so the roll unwinds through the pull. The set-up
+    // stance carries its own forearm (and the grip morph), so the roll grows only as the clip takes over. Cosmetic: the socket ignores roll.
+    const family = phase === null ? aimType : throwType, k = phase === null ? 0 : (1 - cw) * (phase < .45 ? 1 : phase < .6 ? 1 - (phase - .45) / .15 : 0);
     if (k > 0 && family.startsWith('backhand')) { forearm.quaternion.multiply(_q.setFromAxisAngle(UP, (lefty ? -1 : 1) * k * Math.PI / 2)); group.updateMatrixWorld(true); }
     placeSocket();
   }
@@ -164,12 +225,15 @@ export function createGLTFCharacter(avatar) {
     const frame = { qInv: q.invert(), dir }; frames.set(name, frame); return frame;
   }
   const coilW = () => phase === null ? readyW : readyW * stanceFade(phase);
+  const gripW = () => (phase === null ? aimType : throwType).startsWith('backhand') ? coilW() : 0;   // the seated grip belongs to the backhand set-up and hands over to the release frame through the windup
+  const seat = () => skin.geometry.userData.grip.seats[forearm.name];
   const api = {
     group, hand, elbow: forearm, joints, avatar, source: 'glb', releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},
     setFace(value) { body.setPalette(value); const g = glassesOf(value); for (const o of glasses) o.visible = o.name === 'glasses_' + g; },
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
     get heroWeight() { return heroW; },   // how far into the cover-shot pose: holdDisc spins the disc on the raised hand past half
+    gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c)); nrm.copy(s.n).transformDirection(forearm.matrixWorld); } return w; },   // holdDisc: the disc seated in the gripping hand, and how much of it to use
     carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
     react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
@@ -183,6 +247,7 @@ export function createGLTFCharacter(avatar) {
       settle();
       readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < STANCE_FADE ? readyW : Math.max(0, readyW - dt / .22);
       heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
+      skin.morphTargetInfluences[lefty ? 1 : 0] = gripW();
       overlay();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },

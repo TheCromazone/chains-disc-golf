@@ -143,11 +143,26 @@ def clean(alb, m1, m2, maps, rig, lines):
   for k, keep, size in ((SHORTS, .4, .015), (JERSEY, .45, .012)):   # near-black shorts carry sensor noise; the jersey keeps its folds, loses its streaks
     sel = hit & (C1 == k)
     if sel.sum() > 50: out[sel] = keep * out[sel] + (1 - keep) * voxel_mean(sel, size)
+  # hands and forearms: the scan baked finger-gap shadow, knuckle creases and a few dark smears into the skin, and the grip
+  # morph (gltf-player.js) re-poses the fingers so that shading matches nothing; at game distance it read as black blotches
+  # on the knuckles, and its arms carry brown blotches a few centimetres across that the skin shader deepens. Hand texels
+  # keep a third of their deviation from a 1.5 cm mean, arm texels a third of theirs from a 5 cm mean (the blotches are
+  # bigger than the fine detail, which the normal map carries anyway); then every texel takes the limb's median hue at
+  # its own brightness (most of the way), and nothing stays darker than 85 % of the median.
+  wristY = J['elR'][1] + rig['hand'][1] + .075; arms = hit & (C1 == SKIN) & part('elR', 'elL', 'shR', 'shL'); handT = arms & (y < wristY + .02)
+  for sel, keep, size, hue in ((handT, .35, .015, .85), (arms & ~handT, .35, .05, .75)):
+    if sel.sum() < 50: continue
+    m = voxel_mean(sel, size); v = m + keep * (out[sel] - m); L = v @ np.array([.2126, .7152, .0722], np.float32)
+    M = np.median(v, 0); ML = float(M @ np.array([.2126, .7152, .0722])); v = (1 - hue) * v + hue * M[None] * np.clip(L / ML, .85, 1.25)[:, None]
+    out[sel] = v
   # the scan's white collar and sleeve trims sit right against the skin, and the masks' soft edge (resampling, filtering)
   # blends some skin weight over them: a pale fringe. Jersey texels within 8 mm of skin take the skin's colour, darkened
   # a little like a seam, so either side of the edge shades plausibly.
+  # A seam joins surface that carries on (normals agree): where the hanging arm touches the ribs in the bind pose, the flank
+  # took the facing arm's skin and the jersey shader turned it into a dark 'M' stain.
   sk, edge = hit & (C1 == SKIN), hit & (C1 == JERSEY) & (y > shY - .3)
   d, i = cKDTree(P[sk]).query(P[edge], distance_upper_bound=.008); near = np.isfinite(d)
+  near[near] = (Nn[edge][near] * Nn[sk][i[near]]).sum(-1) > .3
   flat = out.reshape(-1, 3); flat[np.flatnonzero(edge)[near]] = out[sk][i[near]] * .8
   W = np.stack([(C1 == k).astype(np.float32) for k in range(7)], -1); keep = headp & (C1 == C0) & ~neckzone; W[keep] = W7[keep]   # the face keeps its soft iris and brow edges
   idx = ndimage.distance_transform_edt(~hit, return_distances=False, return_indices=True)   # gutters copy their nearest island texel

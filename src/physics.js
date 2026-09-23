@@ -6,7 +6,7 @@ const RHO = 1.225, AREA = 0.0346, MASS = 0.175, G = 9.81, R_DISC = 0.105;
 export const DT = 1 / 240;
 
 export const DISCS = [
-  { id: 'driver',  name: 'VORTEX',   type: 'Distance Driver', speed: 12, glide: 5, turn: -1, fade: 3, color: '#ff4d3d' },
+  { id: 'driver',  name: 'VORTEX',   type: 'Distance Driver', speed: 12, glide: 5, turn: -1, fade: 3, color: '#ff2e88' },
   { id: 'fairway', name: 'FALCON',   type: 'Fairway Driver',  speed: 7,  glide: 5, turn: 0,  fade: 2, color: '#2f80ff' },
   { id: 'mid',     name: 'MERIDIAN', type: 'Midrange',        speed: 5,  glide: 4, turn: -1, fade: 1, color: '#ffcc00' },
   { id: 'putter',  name: 'ANCHOR',   type: 'Putter',          speed: 2,  glide: 3, turn: 0,  fade: 1, color: '#f4f4f4' },

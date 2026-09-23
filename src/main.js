@@ -167,7 +167,7 @@ let heroDisc = null;
 function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
 // Disc in the hand. Idle: carried by the rim at the thigh, plate hanging beside the leg. Throwing: gripped so the
 // plate rides the wrist through the windup and is exactly level with the planned release normal at phase .62.
-const _qh = new THREE.Quaternion(), _qg = new THREE.Quaternion(), _off = new THREE.Vector3(), _nrm = new THREE.Vector3();
+const _qh = new THREE.Quaternion(), _qg = new THREE.Quaternion(), _off = new THREE.Vector3(), _nrm = new THREE.Vector3(), _gp = new THREE.Vector3(), _gn = new THREE.Vector3();
 const CARRY_N = new THREE.Vector3(0, .35, -1).normalize(), CARRY_OFF = new THREE.Vector3(0, -.095, -.02);
 function holdDisc(char, mesh, n, spin, throwType) {
   char.hand.getWorldPosition(_v); char.hand.getWorldQuaternion(_qh); if (!throwType) char.carry?.();   // a disc on show outside a throw: the cover-shot pose, not a bystander's idle
@@ -178,7 +178,11 @@ function holdDisc(char, mesh, n, spin, throwType) {
     _off.copy(rel.dir).multiplyScalar(.075).y -= .015; _off.applyQuaternion(rel.qInv).applyQuaternion(_qh);
   } else if (char.heroWeight > .5) { char.group.getWorldDirection(_nrm).multiplyScalar(-.3); _nrm.x += Math.sin(spin * 3) * .06; _nrm.z += Math.cos(spin * 3) * .06; _nrm.y = 1; _off.set(0, -.08, 0).applyQuaternion(_qh); spin *= 40; }   // cover shot: spun like a trick on the raised hand, face tipped a little to the lens
   else { _nrm.copy(CARRY_N).applyQuaternion(_qh); _off.copy(CARRY_OFF).applyQuaternion(_qh); spin = 0; }
-  _v.add(_off); setDiscPose(mesh, [_v.x, _v.y, _v.z], [_nrm.x, _nrm.y, _nrm.z], spin);
+  _v.add(_off);
+  // backhand set-up: the rim seated in the gripping hand, handed over to the release frame through the windup (level at .62)
+  const w = rel ? char.gripPose?.(_gp, _gn) || 0 : 0;
+  if (w > 0) { _v.lerp(_gp, w); _nrm.normalize().lerp(_gn, w); spin *= 1 - w; }
+  setDiscPose(mesh, [_v.x, _v.y, _v.z], [_nrm.x, _nrm.y, _nrm.z], spin);
 }
 function updateHub() { const i = COURSES.findIndex(c => c.id === G.courseId); UI.setHub({ name: G.avatar.name, jersey: G.avatar.jersey, course: COURSES[i], holes: LAYOUTS[i], img: asset('courses', G.courseId) }); }
 let courseQueue=Promise.resolve();
