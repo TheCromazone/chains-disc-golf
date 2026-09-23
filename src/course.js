@@ -916,10 +916,16 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     if (view) FOG.shape.w = height(view.x, view.z);   // the haze thins with height above the ground, not above the eye: the flyover drone looks through thinner air
     // Near the pin the air thickens, as the broadcast's long putt lens compresses the woods behind the basket (w4-5 putt
     // verdicts: the stand 30-45 m out, 25-40 m past the pin, took no haze at all under the tee's 34 m clear zone and read as
-    // "a flat wall a few metres behind the pin"). Within ~15 m of the basket the clear zone shrinks to 22 m and the ramp
-    // steepens (30 m 5%, 40 m 17%, 60 m 38%, 100 m 66%), so birches just past the pin keep their bark and each row behind
-    // them lifts a step; the air turns a darker, faintly green grey (the tee's near-white bank read as "a fog bank as
+    // "a flat wall a few metres behind the pin"). Within ~15 m of the basket the air takes PUTT_AIR's shape (below),
+    // so birches just past the pin keep their bark and each row behind them lifts a step; the air turns a darker grey
+    // (the tee's near-white bank read as "a fog bank as
     // bright as the sunlit dirt" under a canopy) and keeps its warm lift toward the sun. The tee (85 m out) keeps its crisp air.
+    // w5-1 putt verdict ("a milky white-green fog a few metres behind the basket; trees 10 m past it as flat as trees 60 m
+    // away"): a 22 m clear zone with a 10 m knee put 16% on the stand 30 m past the pin, and against that dim understorey
+    // even 16% of bright air lifted every trunk to one value. Now clear to 28 m (~19 m past the pin) with a 50 m knee, so
+    // the optical depth creeps in (eye distance 40 m 4%, 50 m 12%, 60 m 21%, 80 m 39%, 100 m 55%, 150 m 80%): rows at 20 m
+    // past the pin keep full dark trunks, 40 m a light veil, 80 m most of the way to the air, which is a cool blue-grey
+    // (#aab8c6-ish on screen) instead of the green-grey that read as fog.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
       Object.assign(FOG.shape, { x: m(34, P.clear), y: m(2.25, P.density), z: m(30, P.knee) });
       Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm), g: warm.g * m(1, P.warm), b: warm.b * m(1, P.warm) }); }
@@ -944,7 +950,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
-const PUTT_AIR = { clear: 22, density: 3.3, knee: 10, haze: [.62, .59, .5], warm: .85 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
+const PUTT_AIR = { clear: 28, density: 4.6, knee: 50, haze: [.48, .54, .66], warm: .85 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
