@@ -72,9 +72,11 @@ class Tree:
     self.base_dark = None                      # z -> darkening of the wood (birch base)
     self.cur_lobe = None                       # the lobe the next cards belong to (their mass's centre, for normals)
     self.trunk_h, self.r_base = 0., 0.         # top of the wood the disc can hit and trunk radius, for the physics record
+    self.wood, self.tag = {}, 'trunk'
   def tube(self, pts, r0, r1, sides, taper=1.):
     """Tapered tube along pts with parallel-transported rings (no twist); radius r0 -> r1 with `taper` exponent."""
     pts = [Vector(p) for p in pts]; n = len(pts)
+    self.wood[self.tag] = self.wood.get(self.tag, 0) + 2 * sides * (n - 1)   # triangle budget by part, logged per tree
     tan = [(pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)]).normalized() for i in range(n)]
     ref = tan[0].cross(Z if abs(tan[0].z) < .95 else Vector((1, 0, 0))).normalized(); rings = []; acc = 0.
     for i in range(n):
@@ -169,7 +171,7 @@ def finish(t, mats):
   me.color_attributes.active_color = ca; me.color_attributes.render_color_index = 0
   me.normals_split_custom_set_from_vertices([tuple(n) for n in t.n])
   o = bpy.data.objects.new(t.name, me); bpy.context.collection.objects.link(o)
-  leaves = sum(1 for m in t.fmat if m == 1); log('TREE', t.name, 'wood tris', 2 * (len(t.fmat) - leaves), 'cards', leaves, 'aoMin %.2f' % min(c[3] for c in col))
+  leaves = sum(1 for m in t.fmat if m == 1); log('TREE', t.name, 'wood tris', 2 * (len(t.fmat) - leaves), t.wood, 'cards', leaves, 'aoMin %.2f' % min(c[3] for c in col))
   # The physics record at scale 1: trunk radius at ~1 m and the height the disc can hit it to, and the crown as a sphere at the
   # leaves' mean height with their RMS distance from that centre as radius (a leafy shell's radius, where the foliage mass is).
   lv = [p for p, k in zip(verts, t.kind) if k == 1]; fy = sum(p.z for p in lv) / len(lv)
@@ -207,19 +209,40 @@ def shell_points(rng, n, sample, min_d):
 def bezier(a, b, c, n):
   return [a * (1 - s) ** 2 + b * 2 * s * (1 - s) + c * s * s for s in (i / n for i in range(n + 1))]
 
-def crown(t, rng, tp, rads, H, lo, hi, W, n_limbs, n_clumps, min_d, cells, card, hang=0., limb_elev=(.35, .95), limb_r=.6, sides=6, count=(3, 4), lobes=0, lobe_r=1.5):
+def crown(t, rng, tp, rads, H, lo, hi, W, n_limbs, n_clumps, min_d, cells, card, hang=0., limb_elev=(.35, .95), limb_r=.6, sides=6, count=(3, 4), lobes=0, lobe_r=1.5, lobe_br=3):
   """Envelope-guided crown: limbs leave the leader between lo*H and hi*H and arc up and out toward the envelope (an ellipsoid
   W wide from lo*H to H). With `lobes`, the clumps gather round that many dart-thrown lobe centres just inside the envelope
   (each clump on the lobe's surface, its cards facing out of the lobe), so the crown reads as a few big leafy masses, each lit
-  on its sun side with a shaded core and lee, and deep gaps between them; without, clump points fill the envelope's outer shell.
-  Each clump hangs on a twig from the nearest limb point below it. Wood is kept lean (4-segment limbs, one-segment twigs, none
-  under 0.9 m, where the card's own drawn twig covers it) so the triangles go to leaves."""
+  on its sun side with a shaded core and lee, and deep gaps between them; each lobe then gets its own limb from the leader
+  below it plus three short branches spreading inside it, so the wood follows the masses and the clumps sit close to it.
+  Without, limbs go out at random and clump points fill the envelope's outer shell. Each clump hangs on a twig from the
+  nearest limb point below it; wood is kept lean (4-segment limbs, no twig under 1.3 m, where the card's own drawn twig
+  covers it) so the triangles go to leaves."""
   zc, rz = (lo + 1) * H / 2, (1 - lo) * H / 2
   def trunk_at(z):
     s = min(1, max(0, (z + .3) / (tp[-1].z + .3))); i = min(len(rads) - 1, int(s * (len(rads) - 1))); return along(tp, s)[0], rads[i]
   limbs = [tp[i:] for i in range(len(tp)) if tp[i].z > lo * H][:1]   # the leader through the crown is a limb too
+  if lobes:
+    def lobe_sample():
+      u = unit(rng); u.z *= .8; s = rng.uniform(.45, .8); p = Vector((u.x * W * s, u.y * W * s, zc + u.z * rz * s))
+      return p if p.z > lo * H + lobe_r * .6 else None
+    top = along(limbs[0], 1.)[0] if limbs else Vector((0, 0, H))
+    centres = [top - Z * lobe_r * .55] + shell_points(rng, lobes - 1, lobe_sample, lobe_r * 1.25)   # one caps the leader, so no bare tip sticks out
+    for c in centres[1:]:
+      base, r = trunk_at(min(max(lo * H + .3, c.z - rng.uniform(1.2, 2.8) - hang * 1.2), top.z - 1.5)); d = c - base
+      side = d.cross(Z).normalized() * d.length * rng.uniform(-.12, .12) if abs(d.normalized().z) < .98 else Vector((0, 0, 0))
+      limb = bezier(base, base + d * .4 + Z * d.length * (.22 - hang * .2) + side, c, 4)
+      for k in range(1, len(limb) - 1): limb[k] = limb[k] + unit(rng) * d.length * .04   # sinuous, not a spoke
+      t.tag = 'limb'; t.tube(limb, r * limb_r, .03, sides, .85); limbs.append(limb)
+      out = Vector((d.x, d.y, 0)).normalized() if Vector((d.x, d.y, 0)).length > 1e-3 else unit(rng)
+      t.tag = 'lobe'
+      for j in range(lobe_br):   # the lobe's own branches, out, round and down from its heart, so every clump has wood near it
+        e = c + (unit(rng) + out * .6 - Z * (.15 + hang * .4)).normalized() * lobe_r * rng.uniform(.55, .8)
+        sub = bezier(c, c.lerp(e, .5) + Z * lobe_r * (.08 - hang * .15) + unit(rng) * .1, e, 2); t.tube(sub, .035, .01, 3, .85); limbs.append(sub)
+  else:
+    centres = []
   az = rng.uniform(0, TAU)
-  for i in range(n_limbs):
+  for i in range(0 if lobes else n_limbs):
     az += TAU * .382 + rng.uniform(-.4, .4); z = H * (lo + (hi - lo) * (i + rng.uniform(0, 1)) / n_limbs); base, r = trunk_at(z)
     elev = rng.uniform(*limb_elev); reach = W * rng.uniform(.7, .92) * math.sqrt(max(.15, 1 - ((z - zc) / rz) ** 2))
     end = base + Vector((math.cos(az) * reach, math.sin(az) * reach, reach * math.tan(elev) * .6 + 1.))
@@ -227,11 +250,11 @@ def crown(t, rng, tp, rads, H, lo, hi, W, n_limbs, n_clumps, min_d, cells, card,
     side = Vector((-math.sin(az), math.cos(az), 0)) * reach * rng.uniform(-.2, .2)
     limb = bezier(base, base + Vector((math.cos(az) * reach * .25, math.sin(az) * reach * .25, reach * .55)) + side, end, 4)
     for k in range(1, len(limb) - 1): limb[k] = limb[k] + unit(rng) * reach * .05   # sinuous, not a spoke
-    t.tube(limb, r * limb_r, .03, sides, .85); limbs.append(limb)
+    t.tag = 'limb'; t.tube(limb, r * limb_r, .03, sides, .85); limbs.append(limb); t.tag = 'fork'
     if reach > 2.2:   # the limb forks once toward a neighbouring part of the envelope
       p, d = along(limb, rng.uniform(.4, .6)); a2 = az + rng.choice((-1, 1)) * rng.uniform(.45, .85); rr = reach * rng.uniform(.75, .95)
       end2 = Vector((math.cos(a2) * rr, math.sin(a2) * rr, 0)) + Vector((0, 0, p.z + rng.uniform(.4, 1.6) - hang * rr * .4))
-      sub = bezier(p, p.lerp(end2, .4) + Z * rr * .2, end2, 2)
+      sub = bezier(p, p.lerp(end2, .4) + Z * rr * .2, end2, 3)
       for k in range(1, len(sub) - 1): sub[k] = sub[k] + unit(rng) * rr * .05
       t.tube(sub, r * limb_r * .5, .02, 3, .85); limbs.append(sub)
   def inside(p, k=1.): return (p.x / W) ** 2 + (p.y / W) ** 2 + ((p.z - zc) / rz) ** 2 <= k * k and p.z > lo * H + .6
@@ -239,13 +262,7 @@ def crown(t, rng, tp, rads, H, lo, hi, W, n_limbs, n_clumps, min_d, cells, card,
     u = unit(rng); s = rng.uniform(.62, 1.) ** .5
     p = Vector((u.x * W * s, u.y * W * s, zc + u.z * rz * s))
     return p if p.z > lo * H + .6 else None
-  centres = []
   if lobes:
-    def lobe_sample():
-      u = unit(rng); u.z *= .8; s = rng.uniform(.45, .8); p = Vector((u.x * W * s, u.y * W * s, zc + u.z * rz * s))
-      return p if p.z > lo * H + lobe_r * .6 else None
-    top = along(limbs[0], 1.)[0] if limbs else Vector((0, 0, H))
-    centres = [top - Z * lobe_r * .55] + shell_points(rng, lobes - 1, lobe_sample, lobe_r * 1.25)   # one caps the leader, so no bare tip sticks out
     def sample():   # on a lobe's surface, most on its outer half, never outside the envelope
       c = rng.choice(centres); out = c - Vector((0, 0, c.z)); out = out.normalized() if out.length > 1e-3 else unit(rng)
       d = (unit(rng) + out * .6 + Z * .15).normalized(); p = c + d * lobe_r * rng.uniform(.55, 1.)
@@ -254,9 +271,10 @@ def crown(t, rng, tp, rads, H, lo, hi, W, n_limbs, n_clumps, min_d, cells, card,
   for l in limbs:
     n = max(2, int(sum((q - p).length for p, q in zip(l, l[1:])) / .4)); pts += [along(l, i / n)[0] for i in range(n + 1)]
   for c in shell_points(rng, n_clumps, sample, min_d):
-    a = min(pts, key=lambda p: (p - c).length + max(0, p.z - c.z + .5) * 2)   # attach below or level, not from above
-    d = c - a
-    if d.length > 1.3: t.tube([a, c], .022, .008, 3)
+    a = min(pts, key=lambda p: (p - c).length + max(0, p.z - c.z + .5) * (.6 if lobes else 2))   # attach below or level (in a lobe a clump may hang from above)
+    d = c - a; t.tag = 'twig'
+    if d.length > 1.6: t.tube([a, a.lerp(c, .5) + Z * d.length * (.12 - hang * .3) + unit(rng) * .2, c], .022, .006, 3)   # long twigs bow (a straight one reads as a wire against the sky)
+    elif d.length > 1.3: t.tube([a, c], .02, .007, 3)
     lb = min(centres, key=lambda q: (q - c).length) if centres else None; t.cur_lobe = lb
     out = (c - lb).normalized() if lb is not None and (c - lb).length > 1e-3 else None
     t.clump_at(c, d if d.length > .1 else c - Vector((0, 0, c.z - 1)), rng.randint(*count), card * rng.uniform(.88, 1.1), rng.choice(cells), hang=hang, out=out, out_bias=.7 if out else .6)
@@ -266,10 +284,11 @@ def crown(t, rng, tp, rads, H, lo, hi, W, n_limbs, n_clumps, min_d, cells, card,
 def stubs(t, rng, tp, rads, z0, z1, n):
   """Dead branch stubs on the bare trunk (a forest tree self-prunes its shaded lower limbs): short, thin, drooping, so a trunk
   reads as a grown stem rather than a turned pole."""
+  t.tag = 'stub'
   for _ in range(n):
     s = rng.uniform(z0, z1) / tp[-1].z; p, _d = along(tp, s); r = rads[min(len(rads) - 1, int(s * (len(rads) - 1)))]
-    a = rng.uniform(0, TAU); d = Vector((math.cos(a), math.sin(a), rng.uniform(-.35, .25))).normalized()
-    t.tube([p + d * r * .6, p + d * (r + rng.uniform(.25, .6))], rng.uniform(.03, .05), .012, 3)
+    a = rng.uniform(0, TAU); d = Vector((math.cos(a), math.sin(a), rng.uniform(-.3, .1))).normalized()
+    t.tube([p + d * r * .6, p + d * (r + rng.uniform(.1, .26))], rng.uniform(.04, .06), .025, 3)   # short and blunt: a snapped-off limb, not a thorn
 
 def base_r(tp, rads, z=1.):   # trunk radius at about 1 m, for the physics record
   return rads[min(range(len(tp)), key=lambda i: abs(tp[i].z - z))]
@@ -280,7 +299,7 @@ def birch(rng, name, H=17., lean=0., girth=.2):
   ring_tube(t, tp, rads, 8); t.trunk_h, t.r_base = H * .9, base_r(tp, rads)
   t.axis = lambda z: along(tp, min(1, max(0, (z + .3) / (H * .95 + .3))))[0]
   t.base_dark = lambda z: .36 + .64 * min(1, max(0, (z - .3) / 2.2)) ** .7   # the black fissured foot of a birch
-  crown(t, rng, tp, rads, H, .36, .88, 3.1, rng.randint(11, 13), 118, .72, [CELL['birch']], 1.75, hang=.45, limb_elev=(.7, 1.1), limb_r=.42, sides=4, count=(3, 3), lobes=15, lobe_r=1.15)
+  crown(t, rng, tp, rads, H, .36, .88, 3.1, rng.randint(11, 13), 118, .72, [CELL['birch']], 1.75, hang=.45, limb_elev=(.7, 1.1), limb_r=.42, sides=3, count=(3, 3), lobes=15, lobe_r=1.15, lobe_br=2)
   stubs(t, rng, tp, rads, 2.5, H * .34, 4)
   return t
 
@@ -296,7 +315,7 @@ def spruce(rng, name, H=20., R0=3.4, zb=.1):
   """Whorls of 4-5 branches that dip and turn up at the tip; each branch is a frond card laid along it (plus a hanging curtain on
   the long ones), sized to the branch, so the cone is dense but layered, with sky between the tiers low down."""
   t = Tree(rng, name, 'bark', vscale=BARK_V)
-  tp = trunk_pts(rng, H, .98, 0, .015, 10); rads = radius_along(tp, .32, .02, .3, 1.)
+  tp = trunk_pts(rng, H, .98, 0, .015, 10); rads = radius_along(tp, .36, .02, .3, 1.)
   ring_tube(t, tp, rads, 7); t.axis = lambda z: Vector((0, 0, z - 1.)); t.trunk_h, t.r_base = H * .85, base_r(tp, rads)
   z = H * zb
   while z < H * .95:
@@ -345,11 +364,11 @@ def scots(rng, name, H=21., lo=.5, girth=.34, lean=.05):
   t.trunk_h, t.r_base = H * .82, base_r(tp, rads)
   t.base_dark = lambda z: (lambda f: (.74 + .56 * f, .74 + .3 * f, .74 + .06 * f))(min(1, max(0, (z - H * .42) / (H * .25))))   # grey foot, fox-orange upper stem
   stubs(t, rng, tp, rads, 2.2, H * lo * .95, 6)
-  n = rng.randint(13, 15); az = rng.uniform(0, TAU)
+  n = rng.randint(13, 15); az = rng.uniform(0, TAU); t.tag = 'limb'
   for i in range(n):
     f = (i + rng.uniform(.1, .9)) / n; z = H * (lo + (.86 - lo) * f); base, _ = along(tp, min(1, (z + .3) / (H * .9 + .3)))
     az += TAU * .382 + rng.uniform(-.5, .5); elev = rng.uniform(.12, .38) + .5 * f
-    L = H * (.24 - .12 * f) * rng.uniform(.82, 1.12); d = Vector((math.cos(az) * math.cos(elev), math.sin(az) * math.cos(elev), math.sin(elev)))
+    L = H * (.27 - .14 * f) * rng.uniform(.82, 1.12); d = Vector((math.cos(az) * math.cos(elev), math.sin(az) * math.cos(elev), math.sin(elev)))
     br = grow(rng, base, d, L, 3, rise=.1, flatten=.45, jitter=.1); t.tube(br, .1 - .04 * f, .02, 4)
     p, dd = along(br, 1.); pad(t, p + Z * .3, rng.uniform(1.7, 2.2), rng.randint(16, 19))
     if L > 2.6:   # longer branches carry a second pad part-way out, so the tiers join into one crown
@@ -420,6 +439,10 @@ def impostors(objs):
       g = nt.nodes.new('ShaderNodeNewGeometry'); flip = nt.nodes.new('ShaderNodeMath'); flip.operation = 'MULTIPLY_ADD'; flip.inputs[1].default_value = -2; flip.inputs[2].default_value = 1
       nt.links.new(g.outputs['Backfacing'], flip.inputs[0]); sc_ = nt.nodes.new('ShaderNodeVectorMath'); sc_.operation = 'SCALE'
       nt.links.new(g.outputs['Normal'], sc_.inputs[0]); nt.links.new(flip.outputs['Value'], sc_.inputs['Scale'])
+      if alpha:   # leaves: each card's own facing mixed into the crown normal, so the billboard's light breaks up card by card (dapple)
+        tn = nt.nodes.new('ShaderNodeVectorMath'); tn.operation = 'SCALE'; nt.links.new(g.outputs['True Normal'], tn.inputs[0]); nt.links.new(flip.outputs['Value'], tn.inputs['Scale'])
+        k = nt.nodes.new('ShaderNodeVectorMath'); k.operation = 'MULTIPLY_ADD'; nt.links.new(tn.outputs['Vector'], k.inputs[0]); k.inputs[1].default_value = (.45, .45, .45); nt.links.new(sc_.outputs['Vector'], k.inputs[2])
+        nz = nt.nodes.new('ShaderNodeVectorMath'); nz.operation = 'NORMALIZE'; nt.links.new(k.outputs['Vector'], nz.inputs[0]); sc_ = nz
       sep = nt.nodes.new('ShaderNodeSeparateXYZ'); comb = nt.nodes.new('ShaderNodeCombineXYZ'); neg = nt.nodes.new('ShaderNodeMath'); neg.operation = 'MULTIPLY'; neg.inputs[1].default_value = -1
       nt.links.new(sc_.outputs['Vector'], sep.inputs[0]); nt.links.new(sep.outputs['X'], comb.inputs['X']); nt.links.new(sep.outputs['Z'], comb.inputs['Y'])
       nt.links.new(sep.outputs['Y'], neg.inputs[0]); nt.links.new(neg.outputs['Value'], comb.inputs['Z'])
@@ -557,8 +580,8 @@ def materials():
 bpy.ops.wm.read_factory_settings(use_empty=True)
 M = materials(); rng = random.Random(7)
 W = lambda t: (M[t.bark], M['leaves'])
-dec = [finish(t, W(t)) for t in (birch(rng, 'birch0', 17.), birch(rng, 'birch1', 18.5, .05, .23), broadleaf(rng, 'broad0', 15., 5.2, .34, .36), broadleaf(rng, 'broad1', 13.5, 5.8, .3, .42))]
-pin = [finish(t, W(t)) for t in (spruce(rng, 'spruce0', 20.), spruce(rng, 'spruce1', 17.5, 3.0, .16), scots(rng, 'scots0', 21., .47), scots(rng, 'scots1', 19., .45, .4, .09))]
+dec = [finish(t, W(t)) for t in (birch(rng, 'birch0', 17., 0., .22), birch(rng, 'birch1', 18.5, .05, .25), broadleaf(rng, 'broad0', 15., 5.2, .34, .41), broadleaf(rng, 'broad1', 13.5, 5.8, .3, .47))]
+pin = [finish(t, W(t)) for t in (spruce(rng, 'spruce0', 20.), spruce(rng, 'spruce1', 17.5, 3.0, .16), scots(rng, 'scots0', 21., .41, .39), scots(rng, 'scots1', 19., .38, .45, .09))]
 bsh = [finish(t, W(t)) for t in (bush(rng, 'bush0'), bush(rng, 'bush1'))]
 if PREVIEW: preview(dec, 'deciduous', M); preview(pin, 'pine', M); preview(bsh, 'bush', M)
 export('deciduous', dec); export('pine', pin); export('bush', bsh)
