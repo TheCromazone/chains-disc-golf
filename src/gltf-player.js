@@ -347,10 +347,13 @@ export function createGLTFCharacter(avatar) {
   const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); into[name] = h; };
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.hands)) mount(geo, name, gripHands, 'grip_');
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.rests)) mount(geo, name, restHands, 'rest_');
-  const shellMat = hairCardMaterial(body.mask), shells = new THREE.SkinnedMesh(hairCards(skin, spec, lod ? 700 : 2200), shellMat); owned.add(shellMat);
+  // rig extras hairCards: the body's share of cards. The m2 scan (male) has none: its hair is sculpted volume in locks, and
+  // cards of any length or density over it read at 640 px as the "helmet-like curly hair" critics named, and as a bright
+  // fuzz against the menu's backlight; without them it reads as a real short haircut
+  const cardShare = spec.hairCards ?? 1, shellMat = hairCardMaterial(body.mask), shells = new THREE.SkinnedMesh(hairCards(skin, spec, Math.round((lod ? 700 : 2200) * cardShare)), shellMat); owned.add(shellMat);
   shells.name = 'hair_cards'; shells.position.copy(skin.position); shells.quaternion.copy(skin.quaternion); shells.scale.copy(skin.scale); skin.parent.add(shells);
   shells.bind(skin.skeleton, skin.bindMatrix); shells.boundingSphere = REACH; shells.receiveShadow = true;
-  const hairShow = a => { shells.visible = a.hair === 'short' && (a.headwear || 'none') === 'none'; shellMat.color.set(a.hairColor); };
+  const hairShow = a => { shells.visible = cardShare > 0 && a.hair === 'short' && (a.headwear || 'none') === 'none'; shellMat.color.set(a.hairColor); };
   hairShow(avatar);
   actor.updateMatrixWorld(true);
   const headC = spec.headCentre;   // the chest and back prints are part of the body material (body-material.js PRINT)
