@@ -48,7 +48,7 @@ function stampTexture(disc) {
 function plastic(color) {
   // Base plastic under the sports lighting: satin rather than lacquer, a light clearcoat on the dome. The old full clearcoat
   // and neon palette read as "a thick saturated magenta lozenge" at the tee; real opaque plastic is duller, a fifth of the chroma goes.
-  const c = new THREE.Color(color), hsl = c.getHSL({}); if (hsl.h > .85) c.offsetHSL(.05, 0, 0);   // magenta toward rose-red: the reference's driver is a warm red, ours read "hot pink"
+  const c = new THREE.Color(color);   // ponytail: the driver stays pink; turned red it vanished against the red #7 jersey at the tee
   const l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.lerp(new THREE.Color(l, l, l), .2);
   const m = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.44, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.32, sheen: 0.2, sheenRoughness: 0.7, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: 0.8 });
   // the rim a shade deeper than the plate (thicker plastic, worn and handled): edge-on or tipped, the disc shows a plate and
