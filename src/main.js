@@ -633,7 +633,7 @@ function updateCamera(dt) {
   camera.position.copy(cam.pos); camera.lookAt(cam.look);
   if (Math.abs(camera.fov - cam.fov) > .01) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }   // resize() resets fov by aspect; this re-applies the mode's lens every frame
   applyViewOffset();
-  scrim.material = post ? backdrop.mat : hazeMat; if (scrim.visible && post) snapBackdrop(); else if (!post && backdrop.rt) { backdrop.rt.dispose(); backdrop.rt = null; }
+  scrim.material = post ? backdrop.mat : hazeMat; if (scrim.visible && post) snapBackdrop(); else if (backdrop.rt) { backdrop.rt.dispose(); backdrop.rt = null; }   // the snapshot's target lives only while the clubhouse shows
   // Target tag (ui.css #pin): the basket's distance on a hairline just over the flag while a hole is in play; it bows out as
   // the camera closes inside ~20 m, where the basket itself is the target. This frame's matrices, so it never trails the drone.
   if (/^(intro|aim|windup|release|flight)$/.test(G.phase)) { camera.updateMatrixWorld(); _v.set(h.basket[0], h.basketY + 2.3, h.basket[1]); const fade = THREE.MathUtils.smoothstep(_v.distanceTo(camera.position), 14, 22); _v.project(camera); UI.placePin((_v.x + 1) / 2 * innerWidth, (1 - _v.y) / 2 * innerHeight, _v.z < 1 ? fade : 0); }
@@ -801,5 +801,5 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   UI.hide('loading'); loop();
-  window.__chains = { AIM, MENU, dodge, INTRO, startHole, heroKick, heroKickDir, scrim, backdrop, hazeMat, G, renderer, scene, camera, course, world, holes, cam, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
 }, 60);
