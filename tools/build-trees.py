@@ -260,7 +260,8 @@ def spruce(rng, name, H=20., R0=3.4, zb=.1):
       if rng.random() < .1 + .25 * (1 - f) ** 3: continue   # missing branches low down: sky through the skirt
       a = az + i * TAU / n + rng.uniform(-.4, .4); L = R * rng.uniform(.8, 1.12); out = Vector((math.cos(a), math.sin(a), 0))
       d = out + Z * (-.28 + .18 * f)
-      br = grow(rng, Vector((0, 0, z)), d, L, 2, rise=.2, jitter=.04); t.tube(br, .02 + .045 * L / R0, .008, 3)
+      br = grow(rng, Vector((0, 0, z)), d, L, 2, rise=.2, jitter=.04)
+      t.tube([br[0], along(br, .6)[0]], .015 + .035 * L / R0, .006, 3)   # the wood stops inside the frond: from outside a spruce shows needles, not sticks
       size = min(2.6, max(1.1, L * 1.05)); ctr = Vector((0, 0, z - .8)); g = (rng.uniform(.88, 1.05),) * 3
       # a drooping, rolled frond along the branch (seen from above), a second crossing it at an irregular tilt (seen from the
       # side) and a hanging curtain of branchlets under the longer ones (the cone's face as seen from the ground)
@@ -287,9 +288,9 @@ def scots(rng, name, H=21.):
     for k in range(rng.randint(3, 4)):
       p, dd = along(br, rng.uniform(.4, 1.)); d2 = (dd + unit(rng) * .9 + Z * .3).normalized(); tw = grow(rng, p, d2, L * rng.uniform(.25, .4), 2)
       t.tube(tw, .025, .008, 3); c = tw[-1]; ctr = c - Z * .6
-      for j in range(rng.randint(4, 6)):   # a flat-topped tuft of needled fronds, alternately lying and standing
-        up = dd + unit(rng) * .6 + Z * .25; face = Z + unit(rng) * .45 if j % 2 else up.cross(Z) + unit(rng) * .4
-        t.card(c - dd * .3 + unit(rng) * .2, up, face, rng.uniform(1.5, 1.9), CELL['pine'], ctr)
+      for j in range(rng.randint(6, 8)):   # a rounded, flat-topped cloud of needled fronds turned every way
+        up = dd * .5 + unit(rng) * .8 + Z * .35; face = Z + unit(rng) * .5 if j % 2 else up.cross(Z) + unit(rng) * .5
+        t.card(c - up.normalized() * .5 + unit(rng) * .3, up, face, rng.uniform(1.1, 1.45), CELL['pine'], ctr)
   p, dd = along(tp, 1.)
   for j in range(4): t.card(p + unit(rng) * .2, Z + unit(rng) * .6, Z + unit(rng) * .5, 1.6, CELL['pine'], p - Z * .6)
   return t

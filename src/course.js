@@ -481,7 +481,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
   // conifers sit darker and bluer than the broadleaves; each tree is then yellower or bluer, lighter or darker by about 12%.
-  const KIND_TINT = { spruce: [.6, .76, .74], scots: [.78, .86, .8] };
+  const KIND_TINT = { spruce: [.5, .72, .88], scots: [.74, .84, .82] };
   const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5, k = KIND_TINT[s.kind] || [1, 1, 1]; return col.setRGB((1.14 + h * .16) * k[0], 1.02 * k[1], (.74 - h * .2) * k[2]).multiplyScalar(1.3 + noise(s.z / 23, s.x / 23 + 7) * .35); };
   for (const b of bushes) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
   const planted = (name, spots, shadow = true, lod = true) => {
