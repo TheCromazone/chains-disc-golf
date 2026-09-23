@@ -151,7 +151,14 @@ export const STANCE = {
   // ~.25 rad further to the target: the reference's head sits low between the shoulders seen from three-quarters behind,
   // and the upright head on a long neck read as a full profile bolted onto a square chest. The
   // off elbow softens ~10° more (hanging straight to the thigh, critics read the free arm as dead).
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.02, -1.75, -.12], shR: [.377, 1.121, .914], elR: [.832, -.359, 0], shL: [.6, 0, -.1], elL: [.58, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // Round 16 (m2 body): blind critics read that address as "the disc flat against the belly at waist height, both arms
+  // folded down, the forearm bending like a rubber hose". Measured at 640x360 against 0100-tee-hole1 the reference plate
+  // sits ~37 px under the throwing shoulder crossing the chest, ours ~60 px. Re-solved in screen space (the plate's
+  // attitude held): the upper arm lifted and swung on toward the lens, the elbow opened, so the elbow rises ~13 px and the
+  // hand and plate ~27 px, the plate now ~35 px under the shoulder across the chest. The off arm swings out from the ribs
+  // with the elbow softer ("elbows tucked against the torso"; the reference's free arm hangs clear, counterbalancing). The
+  // chin drops ~15° more: the m2 scan's longer neck read at the tee as "a pale column" under a head held upright.
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.28, -1.75, -.12], shR: [.583, 1.164, .872], elR: [.712, -.447, 0], shL: [.45, 0, -.32], elL: [.75, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },

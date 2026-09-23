@@ -12,7 +12,11 @@ const BEARD = { none: [0, 0, 0], stubble: [.5, .5, .5], mustache: [1, 0, 0], goa
 const opts = { clamp: true, flipY: false };
 // Region means of the cleaned bakes where the rig extras predate the clean-up (tools/pack-body-textures.py --clean): the
 // scan's own hair only became a region there, and the near-black shorts and shoes lost their bake noise.
-const MEAN_FIX = { body_: { 2: .0045, 3: .011, 5: .0105 }, body_f_: { 2: .0053, 3: .0062, 5: .011 } };
+// The m2 scan (body_) also carries its skin: the cleaned albedo is ~15 % brighter than the build's pre-clean mean, which lit
+// the palette tone pale; these hold the tone where the previous scan rendered it (its cleaned bake sat at .88/.74/.62 of
+// its own mean, the warm, deeper tone the light and grade were tuned on). Its hair mean is set above the measured .035 so
+// the scan's locks sit a fifth darker, level with the hair cards over them (a brown band showed under the cards at the nape).
+const MEAN_FIX = { body_: { 0: .39, 2: .0109, 3: .05, 5: .11 }, body_f_: { 2: .0053, 3: .0062, 5: .011 } }, SKIN_FIX = { body_: [.612, .339, .257] };
 // Club mark and number, screen-printed: drawn once in the HUD's condensed face (alpha only, the accent colour is applied in
 // the shader) and projected along z in bind-pose space, so the print stretches and folds with the cloth. Planes riding the
 // spine bone sank into the skin or hung off it by centimetres as the torso twisted. Boxes: centre height, width, height in
@@ -67,6 +71,26 @@ float chainsNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2
   return mix(mix(mix(chainsHash(i), chainsHash(i + vec3(1., 0., 0.)), f.x), mix(chainsHash(i + vec3(0., 1., 0.)), chainsHash(i + vec3(1., 1., 0.)), f.x), f.y),
     mix(mix(chainsHash(i + vec3(0., 0., 1.)), chainsHash(i + vec3(1., 0., 1.)), f.x), mix(chainsHash(i + vec3(0., 1., 1.)), chainsHash(i + 1.), f.x), f.y), f.z); }
 `;
+// Cloth relief of the jersey as a height (metres) in bind-pose space, whatever the style or colour: blind critics read the
+// fitted shirt as "one smooth, evenly lit plastic shell, no knit, no folds at the waist, armpits or shoulder seams". A pique
+// knit (~9 x 6 mm, ~40 repeats across the torso, faded before it aliases), folds bunched over the hem (broken by noise so
+// they never ring the waist), drag folds fanning from each armpit across the chest and back, and the raglan seams from
+// collar to underarm. uFold: hem, armpit and collar heights, armpit half-width.
+const FOLD_GLSL = `uniform vec4 uFold;
+float chainsFolds(vec3 p, float armW) {
+  float ax = abs(p.x), s = p.x < 0. ? -1. : 1., torso = 1. - smoothstep(.3, .6, armW);
+  vec2 kw = vec2((p.x * .7 + p.z * .7) * 698., p.y * 1047.); float fk = 1. - smoothstep(.3, .6, max(fwidth(kw.x), fwidth(kw.y)) / 6.283);
+  float h = .00035 * sin(kw.x) * sin(kw.y) * fk;
+  float band = smoothstep(uFold.x - .01, uFold.x + .02, p.y) * (1. - smoothstep(uFold.x + .07, uFold.x + .17, p.y));
+  float brk = smoothstep(.3, .7, chainsNoise(p * vec3(13., 5., 13.) + 3.));
+  h += .0042 * sin(p.y * 180. + 3. * chainsNoise(p * vec3(11., 4., 11.))) * band * brk * (.45 + .55 * smoothstep(.05, .13, ax)) * torso;
+  vec2 d = vec2(ax - uFold.w, p.y - uFold.y); float r = length(d), a = atan(d.y, -d.x);
+  h += .003 * sin(a * 9. + 1.5 * chainsNoise(p * 18.)) * (1. - smoothstep(.04, .14, r)) * smoothstep(.0, .025, r) * (1. - smoothstep(-.3, .9, a)) * torso;
+  vec2 n0 = vec2(.062, uFold.z - .015), n1 = vec2(uFold.w - .005, uFold.y - .005), e = n1 - n0; float t = clamp(dot(vec2(ax, p.y) - n0, e) / dot(e, e), 0., 1.);
+  float sd = length(vec2(ax, p.y) - n0 - e * t); h -= .0016 * exp(-sd * sd / 1.6e-5) * torso;
+  return h;
+}
+`;
 // pores: a bump of fine noise, ~4 mm cells and a fraction of a millimetre deep, faded out before a cell shrinks under a pixel
 // (far away it would only shimmer). Perturbs `normal` the way three's bump map does (screen-space derivatives).
 export const PORES_GLSL = (pos, k, scale = '260.', depth = '.00028') => `{ vec3 bp = ${pos} * ${scale}; float fade = ${k} * (1. - smoothstep(.35, .9, length(fwidth(bp))));
@@ -85,7 +109,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     uMask1: { value: tex('mask1' + suffix, { ...opts, srgb: false }) }, uMask2: { value: tex('mask2' + suffix, { ...opts, srgb: false }) },
     uPal: { value: REGIONS.map(() => new THREE.Color()) }, uMean: { value: new Float32Array(REGIONS.map((r, i) => Math.max(.004, MEAN_FIX[prefix]?.[i] ?? (Array.isArray(spec.regionLum) ? spec.regionLum[i] : spec.regionLum?.[r]) ?? .5))) },
     uDetail: { value: new Float32Array(DETAIL) }, uBeard: { value: new THREE.Vector3() }, uHair: { value: new THREE.Color() },
-    uSkinMean: { value: new THREE.Color().setRGB(...(spec.skinMean || [.35, .22, .16]), THREE.LinearSRGBColorSpace) },   // the scan's own skin colour (linear)
+    uSkinMean: { value: new THREE.Color().setRGB(...(SKIN_FIX[prefix] || spec.skinMean || [.35, .22, .16]), THREE.LinearSRGBColorSpace) },   // the scan's own skin colour (linear)
     uKnit: { value: texture('jersey_pattern', { srgb: false }) },   // athletic mesh knit (mean .49): the cloth reads as fabric up close and mips to nothing far away
     uPrint: { value: printTexture(avatar.number) },
     uArm: { value: new THREE.Vector4(-1, -1, -1, -1) },   // skeleton indices of the four arm bones (gltf-player.js): the 'pro' shirt's panels need arm vs torso
@@ -93,7 +117,8 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   };
   const chestY = spec.chestY || 1.3, box = (PRINT[prefix] || PRINT.body_);
   u.uPrintF = { value: new THREE.Vector4(chestY + box.front[0], ...box.front.slice(1)) }; u.uPrintB = { value: new THREE.Vector4(chestY + box.back[0], ...box.back.slice(1)) };
-  const knitAmp = u.uKnit.value ? 1.2 : 0;
+  const knitAmp = u.uKnit.value ? 1.2 : 0, hemY = spec.shirtHem || chestY - .4;
+  u.uFold = { value: new THREE.Vector4(hemY, chestY + .01, chestY + .17, .145) };   // FOLD_GLSL landmarks from the rig extras
   material.onBeforeCompile = s => {
     Object.assign(s.uniforms, u);
     // bind-pose normal and arm weight: which cloth faces sideways off the torso and which is the arm's underside
@@ -106,12 +131,22 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     // per-region roughness: skin keeps a soft sheen, hair and cloth stay matte (a glossy jersey or scalp reads as plastic).
     // Skin also scatters: direct light wraps a little past the terminator with a warm tint, the cheap stand-in for
     // subsurface that keeps a face from looking like painted vinyl.
-    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5, chainsCloth = 0.; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + FOLD_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { vec3 j = vJerseyPos; bool back = j.z > 0.; vec4 b = back ? uPrintB : uPrintF;   // after the jersey style, so the print sits on its panels; seen from its own side, the print reads left to right
         vec2 q = vec2((back ? j.x : -j.x) / b.y + .5, (j.y - b.x) / b.z + .5);
         if (q.x > 0. && q.x < 1. && q.y > 0. && q.y < 1.) diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * chainsJersey); }
       diffuseColor.rgb *= 1. + chainsKnit;   // the knit runs under the print too`).replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
-      ${skinDirect('RE_Direct_Chains', 'chainsSkin')}`).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+      ${skinDirect('RE_Direct_Chains', 'chainsSkin')}
+      // cloth sheen (Charlie distribution, fibre-tinted): the knit's loose fibres scatter light back toward grazing views, so
+      // the shirt's lit side breaks into a soft velvet rim and the folds catch it, instead of one plastic gradient
+      void RE_Direct_Cloth(const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
+        RE_Direct_Chains(directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight);
+        vec3 H = normalize(directLight.direction + geometryViewDir); float nl = saturate(dot(geometryNormal, directLight.direction)), nv = saturate(dot(geometryNormal, geometryViewDir)), nh = dot(geometryNormal, H);
+        float D = 3.2 * pow(max(1. - nh * nh, 1e-4), .8) / 6.2832, V = 1. / (4. * (nl + nv - nl * nv) + .001);
+        reflectedLight.directSpecular += chainsCloth * directLight.color * nl * D * V * (material.diffuseColor * .9 + .03);
+      }
+      #undef RE_Direct
+      #define RE_Direct RE_Direct_Cloth`).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
       ${skinShade('chainsSkin')}
       { float f = 1. - saturate(dot(normalize(normal), normalize(vViewPosition))); reflectedLight.indirectDiffuse += chainsHair * f * f * diffuseColor.rgb * 1.6; }`).replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= 1. - .55 * chainsSkin;   // pores and oil break up the sheen of skin: well under the 4 % of a plastic, or the arm reads as vinyl').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor *= chainsRough;')
       // the scan's shirt normals are pocked with pinhole dimples (dark specks round the collar), so the jersey takes 85 % of them:
@@ -119,7 +154,10 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
       .replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace('mapN.xy *= normalScale;', 'mapN.xy *= normalScale * (1. - .15 * chainsJersey);') + '\n' + PORES_GLSL('vJerseyPos', 'chainsSkin') + '\n' + PORES_GLSL('vJerseyPos', 'chainsHair', 'chainsHairK', '.0012')
         // loose rumples across the shirt (round the torso, round the sleeves): the scan's folds are few and shallow, and at
         // 640 px critics read the jersey as a rigid shell. ~2.5 cm ridges a few mm deep, stretched the way cloth bunches
-        + '\n' + PORES_GLSL('vJerseyPos', 'chainsJersey', 'mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW))', '.004')).replace('#include <map_fragment>', `float chainsJersey = 0., chainsRough = 1., chainsKnit = 0.;
+        + '\n' + PORES_GLSL('vJerseyPos', 'chainsJersey', 'mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW))', '.004')
+        // FOLD_GLSL's knit, hem folds, armpit drag folds and raglan seams, bumped the same way
+        + `\n{ float h = chainsFoldH; vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), r1 = cross(sy, normal), r2 = cross(normal, sx); float det = dot(sx, r1);
+          vec3 bn = abs(det) * normal - sign(det) * (dFdx(h) * r1 + dFdy(h) * r2); if (dot(bn, bn) > 1e-30) normal = normalize(bn); }`).replace('#include <map_fragment>', `float chainsJersey = 0., chainsRough = 1., chainsKnit = 0., chainsFoldH = 0.;
       #include <map_fragment>
       { vec4 m1 = texture2D(uMask1, vMapUv), m2 = texture2D(uMask2, vMapUv);
         vec3 base = diffuseColor.rgb; float lum = dot(base, vec3(.2126, .7152, .0722));
@@ -161,7 +199,10 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         // shade at the tee, where a bump alone shows nothing, so the folds also carry a little occlusion in the cloth's tone
         { vec3 fp = vJerseyPos * mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW)); float n = chainsNoise(fp) * .7 + chainsNoise(fp * 2.3) * .3;
           chainsKnit += w[1] * (.06 - .3 * smoothstep(.72, .97, 1. - abs(2. * n - 1.))); }
-        chainsJersey = w[1]; chainsSkin = w[0]; chainsRough = 1. + w[0] * (.1 + (chainsMot - .5) * .4 + .12 * min(chainsCav, 1.)) + w[3] * (-.22 + (chainsHairS - .5) * .7) + .2 * (w[1] + w[2] + w[4]); diffuseColor.rgb = col;
+        // the fold valleys and seams hold a little shade in the cloth's own tone (the torso is in shade at the tee, where a bump shows little)
+        chainsFoldH = chainsFolds(vJerseyPos, vArmW) * w[1]; chainsKnit += clamp(chainsFoldH / .0035, -1., 1.) * .16 * w[1]; chainsCloth = w[1] + .4 * w[2];
+        // cloth roughness ~.75 with ~3 cm variation (a uniform .89 lit the shirt as one even gradient)
+        chainsJersey = w[1]; chainsSkin = w[0]; chainsRough = 1. + w[0] * (.1 + (chainsMot - .5) * .4 + .12 * min(chainsCav, 1.)) + w[3] * (-.22 + (chainsHairS - .5) * .7) + w[1] * ((chainsMot - .5) * .3 + .02) + .2 * (w[2] + w[4]); diffuseColor.rgb = col;
         chainsPanel = uPanelN > .5 ? max(smoothstep(.5, .78, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.3, .45, -vBindN.x * sign(vJerseyPos.x))) : -1.; }`);   // the side panels follow the torso's turn (a hard cut flattened the back into one tone, a wide blend read as a shadow); her folded scan's normals scatter them into shards, so she takes the width-based panels
   };
   material.customProgramCacheKey = () => 'chains-body';

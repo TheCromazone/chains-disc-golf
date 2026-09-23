@@ -44,6 +44,8 @@ TAG = '' if VARIANT == 'm' else '-' + VARIANT; KEY = 'body_' if VARIANT == 'm' e
 SRC = Path(sys.argv[sys.argv.index('--src') + 1]) if '--src' in sys.argv else ROOT / f'art/blender/golfer-v3{TAG}-textures'; OUT = ROOT / f'assets/textures/body{TAG}'; OUT.mkdir(parents=True, exist_ok=True)
 BLENDER = os.environ.get('BLENDER', r'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe')
 SKIN, JERSEY, SHORTS, HAIR, SOCKS, SHOES, IRIS = range(7)
+ARM_KEEP = {'m': (.65, .05, .55, .65)}   # per scan, arm skin: share of detail kept round a 5 cm mean, cell, pull to the median hue, brightness floor
+COLLAR = {'m': .016}   # the collar rides this far up the neck (metres): the m2 tee's low scoop left a long pale column of neck at the tee
 
 def texel_maps(glb, N):
   """Bind-pose position, bone weights, face normal and coverage per texel of the body's atlas."""
@@ -120,7 +122,7 @@ def clean(alb, m1, m2, maps, rig, lines):
   fore &= np.where(x > 0, arm_side('R'), arm_side('L'))
   axis(headp | torso, chinY - .06, chinY - .01, 'axisN'); angN = angle('axisN'); nx, nz = lines['axisN']
   neckzone = (torso | headp | upR | upL) & (np.hypot(x - nx, z - nz) < .11) & (y < chinY + .01) & (y > shY - .1)
-  necky = neckzone & (y > line('neck', neckzone, angN, skinc, white, shY - .1, chinY + .01, tol=.05))
+  necky = neckzone & (y > line('neck', neckzone, angN, skinc, white, shY - .1, chinY + .01, tol=.05) + COLLAR.get(VARIANT, 0))
   C1[necky] = np.where(C0[necky] == HAIR, HAIR, SKIN); C1[neckzone & headp & ~necky] = JERSEY   # collar texels skinned to the head bone
   C1[headp & ~neckzone & np.isin(C0, [JERSEY, SHORTS])] = SKIN; C1[(fore | shin) & np.isin(C0, [JERSEY, SHORTS])] = SKIN
   C1[hit & (C1 == -1) & ~headp] = SKIN   # unclassified head texels are the eye whites: raw albedo on purpose
@@ -130,7 +132,8 @@ def clean(alb, m1, m2, maps, rig, lines):
   # albedo: texels whose colour disagrees with their new region take their nearest trusted 3D neighbours
   jmed = float(np.median(lum[hit & (C0 == JERSEY)])); smed = float(np.median(lum[hit & (C0 == SKIN) & skinc & ~headp]))
   hemband = hips & above_hem & (y < hem + .05)   # the scan's hem stitching and fold shadow
-  trusted = {SKIN: headp & ~neckzone | skinc & (lum < 2.2 * smed) & (lum > .3 * smed), JERSEY: (lum > np.where(hemband, .7, .52) * jmed) & (sat < .3), SHORTS: lum < .06, SOCKS: (lum > .12) & (sat < .3), SHOES: lum < .08}   # the face keeps every texel; the neck under the collar must look like skin (the white trim frayed it)
+  shoe = hit & (C0 == SHOES); shoemax = max(.08, 2.5 * float(np.median(lum[shoe]))) if shoe.any() else .08   # black shoes trust their dark texels; grey ones (m2) all of theirs but the white trim
+  trusted = {SKIN: headp & ~neckzone | skinc & (lum < 2.2 * smed) & (lum > .3 * smed), JERSEY: (lum > np.where(hemband, .7, .52) * jmed) & (sat < .3), SHORTS: lum < .06, SOCKS: (lum > .12) & (sat < .3), SHOES: lum < shoemax}   # the face keeps every texel; the neck under the collar must look like skin (the white trim frayed it)
   out = alb.copy()
   for k, ok in trusted.items():
     cls = hit & (C1 == k); trust = cls & (C0 == k) & ok; bad = cls & ~trust
@@ -150,8 +153,10 @@ def clean(alb, m1, m2, maps, rig, lines):
   # so their finger-gap shadow and knuckle creases match the geometry and are what separates the fingers at game distance:
   # hand texels keep most of theirs (at a third, and lifted to 85 % of the median, the hands read as fused mittens). Then
   # every texel takes the limb's median hue at its own brightness (most of the way).
+  # The m2 scan's arms are clean (no blotches) and their shading is the muscle (deltoid, biceps, forearm): flattened to a
+  # third, they read as the "thin plastic arm" the critics named, so they keep most of it
   wristY = J['elR'][1] + rig['hand'][1] + .075; arms = hit & (C1 == SKIN) & part('elR', 'elL', 'shR', 'shL'); handT = arms & (y < wristY + .02)
-  for sel, keep, size, hue, floor in ((handT, .75, .015, .8, .55), (arms & ~handT, .35, .05, .75, .85)):
+  for sel, keep, size, hue, floor in ((handT, .75, .015, .8, .55), (arms & ~handT, *ARM_KEEP.get(VARIANT, (.35, .05, .75, .85)))):
     if sel.sum() < 50: continue
     m = voxel_mean(sel, size); v = m + keep * (out[sel] - m); L = v @ np.array([.2126, .7152, .0722], np.float32)
     M = np.median(v, 0); ML = float(M @ np.array([.2126, .7152, .0722])); v = (1 - hue) * v + hue * M[None] * np.clip(L / ML, floor, 1.25)[:, None]
