@@ -573,7 +573,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // saturated hemisphere on top turned brown mulch in shade neutral grey; this keeps shade warm with a slight cool cast.
   const hemi = new THREE.HemisphereLight(new THREE.Color(def.hemi[0]).lerp(new THREE.Color(1, 1, 1), .45), def.hemi[1], .5); scene.add(hemi);
   // Shade fill (the chunk above skyDome()): sunlight scattered back into the sun's shadow, ~a quarter of the key, a touch cool.
-  Object.assign(SHADE, { r: .28 * .95, g: .28, b: .28 * 1.08 });
+  Object.assign(SHADE, { r: .3 * .92, g: .3, b: .3 * 1.12 });
 
   // Contact occlusion, multiplied into whatever is under it: tight rings where a trunk or the basket meets the ground (the
   // shadow map cannot resolve that corner and the sky fill has no occlusion of its own), and the soft pool under each tee
@@ -667,7 +667,7 @@ float sunVis = 1.;
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. ), fogCos2 = fogCos * fogCos;
 	#ifdef FOG_EXP2
-		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 12., 0. ) );
+		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 12., 0. ) * smoothstep( 12., 60., fogDist ) );   // eased in over 12-60 m: a crown overhead keeps its dark core, distance still goes milky
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
