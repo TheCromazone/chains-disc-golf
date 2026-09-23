@@ -155,6 +155,14 @@ function wrapShade(g, w, h, acrossX, seed) {
   grd.addColorStop(0, 'rgba(4,8,18,.34)'); grd.addColorStop(.16, 'rgba(4,8,18,0)'); grd.addColorStop(.84, 'rgba(4,8,18,0)'); grd.addColorStop(1, 'rgba(4,8,18,.34)');
   g.fillStyle = grd; g.fillRect(0, 0, w, h);
 }
+// Stretched cover fabric pulls into soft diagonal folds from the corners where it is laced to the frame.
+function tension(g, w, h, seed) {
+  const rnd = rngOf(seed); g.lineCap = 'round';
+  for (const side of [0, 1]) for (let i = 0; i < 4; i++) {
+    const x0 = side ? w : 0, y0 = 4 + rnd() * h * .05, l = h * (.08 + rnd() * .1), a = (side ? Math.PI * .62 : Math.PI * .38) + (rnd() - .5) * .3;
+    for (const [c, off] of [['rgba(255,255,255,.07)', -1.5], ['rgba(0,0,0,.14)', 1.5]]) { g.strokeStyle = c; g.lineWidth = 2 + rnd() * 2; g.beginPath(); g.moveTo(x0, y0 + off); g.lineTo(x0 + Math.cos(a) * l, y0 + off + Math.sin(a) * l); g.stroke(); }
+  }
+}
 function paintAtlas(canvas, scale, ctx) {
   const g = canvas.getContext('2d'); g.setTransform(scale, 0, 0, scale, 0, 0); g.fillStyle = '#ffffff'; g.fillRect(0, 0, 2048, 2048); PX = scale;
   const draw = (name, fn) => { const [x, y, w, h] = REGION[name]; g.save(); g.translate(x, y); g.beginPath(); g.rect(0, 0, w, h); g.clip(); fn(g, w, h); g.restore();
@@ -194,7 +202,7 @@ function paintAtlas(canvas, scale, ctx) {
     g.fillStyle = GOLD; g.fillRect(0, 0, w, 4); g.fillRect(8, 94, w - 16, 3); roundel(g, w / 2, 49, 37);
     g.save(); g.translate(w / 2, 108); g.rotate(Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle';
     g.fillStyle = '#ffffff'; fitText(g, big, 0, -8, j ? 196 : 250, 800, 74); g.fillStyle = GOLD; fitText(g, small, 0, 38, j ? 196 : 250, 700, 22); g.restore();
-    wrapShade(g, w, h, true, 73 + j);
+    wrapShade(g, w, h, true, 73 + j); tension(g, w, h, 91 + j);
   }));
   draw('archSide', (g, w, h) => {   // the legs' inner faces, the lighter return of a printed truss cover
     const grd = g.createLinearGradient(0, 0, w, 0); grd.addColorStop(0, '#34507e'); grd.addColorStop(1, '#2a4168'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
@@ -426,15 +434,22 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     };
     [-1, 1].forEach((s, j) => {
       const x = s * legX, y0 = feet[j], hgt = yb - y0;
-      skin(box(leg, hgt, deep).translate(x, y0 + hgt / 2, 0), 'white', '#1a2a48');
+      skin(box(leg, hgt - .34, deep).translate(x, y0 + .34 + (hgt - .34) / 2, 0), 'white', '#1a2a48');   // the cover stops 34 cm short of the plinth, showing the truss foot
       for (const z of [1, -1]) skin(panel(leg - .08, 'archLeg0', yb - .08, y0 + .3).rotateY(z < 0 ? Math.PI : 0).translate(x, 0, z * face), 'archLeg' + (s * z > 0 ? 1 : 0));   // left leg as seen from either side: LOFTWING
       skin(panel(deep - .06, 'archSide', yb - .08, y0 + .3).rotateY(-s * Math.PI / 2).translate(x - s * (leg / 2 + .004), 0, 0), 'archSide');   // inner face, toward the opening
       for (const [ex, ez] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) K.steel(box(.05, hgt, .05).translate(x + ex * (leg / 2 - .02), y0 + hgt / 2, ez * (deep / 2 - .02)).applyMatrix4(world), AL);
+      // the truss foot under the cover: rails top and bottom, zigzag lacing on all four faces
+      const hx = leg / 2 - .02, hz = deep / 2 - .02, tv = (u, y, w) => new THREE.Vector3(x + u, y0 + y, w), lace = (a, b) => K.steel(rod(a, b, .013, full ? 5 : 3).applyMatrix4(world), AL);
+      for (const y of [.03, .32]) for (const z of [-hz, hz]) lace(tv(-hx, y, z), tv(hx, y, z));
+      for (const y of [.03, .32]) for (const u of [-hx, hx]) lace(tv(u, y, -hz), tv(u, y, hz));
+      for (const z of [-hz, hz]) for (let k = 0; k < 5; k++) lace(tv(-hx + 2 * hx * k / 5, k % 2 ? .32 : .03, z), tv(-hx + 2 * hx * (k + 1) / 5, k % 2 ? .03 : .32, z));
+      for (const u of [-hx, hx]) for (let k = 0; k < 3; k++) lace(tv(u, k % 2 ? .32 : .03, -hz + 2 * hz * k / 3), tv(u, k % 2 ? .03 : .32, -hz + 2 * hz * (k + 1) / 3));
       const pl = box(leg + .36, 1, deep + .9, 3, 1, 3).translate(x, .5, 0).applyMatrix4(world), pp = pl.attributes.position;
       for (let i = 0; i < pp.count; i++) pp.setY(i, pp.getY(i) > .5 ? y0 : height(pp.getX(i), pp.getZ(i)) - .08);
       pl.computeVertexNormals(); paint(pl, '#8a8781');   // cast-concrete ballast
       K.steel(box(leg + .12, .04, deep + .12).translate(x, y0 + .02, 0).applyMatrix4(world), '#5d6368');   // the truss's base plate
-      for (const z of [1, -1]) for (const dx of [-.42, .42]) paint(roundBox(.62, .17, .34, .07, 2).rotateY(dx * .25).translate(x + dx, y0 + .085, z * (deep / 2 + .22)).applyMatrix4(world), '#3b3a33');   // sandbags on the plinth
+      for (const z of [1, -1]) for (const dx of [-.42, .42]) paint(roundBox(.66, .19, .36, .08, 2).rotateY(dx * .25).translate(x + dx, y0 + .095, z * (deep / 2 + .23)).applyMatrix4(world), '#8c7b55');   // khaki sandbags on the plinth
+      paint(roundBox(.66, .19, .36, .08, 2).rotateY(Math.PI / 2 + .1).translate(x + s * (leg / 2 + .22), y0 + .095, 0).applyMatrix4(world), '#83734f');
       shadeUnder(world, leg / 2 + .6, deep / 2 + .75, .55, .68, x, 0);
     });
     skin(box(2 * legX + leg, beam, deep).translate(0, yb + beam / 2, 0), 'white', '#1a2a48');
@@ -669,6 +684,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // the beam leaves faint vertical streaks down the legs.
   arch.material.onBeforeCompile = s => { GRIME_V(s); GRIME_F(s, !full); s.fragmentShader = s.fragmentShader.replace('#include <roughnessmap_fragment>', `{ float l=dot(diffuseColor.rgb,vec3(.3,.59,.11)),up=smoothstep(1.,7.,vLift);
         diffuseColor.rgb=mix(diffuseColor.rgb,vec3(l)*1.1+.01,.12+.12*up);
+        diffuseColor.rgb*=mix(.78,1.04,smoothstep(.3,4.,vLift));   // less sky reaches the foot of a leg than its top
         diffuseColor.rgb*=1.-.14*smoothstep(.55,.95,wNoise(vec3(vWp.x*13.,vWp.y*.4,vWp.z*13.)))*(1.-up*.4); }
       #include <roughnessmap_fragment>`).replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * .22;'); };
   arch.material.customProgramCacheKey = () => 'chains-props-arch' + full;
