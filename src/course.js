@@ -596,7 +596,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     g.setAttribute('shadowAlpha',new THREE.Float32BufferAttribute(alpha,1));g.setIndex(indices);shadowParts.push(g);
   };
   // A trunk standing on the ground hides about half the sky at its foot, a sixth at one diameter out, almost none at three.
-  for(const t of trees) groundShadow(t.x,t.z,t.r,t.r,[1,2,3.5,6],[.55,.3,.12,0],10);
+  for(const t of trees) groundShadow(t.x,t.z,t.r,t.r,[1,2.2,6],[.55,.25,0],8);
   for(const h of holes) {
     groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,[0,.48,.82,1.2],[.16,.12,.05,0],20);
     groundShadow(h.basket[0],h.basket[1],1,1,[0,.2,.27,.42,.75],[.35,.4,.62,.25,0],16);   // the tray's .34 m dish hides the sky from the footing; a dark crease where the footing meets the ground
