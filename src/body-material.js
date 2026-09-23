@@ -123,6 +123,9 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
       { vec4 m1 = texture2D(uMask1, vMapUv), m2 = texture2D(uMask2, vMapUv);
         vec3 base = diffuseColor.rgb; float lum = dot(base, vec3(.2126, .7152, .0722));
         float w[7]; w[0] = m1.r; w[1] = m1.g; w[2] = m1.b; w[3] = m1.a; w[4] = m2.r; w[5] = m2.g; w[6] = m2.b;
+        // the armpit (skin shared between the torso and an upper arm) is the scan's bare underarm; with the arm raised across the
+        // chest in the backhand address it stretches into a pale membrane in front of the shirt. A T-shirt drapes fabric there:
+        { float pit = smoothstep(.08, .25, vArmW) * (1. - smoothstep(.75, .92, vArmW)) * (1. - vElbow); w[1] += w[0] * pit; w[0] *= 1. - pit; }
         vec3 col = base;
         // skin keeps the scan's own variation (cheeks, knuckles, veins): shift it by the ratio of the chosen tone to the scan's mean skin, with a light pull toward the tone itself
         // then a quarter of its chroma goes: under the warm course sun the palette tones rendered as orange, fake-tanned skin
