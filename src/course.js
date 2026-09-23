@@ -437,7 +437,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // Full: the Blender trees (tools/build-trees.py over the tools/build-foliage.py atlas). A variant is a branch skeleton
   // ('bark' / 'bark_birch') plus leaf-spray cards ('leaves'), instanced per 32 m cell with a per-tree tint. Wood and leaves
   // share the wind, so the limbs carry their clumps as they sway, and both cast shadows.
-  const leafAtlas = texture('leaves', { clamp: true, flipY: false }), leafNormals = texture('leaves_n', { clamp: true, flipY: false, srgb: false });
+  const full = quality !== 'low', leafAtlas = full && texture('leaves', { clamp: true, flipY: false }), leafNormals = full && texture('leaves_n', { clamp: true, flipY: false, srgb: false });   // Lite never fetches them
   // Canopy shading on top of three's PBR loop. Vertex colour rgb tints the albedo and its alpha is the build's sky visibility,
   // which dims ambient light fully and sunlight a little (the shadow map does the rest), so sunlit clumps stay bright while the
   // core of the crown and the limbs inside it fall dark. Leaves (leaf = true) also: the build bakes each leaf normal away from
@@ -473,7 +473,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     mat.customProgramCacheKey = () => prevKey.call(mat) + (leaf ? '|leaf' : '|wood'); return mat; };
   const leafFull = leafAtlas && near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.7, -.7), alphaTest: .5, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock)));
   const wood = map => map && near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false));
-  const woodMats = { bark: wood(bark), bark_birch: wood(texture('bark_birch')) };
+  const woodMats = { bark: wood(bark), bark_birch: wood(full && texture('bark_birch')) };
   // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
   // conifers sit darker and bluer than the broadleaves; each tree is then yellower or bluer, lighter or darker by about 12%.

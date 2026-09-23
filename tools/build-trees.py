@@ -220,7 +220,9 @@ def crown(t, rng, tp, rads, H, lo, hi, W, n_limbs, n_clumps, min_d, cells, card,
     u = unit(rng); s = rng.uniform(.62, 1.) ** .5
     p = Vector((u.x * W * s, u.y * W * s, zc + u.z * rz * s))
     return p if p.z > lo * H + .6 else None
-  pts = [p for l in limbs for p in l]
+  pts = []   # attachment points every ~0.4 m along every limb, so twigs leave all along it instead of in stars from its joints
+  for l in limbs:
+    n = max(2, int(sum((q - p).length for p, q in zip(l, l[1:])) / .4)); pts += [along(l, i / n)[0] for i in range(n + 1)]
   for c in shell_points(rng, n_clumps, sample, min_d):
     a = min(pts, key=lambda p: (p - c).length + max(0, p.z - c.z + .5) * 2)   # attach below or level, not from above
     d = c - a
