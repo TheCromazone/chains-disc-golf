@@ -16,8 +16,9 @@ const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0); 
 const glassesOf = a => a.glasses && a.glasses !== 'none' ? a.glasses : a.shades ? 'sport' : 'none';
 const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
 // The female scan keeps folded slivers and ~1600 flipped triangles; Blender's vertex normals follow them and the cloth
-// shades as dark shards (the male scan has a few too: dark ticks by his collar and chest print). Rebuild them once per loaded body: every face oriented to agree with the normals it replaces,
-// area-weighted, shared across UV-seam duplicates, then relaxed over the neighbours (the head keeps its own detail).
+// shades as dark shards (the male scan has a few too: dark ticks by his collar and chest print). Rebuild them once per
+// loaded body: every face oriented to agree with the normals it replaces, area-weighted, shared across UV-seam
+// duplicates, then relaxed over the neighbours (the head keeps its own detail).
 // ponytail: a flood-filled consistent winding looked the same here; the one remaining dark wedge on her upper back is a
 // real fold of the scan, which only a mesh fix removes.
 function relaxNormals(g, headBone, passes = 3) {
@@ -47,12 +48,13 @@ function relaxNormals(g, headBone, passes = 3) {
 }
 
 // Backhand set-up grip, one morph target per hand. The rig has no wrist or finger bones and the scan's hand hangs half
-// open, so a disc placed against it sat beside an open palm. The morph closes the fingers under the rim (knuckle,
-// middle and tip hinges), lays the thumb along the flight plate and cocks the wrist so the hand hangs from a forearm
-// pointed at the lens; the stance pairs it with a seat (disc centre and normal in the forearm bone's frame) that puts
-// the rim in the palm. Built once per body from its bind pose, hand-local and mirrored so the palm faces -x on either
-// side, with lengths in units of the hand's own wrist-to-fingertip drop so the female scan and the phone LODs fit too.
-const GRIP = { mcp: 1.3, pip: .5, dip: .3, fmcp: .5, fpip: .74, fdip: .87, thumb: [-.9, -.05, .1], bend: -1.57, seat: .3 };
+// open, so a disc placed against it sat beside an open palm. The morph folds the fingers flat under the plate at the
+// knuckles with the tips curling up to its underside, lays the thumb pad on top 2 cm in from the rim and cocks the wrist
+// so the hand hangs from a forearm pointed at the lens; the stance pairs it with a seat (disc centre and normal in the
+// forearm bone's frame) that rests the rim's lower edge in the knuckle crease, so no fist hangs under the disc. Built
+// once per body from its bind pose, hand-local and mirrored so the palm faces -x on either side, with lengths in units
+// of the hand's own wrist-to-fingertip drop so the female scan and the phone LODs fit too.
+const GRIP = { mcp: 1.57, pip: .45, dip: .3, fmcp: .5, fpip: .74, fdip: .87, bend: -1.57 };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
 function gripMorph(mesh, handOffset) {
@@ -65,8 +67,10 @@ function gripMorph(mesh, handOffset) {
     const local = i => p.set((pos.getX(i) - W.x) * side, pos.getY(i) - W.y, pos.getZ(i) - W.z);
     const hand = []; let tip = 0;
     for (let i = 0; i < n; i++) { let w = 0; for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === b) w += sw.getComponent(i, k); if (w > .3 && local(i).y < .02) { hand.push(i); tip = Math.min(tip, p.y); } }
-    const L = -tip, zt = -.21 * L, F = new Float32Array(n), T = new Float32Array(n);
-    for (const i of hand) { local(i); F[i] = smooth(zt + .024 * L, zt + .096 * L, p.z); T[i] = (1 - smooth(zt - .06 * L, zt + .036 * L, p.z)) * smooth(-.12 * L, -.3 * L, p.y); }
+    // fingers vs thumb: split at the gap in front of the index finger (~.25 L forward of the wrist); a wider ramp left the
+    // index finger half-folded and half-thumb, hanging under the disc as a lump
+    const L = -tip, F = new Float32Array(n), T = new Float32Array(n);
+    for (const i of hand) { local(i); F[i] = smooth(-.28 * L, -.22 * L, p.z); T[i] = (1 - F[i]) * smooth(-.12 * L, -.3 * L, p.y); }
     const P = hand.map(i => local(i).clone()), N = hand.map(i => new THREE.Vector3(nrm.getX(i) * side, nrm.getY(i), nrm.getZ(i)));
     const hinge = (frac, ang) => {   // everything past the hinge line rotates toward the palm about the finger's own centre line
       const y0 = -frac * L; let sx = 0, c = 0;
@@ -74,21 +78,22 @@ function gripMorph(mesh, handOffset) {
       if (!c) return; o.set(sx / c, y0, 0);
       hand.forEach((i, k) => { const w = F[i] * smooth(y0 + .048 * L, y0 - .048 * L, local(i).y); if (w > 0) { turn(P[k], o, Z, w * ang); N[k].applyAxisAngle(Z, w * ang); } });
     };
+    // seat, measured on the rest hand: the rim's outer edge against the palm, centred on the finger band; with fingers, the
+    // rim's lower edge (1.6 cm under the disc's mid-plane) rests on the folded fingers' pads at the knuckle line
+    let px = 0, zc = 0, zn = 0;
+    for (const i of hand) { local(i); if (p.y < -.2 * L && p.y > -.4 * L) { px = Math.min(px, p.x); } if (F[i] > .5 && p.y < -.5 * L) { zc += p.z; zn++; } }
     // fingers only where the scan modelled them: the female scan's hands are ~30-point mittens that the hinges fold into shards
-    const fingers = hand.length > 200;
+    const fingers = hand.length > 200, c = new THREE.Vector3(px - .102, fingers ? .024 - GRIP.fmcp * L : -.3 * L, zn ? zc / zn : 0);
     if (fingers) { hinge(GRIP.fdip, GRIP.dip); hinge(GRIP.fpip, GRIP.pip); hinge(GRIP.fmcp, GRIP.mcp); }   // distal first: each pivot is read from the rest shape
-    // the thumb swings about its base until the tip points along the plate
+    // the thumb swings about its base until its pad lies on the plate 2 cm in from the rim
     const base = new THREE.Vector3(0, -.15 * L, -.18 * L); let far = -1, d0 = null;
     if (fingers) hand.forEach((i, k) => { if (T[i] > .9) { const r = local(i), dist = r.distanceTo(base); if (dist > far) { far = dist; d0 = r.clone().sub(base).normalize(); } } });
-    if (d0) { const d1 = new THREE.Vector3(...GRIP.thumb).normalize(), axis = d0.clone().cross(d1).normalize(), ang = Math.acos(THREE.MathUtils.clamp(d0.dot(d1), -1, 1));
+    if (d0) { const d1 = new THREE.Vector3(px - .017, c.y + .025, c.z - .015).sub(base).normalize(), axis = d0.clone().cross(d1).normalize(), ang = Math.acos(THREE.MathUtils.clamp(d0.dot(d1), -1, 1));
       hand.forEach((i, k) => { if (T[i] > 0) { turn(P[k], base, axis, T[i] * ang); N[k].applyAxisAngle(axis, T[i] * ang); } }); }
     // the wrist: the hand below it cocks toward the little finger about the joint
     const origin = new THREE.Vector3();
     hand.forEach((i, k) => { const w = smooth(.09 * L, -.12 * L, local(i).y); if (w > 0) { turn(P[k], origin, X, w * GRIP.bend); N[k].applyAxisAngle(X, w * GRIP.bend); } });
-    // seat: the rim in the palm, the plate reaching across from it; palm surface and finger band measured at seat height
-    let px = 0, zc = 0, zn = 0;
-    for (const i of hand) { local(i); if (p.y < -.2 * L && p.y > -.4 * L) { px = Math.min(px, p.x); } if (F[i] > .5 && p.y < -.5 * L) { zc += p.z; zn++; } }
-    const c = new THREE.Vector3(px - .102, -GRIP.seat * L, zn ? zc / zn : 0).applyAxisAngle(X, GRIP.bend), cn = new THREE.Vector3(0, 1, 0).applyAxisAngle(X, GRIP.bend);
+    c.applyAxisAngle(X, GRIP.bend); const cn = new THREE.Vector3(0, 1, 0).applyAxisAngle(X, GRIP.bend);
     seats[name] = { c: new THREE.Vector3(c.x * side + W.x - E.x, c.y + W.y - E.y, c.z + W.z - E.z), n: new THREE.Vector3(cn.x * side, cn.y, cn.z) };
     const dp = new Float32Array(n * 3), dn = new Float32Array(n * 3);
     hand.forEach((i, k) => {
