@@ -357,13 +357,14 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const { fi, halfW } = stand(x, z);   // not in another hole's fairway, a pond, a pad or another crown
     if (fi.hole !== h && fi.d < halfW || treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < 4) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7)) continue;
     const t = plant(x, z, FRAME_TREE[2], noise(x, z) * 6.28, 'broad', false), k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null; }
-  // Edge stand: the tree line's front rank. The main stands keep 7.5-12.5 m off the line, so from the tee the far half of a hole
-  // was a bare slope under one hazy row at 100 m+. This pass fills the gap between the mown edge and that line along the
-  // guardian side from 40% of the way out and beyond the walking trail from halfway, with mixed mature and young trees (a birch or spruce
-  // nearest the fairway, taller broadleaves and pines behind, whose crowns clear the arch's beam from the tee), so the view down a hole ends in a layered wood with trunks and
-  // understorey 40-80 m out. Own rng: the main layout, understorey and framing trees stay put. None within 12 m of a basket
-  // or in its putt lane, so the green stays open, nor within 40 m of a tee or 10.5 m out, where the arch and the village stand;
-  // flagged edge, the dressing is laid out without them (the props stay exactly where they were). Records and grid like any tree.
+  // Edge stand: the tree line's front rank. The main stands keep 7.5-12.5 m off the line, so from the tee the far half of a
+  // hole was a bare slope under one hazy row 100 m out. This pass fills the gap between the mown edge and that line, on the
+  // guardian side from 40% of the way out and beyond the open side's walking trail from halfway: young trees and mature ones
+  // (a birch or spruce nearest the fairway, taller broadleaves and pines behind, whose crowns clear the arch's beam from the
+  // tee), so the view down a hole ends in a layered wood with trunks 40-80 m out. Own rng: the main layout, understorey and
+  // framing trees stay put. None within 12 m of a basket, past it or in its putt lane (the green stays open), within 40 m of
+  // a tee (the arch) or over 10.5 m out on the guardian side (the village). Flagged edge: the dressing is laid out without
+  // them, so the props stay exactly where they were. Records and grid like any tree.
   const erng = makeRng(seed * 197 + 29);
   for (let gx = -W / 2 + 12; gx < W / 2 - 12; gx += 3) for (let gz = -H / 2 + 12; gz < H / 2 - 12; gz += 3) {
     const x = gx + (erng() - .5) * 2.6, z = gz + (erng() - .5) * 2.6, pick = erng(), young = erng() < .35, s = young ? .34 + erng() * .2 : .62 + erng() * .4 + .28 * erng(), rot = erng() * Math.PI * 2;
@@ -701,7 +702,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // baskets keep physics' heights. corridor = the tree loop's clearing half-width, so dressing stands just outside the
   // flight corridor on any course. The one prop in play, hole 1's event arch, hands its legs and beam to the flight
   // model as capsules.
-  const dressing = dressCourse({ holes, height, trees: trees.filter(t => !t.edge), bushes: bushes.filter(b => !b.edge), def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW });
+  const dressing = dressCourse({ holes, height, trees: trees.filter(t => !t.edge), bushes, def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW });
   group.add(...dressing.meshes);
   const baskets = holes.map(h => new THREE.Group().translateX(h.basket[0]).translateY(h.basketY).translateZ(h.basket[1]));   // positions only: the geometry is merged; the pin's distance tag is HUD (#pin, placed by main.js)
 
