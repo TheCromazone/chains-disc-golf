@@ -37,11 +37,11 @@ class LightShafts extends Pass {
   constructor(scene, camera) {
     super(); this.needsSwap = false; this.scene = scene; this.camera = camera; this.strength = 2.5;
     this.a = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false }); this.b = this.a.clone();
-    const u = this.u = { tDepth: { value: null }, tColor: { value: null }, tMask: { value: null }, uSun: { value: new THREE.Vector2() }, uAspect: { value: 1 }, uFall: { value: 12 }, uThresh: { value: 1 }, uTint: { value: new THREE.Color() } };
+    const u = this.u = { tDepth: { value: null }, tColor: { value: null }, tMask: { value: null }, uSun: { value: new THREE.Vector2() }, uAspect: { value: 1 }, uTint: { value: new THREE.Color() } };
     const quad = (fragmentShader, extra = {}) => new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: u, vertexShader: QUAD_VS, fragmentShader, depthTest: false, depthWrite: false, ...extra }));
-    this.mask = quad(`uniform sampler2D tDepth,tColor;uniform vec2 uSun;uniform float uAspect,uFall,uThresh;varying vec2 vUv;
-      void main(){ vec2 d=(vUv-uSun)*vec2(uAspect,1.); float sky=step(.99999,texture2D(tDepth,vUv).x),f=exp(-dot(d,d)*uFall);
-        gl_FragColor=vec4(sky*clamp(dot(texture2D(tColor,vUv).rgb,vec3(.3,.59,.11))-uThresh,0.,4.)*f,sky,f,1.); }`);   // r: bright sky by the disc, g: sky, b: nearness to the disc
+    this.mask = quad(`uniform sampler2D tDepth,tColor;uniform vec2 uSun;uniform float uAspect;varying vec2 vUv;
+      void main(){ vec2 d=(vUv-uSun)*vec2(uAspect,1.); float sky=step(.99999,texture2D(tDepth,vUv).x),f=exp(-dot(d,d)*12.);
+        gl_FragColor=vec4(sky*clamp(dot(texture2D(tColor,vUv).rgb,vec3(.3,.59,.11))-1.,0.,4.)*f,sky,f,1.); }`);   // r: sky brighter than white by the disc (its glare, not the blue), g: sky, b: nearness to the disc
     // A ray only shows where something cut the light on its way from the disc: the march counts sky/solid changes near
     // the disc, so one crossing (the horizon, open sky over bluffs or the flyover) adds no flat veil while a canopy's
     // gaps break it into shafts.
@@ -75,15 +75,20 @@ class LightShafts extends Pass {
 
 export function postprocessing(renderer, scene, camera, { photographic = false } = {}) {
   if (!photographic) return { render: () => renderer.render(scene, camera), resize() {}, dispose() {} };
-  const size = renderer.getDrawingBufferSize(new THREE.Vector2());   // the scene target keeps its depth as a texture for the shafts
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(size.x, size.y) }));
+  // The scene target keeps its depth as a texture for the shafts, and takes 4x MSAA: the renderer's own antialias only
+  // covers the default framebuffer, so Full used to go through post with stair-stepped edges. With two swapping passes
+  // per frame the RenderPass always lands in renderTarget2 (the composer's first read buffer); renderTarget1 only takes
+  // the OutputPass's fullscreen quad, so it keeps neither samples nor a depth texture.
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType }));
+  Object.assign(composer.renderTarget2, { samples: 4, depthTexture: new THREE.DepthTexture(size.x, size.y) });
   composer.addPass(new RenderPass(scene, camera));
   composer.addPass(new LightShafts(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), .35, .6, 2); composer.addPass(bloom);   // wide enough that the 12x sun disc spreads into a halo; the threshold sits above lit turf and the haze
+  const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), .35, .6, 2); composer.addPass(bloom);   // wide enough that the 20x sun disc spreads into a halo; the threshold sits above lit turf and the haze
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(GRADE); composer.addPass(grade);
   return { render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); }, dispose() {
-    for (const p of composer.passes) p.dispose?.(); composer.renderTarget1.depthTexture?.dispose(); composer.renderTarget2.depthTexture?.dispose(); composer.dispose();
+    for (const p of composer.passes) p.dispose?.(); composer.dispose();   // disposing a target frees its depth texture too
   } };
 }
 

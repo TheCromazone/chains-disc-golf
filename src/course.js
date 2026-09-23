@@ -21,19 +21,19 @@ export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
     hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#75bd48', '#3f9842', '#29774a', '#f5dfa4'], leafHue: 0.29,
-    sun: [36, 30, 11.5, 13, 5], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#fff0d8', fog: ['#bdd3e8', .0035], hemi: ['#a5c6ee', '#5d6b39'], water: '#2d6f95' },
+    sun: [36, 30, 11.5, 13, 5], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#fff0d8', fog: ['#bdd3e8', .0045], hemi: ['#a5c6ee', '#5d6b39'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
     hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#8bc352', '#55a344', '#397e48', '#f4dd9e'], leafHue: 0.265,
-    sun: [24, 42, 10, 22, 3.8], sky: [.48, 1.1, '#4a82cc', '#b4cbe4'], sunColor: '#ffdcae', fog: ['#d3d9df', .0034], hemi: ['#b2c7e6', '#6e6a3a'], water: '#4a7f8f' },
+    sun: [24, 42, 10, 22, 3.8], sky: [.48, 1.1, '#4a82cc', '#b4cbe4'], sunColor: '#ffdcae', fog: ['#d3d9df', .0042], hemi: ['#b2c7e6', '#6e6a3a'], water: '#4a7f8f' },
   { id: 'lake', name: 'Lakeshore Links', tag: 'Water on five holes', blurb: 'Morning light off the lake. Carries, wraps and island greens; every pond is out of bounds.', seed: 41,
     len: [92, 118, 80, 134, 100, 74, 126, 96, 110], dog: { 2: 1, 5: -1, 7: 1 }, ponds: { 0: 'right', 2: 'front', 4: 'carry', 6: 'right', 8: 'front' },
     hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#7dc65a', '#419f50', '#287a51', '#ffe3ac'], leafHue: 0.3,
-    sun: [31, 40, 11, 26, 4.4], sky: [.56, 1.35, '#3b80d6', '#a6cbee'], sunColor: '#fff2e0', fog: ['#c2d8ea', .0042], hemi: ['#a9caf0', '#4f6a42'], water: '#2a7fa8' },
+    sun: [31, 40, 11, 26, 4.4], sky: [.56, 1.35, '#3b80d6', '#a6cbee'], sunColor: '#fff2e0', fog: ['#c2d8ea', .0052], hemi: ['#a9caf0', '#4f6a42'], water: '#2a7fa8' },
   { id: 'bluff', name: 'Gull Point Bluffs', tag: 'Coastal · exposed · gusty', blurb: 'Headland links above the surf. Nothing stops the wind up here: read the socks, throw low into it and ride it home.', seed: 59,
     len: [98, 124, 88, 142, 110, 80, 156, 96, 118], dog: { 1: 1, 4: -1, 7: 1 }, ponds: { 2: 'right', 5: 'carry', 8: 'front' },
     hills: 2.1, trees: 0.22, pine: 0.7, fairwayW: 1.4, wind: 2.8, grass: ['#a9c65a', '#7fa848', '#5d8a4a', '#e9d9a6'], leafHue: 0.25,
-    sun: [40, 44, 12, 24, 3.6], sky: [.45, 1.2, '#3576d0', '#a2c6ea'], sunColor: '#fff4e4', fog: ['#c6d8e6', .0032], hemi: ['#a8c8ee', '#6a7446'], water: '#3f8fb0' },
+    sun: [40, 44, 12, 24, 3.6], sky: [.45, 1.2, '#3576d0', '#a2c6ea'], sunColor: '#fff4e4', fog: ['#c6d8e6', .004], hemi: ['#a8c8ee', '#6a7446'], water: '#3f8fb0' },
 ];
 export const courseById = id => COURSES.find(c => c.id === id) || COURSES[0];
 export const courseLayout = def => layoutHoles(makeRng(def.seed + 1), def);   // pure: used for the menu mini-maps
@@ -576,7 +576,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const discDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[2]), deg(def.sun[3])), sunColor = new THREE.Color(def.sunColor);
   const haze = new THREE.Color(def.fog[0]);
   Object.assign(FOG.sun, { x: discDir.x, y: discDir.y, z: discDir.z }); Object.assign(FOG.haze, { r: haze.r, g: haze.g, b: haze.b });
-  Object.assign(FOG.glow, { r: sunColor.r * .9, g: sunColor.g * .9, b: sunColor.b * .9 });
+  Object.assign(FOG.glow, { r: sunColor.r * .92, g: sunColor.g * .85, b: sunColor.b * .73 });   // the glare a shade warmer than the key: its light took the long way through the air
   scene.userData.sun = { dir: discDir, color: sunColor };   // effects.js aims the light shafts at the disc
   const sky = skyDome(def, quality === 'low'); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
@@ -649,9 +649,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose };
 }
 
-// Aerial perspective for every fogged material on both tiers: exponential in the true eye distance (not FogExp2's
-// squared view depth, which kept 40 m clear and whited out 150 m), toward a pale blue haze plus a warm forward-scatter
-// lobe round the sun's disc, so the tree line glows where the sun hangs and stays a clean blue behind the golfer. The
+// Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 12 m (not
+// FogExp2's squared view depth, which whited out 150 m), toward a pale blue haze plus a warm forward-scatter lobe
+// round the sun's disc, so the tree line glows where the sun hangs and stays a clean blue behind the golfer. The
 // haze is our own linear uniform (three hands fogColor to direct-to-screen Lite draws already sRGB-encoded) and the
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
@@ -690,7 +690,7 @@ Object.assign(THREE.ShaderChunk, {
 // Sky dome for both tiers, in the scene's linear HDR. Near the horizon it is the fog's colour along the ray (haze plus
 // the scatter lobe), so hazed tree lines and hills melt into it; above ~7° a pale-to-deep blue gradient with the sun's
 // aureole thinning upward. Cumulus: value noise on a planar projection, bright sun-facing tops over blue-grey bellies,
-// thin edges silvered near the sun. Lite runs two noise octaves, Full four. The 12x disc is tone mapped here on Lite;
+// thin edges silvered near the sun. Lite runs two noise octaves, Full four. The 20x disc is tone mapped here on Lite;
 // on Full the OutputPass does that after the bloom and light shafts have spread it. `ground` swaps the lower
 // hemisphere for a green bounce only while the dome is prefiltered into the environment map.
 function skyDome(def, lite) {
