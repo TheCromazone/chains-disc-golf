@@ -46,19 +46,20 @@ BLENDER = os.environ.get('BLENDER', r'C:\Program Files\Blender Foundation\Blende
 SKIN, JERSEY, SHORTS, HAIR, SOCKS, SHOES, IRIS = range(7)
 
 def texel_maps(glb, N):
-  """Bind-pose position, bone weights and coverage per texel of the body's atlas."""
+  """Bind-pose position, bone weights, face normal and coverage per texel of the body's atlas."""
   import numpy as np
   with tempfile.TemporaryDirectory() as tmp:
     subprocess.run([BLENDER, '-b', '-P', __file__, '--', '--dump', str(glb), tmp + '/d.npz'], check=True, capture_output=True)
     d = dict(np.load(tmp + '/d.npz'))
   pos, tri, tuv, W = d['pos'], d['tri'], d['tuv'], d['W']
-  P = np.zeros((N, N, 3), np.float32); B = np.zeros((N, N, W.shape[1]), np.float32); hit = np.zeros((N, N), bool)
+  fn = np.cross(pos[tri[:, 1]] - pos[tri[:, 0]], pos[tri[:, 2]] - pos[tri[:, 0]]); fn /= np.maximum(np.linalg.norm(fn, axis=1), 1e-12)[:, None]
+  P = np.zeros((N, N, 3), np.float32); B = np.zeros((N, N, W.shape[1]), np.float32); Nn = np.zeros((N, N, 3), np.float32); hit = np.zeros((N, N), bool)
   for t in range(len(tri)):
     x = tuv[t, :, 0] * N - .5; y = (1 - tuv[t, :, 1]) * N - .5; i0, i1, i2 = tri[t]   # glTF v runs down the image
     # sub-texel and sliver triangles (the female decimation leaves hundreds) still own the texel they sample
     for wa, wb, wc in ((1 / 3, 1 / 3, 1 / 3), (1, 0, 0), (0, 1, 0), (0, 0, 1)):
       sx, sy = (int(np.clip(np.floor(wa * c[0] + wb * c[1] + wc * c[2] + .5), 0, N - 1)) for c in (x, y))
-      if not hit[sy, sx]: P[sy, sx] = wa * pos[i0] + wb * pos[i1] + wc * pos[i2]; B[sy, sx] = wa * W[i0] + wb * W[i1] + wc * W[i2]; hit[sy, sx] = True
+      if not hit[sy, sx]: P[sy, sx] = wa * pos[i0] + wb * pos[i1] + wc * pos[i2]; B[sy, sx] = wa * W[i0] + wb * W[i1] + wc * W[i2]; Nn[sy, sx] = fn[t]; hit[sy, sx] = True
     x0, x1, y0, y1 = int(max(0, np.floor(x.min()))), int(min(N - 1, np.ceil(x.max()))), int(max(0, np.floor(y.min()))), int(min(N - 1, np.ceil(y.max())))
     den = (y[1] - y[2]) * (x[0] - x[2]) + (x[2] - x[1]) * (y[0] - y[2])
     if x1 < x0 or y1 < y0 or abs(den) < 1e-12: continue
@@ -67,15 +68,15 @@ def texel_maps(glb, N):
     m = (a >= -.02) & (b >= -.02) & (c >= -.02)
     if not m.any(): continue
     iy, ix, wa, wb, wc = gy[m], gx[m], a[m, None], b[m, None], c[m, None]
-    P[iy, ix] = wa * pos[i0] + wb * pos[i1] + wc * pos[i2]; B[iy, ix] = wa * W[i0] + wb * W[i1] + wc * W[i2]; hit[iy, ix] = True
-  return P, B, hit, [str(n) for n in d['names']]
+    P[iy, ix] = wa * pos[i0] + wb * pos[i1] + wc * pos[i2]; B[iy, ix] = wa * W[i0] + wb * W[i1] + wc * W[i2]; Nn[iy, ix] = fn[t]; hit[iy, ix] = True
+  return P, B, hit, [str(n) for n in d['names']], Nn
 
 def clean(alb, m1, m2, maps, rig, lines):
   """Re-classified masks and repaired albedo (float arrays 0..1, albedo sRGB). lines: the full body's garment lines, filled in on first use."""
   import numpy as np
   from scipy.spatial import cKDTree
   from scipy import ndimage
-  P, B, hit, names = maps; J, head = rig['rig'], rig['head']; bi = {n: i for i, n in enumerate(names)}
+  P, B, hit, names, Nn = maps; J, head = rig['rig'], rig['head']; bi = {n: i for i, n in enumerate(names)}
   W7 = np.concatenate([m1, m2[..., :3]], -1); C0 = np.where(W7.max(-1) > .35, W7.argmax(-1), -1)
   lum = np.where(alb <= .04045, alb / 12.92, ((alb + .055) / 1.055) ** 2.4) @ np.array([.2126, .7152, .0722], np.float32)
   mx, mn = alb.max(-1), alb.min(-1); sat = np.where(mx > 1e-3, (mx - mn) / np.maximum(mx, 1e-3), 0)
@@ -109,8 +110,12 @@ def clean(alb, m1, m2, maps, rig, lines):
   for side, th in (('R', thighR), ('L', thighL)):
     axis(th, knY + .05, hipY - .05, 'axisC' + side); ang = angle('axisC' + side)
     cuff = line('cuff' + side, th, ang, dark, skinc, knY + .02, hipY - .03); C1[~above_hem & th] = np.where(y[~above_hem & th] < cuff[~above_hem & th], SKIN, SHORTS)
+  # an arm texel's normal leaves its arm's axis; the torso side under the armpit faces the arm instead. The scan skins
+  # that side to the arm bones, so without this test it turned to skin: a wedge on the back beside the elbow.
+  arm_side = lambda s: (x - lines['axisS' + s][0]) * Nn[..., 0] + (z - lines['axisS' + s][1]) * Nn[..., 2] > -.005
   for side, up in (('R', upR), ('L', upL)):
-    axis(up, elY + .03, shY - .03, 'axisS' + side); sleeve = line('sleeve' + side, up, angle('axisS' + side), white, skinc, elY + .02, shY + .02); C1[up & (y < sleeve)] = SKIN
+    axis(up, elY + .03, shY - .03, 'axisS' + side); sleeve = line('sleeve' + side, up, angle('axisS' + side), white, skinc, elY + .02, shY + .02); C1[up & (y < sleeve) & arm_side(side)] = SKIN
+  fore &= np.where(x > 0, arm_side('R'), arm_side('L'))
   axis(headp | torso, chinY - .06, chinY - .01, 'axisN'); angN = angle('axisN'); nx, nz = lines['axisN']
   neckzone = (torso | headp | upR | upL) & (np.hypot(x - nx, z - nz) < .11) & (y < chinY + .01) & (y > shY - .1)
   necky = neckzone & (y > line('neck', neckzone, angN, skinc, white, shY - .1, chinY + .01, tol=.05))
