@@ -77,9 +77,9 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
       }
       #undef RE_Direct
       #define RE_Direct RE_Direct_Chains`).replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= 1. - .3 * chainsSkin;   // skin reflects ~3 %, not the 4 % of a plastic').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor *= chainsRough;')
-      // the scan's shirt normals are pocked with pinhole dimples (dark specks round the collar), so the jersey takes half of them:
-      // at a quarter the fitted shirt read as a smooth, flat shell with no cloth in it
-      .replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace('mapN.xy *= normalScale;', 'mapN.xy *= normalScale * (1. - .5 * chainsJersey);')).replace('#include <map_fragment>', `float chainsJersey = 0., chainsRough = 1., chainsKnit = 0.;
+      // the scan's shirt normals are pocked with pinhole dimples (dark specks round the collar), so the jersey takes 85 % of them:
+      // at a quarter, and at half, critics read the fitted shirt as a smooth painted shell with no cloth in it
+      .replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace('mapN.xy *= normalScale;', 'mapN.xy *= normalScale * (1. - .15 * chainsJersey);')).replace('#include <map_fragment>', `float chainsJersey = 0., chainsRough = 1., chainsKnit = 0.;
       #include <map_fragment>
       { vec4 m1 = texture2D(uMask1, vMapUv), m2 = texture2D(uMask2, vMapUv);
         vec3 base = diffuseColor.rgb; float lum = dot(base, vec3(.2126, .7152, .0722));
@@ -96,7 +96,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         col = mix(col, uHair * (.5 + .5 * clamp(lum / uMean[0], .3, 1.4)), zone * (.6 + .4 * grain));
         chainsKnit = (texture2D(uKnit, vec2(vJerseyPos.x * .7 + vJerseyPos.z * .7, vJerseyPos.y) * 16.).r - .49) * ${knitAmp.toFixed(2)} * (w[1] + .5 * w[2] + .6 * w[4]);   // bind-pose projection: ~3 mm cells, the same scale on every island
         chainsJersey = w[1]; chainsSkin = w[0]; chainsRough = 1. - .12 * w[0] + .14 * w[3] + .2 * (w[1] + w[2] + w[4]); diffuseColor.rgb = col;
-        chainsPanel = max(smoothstep(.6, .7, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.3, .45, -vBindN.x * sign(vJerseyPos.x))); }`);   // a cut panel edge: soft, it read as a shadow down the side
+        chainsPanel = max(smoothstep(.5, .78, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.3, .45, -vBindN.x * sign(vJerseyPos.x))); }`);   // the side panels follow the torso's turn (a hard cut flattened the back into one tone, a wide blend read as a shadow)
   };
   material.customProgramCacheKey = () => 'chains-body';
   jerseyStyle(material, avatar.jerseyStyle, avatar.accent, 1, [0, 0, 0], 'chainsJersey');
