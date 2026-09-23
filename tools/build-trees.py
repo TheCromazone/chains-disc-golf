@@ -206,8 +206,16 @@ def crown(t, rng, tp, rads, H, lo, hi, W, n_limbs, n_clumps, min_d, cells, card,
     elev = rng.uniform(*limb_elev); reach = W * rng.uniform(.7, .92) * math.sqrt(max(.15, 1 - ((z - zc) / rz) ** 2))
     end = base + Vector((math.cos(az) * reach, math.sin(az) * reach, reach * math.tan(elev) * .6 + 1.))
     if hang: end.z -= reach * hang * .6   # birch limbs arch over and their tips weep
-    limb = bezier(base, base + Vector((math.cos(az) * reach * .25, math.sin(az) * reach * .25, reach * .55)), end, 4)
+    side = Vector((-math.sin(az), math.cos(az), 0)) * reach * rng.uniform(-.2, .2)
+    limb = bezier(base, base + Vector((math.cos(az) * reach * .25, math.sin(az) * reach * .25, reach * .55)) + side, end, 5)
+    for k in range(1, len(limb) - 1): limb[k] = limb[k] + unit(rng) * reach * .05   # sinuous, not a spoke
     t.tube(limb, r * limb_r, .03, sides, .85); limbs.append(limb)
+    if reach > 2.2:   # the limb forks once toward a neighbouring part of the envelope
+      p, d = along(limb, rng.uniform(.4, .6)); a2 = az + rng.choice((-1, 1)) * rng.uniform(.45, .85); rr = reach * rng.uniform(.75, .95)
+      end2 = Vector((math.cos(a2) * rr, math.sin(a2) * rr, 0)) + Vector((0, 0, p.z + rng.uniform(.4, 1.6) - hang * rr * .4))
+      sub = bezier(p, p.lerp(end2, .4) + Z * rr * .2, end2, 3)
+      for k in range(1, len(sub) - 1): sub[k] = sub[k] + unit(rng) * rr * .05
+      t.tube(sub, r * limb_r * .5, .02, max(3, sides - 1), .85); limbs.append(sub)
   def sample():
     u = unit(rng); s = rng.uniform(.62, 1.) ** .5
     p = Vector((u.x * W * s, u.y * W * s, zc + u.z * rz * s))
@@ -216,8 +224,8 @@ def crown(t, rng, tp, rads, H, lo, hi, W, n_limbs, n_clumps, min_d, cells, card,
   for c in shell_points(rng, n_clumps, sample, min_d):
     a = min(pts, key=lambda p: (p - c).length + max(0, p.z - c.z + .5) * 2)   # attach below or level, not from above
     d = c - a
-    if d.length > 1.6: t.tube([a, a.lerp(c, .5) + Z * d.length * (.12 - hang * .3), c], .035, .01, 3)   # long twigs bow, short ones run straight
-    elif d.length > .6: t.tube([a, c], .03, .01, 3)
+    if d.length > 1.6: t.tube([a, a.lerp(c, .5) + Z * d.length * (.12 - hang * .3) + unit(rng) * .2, c], .025, .008, 3)   # long twigs bow, short ones run straight
+    elif d.length > .6: t.tube([a, c], .02, .008, 3)
     t.clump_at(c, d if d.length > .1 else c - Vector((0, 0, c.z - 1)), rng.randint(*count), card * rng.uniform(.88, 1.1), rng.choice(cells), hang=hang)
   return limbs
 
