@@ -1,7 +1,8 @@
 """Runtime body textures from the Blender masters (tools/build-golfer-v3.py writes art/blender/golfer-v3[-f]-textures/).
 Run: python tools/pack-body-textures.py [--variant f] [--src DIR] [--clean]
 Full tier: 2048 albedo (WebP, AO folded in), 2048 tangent normal (WebP), 1024 region masks (PNG, RGBA).
-Lite tier: the LOD body's own 1024 albedo and 512 masks (its UV layout differs), no normal map.
+Lite tier: the LOD body's own 1024 albedo and 512 masks (its UV layout differs), no normal map. The female phone LOD is
+her full body (build-golfer-v3.py --lod-from-full), so her Lite set is the full set at half size.
 Prints the byte sizes the asset test budgets against and registers the files in assets/manifest.json.
 
 --clean re-classifies the garment regions before packing (needs Blender for one dump per body, plus numpy and scipy).
@@ -148,16 +149,19 @@ def save(img, name, size, fmt, **kw):
   im = img if img.size[0] == size else Image.merge(img.mode, [ch.resize((size, size), Image.LANCZOS) for ch in img.split()])
   if fmt == 'PNG': im = Image.merge(im.mode, [ImageOps.posterize(ch, 6 if name.startswith('mask2') and i == 3 else 4) for i, ch in enumerate(im.split())])   # soft masks survive 16 levels (PNG shrinks 2-3x); the beard channel keeps 64 for its zone id + feather
   path = OUT / name; im.save(path, fmt, **kw); sizes[name] = path.stat().st_size; return path
-lines = {}
+SHARED_LOD = {'f'}   # the phone LOD is the full body (build-golfer-v3.py --lod-from-full): same UVs, so the same atlas at half size
+lines, full = {}, None
 for sfx in ('', '_lod'):
-  alb, m1, m2 = Image.open(SRC / f'albedo{sfx}.png').convert('RGB'), Image.open(SRC / f'mask1{sfx}.png').convert('RGBA'), Image.open(SRC / f'mask2{sfx}.png').convert('RGBA')
-  if '--clean' in sys.argv:
+  if sfx and VARIANT in SHARED_LOD: alb, m1, m2 = full
+  else: alb, m1, m2 = Image.open(SRC / f'albedo{sfx}.png').convert('RGB'), Image.open(SRC / f'mask1{sfx}.png').convert('RGBA'), Image.open(SRC / f'mask2{sfx}.png').convert('RGBA')
+  if '--clean' in sys.argv and not (sfx and VARIANT in SHARED_LOD):
     import numpy as np
     N = alb.size[0]; f = lambda im: np.asarray(im if im.size[0] == N else Image.merge(im.mode, [c.resize((N, N), Image.LANCZOS) for c in im.split()])).astype(np.float32) / 255
     maps = texel_maps(ROOT / f'assets/models/golfer{TAG}{sfx.replace("_", "-")}.glb', N)
     a, k1, k2 = clean(f(alb), f(m1), f(m2), maps, json.loads((ROOT / f'tools/golfer{TAG}-rig.json').read_text()), lines)
     u8 = lambda v, mode: Image.fromarray((np.clip(v, 0, 1) * 255 + .5).astype(np.uint8), mode)
     alb, m1, m2 = u8(a, 'RGB'), u8(k1, 'RGBA'), u8(k2, 'RGBA')
+  full = full or (alb, m1, m2)
   save(alb, f'albedo{sfx}.webp', 1024 if sfx else 2048, 'WEBP', quality=76 if sfx else 78, method=5)
   save(m1, f'mask1{sfx}.png', 512 if sfx else 1024, 'PNG', optimize=True); save(m2, f'mask2{sfx}.png', 512 if sfx else 1024, 'PNG', optimize=True)
 save(Image.open(SRC / 'normal.png').convert('RGB'), 'normal.webp', 2048, 'WEBP', quality=80, method=5)

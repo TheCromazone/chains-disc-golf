@@ -9,7 +9,9 @@ every texel into recolourable regions (skin, shirt, shorts, hair, socks, shoes, 
 Hair, headwear and glasses are grown from the measured skull. Writes:
   art/blender/golfer-v3[-f]-source.blend, -lod-source.blend, golfer-v3[-f]-textures/*.png (masters)
   assets/models/golfer[-f].glb, golfer[-f]-lod.glb, golfer[-f]-build-report.json, tools/golfer[-f]-rig.json
-then run: python tools/pack-body-textures.py [--variant f]
+then run: python tools/pack-body-textures.py [--variant f] --clean
+The female phone LOD is her full body re-exported lean (her decimated scan shatters); to redo just that step from the
+committed source blend: blender -b -P tools/build-golfer-v3.py -- --variant f --lod-from-full
 """
 from pathlib import Path
 import sys, json, math, shutil
@@ -566,6 +568,19 @@ def build_rig(objs, RIG, extras):
   for k, v in extras.items(): rig[k] = v
   return rig
 
+def export_glb(path, lean=False):   # lean: the phone LOD made from the full body; 13-bit positions (.2 mm) and 8-bit normals (the runtime rebuilds hers) fit its byte budget
+  bpy.ops.export_scene.gltf(filepath=str(path), export_format='GLB', export_yup=True, export_animations=False, export_image_format='NONE',
+    export_skins=True, export_all_influences=False, export_extras=True, export_texcoords=True, export_apply=False,
+    export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=10 if lean else 6, export_draco_position_quantization=13 if lean else 14,
+    export_draco_normal_quantization=8 if lean else 10, export_draco_texcoord_quantization=12, export_draco_generic_quantization=12)
+
+if '--lod-from-full' in argv:
+  # The female scan keeps ~1000 holes, so decimating it to the phone budget stalls at ~9.7k triangles and folds the
+  # surface into shards (the LOD looked shattered on phones). Her phone LOD is her full body instead (+2.7k triangles),
+  # which also shares the full UV layout: pack-body-textures.py gives it the full atlas at half size.
+  bpy.ops.wm.open_mainfile(filepath=str(SOURCE / f'golfer-v3{TAG}-source.blend'))
+  export_glb(OUT / f'golfer{TAG}-lod.glb', lean=True); log('LOD_FROM_FULL', VARIANT, (OUT / f'golfer{TAG}-lod.glb').stat().st_size); sys.exit(0)
+
 def export(name, budget):
   objs = meshes(); total = sum(tris(o) for o in objs)
   for o in objs:
@@ -574,9 +589,7 @@ def export(name, budget):
   log('TRIS', name, total, json.dumps(REPORT[name]['perMesh']))
   assert total < budget, (name, total)
   bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE / (name + '.blend')), compress=True)
-  bpy.ops.export_scene.gltf(filepath=str(OUT / (name + '.glb')), export_format='GLB', export_yup=True, export_animations=False, export_image_format='NONE',
-    export_skins=True, export_all_influences=False, export_extras=True, export_texcoords=True, export_apply=False,
-    export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6, export_draco_position_quantization=14, export_draco_normal_quantization=10, export_draco_texcoord_quantization=12, export_draco_generic_quantization=12)
+  export_glb(OUT / (name + '.glb'))
   REPORT[name]['bytes'] = (OUT / (name + '.glb')).stat().st_size
   log('EXPORT', name, json.dumps({k: v for k, v in REPORT[name].items() if k != 'perMesh'}))
 
@@ -669,4 +682,6 @@ for src, dst in ((f'golfer-v3{TAG}-source.glb', f'golfer{TAG}.glb'), (f'golfer-v
 manifest = ROOT / 'assets/manifest.json'; doc = json.loads(manifest.read_text())
 doc['models'][f'golfer{KEY}'] = f'models/golfer{TAG}.glb'; doc['models'][f'golfer{KEY}_lod'] = f'models/golfer{TAG}-lod.glb'
 manifest.write_text(json.dumps(doc, indent=2) + '\n')
+if VARIANT == 'f':   # her decimated LOD shatters: ship her full body as the phone LOD (same as --lod-from-full)
+  bpy.ops.wm.open_mainfile(filepath=str(SOURCE / f'golfer-v3{TAG}-source.blend')); export_glb(OUT / f'golfer{TAG}-lod.glb', lean=True)
 log('GOLFER_V3_DONE', VARIANT)

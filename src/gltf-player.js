@@ -14,6 +14,36 @@ const DOME_HATS = new Set(['cap', 'backcap', 'beanie', 'bucket']), BIG_HAIR = ne
 const _v = new THREE.Vector3(), _e = new THREE.Vector3(), _f = new THREE.Vector3(), _gi = new THREE.Quaternion(), _q = new THREE.Quaternion(), _eu = new THREE.Euler();
 const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0);   // FLIP: half turn about the forearm, puts the carried disc's face on the knuckle side, where a lens in front sees it
 const glassesOf = a => a.glasses && a.glasses !== 'none' ? a.glasses : a.shades ? 'sport' : 'none';
+// The female scan keeps folded slivers and ~1600 flipped triangles; Blender's vertex normals follow them and the cloth
+// shades as dark shards. Rebuild them once per loaded body: every face oriented to agree with the normals it replaces,
+// area-weighted, shared across UV-seam duplicates, then relaxed over the neighbours (the head keeps its own detail).
+// ponytail: a flood-filled consistent winding looked the same here; the one remaining dark wedge on her upper back is a
+// real fold of the scan, which only a mesh fix removes.
+function relaxNormals(g, headBone, passes = 3) {
+  if (g.userData.relaxed) return; g.userData.relaxed = true;
+  const pos = g.attributes.position, nrm = g.attributes.normal, idx = g.index.array, n = pos.count, weld = new Int32Array(n), key = new Map();
+  for (let i = 0; i < n; i++) { const k = Math.round(pos.getX(i) * 1e4) + ',' + Math.round(pos.getY(i) * 1e4) + ',' + Math.round(pos.getZ(i) * 1e4); let w = key.get(k); if (w === undefined) key.set(k, w = key.size); weld[i] = w; }
+  const W = key.size, was = new Float32Array(W * 3), acc = new Float32Array(W * 3), head = new Uint8Array(W), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  for (let i = 0; i < n; i++) { const w = weld[i] * 3; was[w] += nrm.getX(i); was[w + 1] += nrm.getY(i); was[w + 2] += nrm.getZ(i); for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === headBone && sw.getComponent(i, k) > .5) head[weld[i]] = 1; }
+  const links = Array.from({ length: W }, () => new Set());
+  for (let f = 0; f < idx.length; f += 3) {
+    const p = [idx[f], idx[f + 1], idx[f + 2]], q = p.map(i => weld[i]);
+    a.fromBufferAttribute(pos, p[0]); b.fromBufferAttribute(pos, p[1]).sub(a); c.fromBufferAttribute(pos, p[2]).sub(a); b.cross(c);   // area-weighted face normal
+    const s = q.reduce((d, w) => d + b.x * was[w * 3] + b.y * was[w * 3 + 1] + b.z * was[w * 3 + 2], 0) < 0 ? -1 : 1;
+    for (const w of q) { acc[w * 3] += s * b.x; acc[w * 3 + 1] += s * b.y; acc[w * 3 + 2] += s * b.z; }
+    links[q[0]].add(q[1]).add(q[2]); links[q[1]].add(q[0]).add(q[2]); links[q[2]].add(q[0]).add(q[1]);
+  }
+  const unit = v => { for (let w = 0; w < W; w++) { const l = Math.hypot(v[w * 3], v[w * 3 + 1], v[w * 3 + 2]) || 1; v[w * 3] /= l; v[w * 3 + 1] /= l; v[w * 3 + 2] /= l; } return v; };
+  let cur = unit(acc);
+  for (let pass = 0; pass < passes; pass++) {
+    const next = cur.slice();
+    for (let w = 0; w < W; w++) if (!head[w]) for (const o of links[w]) { next[w * 3] += .5 * cur[o * 3]; next[w * 3 + 1] += .5 * cur[o * 3 + 1]; next[w * 3 + 2] += .5 * cur[o * 3 + 2]; }
+    cur = unit(next);
+  }
+  for (let i = 0; i < n; i++) { const w = weld[i] * 3; nrm.setXYZ(i, cur[w], cur[w + 1], cur[w + 2]); }
+  nrm.needsUpdate = true;
+}
 
 export function createGLTFCharacter(avatar) {
   const female = avatar.figure === 'female', key = female ? 'golfer_f' : 'golfer';
@@ -34,7 +64,7 @@ export function createGLTFCharacter(avatar) {
     if (o.name.startsWith('accessory_wristband')) o.visible = avatar.wristband === 'both' || avatar.wristband === (o.name.endsWith('R') ? 'right' : 'left');
     if (!o.isMesh) return;
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; }
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (female && o.isSkinnedMesh) relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     owned.add(o.material); o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
   });
