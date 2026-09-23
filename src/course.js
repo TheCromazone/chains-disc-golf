@@ -481,10 +481,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // sun (gapHole.z), and from 1 m short of it toward the tee (gapAim.xy, ramping over 2 m from gapAim.z) the crowns keep
   // most of their cards (gapAim.w), so the near floor sits in shade with scattered sun pools and the lit ground round the
   // pin reads as a clearing; past 15-35 m the course-wide cut (gapSun.w). Measured at 640x360 on the critic's floor box:
-  // luma 116 before, 79 after, the reference 77. w6-3 putt verdicts ("soft grey-brown blotches, no clear sun direction"): 1.3 past the
-  // pin, so the lawn round and behind the basket is sunlit ground crossed by long trunk and pole shadows, the near floor still shaded.
-  // gapHole.w: the pin's ground height. setHole() aims both.
-  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector4(0, 0, 1.3, 0) }, gapAim = { value: new THREE.Vector4(0, 1, -1, .75) };
+  // luma 116 before, 79 after, the reference 77. gapHole.w: the pin's ground height. setHole() aims both.
+  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector4(0, 0, 1.15, 0) }, gapAim = { value: new THREE.Vector4(0, 1, -1, .75) };
   const canopyGaps = (mat, open = 1) => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole; s.uniforms.gapAim = gapAim;
     s.vertexShader = 'varying vec3 vGap;\n' + (s.vertexShader.includes('#include <project_vertex>') ? s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       { vec4 g = vec4(position, 1.);
@@ -977,16 +975,16 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
-const PUTT_AIR = { clear: 10, density: 2.5, knee: 35, haze: [1.05, .83, .63], warm: 1.18 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
-const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 } }, AIR = { x: 0, y: 0, z: 0, w: 0 };   // AIR.x: how far the eye is into the putt's air (update(): 1 within 15 m of the pin, 0 by 40 m), for the fog's blend, the trees' haze and the shade tint   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
-for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape }, fogAir: { value: AIR } });
+const PUTT_AIR = { clear: 12, density: 2.65, knee: 60, haze: [1.05, .83, .63], warm: 1.18 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
+const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
+for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
 // nothing: its loop pass is skipped and the sun samples its map inside the cascade's box (sunShadow() in the shadow chunk).
 // So after the loop directLight still holds the sun with its shadow, which the canopy and blade shaders read. Shade is
 // lit by the sky alone (no sunlight put back into it), so it reads cool and sits 2-2.5 stops under sun. The same sun
 // visibility dims reflected sky: whatever shades a surface from the sun, a canopy or the basket's tray, hides most of
 // the sky from it too, so shaded steel stops mirroring blue.
-const PENUMBRA = { x: 0, y: 0, z: 0, w: 0 }, FLECK = { x: 0, y: 0, z: 24, w: 90 };   // FLECK: the near cascade's centre in the light's plane (m), its width (m), its depth range (m)
+const PENUMBRA = { x: 0, y: 0, z: 0, w: 0 }, FLECK = { x: 0, y: 0, z: 24, w: 90 }, AIR = { x: 0, y: 0, z: 0, w: 0 };   // AIR.x: how far the eye is into the putt's air (update(): 1 within 15 m of the pin, 0 by 40 m), for the trees' haze and the shade tint   // FLECK: the near cascade's centre in the light's plane (m), its width (m), its depth range (m)
 for (const s of Object.values(THREE.ShaderLib)) if (s.uniforms?.directionalLights) Object.assign(s.uniforms, { sunPenumbra: { value: PENUMBRA }, sunFleck: { value: FLECK }, sunAir: { value: AIR } });
 const DIR_LOOP = [THREE.ShaderChunk.lights_fragment_begin.indexOf('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )'), THREE.ShaderChunk.lights_fragment_begin.indexOf('#if ( NUM_RECT_AREA_LIGHTS > 0 )')];
 Object.assign(THREE.ShaderChunk, {
@@ -1003,11 +1001,11 @@ float sunVis = 1.;
 	reflectedLight.indirectSpecular *= mix( .45, 1., sunVis );
 #endif
 #ifndef NO_SHADE_TINT
-reflectedLight.indirectDiffuse *= mix( mix( vec3( .9, .87, .8 ), vec3( 1.1, 1.18, 1.34 ), sunAir.x ), vec3( 1. ), sunVis );   // at the putt (AIR.x) cooler and ~20% more of it (w6-3: our shaded floor sat at 35-45% of the sunlit one and brown, the reference's lawn shade at 55-60% and near neutral): w6 "shaded dirt a heavy muddy brown, no sky fill" (the pin's floor is open to the sky round it). w3-4: the old teal tint (.74, .86, .92) on the blue sky fill turned shaded dirt a colourless grey-green (sRGB ~61, 62, 54); a faint warm bounce off the sunlit floor round it keeps it brown (the blue fill times this sits near neutral).   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
+reflectedLight.indirectDiffuse *= mix( mix( vec3( .9, .87, .8 ), vec3( 1.07, 1.09, 1.15 ), sunAir.x ), vec3( 1. ), sunVis );   // at the putt (AIR.x) a touch cooler and 15% more of it: w6 "shaded dirt a heavy muddy brown, no sky fill" (the pin's floor is open to the sky round it). w3-4: the old teal tint (.74, .86, .92) on the blue sky fill turned shaded dirt a colourless grey-green (sRGB ~61, 62, 54); a faint warm bounce off the sunlit floor round it keeps it brown (the blue fill times this sits near neutral).   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
 #endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
-  fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogWarm, fogGlow;\n\tuniform vec4 fogShape, fogAir;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
+  fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogWarm, fogGlow;\n\tuniform vec4 fogShape;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. );
 	#ifdef FOG_EXP2
@@ -1019,12 +1017,7 @@ reflectedLight.indirectDiffuse *= mix( mix( vec3( .9, .87, .8 ), vec3( 1.1, 1.18
 	#ifdef TONE_MAPPING
 		fogTint = toneMapping( fogTint );
 	#endif
-	vec3 fogSeen = mix( gl_FragColor.rgb, vec3( dot( gl_FragColor.rgb, vec3( .2126, .7152, .0722 ) ) ), mix( .8, .15, fogAir.x ) * fogFactor ), fogAdd = linearToOutputTexel( vec4( fogTint, 1. ) ).rgb;   // what the haze veils also loses its colour first: far greens go grey-green row by row, not a saturated olive under a tinted wash (half as much at the putt: the reference's far woods keep a faint green)
-	#ifdef TONE_MAPPING
-		gl_FragColor.rgb = mix( fogSeen, fogAdd, fogFactor );   // Lite draws straight to the screen, so this mix is already in display space
-	#else
-		{ vec3 p = mix( sqrt( max( fogSeen, 0. ) ), sqrt( fogAdd ), fogFactor ); gl_FragColor.rgb = mix( mix( fogSeen, fogAdd, fogFactor ), p * p, fogAir.x ); }   // Full's HDR target is linear, where 10% of bright air doubles a shaded trunk: at the putt (w6 "a flat milky veil from the pin back") the air mixes in a display-like (square-root) space, so the far woods' darks hold while their lit greens and the gaps lift into it
-	#endif
+	gl_FragColor.rgb = mix( mix( gl_FragColor.rgb, vec3( dot( gl_FragColor.rgb, vec3( .2126, .7152, .0722 ) ) ), .8 * fogFactor ), linearToOutputTexel( vec4( fogTint, 1. ) ).rgb, fogFactor );   // what the haze veils also loses its colour first: far greens go grey-green row by row, not a saturated olive under a tinted wash
 #endif`,
   // Sun shadows: the stock PCF kernel spaced at `radius` texels leaves blocky rings under leafy canopies. 16 taps on a
   // Vogel disk turned per pixel (white noise: IGN's diagonals show without TAA) give the same cost a smooth penumbra, grain
