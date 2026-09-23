@@ -472,20 +472,20 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // gapHole: the pin (x, z) and the cut within 15 m of it. It was 1.3, which opened every crown there and left the putt
   // lawn one even sunlit sheet crossed only by trunk bars; .96 lets the crowns over the green cast dappled pools again.
   const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector3(0, 0, .96) };
-  const canopyGaps = mat => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole;
-    s.vertexShader = 'varying vec3 vGap;\n' + s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+  const canopyGaps = (mat, open = 1) => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole;
+    s.vertexShader = 'varying vec3 vGap;\n' + (s.vertexShader.includes('#include <project_vertex>') ? s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       { vec4 g = vec4(position, 1.);
       #ifdef USE_INSTANCING
       g = instanceMatrix * g;
       #endif
-      vGap = (modelMatrix * g).xyz; }`);
+      vGap = (modelMatrix * g).xyz; }`) : s.vertexShader.replace('gl_Position = projectionMatrix * mvPosition;', '$& vGap = (modelMatrix * vec4(transformed, 1.)).xyz;'));   // an impostor card writes its own projection, and its `transformed` is already the sun-facing card in world space
     s.fragmentShader = `uniform vec4 gapSun;uniform vec3 gapHole;varying vec3 vGap;
       float gapHash(vec2 p) { vec3 q = fract(p.xyx * .1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
       float gapNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(gapHash(i), gapHash(i + vec2(1., 0.)), f.x), mix(gapHash(i + vec2(0., 1.)), gapHash(i + 1.), f.x), f.y); }
       ` + s.fragmentShader.replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
       { vec3 r = normalize(cross(vec3(0., 1., 0.), gapSun.xyz)), u = cross(gapSun.xyz, r); vec2 p = vec2(dot(vGap, r), dot(vGap, u)) / 3.2;
-        if (gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25 < mix(gapHole.z, gapSun.w, smoothstep(15., 45., distance(vGap.xz, gapHole.xy)))) discard; }`); };
-    mat.customProgramCacheKey = () => prevKey.call(mat) + '|gaps'; return mat; };
+        if (gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25 < ${open.toFixed(2)} * mix(gapHole.z, gapSun.w, smoothstep(15., 45., distance(vGap.xz, gapHole.xy)))) discard; }`); };
+    mat.customProgramCacheKey = () => prevKey.call(mat) + '|gaps' + open; return mat; };
   const inst = (geo, mat, spots, colorFn, shadow = true, lod = false) => {
     if (lod) {   // near-tree set: every tree's matrix and tint precomputed, drawn only once treeLod() picks it
       const n = spots.length, mats = new Float32Array(n * 16), cols = colorFn ? new Float32Array(n * 3) : null, pos = new Float32Array(n * 2), byCell = new Map();
@@ -624,7 +624,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     s.fragmentShader = s.fragmentShader.replace('#include <fog_fragment>', `vec3 treeClear = gl_FragColor.rgb;
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.);
-        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare)); }`);
+        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare${leaf ? '' : ' * (1. - smoothstep(25., 70., length(vViewPosition)))'})); }`);   // a trunk's exemption ends by 70 m: far trunks against the glare took half the floor's haze and stood dark in front of it like cut-outs
     // Leaves stop short of the bloom threshold (2, linear): a crown against the sun blazed past it and the bloom spread every
     // back-lit card into one even yellow haze with no dark core. Clamped by luminance, so the hue holds.
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `outgoingLight *= min(1., 1.2 / max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4));
@@ -708,7 +708,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       sunOcc = mix(1., n.z * mix(n.z, 1., .5), smoothstep(-.2, .6, dot(-normalize(vViewPosition), directionalLights[0].direction)) * leafMask);
       #endif
       }`); }, customProgramCacheKey: () => 'chains-impostor' }));
-  const impDepth = impMat && Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: billboard, customProgramCacheKey: () => 'chains-impostor-depth' });
+  const impDepth = impMat && canopyGaps(Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: billboard, customProgramCacheKey: () => 'chains-impostor-depth' }), .8);   // far crowns cut sun gaps too, a little fewer than near ones (a far crown stands in for its whole stand): solid impostor shadows left the woods floor past ~40 m one even shade, the near cut a sunlit sheet
   const impostors = (spots, shadow = true) => {
     if (!impMat || !spots.length) return false;
     const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).translate(0, .5, 0), impMat, spots.length), cells = new Float32Array(spots.length), barks = new Float32Array(spots.length * 3);
@@ -790,9 +790,16 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // as the key, so the light reads from the disc and the shadows agree on where it comes from.
   const deg = THREE.MathUtils.degToRad, sunDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[0]), deg(def.sun[1]));
   const discDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[2]), deg(def.sun[3])), sunColor = new THREE.Color(def.sunColor);
-  const haze = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.66, .72, .82));   // a pale sky blue-grey under the course swatch: distance cools instead of going milky grey-green (.55/.64/.85 read teal over green crowns, .6/.68/.84 an icy far floor)
-  Object.assign(FOG.sun, { x: discDir.x, y: discDir.y, z: discDir.z }); Object.assign(FOG.haze, { r: haze.r, g: haze.g, b: haze.b });
-  const warm = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.95, .86, .6)); Object.assign(FOG.warm, { r: warm.r, g: warm.g, b: warm.b });   // the haze's sun side: the swatch with its blue taken out, so the backlit woods fall back into a bright warm glow
+  // Away from the sun a pale, faintly cool grey: the swatch half way to a neutral grey (the old swatch x .66/.72/.82 sat
+  // darker than the sunlit dirt it veiled and read as blue-grey smog). Toward the disc the air is lit from behind: the
+  // swatch mostly replaced by the key's own warm white, brighter than the away side, so backlit woods fade into sunlit air.
+  const haze = new THREE.Color(def.fog[0]).lerp(new THREE.Color(.66, .66, .62), .5).multiplyScalar(.9);
+  Object.assign(FOG.sun, { x: discDir.x, y: discDir.y, z: discDir.z });
+  const warm = haze.clone().multiplyScalar(.4).add(sunColor.clone().multiplyScalar(.6)).multiplyScalar(.9);
+  // The environment fill is baked from the dome with the old, dimmer blue-grey horizon, so brighter air does not also lift
+  // every shade and the athlete's skin: the fill is sky light, the haze colour is what the air between us and the woods adds.
+  const fillHaze = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.66, .72, .82)), fillWarm = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.95, .86, .6));
+  Object.assign(FOG.haze, { r: fillHaze.r, g: fillHaze.g, b: fillHaze.b }); Object.assign(FOG.warm, { r: fillWarm.r, g: fillWarm.g, b: fillWarm.b });
   // The glare a shade warmer than the key (its light took the long way through the air), and ~40% of the key's strength:
   // any brighter and the tee's back third, which looks into the lobe, goes to a milky cream veil.
   Object.assign(FOG.glow, { r: sunColor.r * .42, g: sunColor.g * .39, b: sunColor.b * .33 });
@@ -803,6 +810,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The cube camera's far plane has to reach the 1100 m dome.
   const pmrem = new THREE.PMREMGenerator(renderer), envScene = new THREE.Scene(); sky.material.uniforms.ground.value = 1; envScene.add(sky);
   const envRT = pmrem.fromScene(envScene, .04, 1, 2000); envScene.remove(sky); sky.material.uniforms.ground.value = 0; scene.add(sky); pmrem.dispose();
+  Object.assign(FOG.haze, { r: haze.r, g: haze.g, b: haze.b }); Object.assign(FOG.warm, { r: warm.r, g: warm.g, b: warm.b });
   scene.environment = envRT.texture; scene.environmentIntensity = .5; scene.background = null;
   // Aerial perspective: see the fog chunk above skyDome(). def.fog[1] is an exponential density per metre of eye distance.
   scene.fog = new THREE.FogExp2(haze, def.fog[1]);
@@ -887,8 +895,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose };
 }
 
-// Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 20 m (not
-// FogExp2's squared view depth, which whited out 150 m), toward a clear blue haze plus a warm forward-scatter lobe
+// Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 8 m (not
+// FogExp2's squared view depth, which whited out 150 m), toward a pale grey haze plus a warm forward-scatter lobe
 // round the sun's disc, so the tree line glows where the sun hangs and stays a clean blue behind the golfer. The
 // haze is our own linear uniform (three hands fogColor to direct-to-screen Lite draws already sRGB-encoded) and the
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
@@ -927,11 +935,11 @@ reflectedLight.indirectDiffuse *= mix( vec3( .74, .86, .92 ), vec3( 1. ), sunVis
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. );
 	#ifdef FOG_EXP2
-		float fogRise = vFogRay.y / 14., fogFactor = 1. - exp( - fogDensity * max( fogDist - 6., 0. ) * mix( .4, 1., smoothstep( 6., 70., fogDist ) ) * ( fogRise > .01 ? ( 1. - exp( - fogRise ) ) / fogRise : 1. ) );   // the haze thins with height (14 m scale, integrated along the ray): a stand's crowns keep their shape over a hazier floor   // ~5% at 15 m, 16% at 30, 36% at 50, 56% at 80: every row back a step paler (a 10-80 m ease left 15-40 m crisp and dumped it all into one grey card past 50 m)
+		float fogRise = vFogRay.y / 14., fogRun = max( fogDist - 8., 0. ), fogFactor = 1. - exp( - fogDensity * 1.6 * fogRun * fogRun / ( fogRun + 40. ) * ( fogRise > .01 ? ( 1. - exp( - fogRise ) ) / fogRise : 1. ) );   // the haze thins with height (14 m scale, integrated along the ray): a stand's crowns keep their shape over a hazier floor. Optical depth grows with the square of the run over the first 40 m, then linearly (pine: ~2% at 20 m, 7% at 30, 19% at 50, 38% at 80, 70% at 150): the forest floor 20-40 m out keeps its dirt colour and shadows, and the far rows dissolve in steps (the old linear ramp, 16% at 30 m, drowned the near floor in the same veil as the tree line)
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
-	vec3 fogTint = ( fogHaze.g > 0. ? mix( fogHaze, fogWarm, pow( fogCos, 12. ) ) : fogColor ) + fogGlow * ( pow( fogCos, 16. ) * .25 + pow( fogCos, 90. ) * 3. );   // sky blue, warming only within ~25° of the disc (cos^12: the old cos^2 lobe covered the whole putt, which looks into the sun, with one cream wall); aerosols scatter mostly forward: a soft warm cast, then a tight glare cone round the disc
+	vec3 fogTint = ( fogHaze.g > 0. ? mix( fogHaze, fogWarm, pow( fogCos, 8. ) ) * mix( 1., .85, smoothstep( 0., .5, vFogRay.y / fogDist ) ) : fogColor ) + fogGlow * ( pow( fogCos, 16. ) * .25 + pow( fogCos, 90. ) * 3. );   // cool grey haze, warming within ~30° of the disc; a touch dimmer looking up, so the air brightens toward the horizon and the ground line. Aerosols scatter mostly forward: a soft warm cast, then a tight glare cone round the disc
 	#ifdef TONE_MAPPING
 		fogTint = toneMapping( fogTint );
 	#endif
@@ -1010,7 +1018,7 @@ function skyDome(def, lite) {
       void main(){
         vec3 d=normalize(vDir);float h=max(d.y,0.),s=max(dot(d,sunDir),0.),s2=s*s;
         vec3 scatter=glow*(pow(s,16.)*.25+pow(s,90.)*3.);                                    // the fog chunk's lobe
-        vec3 col=mix(mix(haze,warm,pow(s,12.)),mix(blue,zenith,smoothstep(.03,.45,h))*mix(mix(vec3(.62,.8,1.05),vec3(1.),pow(s,6.)),vec3(1.),ground),smoothstep(0.,.12,h))+scatter*mix(1.,.25,smoothstep(0.,.2,h));
+        vec3 col=mix(mix(haze,warm,pow(s,8.)),mix(blue,zenith,smoothstep(.03,.45,h))*mix(mix(vec3(.62,.8,1.05),vec3(1.),pow(s,6.)),vec3(1.),ground),smoothstep(0.,.12,h))+scatter*mix(1.,.25,smoothstep(0.,.2,h));
         col+=sunColor*(pow(s,8.)*.1+pow(s,90.)*.8)*smoothstep(-.02,.04,d.y);                  // aureole: open sky round the disc outshines the hazed ground, so the treeline rims. Seen sky (not the prefiltered fill, so shade and skin keep their tint) runs a deeper blue away from the disc: a canopy gap read as pale steel
         vec2 p=d.xz/(h+.2)*cloud.y+vec2(time*.004,time*.0015);                               // planar projection: clouds flatten toward the horizon
         float n=fbm(p),cov=smoothstep(cloud.x,cloud.x+.1,n)*smoothstep(.02,.14,h);           // a short ramp keeps cumulus edges crisp
