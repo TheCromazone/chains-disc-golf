@@ -493,8 +493,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       float gapNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(gapHash(i), gapHash(i + vec2(1., 0.)), f.x), mix(gapHash(i + vec2(0., 1.)), gapHash(i + 1.), f.x), f.y); }
       ` + s.fragmentShader.replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
       { vec3 r = normalize(cross(vec3(0., 1., 0.), gapSun.xyz)), u = cross(gapSun.xyz, r); vec2 p = vec2(dot(vGap, r), dot(vGap, u)) / 3.2;
-        vec2 land = vGap.xz - gapSun.xz * max(vGap.y - gapHole.w, 0.) / gapSun.y - gapHole.xy;
-        if (gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25 < ${open.toFixed(2)} * mix(mix(gapHole.z, gapAim.w, smoothstep(gapAim.z, gapAim.z + 2., dot(land, gapAim.xy))), gapSun.w, smoothstep(15., 35., length(land)))) discard; }`); };
+        vec2 land = vGap.xz - gapSun.xz * max(vGap.y - gapHole.w, 0.) / gapSun.y - gapHole.xy; float gapFar = smoothstep(15., 35., length(land));
+        // w6 putt verdict ("same-sized dark spots spread evenly, a noise texture, no large shaded masses with sunlit gaps"): round
+        // the pin the gaps come in ~7 m and 3 m blobs (the 0.6 m octave's mean kept as a constant), so the floor there breaks into
+        // broad shade and broad sun; the tee's fairway keeps its finer dapple
+        float n = mix(gapNoise(p * .45 + 11.) * 1.2 + gapNoise(p + 5.) * .5 + .065, gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25, gapFar);
+        if (n < ${open.toFixed(2)} * mix(mix(gapHole.z, gapAim.w, smoothstep(gapAim.z, gapAim.z + 2., dot(land, gapAim.xy))), gapSun.w, gapFar)) discard; }`); };
     mat.customProgramCacheKey = () => prevKey.call(mat) + '|gaps' + open; return mat; };
   const inst = (geo, mat, spots, colorFn, shadow = true, lod = false) => {
     if (lod) {   // near-tree set: every tree's matrix and tint precomputed, drawn only once treeLod() picks it
@@ -638,7 +642,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       vec3 treeClear = gl_FragColor.rgb;
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.);
-        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare${leaf ? '' : ' * (1. - smoothstep(25., 70., length(vViewPosition)))'})); }`);   // a trunk's exemption ends by 70 m: far trunks against the glare took half the floor's haze and stood dark in front of it like cut-outs
+        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare${leaf ? '' : ' * (1. - smoothstep(25., 70., length(vViewPosition)))'}), 1., sunAir.x)); }`);   // a trunk's exemption ends by 70 m: far trunks against the glare took half the floor's haze and stood dark in front of it like cut-outs
     // Leaves stop short of the bloom threshold (2, linear): a crown against the sun blazed past it and the bloom spread every
     // back-lit card into one even yellow haze with no dark core. Clamped by luminance, so the hue holds.
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `outgoingLight *= min(1., mix(1.2, .75, pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 8.)) / max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4));
@@ -649,7 +653,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // From 20 m to 100 m its luminance is squeezed toward a mid tone in log space (up to 55%) and it loses up to 45% of its
       // saturation, so each row back is softer than the one before even where the haze (the light group's fog) is thin. Bark too:
       // the ridge's trunks at 50-60 m kept their near red-brown contrast. Eased toward the sun's disc, where crowns stay dark rim-lit shapes
-      { float fd = smoothstep(20., 100., length(vViewPosition)) * (1. - .7 * pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.)), l = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
+      { float fd = smoothstep(20., 100., length(vViewPosition)) * (1. - sunAir.x) * (1. - .7 * pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.)), l = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
         outgoingLight = mix(vec3(l), outgoingLight, 1. - .45 * fd) * (.15 * pow(l / .15, 1. - .55 * fd) / l); }
       #include <opaque_fragment>`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
@@ -928,7 +932,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // (#aab8c6-ish on screen) instead of the green-grey that read as fog.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
       Object.assign(FOG.shape, { x: m(34, P.clear), y: m(2.25, P.density), z: m(30, P.knee) });
-      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm), g: warm.g * m(1, P.warm), b: warm.b * m(1, P.warm) }); }
+      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm), g: warm.g * m(1, P.warm), b: warm.b * m(1, P.warm) }); AIR.x = k; }
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
@@ -950,7 +954,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
-const PUTT_AIR = { clear: 28, density: 4.6, knee: 50, haze: [.48, .54, .66], warm: .85 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
+const PUTT_AIR = { clear: 12, density: 3.1, knee: 60, haze: [.7, .68, .6], warm: .95 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
@@ -959,8 +963,8 @@ for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s 
 // lit by the sky alone (no sunlight put back into it), so it reads cool and sits 2-2.5 stops under sun. The same sun
 // visibility dims reflected sky: whatever shades a surface from the sun, a canopy or the basket's tray, hides most of
 // the sky from it too, so shaded steel stops mirroring blue.
-const PENUMBRA = { x: 0, y: 0, z: 0, w: 0 }, FLECK = { x: 0, y: 0, z: 24, w: 90 };   // FLECK: the near cascade's centre in the light's plane (m), its width (m), its depth range (m)
-for (const s of Object.values(THREE.ShaderLib)) if (s.uniforms?.directionalLights) Object.assign(s.uniforms, { sunPenumbra: { value: PENUMBRA }, sunFleck: { value: FLECK } });
+const PENUMBRA = { x: 0, y: 0, z: 0, w: 0 }, FLECK = { x: 0, y: 0, z: 24, w: 90 }, AIR = { x: 0, y: 0, z: 0, w: 0 };   // AIR.x: how far the eye is into the putt's air (update(): 1 within 15 m of the pin, 0 by 40 m), for the trees' haze and the shade tint   // FLECK: the near cascade's centre in the light's plane (m), its width (m), its depth range (m)
+for (const s of Object.values(THREE.ShaderLib)) if (s.uniforms?.directionalLights) Object.assign(s.uniforms, { sunPenumbra: { value: PENUMBRA }, sunFleck: { value: FLECK }, sunAir: { value: AIR } });
 const DIR_LOOP = [THREE.ShaderChunk.lights_fragment_begin.indexOf('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )'), THREE.ShaderChunk.lights_fragment_begin.indexOf('#if ( NUM_RECT_AREA_LIGHTS > 0 )')];
 Object.assign(THREE.ShaderChunk, {
   lights_fragment_begin: THREE.ShaderChunk.lights_fragment_begin.slice(0, DIR_LOOP[0]) + THREE.ShaderChunk.lights_fragment_begin.slice(...DIR_LOOP)
@@ -976,7 +980,7 @@ float sunVis = 1.;
 	reflectedLight.indirectSpecular *= mix( .45, 1., sunVis );
 #endif
 #ifndef NO_SHADE_TINT
-reflectedLight.indirectDiffuse *= mix( vec3( .9, .87, .8 ), vec3( 1. ), sunVis );   // w3-4: the old teal tint (.74, .86, .92) on the blue sky fill turned shaded dirt a colourless grey-green (sRGB ~61, 62, 54); a faint warm bounce off the sunlit floor round it keeps it brown (the blue fill times this sits near neutral).   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
+reflectedLight.indirectDiffuse *= mix( mix( vec3( .9, .87, .8 ), vec3( .9, .97, 1.1 ), sunAir.x ), vec3( 1. ), sunVis );   // w3-4: the old teal tint (.74, .86, .92) on the blue sky fill turned shaded dirt a colourless grey-green (sRGB ~61, 62, 54); a faint warm bounce off the sunlit floor round it keeps it brown (the blue fill times this sits near neutral).   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
 #endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
@@ -998,7 +1002,8 @@ reflectedLight.indirectDiffuse *= mix( vec3( .9, .87, .8 ), vec3( 1. ), sunVis )
   // Vogel disk turned per pixel (white noise: IGN's diagonals show without TAA) give the same cost a smooth penumbra, grain
   // instead of steps (Lite). Full's sun first averages the depth of whatever blocks it over the widest penumbra, then
   // filters over a radius that grows with that blocker's height above the receiver (PCSS), in both of its maps.
-  shadowmap_pars_fragment: `const vec2 vogel[ 16 ] = vec2[ 16 ]( ${Array.from({ length: 16 }, (_, i) => { const r = Math.sqrt((i + .5) / 16), a = i * 2.39996323; return `vec2( ${(r * Math.cos(a)).toFixed(4)}, ${(r * Math.sin(a)).toFixed(4)} )`; }).join(', ')} );
+  shadowmap_pars_fragment: `uniform vec4 sunAir;
+const vec2 vogel[ 16 ] = vec2[ 16 ]( ${Array.from({ length: 16 }, (_, i) => { const r = Math.sqrt((i + .5) / 16), a = i * 2.39996323; return `vec2( ${(r * Math.cos(a)).toFixed(4)}, ${(r * Math.sin(a)).toFixed(4)} )`; }).join(', ')} );
 vec2 vogelTap( int i, vec2 turn ) { return vec2( vogel[ i ].x * turn.x - vogel[ i ].y * turn.y, vogel[ i ].x * turn.y + vogel[ i ].y * turn.x ); }
 vec2 vogelTurn() { float spin = 6.2831853 * fract( sin( dot( gl_FragCoord.xy, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ); return vec2( cos( spin ), sin( spin ) ); }
 ` + THREE.ShaderChunk.shadowmap_pars_fragment.replace(/#if defined\( SHADOWMAP_TYPE_PCF \)\n[\s\S]*?(?=#elif defined\( SHADOWMAP_TYPE_PCF_SOFT \))/, `#if defined( SHADOWMAP_TYPE_PCF )
@@ -1031,7 +1036,7 @@ vec2 vogelTurn() { float spin = 6.2831853 * fract( sin( dot( gl_FragCoord.xy, ve
 	float fleckNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3. - 2. * f ); return mix( mix( fleckHash( i ), fleckHash( i + vec2( 1., 0. ) ), f.x ), mix( fleckHash( i + vec2( 0., 1. ) ), fleckHash( i + 1. ), f.x ), f.y ); }
 	float sunFlecks( vec2 p, float h ) {
 		vec2 c = floor( p / .45 ), o = ( vec2( fleckHash( c + 17. ), fleckHash( c + 31. ) ) * .5 + .25 ) * .45;
-		float rad = max( .0047 * h, .035 ) * mix( .6, 1.4, fleckHash( c + 53. ) ), open = step( fleckHash( c ), .16 * smoothstep( .5, .8, fleckNoise( p / 3. + 7. ) ) );   // gaps differ: some flecks blur wider, and they gather under the thin parts of a crown
+		float rad = max( .0047 * h, .035 ) * mix( .6, 1.4, fleckHash( c + 53. ) ), open = step( fleckHash( c ), .16 * ( 1. - .6 * sunAir.x ) * smoothstep( .5, .8, fleckNoise( p / 3. + 7. ) ) );   // gaps differ: some flecks blur wider, and they gather under the thin parts of a crown
 		return open * smoothstep( rad, rad * .6, length( p - c * .45 - o ) ) * smoothstep( 6., 9., h );
 	}
 	float sunShadow() {   // the near cascade inside its box, blended out over its outer fifth into the far map
