@@ -22,7 +22,7 @@ export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
     hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#689a3c', '#588a38', '#446f33', '#e3cf9a'], leafHue: 0.29,
-    sun: [41, 45, 11.5, 13, 5], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .0068], hemi: ['#a5c6ee', '#74663f'], water: '#2d6f95' },
+    sun: [33, 48, 11.5, 13, 5], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .0068], hemi: ['#a5c6ee', '#74663f'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
     hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#74a03e', '#65933a', '#4f7434', '#e6d29c'], leafHue: 0.265,
@@ -642,7 +642,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // The cube camera's far plane has to reach the 1100 m dome.
   const pmrem = new THREE.PMREMGenerator(renderer), envScene = new THREE.Scene(); sky.material.uniforms.ground.value = 1; envScene.add(sky);
   const envRT = pmrem.fromScene(envScene, .04, 1, 2000); envScene.remove(sky); sky.material.uniforms.ground.value = 0; scene.add(sky); pmrem.dispose();
-  scene.environment = envRT.texture; scene.environmentIntensity = .4; scene.background = null;
+  scene.environment = envRT.texture; scene.environmentIntensity = .5; scene.background = null;
   // Aerial perspective: see the fog chunk above skyDome(). def.fog[1] is an exponential density per metre of eye distance.
   scene.fog = new THREE.FogExp2(haze, def.fog[1]);
   // One warm key from the disc's side of hole 1: the tee shot is side-back-lit and the athlete and trunks keep a lit flank.
@@ -668,10 +668,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const place = (light, p, texel) => { const a = p.dot(lightR), b = p.dot(lightU);
     light.target.position.copy(p).addScaledVector(lightR, Math.round(a / texel) * texel - a).addScaledVector(lightU, Math.round(b / texel) * texel - b); light.position.copy(light.target.position).addScaledVector(sunDir, 180); };
   // The sky fill: the course's sky blue half way to white over an earthy bounce, about a quarter of the light on open turf
-  // (the sun the rest), so shade sits at 40-50% of sun and reads cool: it is lit by the sky alone (the environment map adds
-  // the dome's own blue). Any bluer and brown mulch in shade went a dead charcoal grey instead of the same tan dirt,
-  // darker and a touch cooler; any brighter and sun and shade melted into soft 1.4:1 patches.
-  const hemi = new THREE.HemisphereLight(new THREE.Color(def.hemi[0]).lerp(new THREE.Color(1, 1, 1), .55), def.hemi[1], 1.1); scene.add(hemi);
+  // (the sun the rest), so on screen shade sits at about half of sun (sRGB) and reads cool: it is lit by the sky alone (the
+  // environment map adds the dome's own blue). Any bluer and brown mulch in shade went a dead charcoal grey instead of the
+  // same tan dirt, darker and a touch cooler; a third of sun read as brown stains, two thirds as soft shapeless patches.
+  const hemi = new THREE.HemisphereLight(new THREE.Color(def.hemi[0]).lerp(new THREE.Color(1, 1, 1), .55), def.hemi[1], 1.4); scene.add(hemi);
 
   // Contact occlusion, multiplied into whatever is under it: tight rings where a trunk or the basket meets the ground (the
   // shadow map cannot resolve that corner and the sky fill has no occlusion of its own), and the soft pool under each tee
