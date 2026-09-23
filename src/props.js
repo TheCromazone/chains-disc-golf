@@ -128,12 +128,23 @@ function paintFeather(g, w, h, i, name) {
   g.fillStyle = fg; fitText(g, big, 0, -14, h * .78, 800, 92); g.fillStyle = accent; fitText(g, small, 2, 44, h * .6, 700, 30); g.restore();
   if (i === 1) { g.fillStyle = fg; g.beginPath(); g.moveTo(w * .3, 60); g.quadraticCurveTo(w * .75, 20, w * .9, 70); g.quadraticCurveTo(w * .6, 55, w * .3, 60); g.fill(); }   // wing mark
   if (i === 2) { g.strokeStyle = fg; g.lineWidth = 6; g.beginPath(); g.arc(w * .58, 70, 34, 0, 7); g.stroke(); g.font = `800 34px ${FONT}`; g.fillStyle = fg; g.textAlign = 'center'; g.fillText('BB', w * .58, 72); }
+  weather(g, w, h, 131 + i);
+}
+// A season outdoors on a printed face: the dye fades toward the top that takes the sun, rain leaves faint tide marks,
+// and splashed dirt greys the bottom edge.
+function weather(g, w, h, seed) {
+  const rnd = rngOf(seed), fade = g.createLinearGradient(0, 0, 0, h);
+  fade.addColorStop(0, 'rgba(236,232,220,.16)'); fade.addColorStop(.6, 'rgba(236,232,220,.04)'); fade.addColorStop(.86, 'rgba(0,0,0,0)'); fade.addColorStop(1, 'rgba(70,56,36,.3)');
+  g.fillStyle = fade; g.fillRect(0, 0, w, h);
+  for (let k = 0; k < 5; k++) { const x = rnd() * w, y = rnd() * h, r = Math.min(w, h) * (.15 + rnd() * .3), gr = g.createRadialGradient(x, y, r * .7, x, y, r);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.8, 'rgba(60,50,35,.1)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
 }
 // Event signs on the gallery rope: the event, the two invented sponsors and the host club.
 function paintBoard(g, w, h, i, name) {
   const [bg, fg, accent, big, small] = [[NAVY, '#ffffff', GOLD, 'CHAINS OPEN 2026', name.toUpperCase() + '  ·  DISC GOLF CHAMPIONSHIP'], ['#f6f4ee', '#d4471b', '#1c2430', 'LOFTWING', 'DISCS  ·  FLY FURTHER'], ['#1f5a3b', '#f3ead2', GOLD, 'BIRDIE BREW', 'COFFEE ROASTERS'], [PARK, '#ffffff', GOLD, name.toUpperCase(), 'DISC GOLF CLUB  ·  HOST']][i];
   g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = accent; g.fillRect(0, h - 8, w, 8);
   g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = fg; fitText(g, big, w / 2, h * .4, w - 28, 800, Math.round(h * .58)); g.fillStyle = i === 1 ? '#1c2430' : accent; fitText(g, small, w / 2, h * .77, w - 44, 700, Math.round(h * .19));
+  weather(g, w, h, 141 + i);
 }
 // Band: the yellow top band, branded three times around so every side reads.
 function paintBand(g, w, h, name) {
