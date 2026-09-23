@@ -467,8 +467,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       reflectedLight.indirectDiffuse *= mix(vec3(1.), vec3(1.4, 1.5, 1.05), leafMask);   // a thin blade takes sky light on both faces, and inside a canopy that light comes filtered green through other leaves
       #if NUM_DIR_LIGHTS > 0
       { vec3 L = directionalLights[0].direction, sun = directionalLights[0].color, V = -normalize(vViewPosition);
-        // forward scatter peaks toward the visible disc (low in the frame at the tee), not the high key light that casts the shadows
-        float into = max(pow(saturate(dot(V, L)), 2.), pow(saturate(dot(V, normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 4.));
+        // forward scatter peaks toward the visible disc (low in the frame at the tee), not the high key light that casts the shadows;
+        // within a few degrees of the disc thin foliage blazes (the tight lobe), so crowns against the sun ring it with light
+        float disc = saturate(dot(V, normalize((viewMatrix * vec4(treeDisc, 0.)).xyz)));
+        float into = max(pow(saturate(dot(V, L)), 2.), pow(disc, 4.)) + 4. * pow(disc, 60.);
         float thru = mix(saturate(.3 - dot(normal, L)), 1., anyFace) * (.2 + 1.5 * into) * leafMask * mix(.4, 1., bakedAO) * rimGlow;
         // light reaches a back-lit leaf through several leaves, not only through gaps: soften its shadow to 35% for this term
         float lit = mix(.35, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
@@ -485,7 +487,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     s.fragmentShader = s.fragmentShader.replace('#include <fog_fragment>', `vec3 treeClear = gl_FragColor.rgb;
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 16.);
-        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.8, 1., smoothstep(60., 240., length(vViewPosition))) * (1. - .38 * glare)); }`);
+        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.8, 1., smoothstep(60., 240., length(vViewPosition))) * (1. - .22 * glare)); }`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * 1024.; diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
       #include <alphatest_fragment>`); };
