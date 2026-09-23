@@ -416,7 +416,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       { vec3 L = directionalLights[0].direction, sun = directionalLights[0].color, V = -normalize(vViewPosition);
         // forward scatter peaks toward the visible disc (low in the frame at the tee), not the high key light that casts the shadows
         float into = max(pow(saturate(dot(V, L)), 2.), pow(saturate(dot(V, normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 4.));
-        float thru = mix(saturate(.3 - dot(normal, L)), 1., anyFace) * (.2 + 1.9 * into) * leafMask * mix(.4, 1., bakedAO) * rimGlow;
+        float thru = mix(saturate(.3 - dot(normal, L)), 1., anyFace) * (.2 + 1.5 * into) * leafMask * mix(.4, 1., bakedAO) * rimGlow;
         // light reaches a back-lit leaf through several leaves, not only through gaps: soften its shadow to 35% for this term
         float lit = mix(.35, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
         reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(.8, .95, .36);
@@ -424,15 +424,15 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         // so the shaded side of a back-lit crown reads green instead of black
         reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * leafMask * vec3(1., 1., .4); }
       #endif` : ''));
-    // Haze on foliage: the scene's fog, eased to three quarters on crowns within ~60 m (rising to all of it by 240 m, where the
-    // tree line melts into the sky) and to under half where the view runs toward the sun's disc, so a crown in the glare keeps
-    // its dark core and lit rim under the veil instead of going one flat cream.
+    // Haze on foliage: the scene's fog, eased to 80% on crowns within ~60 m (rising to all of it by 240 m, where the tree line
+    // melts into the sky) and to about half where the view runs toward the sun's disc, so a crown in the glare keeps its dark
+    // core and lit rim under the veil instead of going one flat cream.
     s.uniforms.treeDisc = treeDisc;
     s.fragmentShader = 'uniform vec3 treeDisc;\n' + s.fragmentShader;
     s.fragmentShader = s.fragmentShader.replace('#include <fog_fragment>', `vec3 treeClear = gl_FragColor.rgb;
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 16.);
-        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.75, 1., smoothstep(60., 240., length(vViewPosition))) * (1. - .5 * glare)); }`);
+        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.8, 1., smoothstep(60., 240., length(vViewPosition))) * (1. - .38 * glare)); }`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * 1024.; diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
       #include <alphatest_fragment>`); };
