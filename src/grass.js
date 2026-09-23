@@ -25,7 +25,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   // neighbouring clumps overlap into an even carpet instead of reading as tufts. A 20 px blade barely shows curvature,
   // and one triangle per blade buys three times the blades.
   let s = seed >>> 0 || 1; const rnd = () => (s = Math.imul(s, 1664525) + 1013904223 >>> 0) / 4294967296;
-  const B = lite ? 5 : 28, P = [], S = [], N = [], U = [];
+  const B = lite ? 5 : 34, P = [], S = [], N = [], U = [];
   for (let b = 0; b < B; b++) {
     const a = rnd() * 6.283, r = Math.sqrt(rnd()) * .12, x0 = Math.cos(a) * r, z0 = Math.sin(a) * r;
     const h = .1 * (.45 + rnd() * .55), w = .0035 + rnd() * .003, fa = rnd() * 3.1416, fx = Math.cos(fa), fz = Math.sin(fa);
@@ -67,15 +67,17 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         float k=smoothstep(drop+.6,drop,dCam)*smoothstep(L.x*.5,L.x*.5-.8,max(abs(rel.x),abs(rel.y)));   // zero at the wrap edge: roots jump unseen
         vec2 guv=(root+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W / nx)},${f(segZ / H / nz)})+vec2(${f(.5 / nx)},${f(.5 / nz)});
         vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,ga.zw,br);
-        float grow=1.-max(max(cov.x,cov.y),cov.z*step(fract(aRoot.z*7.7),.9));   // one clump in ten pushes up through the litter
+        float through=step(.9,fract(aRoot.z*7.7));   // one clump in ten pushes up through the litter, ragged
+        float grow=1.-max(max(cov.x,cov.y),cov.z*(1.-through));
         for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);grow*=smoothstep(.05,.3,max(abs(q.x)-.8,abs(q.y)-1.6));}
-        float sc=k*smoothstep(.12,.45,grow),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // grass spills over path and gravel edges
+        float keep=${lite ? '1.' : 'mix(.55,1.,fract(aRoot.z*23.9))'}*mix(1.,.5,through*cov.z);   // each clump drops its own subset of blades: no two share a silhouette
+        float sc=k*smoothstep(.04,.6,grow)*step(fract(aBlade.y*13.1+aRoot.z*7.3),keep),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // grass thins into path, gravel and litter edges
         float hs=mix(.9+cl*.8,.55+cl*.4,fair)*(.8+.4*fract(aRoot.z*13.7))*sc;   // x the 4.5-10 cm blades, in 0.3-1 m clumps: rough 3-17 cm, fairway 2-9 cm
         float yaw=aRoot.z*6.2832,cs=cos(yaw),sn=sin(yaw);mat2 R=mat2(cs,sn,-sn,cs);
         vec3 bp=position*vec3(1.,hs,1.);bp.xz=R*(position.xz*(aRoot.w>.5?2.:1.)+aSide*max(1.,dCam/6.)*mix(.4,1.,sc));   // far blades widen to stay a pixel wide
         float t=aBlade.x,t2=t*hs,gust=.55+.45*sin(windTime*3.1+root.x*.31-root.y*.27);
         bp.x+=(sin(windTime*1.7+root.x*.5+root.y*.3)*.012+windVec.x*.04*gust)*t2;bp.z+=(cos(windTime*1.3+root.y*.4)*.008+windVec.y*.04*gust)*t2;
-        bladePos=vec3(root.x,ga.x-.01,root.y)+bp;
+        bladePos=vec3(root.x,ga.x-.01,root.y)+bp*step(.001,sc);   // a dropped blade collapses to a point
         vec2 bn=R*normal.xz;bladeNormal=normalize(gn+vec3(bn.x,0.,bn.y)*.12);   // a low sun would black out blades tilted away; thin blades pass light anyway
         vec3 c=gTurf(root,zf.rgb*zf.rgb,vec2(fair,ga.y),gDry(sp.w,br))*(.8+.4*fract(aRoot.z*91.7+aBlade.y*7.3));
         c=max(mix(vec3(dot(c,vec3(.3,.59,.11))),c,1.3),0.);   // live blades richer than the turf's average, which includes soil and thatch
