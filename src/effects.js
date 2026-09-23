@@ -21,7 +21,7 @@ export async function loadSky() { return null; }
 // and baskets (course.js) and the canopy's baked occlusion carry it.
 const GRADE = {
   uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.03, 1, .96) }, uLift: { value: new THREE.Vector3(0, .003, .01) }, uSat: { value: 1 }, uOlive: { value: .5 },
-    uCool: { value: new THREE.Vector3(.97, .99, 1.04) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uVeil: { value: new THREE.Vector3(.07, .075, .085) }, uCurve: { value: .4 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
+    uCool: { value: new THREE.Vector3(.94, .99, 1.06) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uVeil: { value: new THREE.Vector3(.018, .022, .03) }, uCurve: { value: .4 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
   vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift,uCool,uWarm,uVeil;uniform float uSat,uOlive,uCurve,uGrain,uVignette,uTime;varying vec2 vUv;
     void main(){ vec4 c=texture2D(tDiffuse,vUv); c.rgb=clamp(c.rgb*uGain+uLift,0.,1.);
@@ -29,7 +29,7 @@ const GRADE = {
       float l=dot(c.rgb,vec3(.2126,.7152,.0722)), lead=clamp((c.g-max(c.r,c.b))*3.,0.,1.);   // how far green leads: turf and leaves
       c.rgb=mix(vec3(l),c.rgb,uSat*(1.-uOlive*lead)); c.r+=(c.g-c.r)*lead*.25;
       c.rgb*=mix(uCool,uWarm,smoothstep(.06,.5,l));
-      c.rgb=mix(vec3(l),c.rgb,mix(.75,1.,smoothstep(.04,.3,l)))+uVeil*(1.-l)*(1.-l)*(1.-l);   // air between lens and shade: the deepest darks go a little grey and cool, never ink-black
+      c.rgb=mix(vec3(l),c.rgb,mix(.9,1.,smoothstep(.04,.3,l)))+uVeil*(1.-l)*(1.-l)*(1.-l);   // air between lens and shade: the deepest darks go a little grey and cool, never ink-black
       float n=fract(sin(dot(gl_FragCoord.xy+vec2(uTime*61.,uTime*37.),vec2(12.9898,78.233)))*43758.5453); c.rgb+=(n-.5)*uGrain*(1.-l*.6);
       vec2 d=(vUv-.5)*vec2(1.,.85); float v=1.-smoothstep(.35,.95,dot(d,d)*2.2)*uVignette; gl_FragColor=vec4(c.rgb*v,c.a); }`,
 };
