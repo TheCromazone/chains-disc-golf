@@ -181,8 +181,7 @@ def unhook_flank(body, J):
   to the arm (the m2 scan: waist vertices at 1.0 on the forearm). Raised, the arm dragged a sheet of shirt out of the ribs:
   a web to the disc hand at the tee, torn shards under the akimbo arm in the menu. In the scan's A-pose the arm stands clear
   of the torso, so arm weight on a vertex 7-10 cm or more from the arm's bone chain goes to the torso groups it already has."""
-  c = coords(body); n = len(c); gi = {vg.name: vg.index for vg in body.vertex_groups}
-  M = np.array(body.matrix_world); b = np.stack([c[:, 0], -c[:, 2], c[:, 1]], 1) @ M[:3, :3].T + M[:3, 3]; c = np.stack([b[:, 0], b[:, 2], -b[:, 1]], 1)   # the joints are in world space; the parented scan's own coordinates still face the other way
+  c = world_coords(body); n = len(c); gi = {vg.name: vg.index for vg in body.vertex_groups}   # the joints are in world space; the parented scan's own coordinates still face the other way
   Wm = np.zeros((n, len(body.vertex_groups)), np.float32)
   for v in body.data.vertices:
     for g in v.groups: Wm[v.index, g.group] = g.weight
@@ -539,8 +538,11 @@ def bake_textures(body, hi, J, head, lod):
   return region_lum, skin_mean
 
 # ---------- measurements ----------
+def world_coords(body):   # game coords in world space: before bake_pose the scan is still parented to the turned armature
+  c = coords(body); M = np.array(body.matrix_world); b = np.stack([c[:, 0], -c[:, 2], c[:, 1]], 1) @ M[:3, :3].T + M[:3, 3]; return np.stack([b[:, 0], b[:, 2], -b[:, 1]], 1)
+
 def measure_head(body, J):
-  w = weights(body, 'head'); c = coords(body)
+  w = weights(body, 'head'); c = world_coords(body)   # local coords faced backwards before bake_pose: the bake's eye line and nose landed on the back of the head and the iris and beard masks came out empty
   sel = (w > .5) & (c[:, 1] > J['neck'][1] + .02)
   lo, hi = c[sel].min(0), c[sel].max(0); centre = (lo + hi) / 2; radii = (hi - lo) / 2
   frontsel = sel & (c[:, 2] < J['Head'][2] - .03) & (np.abs(c[:, 0]) < .04)
