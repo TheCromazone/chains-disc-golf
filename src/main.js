@@ -468,26 +468,56 @@ const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const baseFov = () => camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58;   // mirrors resize(); narrower lenses below are per camera mode
 const DEG = Math.PI / 180;
 // Over-the-left-shoulder aim frame (the Disc Golf Masters broadcast lens): a chest-high camera ~2 m behind the athlete's left
-// shoulder, near level, so he fills the right third cropped at the thigh with his head ~18% from the top. Drives: axis a few
-// degrees right of the aim, pin left of centre, horizon just under the middle. Putts: the axis runs through the basket, dead
-// centre with its band ~45-50% down; on a sloped green the camera rides 40% of the drop (up for downhill, down for uphill, at
-// most 50 cm) and the tilt stops before the head passes the top fifth. Wide screens hold the horizontal lens (hfov), a 2:1
-// phone widening past it rather than cropping under 29° tall; portrait holds the vertical one. Shared by the aim camera and
-// the hole intro's landing. Writes pos/look, returns the vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.3, side: .8, up: 1.3, lift: .4, hfov: 50 },
-  tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, fov: 56 } } };
+// shoulder, near level, so he fills the right third cropped at the thigh. Drives: axis a few degrees right of the aim, pin
+// left of centre, horizon just under the middle, head ~18% from the top. Putts: the axis runs through the basket, dead centre;
+// the camera takes the height (lo-hi) that sets the athlete's eyes at P.eye and the basket band at P.band (half-frame units
+// above centre: 20% and 46% from the top, the reference's 6 m putt), so uphill, flat and downhill greens frame alike; out of
+// that range the band wins until the eyes would pass P.eye. A lateral nudge of up to P.nudge clears trunks from behind the
+// basket (puttDodge). Portrait keeps its lift rule. Wide screens hold the horizontal lens (hfov), a 2:1 phone widening past it
+// rather than cropping under 29° tall; portrait holds the vertical one. Shared by the aim camera and the hole intro's landing.
+// Writes pos/look, returns the vertical fov.
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2, side: .75, lo: 1.15, hi: 1.95, eye: .6, band: .08, nudge: [-.15, .15], hfov: 50 },
+  tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
 function aimFrame(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = (portrait ? AIM.tall : AIM)[putt ? 'putt' : 'drive'];
   const vt = portrait ? Math.tan(P.fov * DEG / 2) : Math.max(Math.tan(14.5 * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least, so a 2:1 phone keeps headroom
-  const up = P.up + (putt ? Math.max(-.5, Math.min(.5, P.lift * (lie.y - h.basketY))) : 0);
-  pos.set(lie.x - d[0] * P.back - r[0] * P.side, lie.y + up, lie.z - d[1] * P.back - r[1] * P.side);
-  const bd = Math.hypot(h.basket[0] - pos.x, h.basket[1] - pos.z);
-  // putts: band 5% above centre, but never tipped so far that the eyes (~1.72 m) pass 21% from the top; drag up = look up
-  const band = Math.atan2(up - h.basketY + lie.y - 1.34, bd) + Math.atan(.1 * vt), head = Math.atan(.58 * vt) - Math.atan2(1.72 - up, Math.hypot(P.back, P.side));
-  const pitch = (putt ? Math.max(-4, Math.min(12, Math.min(band, head) / DEG)) : P.pitch) - G.aim.pitch;
-  const yaw = putt ? Math.atan2(P.side, bd) : P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
+  const side = P.side + (putt && P.nudge ? puttDodge(lie, P) : 0), rho = Math.hypot(P.back, side);
+  pos.set(lie.x - d[0] * P.back - r[0] * side, lie.y, lie.z - d[1] * P.back - r[1] * side);
+  const bd = Math.hypot(h.basket[0] - pos.x, h.basket[1] - pos.z), bh = h.basketY - lie.y + 1.4, eye = putt && Math.atan(P.eye * vt), band = putt && Math.atan(P.band * vt);   // bh: band centre over the lie
+  const eh = (curP()?.char.headY || 1.72) - .09;   // eyes in the putting stance, which sinks them ~9 cm
+  let up = P.up + (putt && P.lift ? Math.max(-.5, Math.min(.5, P.lift * (lie.y - h.basketY))) : 0);
+  if (putt && P.lo) for (let lo = P.lo, hi = P.hi, i = 0; i < 12; i++) { up = (lo + hi) / 2; if (Math.atan2(eh - up, rho) - Math.atan2(bh - up, bd) > eye - band) lo = up; else hi = up; }   // eyes-to-band angle falls as the camera rises
+  pos.y += up;
+  const pitch = (putt ? Math.max(-4, Math.min(14, Math.min(band - Math.atan2(bh - up, bd), eye - Math.atan2(eh - up, rho)) / DEG)) : P.pitch) - G.aim.pitch;   // drag up = look up
+  const yaw = putt ? Math.atan2(side, bd) : P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
   return 2 * Math.atan(vt) / DEG;
+}
+// Putt background: a trunk standing behind the basket reads as a pole growing out of it. Each lie scores the camera's lateral
+// nudges (5 cm steps across P.nudge; + swings the athlete toward the frame edge, - toward the pin) by the trunk that would
+// stand behind the basket's silhouette: angular overlap x trunk width x share of the basket's height it covers, fading with
+// the haze past the pin. The cheapest wins, a small nudge preferred; the rig then eases there. Once per lie, measured down
+// the lie's line to the pin, so aiming never swims.
+const dodge = { key: '', ds: 0 };
+function puttDodge(lie, P) {
+  const h = holes[G.holeIdx], key = `${G.holeIdx}:${lie.x.toFixed(2)}:${lie.z.toFixed(2)}`;
+  if (dodge.key === key) return dodge.ds;
+  const [bx, bz] = h.basket, L = Math.hypot(bx - lie.x, bz - lie.z) || 1, d = [(bx - lie.x) / L, (bz - lie.z) / L], r = rightOf(d), cy = lie.y + 1.6;
+  const trees = new Set([0, 12, 24, 36].flatMap(k => world.treesNear(bx + d[0] * k, bz + d[1] * k)));   // 3x3 cells of 12 m round each: 45 m past the pin
+  let best = Infinity; dodge.ds = 0;
+  for (let ds = P.nudge[0]; ds <= P.nudge[1] + 1e-3; ds += .05) {
+    const cx = lie.x - d[0] * P.back - r[0] * (P.side + ds), cz = lie.z - d[1] * P.back - r[1] * (P.side + ds), D = Math.hypot(bx - cx, bz - cz), ux = (bx - cx) / D, uz = (bz - cz) / D;
+    const bw = Math.atan2(.4, D) + .005, b0 = Math.atan2(h.basketY - cy, D), b1 = Math.atan2(h.basketY + 2.07 - cy, D);   // tray rim + flag, pole foot to flag top
+    let cost = ds * ds * 3e-3;   // a 5 cm nudge is nearly free; the full 15 cm (the athlete ~7% nearer the pin) outweighs a mid-distance trunk
+    for (const t of trees) {
+      const tx = t.x - cx, tz = t.z - cz, along = tx * ux + tz * uz; if (along < D + 1 || along > D + 45) continue;
+      const a = Math.atan2(tz * ux - tx * uz, along), w = Math.atan2(t.r, along), ov = Math.min(bw, a + w) - Math.max(-bw, a - w); if (ov <= 0) continue;
+      const v = Math.min(b1, Math.atan2(t.y + t.h - cy, along)) - Math.max(b0, Math.atan2(t.y - cy, along));   // the trunk runs on up through the crown
+      if (v > 0) cost += ov * w * v / (b1 - b0) * Math.exp((D - along) / 60);
+    }
+    if (cost < best - 1e-9) { best = cost; dodge.ds = ds; }
+  }
+  dodge.key = key; return dodge.ds;
 }
 function updateCamera(dt) {
   if (document.body.dataset.phase !== G.phase) document.body.dataset.phase = G.phase;

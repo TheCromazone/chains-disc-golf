@@ -307,6 +307,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     } else if (!skip && fi.d > halfW - 1 && fi.d < halfW + 18 && rng() < 0.18) bushes.push({ x, y: height(x, z), z, s: 0.6 + rng() * 0.8, rot: rng() * 6.3 });
     if (!skip && fi.d < halfW + 10 && rng() < (fi.d < halfW ? 0.05 : 0.3)) for (let k = 0; k < 2; k++) { const tx = x + (rng() - 0.5) * 4, tz = z + (rng() - 0.5) * 4; tufts.push({ x: tx, y: height(tx, tz), z: tz, s: 0.7 + rng() * 0.7, rot: rng() * 6.3 }); }
   }
+  // Putt lane: no trunk within 2.5 m of a basket's approach line in the 16 m past it. From the putt camera a trunk that near
+  // stands straight behind the pin and its flag, and no framing can parallax it out (it needs ~1 m of camera travel). Culled
+  // after the loop, so the rng stream and every other tree stay put.
+  const inLane = t => holes.some(h => { const a = h.way[h.way.length - 2], L = Math.hypot(h.basket[0] - a[0], h.basket[1] - a[1]), ux = (h.basket[0] - a[0]) / L, uz = (h.basket[1] - a[1]) / L, px = t.x - h.basket[0], pz = t.z - h.basket[1], along = px * ux + pz * uz; return along > 0 && along < 16 && Math.abs(pz * ux - px * uz) < 2.5; });
+  for (const l of [trees, pineSpots, decSpots]) for (let i = l.length; i--;) if (inLane(l[i])) l.splice(i, 1);
   // spatial grid for colliders
   const CELL = 12, grid = new Map();
   const key = (i, j) => i * 100000 + j;
