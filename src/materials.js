@@ -78,7 +78,7 @@ vec2 gCell(vec2 p){   // Voronoi: x = F2-F1 (0 on a border between two tufts), y
 }
 float gPatchy(vec2 p){p+=(vec2(gNoise(p/3.1+2.),gNoise(p/3.1+9.))-.5)*2.4;return gNoise(p/5.3+71.)*.55+gNoise(p/1.7+13.)*.3+gNoise(p/.55+3.)*.15;}   // warped, with a 0.5 m octave: patch borders wander and fray like real lawn wear
 #define gPatchE vec2(.43,.57)   /* crisp borders: soft 5 m blotches read as painted light, not turf */
-vec3 gFar(vec3 c,float d){float f=smoothstep(14.,55.,d);return mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.24,1.1,.64),f*.45);}   // distant turf shifts to yellow-olive and loses saturation, as it does in summer light
+vec3 gFar(vec3 c,float d){float f=smoothstep(14.,55.,d);return mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.22,1.12,.52),f*.32);}   // distant turf shifts to yellow-olive and loses saturation, as it does in summer light
 #define gOlive .62
 float gBreak(vec2 p){return gNoise(p*1.3+5.)*.6+gNoise(p*4.1+17.)*.4-.5;}   // fingers along every splat edge
 float gStray(vec2 p,float g,vec2 trail,float b){return max(trail.y*(1.-smoothstep(.6,1.25,abs(trail.x)+b*.5)),smoothstep(.05,.3,g+b*.6))*smoothstep(.66,.74,gNoise(p*4.3+13.)*.7+gNoise(p*11.+5.)*.3);}   // kicked-out stones in 5-25 cm scatters through the turf beside every path and bed: no clean cut at the gravel's edge
@@ -96,7 +96,7 @@ vec3 gCover(vec4 s,vec2 trail,float b){   // gravel, sand, litter over the turf;
 vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-40 m drift, 2-8 m patches, stripes, straw
   vec3 c=zone*(.78+gMacro(p)*.44)*gWarm(p,1.-turf.x);float th=gThin(p);c*=mix(1.14,.74,th);c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.3,1.12,.62),th*.45);
   c*=mix(vec3(.56,.74,.74),vec3(1.28,1.16,.68),smoothstep(gPatchE.x,gPatchE.y,gPatchy(p)));   // lush blue-green in the damp, sun-baked yellow-green on the crowns: a lawn is never one green at 640 px
-  float st=smoothstep(-.04,.04,abs(fract(turf.y/3.6)-.5)-.25)-.5;c*=1.+st*mix(.24,.6,turf.x);c=mix(c,vec3(dot(c,vec3(.3,.59,.11))),max(st,0.)*turf.x*.25);   // 1.8 m mown stripes (a mower's pass) with its crisp edge, 4 across the fairway, fainter in the rough; blades laid away from the eye show their pale undersides
+  float st=smoothstep(-.04,.04,abs(fract(turf.y/3.6)-.5)-.25)-.5;c*=1.+st*mix(.24,.6,turf.x);c=mix(c,vec3(dot(c,vec3(.3,.59,.11))),max(st,0.)*turf.x*.12);   // 1.8 m mown stripes (a mower's pass) with its crisp edge, 4 across the fairway, fainter in the rough; blades laid away from the eye show their pale undersides
   c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
   return mix(vec3(dot(c,vec3(.3,.59,.11))),c,gOlive)*vec3(1.05,1.,.9);   // summer olive, not lime: a fifth less saturation, a touch warmer
 }`;
