@@ -6,9 +6,10 @@
 // solid colours), 'steel' (bare metal, vertex tint), 'arch' (the arch's printed skin on the same atlas, single-sided so a
 // chase camera flying through its beam sees through it rather than a screen of navy), 'paint' (the UTV's clear coat,
 // Full only), the gravel beds and the soft contact shade under the props' feet. Six draws plus four shadow draws (two on
-// Lite) however many props stand, all weathered by one shader chunk (GRIME). Only the arch is in play (its legs and beam go to the flight model as capsules); every
-// other prop keeps out of the flight corridor (the tree-free half-width in front of each tee) and off the putt line,
-// and the basket's visual parts keep physics' heights (tray .55-.72 m, chains .72-1.34, band 1.34-1.46).
+// Lite) however many props stand, all weathered by one shader chunk (GRIME). Only the arch is in play (its legs and beam
+// go to the flight model as capsules); every other prop keeps out of the flight corridor (the tree-free half-width in
+// front of each tee) and off the putt line, and the basket's visual parts keep physics' heights (tray .55-.72 m, chains
+// .72-1.34, band 1.34-1.46).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toonMaterial, windTime, windVec } from './materials.js';
@@ -686,7 +687,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   };
   print.material.customProgramCacheKey = () => 'chains-props-print' + full;
   // Galvanised steel is a matte zinc skin: mostly diffuse so a back-lit basket stays silver-white under the dim ambient,
-  // with enough metal and a tight enough lobe that chains still glint. The UTV's paint and cage share it.
+  // with enough metal and a tight enough lobe that chains still glint. The UTV's cage (and on Lite its paint) share it.
   const steel = new THREE.Mesh(mergeGeometries(K.lists.steel), toonMaterial({ vertexColors: true, metalness: .35, roughness: .38 }));
   steel.material.onBeforeCompile = s => { GRIME_V(s); GRIME_F(s, !full); };
   steel.material.customProgramCacheKey = () => 'chains-props-steel' + full;
