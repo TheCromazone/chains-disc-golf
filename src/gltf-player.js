@@ -68,8 +68,9 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // down into the hand, "no clear wrist")
 // cock (round 11): solved with the stance so the forearm can reach level toward the tee camera with the plate level and the
 // disc reaching back across the chest (the old cock held it level only at the end of a forearm dropping ~33°, which the tee
-// camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance.
-const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.258, -.121, -.527], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
+// camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
+// re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [30, 95, 55]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [28, 97, 55]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [30, 98, 55]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [36, 100, 55]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .023, -.048], [-.06, .025, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
@@ -226,7 +227,7 @@ function hairShellMaterial(mask) {
     Object.assign(s.uniforms, u);
     s.vertexShader = 'attribute float shell; varying float vShell; varying vec3 vHP, vHN; varying vec2 vHUv;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       vShell = shell; vHP = position; vHN = normal; vHUv = uv;
-      transformed += normal * shell * .024 - vec3(0., shell * shell * .018, 0.);`);   // ~2 cm of volume past the scan's cap, the ends falling a little
+      transformed += normal * shell * .032 - vec3(0., shell * shell * .03, 0.);`);   // ~3 cm of volume past the scan's cap, the ends falling ~3 cm: at 2 cm the outline still read as a sculpted cap against the sky
     s.fragmentShader = 'uniform sampler2D uHairMask; varying float vShell; varying vec3 vHP, vHN; varying vec2 vHUv;\n' + NOISE_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { float hm = smoothstep(.35, .8, texture2D(uHairMask, vHUv).a);
         vec3 flow = mix(vec3(1., .2, 1.), vec3(1., 1., .2), smoothstep(.35, .8, vHN.y));   // strands run down the sides and back, front to back on top

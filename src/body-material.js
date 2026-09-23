@@ -51,8 +51,10 @@ export const skinDirect = (name, k) => `void ${name}(const in IncidentLight dire
 // Skin in shade: the course's sky fill and the canopy tint land on it blue-green, and the body's cooler white balance (the
 // albedo is pushed blue to cancel the warm sun) doubled it, so a shaded forearm read cold lavender-grey against a sunlit pink
 // face. Light under skin scatters back out warm whatever lights it: keep the fill's brightness, drop its hue, and let the
-// skin's own tone (with the white balance undone) carry the colour. `k` is the skin share.
-export const skinShade = k => `{ vec3 id = reflectedLight.indirectDiffuse, a = material.diffuseColor * vec3(1.05, 1., .8); a = mix(vec3(dot(a, vec3(.2126, .7152, .0722))), a, .8); float l = dot(id, vec3(.2126, .7152, .0722));
+// skin's own tone (with the white balance undone) carry the colour. `k` is the skin share. The albedo is clamped at zero first:
+// multisampled edge pixels of the modelled hands extrapolate the vertex AO past its range, a negative channel drove the
+// luminance divisor to ~0, and the ratio lit the free hand like a bulb (a bloomed white square at the tee).
+export const skinShade = k => `{ vec3 id = reflectedLight.indirectDiffuse, a = max(material.diffuseColor, vec3(0.)) * vec3(1.05, 1., .8); a = mix(vec3(dot(a, vec3(.2126, .7152, .0722))), a, .8); float l = dot(id, vec3(.2126, .7152, .0722));
         reflectedLight.indirectDiffuse = mix(id, a * l / max(dot(a, vec3(.2126, .7152, .0722)), 1e-4), ${k});
         // then the grade's S-curve and warm split tone push sunlit tones further toward orange: sunlit skin leaves the lighting
         // with two fifths of its chroma gone, which lands it near the reference's .33 saturation after the grade. Shade keeps its
@@ -121,6 +123,9 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
       { vec4 m1 = texture2D(uMask1, vMapUv), m2 = texture2D(uMask2, vMapUv);
         vec3 base = diffuseColor.rgb; float lum = dot(base, vec3(.2126, .7152, .0722));
         float w[7]; w[0] = m1.r; w[1] = m1.g; w[2] = m1.b; w[3] = m1.a; w[4] = m2.r; w[5] = m2.g; w[6] = m2.b;
+        // the armpit (skin shared between the torso and an upper arm) is the scan's bare underarm; with the arm raised across the
+        // chest in the backhand address it stretches into a pale membrane in front of the shirt. A T-shirt drapes fabric there:
+        { float pit = smoothstep(.08, .25, vArmW) * (1. - smoothstep(.75, .92, vArmW)) * (1. - vElbow); w[1] += w[0] * pit; w[0] *= 1. - pit; }
         vec3 col = base;
         // skin keeps the scan's own variation (cheeks, knuckles, veins): shift it by the ratio of the chosen tone to the scan's mean skin, with a light pull toward the tone itself
         // then a quarter of its chroma goes: under the warm course sun the palette tones rendered as orange, fake-tanned skin
