@@ -818,13 +818,18 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The glare a shade warmer than the key (its light took the long way through the air), and ~40% of the key's strength:
   // any brighter and the tee's back third, which looks into the lobe, goes to a milky cream veil.
   Object.assign(FOG.glow, { r: sunColor.r * .42, g: sunColor.g * .39, b: sunColor.b * .33 });
-  scene.userData.sun = { dir: discDir, color: sunColor };   // effects.js aims the light shafts at the disc
+  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG };   // effects.js aims the light shafts at the disc; FOG for the debug hook
   const sky = skyDome(def, quality === 'low'); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
   // green-brown bounce from below (the dome's `ground` switch) and the sun's aureole glints in discs, chains and water.
   // The cube camera's far plane has to reach the 1100 m dome.
   const pmrem = new THREE.PMREMGenerator(renderer), envScene = new THREE.Scene(); sky.material.uniforms.ground.value = 1; envScene.add(sky);
   const envRT = pmrem.fromScene(envScene, .04, 1, 2000); envScene.remove(sky); sky.material.uniforms.ground.value = 0; scene.add(sky); pmrem.dispose();
+  // w3-8 putt verdict ("one flat milky grey-green veil behind the basket; trees just past the pin as pale as the farthest"):
+  // the air itself is bright, like the reference's far tree line (~195,180,160), and the fog chunk keeps it off everything
+  // within 28 m, so the midground stays dark and green and only the far rows lift, step by step, into luminous air: a
+  // faintly cool grey away from the sun, a brighter near-white toward it.
+  haze.multiply(new THREE.Color(1.45, 1.55, 1.7)); warm.multiply(new THREE.Color(1.9, 1.85, 1.8));
   Object.assign(FOG.haze, { r: haze.r, g: haze.g, b: haze.b }); Object.assign(FOG.warm, { r: warm.r, g: warm.g, b: warm.b });
   scene.environment = envRT.texture; scene.environmentIntensity = .5; scene.background = null;
   // Aerial perspective: see the fog chunk above skyDome(). def.fog[1] is an exponential density per metre of eye distance.
@@ -896,6 +901,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
     if (view) treeLod(view, t, focus);   // trees: 3D near the eye, impostors beyond (the trees section)
+    if (view) FOG.shape.w = height(view.x, view.z);   // the haze thins with height above the ground, not above the eye: the flyover drone looks through thinner air
     windClock.value=t; sky.material.uniforms.time.value = t; if (world.basket) gapHole.value.set(world.basket.x, world.basket.z, gapHole.value.z);
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
@@ -917,8 +923,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
-const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 } };
-for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow } });
+const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 28, y: 2.25, z: 20, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
+for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
 // nothing: its loop pass is skipped and the sun samples its map inside the cascade's box (sunShadow() in the shadow chunk).
 // So after the loop directLight still holds the sun with its shadow, which the canopy and blade shaders read. Shade is
@@ -946,11 +952,11 @@ reflectedLight.indirectDiffuse *= mix( vec3( .9, .87, .8 ), vec3( 1. ), sunVis )
 #endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
-  fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogWarm, fogGlow;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
+  fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogWarm, fogGlow;\n\tuniform vec4 fogShape;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. );
 	#ifdef FOG_EXP2
-		float fogRise = vFogRay.y / 14., fogRun = max( fogDist - 8., 0. ), fogFactor = 1. - exp( - fogDensity * 1.25 * fogRun * fogRun / ( fogRun + 60. ) * ( fogRise > .01 ? ( 1. - exp( - fogRise ) ) / fogRise : 1. ) );   // the haze thins with height (14 m scale, integrated along the ray): a stand's crowns keep their shape over a hazier floor. Optical depth grows with the square of the run over the first 60 m, then linearly (pine: 4% at 30 m, 11% at 50, 24% at 80, 50% at 150, 74% at 250). w3-4 verdicts: the old 40 m knee at 1.6x (38% at 80 m) laid one cream veil over the floor 30-80 m out, hiding its shadows and cutting every far trunk out; the reference keeps dark trunks and a sun-dappled floor to the tree line and pales only the far rows
+		float fogRise = vFogRay.y / 14., fogRun = max( fogDist - fogShape.x, 0. ), fogFactor = 1. - exp( - fogDensity * fogShape.y * fogRun * fogRun / ( fogRun + fogShape.z ) * exp( - max( cameraPosition.y - fogShape.w, 0. ) / 14. ) * ( fogRise > .01 ? ( 1. - exp( - fogRise ) ) / fogRise : 1. ) );   // the haze thins with height (14 m scale, integrated along the ray, and from the ground under the eye, so the flyover drone starts in thinner air): a stand's crowns keep their shape over a hazier floor. None within 28 m (fogShape.x), then the optical depth grows with the square of the run over the next ~20 m and linearly after (pine, eye 1.7 m up: 6% at 40 m, 15% at 50, 24% at 60, 41% at 80, 77% at 150). w3-8 putt verdict: a thin ramp from 8 m left the woods 20-80 m one mid-grey tone, near rows as pale as the far ones; now the rows round the pin keep their dark trunks and green and the far ones lift in steps into bright air. (w3-4: a 38% veil at 80 m read as cream because the air was a dim beige; it is a bright, near-neutral grey now, see the course section)
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
