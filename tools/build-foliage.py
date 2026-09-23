@@ -7,9 +7,10 @@ atlas is now one twig spray rendered from above: real leaf meshes (folded along 
 tapering twig with side shoots, so a card reads as twig + separate leaves + sky between them. Three renders per cell (albedo,
 camera-space normal, ambient occlusion) are combined in numpy at 4x supersampling: the albedo carries the occlusion (a leaf
 under a leaf darkens), the normal map carries every leaf's own tilt so the runtime lights leaves one by one, and the colour
-bleeds past the alpha edge so mip levels do not pull a dark fringe in. Cells (card size in metres): 0 broadleaf branch tip (1.8),
-1 denser broadleaf branch tip (1.6), 2 weeping birch branch tip with small double-serrate leaves (1.6), 3 spruce frond (2.0): the
-pine-sprig photo of the previous rounds repeated along a twig.
+bleeds past the alpha edge so mip levels do not pull a dark fringe in. Cells (card size in metres), 3 across and 2 up in a
+1536 x 1024 atlas: 0 broadleaf branch tip (1.8), 1 denser broadleaf branch tip (1.6), 2 weeping birch branch tip with small
+double-serrate leaves (1.6), 3 spruce frond (2.0): the pine-sprig photo of the previous rounds repeated along a twig, 4 Scots pine
+branch end (2.0): the same photo as separate tufts at the tips of forking shoots; 5 is spare.
 """
 from pathlib import Path
 import math, random, sys
@@ -150,6 +151,28 @@ def frond(rng):
     if rng.random() < .35: quads.append((p, rot2(d, rng.uniform(-.35, .35)), S * rng.uniform(.12, .2), rng.uniform(-1, 1)))
     t += rng.uniform(.04, .075)
   p, d = along(main, 1.); quads.append((p - d * S * .06, d, S * .22, 0))
+  return sp, quads
+
+def tufts(rng):
+  """Scots pine branch end for the pine pads: a forking brown shoot system with its needles only in tufts at the shoot tips (the
+  pine-sprig photo, 30-45 cm, pointing along each shoot, a smaller one of last year's needles behind some), so a card is a few
+  separate brushes with bare twig and sky between them instead of one solid frond: a pad of them reads as ragged needle tufts,
+  not a cotton ball, and keeps its holes down the mip chain."""
+  S = 2.0; sp = Spray(rng, S); twig = srgb_to_lin((88, 62, 42)); quads = []
+  main = curve(rng, (0, 0, 0), (rng.uniform(-.08, .08), 1, 0), S * .6, 6, .08)
+  sp.tube(main, S * .008, S * .003, twig); shoots = [main]; t = .22; side = rng.choice((-1, 1))
+  while t < .9:
+    p, d = along(main, t); L = S * rng.uniform(.2, .3) * (1.1 - .4 * t)
+    sh = curve(rng, p, rot2(d, side * rng.uniform(.55, .95)), L, 4, .12, lift=rng.uniform(-.05, .05)); sp.tube(sh, S * .005, S * .0025, twig, 5); shoots.append(sh)
+    if L > S * .22 and rng.random() < .6:   # the long shoots fork once
+      p2, d2 = along(sh, rng.uniform(.45, .65)); sh2 = curve(rng, p2, rot2(d2, -side * rng.uniform(.4, .8)), L * rng.uniform(.5, .7), 3, .12)
+      sp.tube(sh2, S * .0035, S * .002, twig, 4); shoots.append(sh2)
+    t += rng.uniform(.14, .22); side = -side
+  for sh in shoots:
+    p, d = along(sh, 1.); L = S * rng.uniform(.15, .22) * (1.2 if sh is main else 1.)
+    quads.append((p - d * L * .4, rot2(d, rng.uniform(-.15, .15)), L, rng.uniform(-.8, .8)))
+    if rng.random() < .5:
+      p2, d2 = along(sh, rng.uniform(.55, .75)); quads.append((p2 - d2 * S * .03, rot2(d2, rng.choice((-1, 1)) * rng.uniform(.3, .7)), L * .7, rng.uniform(-.8, .8)))
   return sp, quads
 
 def sprig_object(quads, S):
@@ -311,11 +334,12 @@ if __name__ == '__main__':
   for i, (make, tag) in enumerate(((lambda: broadleaf_spray(rng, False), 'broad_open'), (lambda: broadleaf_spray(rng, True), 'broad_dense'), (lambda: birch_spray(rng), 'birch'))):
     sp = make(); o = build_object(sp, tag); log('SPRAY', tag, 'faces', len(sp.f))
     cells.append(compose(render(sc, cam, [(o, '')], sp.S, tag))); bpy.data.objects.remove(o)
-  sp, quads = frond(rng); o = build_object(sp, 'frond'); q = sprig_object(quads, sp.S)
-  cells.append(compose(render(sc, cam, [(o, ''), (q, '_tex')], sp.S, 'frond')))
-  atlas = np.zeros((CELL * 2, CELL * 2, 4)); atlas_n = np.zeros((CELL * 2, CELL * 2, 4))
-  for i, (alb, nrm) in enumerate(cells):   # cell i at (col i % 2, row i // 2) counted from the bottom, as Blender UVs count
-    c, r = i % 2, i // 2; y0 = (1 - r) * CELL   # image rows run top-down
+  for make, tag in ((frond, 'frond'), (tufts, 'tufts')):
+    sp, quads = make(rng); o = build_object(sp, tag); q = sprig_object(quads, sp.S)
+    cells.append(compose(render(sc, cam, [(o, ''), (q, '_tex')], sp.S, tag))); bpy.data.objects.remove(o); bpy.data.objects.remove(q)
+  atlas = np.zeros((CELL * 2, CELL * 3, 4)); atlas[..., :3] = cells[3][0][..., :3].mean(axis=(0, 1)); atlas_n = np.ones((CELL * 2, CELL * 3, 4)) * (.5, .5, 1, 1)   # the spare cell: leaf colour under zero alpha, a flat normal
+  for i, (alb, nrm) in enumerate(cells):   # cell i at (col i % 3, row i // 3) counted from the bottom, as Blender UVs count
+    c, r = i % 3, i // 3; y0 = (1 - r) * CELL   # image rows run top-down
     atlas[y0:y0 + CELL, c * CELL:(c + 1) * CELL] = alb; atlas_n[y0:y0 + CELL, c * CELL:(c + 1) * CELL] = nrm
   write(OUT / 'leaves.webp', atlas); write(OUT / 'leaves_n.webp', atlas_n[..., :3])
   write(TMP / 'leaves_preview.png', np.concatenate([atlas[..., :3] * atlas[..., 3:] + np.array((1, 0, 1)) * (1 - atlas[..., 3:]), np.ones(atlas[..., :1].shape)], 2))
