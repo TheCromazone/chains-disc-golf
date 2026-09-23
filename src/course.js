@@ -473,7 +473,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * 1024.; diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
       #include <alphatest_fragment>`); };
     mat.customProgramCacheKey = () => prevKey.call(mat) + (leaf ? '|leaf' : '|wood'); return mat; };
-  const leafFull = leafAtlas && near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.7, -.7), alphaTest: .5, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock)));
+  // alphaToCoverage: both tiers draw into multisampled targets (Full's 4x scene target, Lite's antialiased canvas), so the
+  // alpha-tested edge resolves to sample coverage and leaf silhouettes come out soft instead of stair-stepped.
+  const leafFull = leafAtlas && near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.7, -.7), alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock)));
   const wood = map => map && near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false));
   const woodMats = { bark: wood(bark), bark_birch: wood(full && texture('bark_birch')) };
   // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
@@ -504,7 +506,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         if (distance(impO.xz, treeEye.xz) < treeNear) gl_Position = vec4(2., 2., 2., 1.);`)
       .replace('#include <worldpos_vertex>', 'vec4 worldPosition = modelMatrix * vec4(transformed, 1.);')
       .replace('#include <uv_vertex>', '#include <uv_vertex>\nvMapUv = vec2((mod(impCell, 4.) + uv.x) * .25, 1. - (floor(impCell / 4.) + 1. - uv.y) * .5);'); };
-  const impMat = impMap && impNormal && canopy(Object.assign(toonMaterial({ map: impMap, alphaTest: .5, side: THREE.DoubleSide, roughness: .85 }), { onBeforeCompile: s => { billboard(s); s.uniforms.impNormal = { value: impNormal };
+  const impMat = impMap && impNormal && canopy(Object.assign(toonMaterial({ map: impMap, alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: .85 }), { onBeforeCompile: s => { billboard(s); s.uniforms.impNormal = { value: impNormal };
     // an impostor receives no shadow, so only its thin rim transmits fully; the crown's core facing the camera sits in its own shade
     s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
       normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * tz, 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); rimGlow = mix(.3, 1., smoothstep(.15, .75, 1. - tz)); }`); }, customProgramCacheKey: () => 'chains-impostor' }));
