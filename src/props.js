@@ -18,7 +18,7 @@ const rngOf = seed => { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s 
 
 // ---------- atlas ----------
 // Painted at 2048 on Full and at half scale on Lite (same layout, so the UVs are shared). [x, y, w, h] in 2048 space.
-const REGION = { mat: [8, 8, 512, 1024], wood: [8, 1048, 512, 128], white: [8, 1768, 16, 16], concrete: [40, 1768, 64, 64] };
+const REGION = { mat: [8, 8, 512, 1600], wood: [8, 1624, 512, 128], white: [8, 1768, 16, 16], concrete: [40, 1768, 64, 64] };
 for (let i = 0; i < 9; i++) REGION['sign' + i] = [536 + (i % 3) * 496, 8 + Math.floor(i / 3) * 346, 480, 330];
 for (let i = 0; i < 3; i++) REGION['feather' + i] = [536 + i * 176, 1048, 160, 640];
 REGION.bag = [536, 1704, 256, 320]; REGION.band = [1072, 1048, 960, 76]; REGION.valance = [1072, 1352, 960, 96]; REGION.archBeam = [1072, 1464, 960, 104]; REGION.archLeg0 = [1072, 1600, 120, 440]; REGION.archLeg1 = [1208, 1600, 120, 440]; REGION.archSide = [1344, 1600, 56, 440];
@@ -39,7 +39,7 @@ const vnoise = (x, y, s) => { const xi = Math.floor(x), yi = Math.floor(y), u = 
   return (hash2(xi, yi, s) * (1 - a) + hash2(xi + 1, yi, s) * a) * (1 - b) + (hash2(xi, yi + 1, s) * (1 - a) + hash2(xi + 1, yi + 1, s) * a) * b; };
 const sm = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
 
-// Artificial-turf tee mat, the whole 1.6 x 3.2 m mat (top of the region = the throwing end): tufted pile in rows,
+// Artificial-turf tee mat, the whole 1.6 x 5 m mat (top of the region = the throwing end): tufted pile in rows,
 // fibre-scale grain, a flattened bleached plant zone and run-up, earth tracked in from the worn ground at the walk-in
 // end, and the pile shadowed where it meets the timber.
 function paintMat(g, w, h) {
@@ -166,12 +166,14 @@ function paintAtlas(canvas, scale, ctx) {
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = GOLD; fitText(g, `${ctx.name.toUpperCase()}  ·  DISC GOLF CHAMPIONSHIP`, w / 2, 19, w - 230, 700, 21);
     g.fillStyle = '#ffffff'; fitText(g, 'CHAINS OPEN 2026', w / 2, 62, w - 230, 800, 70);
   });
-  // Legs: the event roundel over one partner each, set big up the leg so it reads from the tee.
-  [['LOFTWING', 'DISCS · FLY FURTHER'], ['BIRDIE BREW', 'COFFEE ROASTERS']].forEach(([big, small], j) => draw('archLeg' + j, (g, w, h) => {
+  // Legs: the event roundel over one partner each, set big down the leg so it reads from the tee. The art sits in the
+  // top two thirds: a leg on higher ground (hole 1's cross slope) is shorter and loses only plain foot. Leg 0 is the
+  // left one seen from the tee, the taller, so it carries the longer name.
+  [['BIRDIE BREW', 'COFFEE ROASTERS'], ['LOFTWING', 'DISCS · FLY FURTHER']].forEach(([big, small], j) => draw('archLeg' + j, (g, w, h) => {
     const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#20355a'); grd.addColorStop(1, '#16243f'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
-    g.fillStyle = GOLD; g.fillRect(0, 0, w, 4); g.fillRect(8, 108, w - 16, 3); roundel(g, w / 2, 56, 40);
-    g.save(); g.translate(w / 2, 126); g.rotate(Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle';   // reads down from the roundel, so a leg standing on higher ground loses only empty foot
-    g.fillStyle = '#ffffff'; fitText(g, big, 0, -8, 250, 800, 74); g.fillStyle = GOLD; fitText(g, small, 0, 38, 250, 700, 22); g.restore();
+    g.fillStyle = GOLD; g.fillRect(0, 0, w, 4); g.fillRect(8, 94, w - 16, 3); roundel(g, w / 2, 49, 37);
+    g.save(); g.translate(w / 2, 108); g.rotate(Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillStyle = '#ffffff'; fitText(g, big, 0, -8, j ? 196 : 250, 800, 74); g.fillStyle = GOLD; fitText(g, small, 0, 38, j ? 196 : 250, 700, 22); g.restore();
   }));
   draw('archSide', (g, w, h) => {   // the legs' inner faces, the lighter return of a printed truss cover
     const grd = g.createLinearGradient(0, 0, w, 0); grd.addColorStop(0, '#34507e'); grd.addColorStop(1, '#2a4168'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
@@ -227,6 +229,14 @@ const ring = (r, t, n, m = 5) => new THREE.TorusGeometry(r, t, m, n).rotateX(Mat
 const tube = (pts, r, seg, sides) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), seg, r, sides, false);
 // a local part (built in the prop's own frame) placed by the prop's world matrix
 const at = (g, local, world) => g.applyMatrix4(local).applyMatrix4(world);
+// Flat gallery tape `w` tall hung from a to b (Vector3s), sagging `sag` at mid-span.
+function tape(a, b, sag, w) {
+  const pos = [], idx = [], N = 6;
+  for (let i = 0; i <= N; i++) { const t = i / N, y = a.y + (b.y - a.y) * t - sag * 4 * t * (1 - t), x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t; pos.push(x, y + w / 2, z, x, y - w / 2, z); }
+  for (let i = 0; i < N * 2; i += 2) idx.push(i, i + 1, i + 2, i + 2, i + 1, i + 3);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((N + 1) * 4), 2)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
 // Padded box: every vertex of a subdivided box pulled onto a rounded shell of radius r (soft goods, cushions).
 function roundBox(w, h, d, r, seg) {
   const g = new THREE.BoxGeometry(w, h, d, seg, seg, seg), p = g.attributes.position, n = g.attributes.normal, v = new THREE.Vector3(), c = new THREE.Vector3(), hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
@@ -286,7 +296,7 @@ function featherGeometry(full) {
   return { cloth: g, pole };
 }
 
-export function dressCourse({ holes, height, trees, corridor, def, quality }) {
+export function dressCourse({ holes, height, trees, bushes = [], corridor, def, quality }) {
   const full = quality !== 'low', K = kit(), rnd = rngOf(def.seed * 97 + 5);
   const frame = (h, u, f) => { const [fx, fz] = fwdOf(h); return [h.tee[0] - fz * u + fx * f, h.tee[1] + fx * u + fz * f]; };   // tee-local: u right of the fairway, f toward the basket
   // u of a spot pad metres outside the flight corridor on one side (-1 left), the half-width sampled where it stands
@@ -334,15 +344,16 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
     shadeUnder(world, 1.05, .5, .6, .42, 0, -.6);
   };
   // Event arch: a truss gate skinned in printed fabric, straddling the fairway in the frame (+x = right of the play
-  // line, +z = toward the tee, y = world height). Legs ARCH.leg wide and ARCH.deep deep, each standing on its own
-  // ground (feet[]) up to the level beam's underside yb; brushed aluminium corner extrusions, plates and ballast at the
-  // feet. The leg art hangs from the beam at its painted aspect and a leg on higher ground shows less of its foot.
+  // line, +z = toward the tee, y = world height). Legs ARCH.leg wide and ARCH.deep deep, each on a level ballast plinth
+  // (top at feet[]) whose skirt is cut to the ground, so on hole 1's cross slope both stand planted rather than one
+  // sinking into the hill; up to the level beam's underside yb; brushed aluminium corner extrusions. The leg art hangs
+  // from the beam at its painted aspect, so the leg on higher ground shows less of its plain foot.
   const ARCH = { span: 11.2, leg: 1.6, deep: .9, beam: 1.5 }, legX = ARCH.span / 2 + ARCH.leg / 2;
   const addArch = (world, yb, feet) => {
     const { leg, deep, beam } = ARCH, face = deep / 2 + .004, skin = (g, region, color) => K.arch(g.applyMatrix4(world), region, color), AL = '#c3c8cc';
     const panel = (w, region, top, bottom) => {   // art of `region` at its own aspect, hung from `top`, cropped at `bottom`
-      const [, , rw, rh] = REGION[region], full = w * rh / rw, h = Math.min(full, top - bottom), g = new THREE.PlaneGeometry(w, h), uv = g.attributes.uv;
-      for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - (1 - uv.getY(i)) * h / full);
+      const [, , rw, rh] = REGION[region], nat = w * rh / rw, h = Math.min(nat, top - bottom), g = new THREE.PlaneGeometry(w, h), uv = g.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - (1 - uv.getY(i)) * h / nat);
       return g.translate(0, top - h / 2, 0);
     };
     [-1, 1].forEach((s, j) => {
@@ -351,8 +362,10 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
       for (const z of [1, -1]) skin(panel(leg - .08, 'archLeg0', yb - .08, y0 + .3).rotateY(z < 0 ? Math.PI : 0).translate(x, 0, z * face), 'archLeg' + (s * z > 0 ? 1 : 0));   // left leg as seen from either side: LOFTWING
       skin(panel(deep - .06, 'archSide', yb - .08, y0 + .3).rotateY(-s * Math.PI / 2).translate(x - s * (leg / 2 + .004), 0, 0), 'archSide');   // inner face, toward the opening
       for (const [ex, ez] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) K.steel(box(.05, hgt, .05).translate(x + ex * (leg / 2 - .02), y0 + hgt / 2, ez * (deep / 2 - .02)).applyMatrix4(world), AL);
-      K.steel(box(leg + .5, .05, deep + .5).translate(x, y0 + .025, 0).applyMatrix4(world), '#2b2f33');
-      for (const z of [1, -1]) paint(box(leg + .16, .3, .3).translate(x, y0 + .2, z * (deep / 2 + .19)).applyMatrix4(world), '#1c1f22');   // ballast
+      const pl = box(leg + .36, 1, deep + .36, 3, 1, 3).translate(x, .5, 0).applyMatrix4(world), pp = pl.attributes.position;
+      for (let i = 0; i < pp.count; i++) pp.setY(i, pp.getY(i) > .5 ? y0 : height(pp.getX(i), pp.getZ(i)) - .08);
+      pl.computeVertexNormals(); paint(pl, '#202326');
+      K.steel(box(leg + .12, .04, deep + .12).translate(x, y0 + .02, 0).applyMatrix4(world), '#5d6368');   // the truss's base plate
       shadeUnder(world, leg / 2 + .55, deep / 2 + .7, .5, .55, x, 0);
     });
     skin(box(2 * legX + leg, beam, deep).translate(0, yb + beam / 2, 0), 'white', '#1a2a48');
@@ -368,10 +381,12 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
   // Tournament staff cart parked off the chute: white two-seat tub, navy canopy on struts, cargo bed. Nose toward +z.
   // The gel-coat body and canopy go in the steel batch for its tighter highlight: painted plastic, not matte print.
   const addCart = world => {
-    const W = '#eceeed', D = '#1b1d20', gloss = (g, c) => K.steel(at(g, pose(0, 0, 0), world), c);
+    const W = '#eceeed', D = '#1b1d20', gloss = (g, c) => K.steel(g.applyMatrix4(world), c);
     gloss(roundBox(1.18, .36, 2.3, .09, 2).translate(0, .5, 0), W);
-    gloss(roundBox(1.12, .48, .52, .12, 2).translate(0, .82, .88), W);   // front cowl
+    gloss(roundBox(1.12, .46, .5, .06, 2).translate(0, .8, .9), W);   // front cowl
     for (const x of [-.36, .36]) paint(at(cyl(.055, .055, .03, 10).rotateX(Math.PI / 2), pose(x, .9, 1.15), world), '#fffbe6');   // headlamps
+    paint(at(roundBox(1.22, .1, .1, .04, 1), pose(0, .4, 1.18), world), D); paint(at(roundBox(1.22, .1, .1, .04, 1), pose(0, .4, -1.14), world), D);   // bumpers
+    gloss(box(1.06, .2, .5).translate(0, .76, .06), W);   // seat pedestal
     paint(at(roundBox(1.08, .14, .56, .05, 1), pose(0, .9, .06), world), D);
     paint(at(roundBox(1.08, .5, .1, .04, 1), pose(0, 1.18, -.24), world), D);
     paint(at(box(1.12, .3, .66), pose(0, .82, -.74), world), '#3a3f44');   // cargo bed
@@ -384,11 +399,13 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
   const clearOf = (x, z, r) => !trees.some(t => (t.x - x) ** 2 + (t.z - z) ** 2 < (r + t.r * 2) ** 2) && !holes.some(h => h.ponds.some(p => ((x - p.x) / (p.rx * 1.3 + r)) ** 2 + ((z - p.z) / (p.rz * 1.3 + r)) ** 2 < 1));
 
   holes.forEach((h, i) => {
-    // Tee: the turf mat keeps the old pad's box (its top face sits under the athlete's soles at teeY + .07); the
-    // landscape-timber frame stands 2 cm proud of the pile, buried 7 cm into the flattened pad earth.
+    // Tee: a 1.6 x 5 m turf mat, the athlete's stance 1.6 m from its back end (its top face sits under his soles at
+    // teeY + .07) and a 3.4 m run-up ahead of him, so its front reaches into the bottom of the tee camera's frame; the
+    // landscape-timber frame stands 2 cm proud of the pile, buried 7 cm into the flattened pad earth. course.js keeps
+    // the blade carpet off it (two pad rectangles per tee).
     const T = pose(h.tee[0], h.teeY, h.tee[1], h.yaw);
-    K.print(at(box(1.6, .1, 3.2), pose(0, .02, 0), T), 'mat');
-    for (const s of [-1, 1]) { K.print(at(box(3.48, .16, .12), pose(s * .86, .01, 0, Math.PI / 2), T), 'wood'); K.print(at(box(1.6, .16, .12), pose(0, .01, s * 1.66), T), 'wood'); }
+    K.print(at(box(1.6, .1, 5), pose(0, .02, -.9), T), 'mat');
+    for (const s of [-1, 1]) { K.print(at(box(5.28, .16, .12), pose(s * .86, .01, -.9, Math.PI / 2), T), 'wood'); K.print(at(box(1.6, .16, .12), pose(0, .01, s > 0 ? 1.66 : -3.46), T), 'wood'); }
     // Sign on two 4x4 posts beside the back half of the pad, facing the walk-in. The aim camera sits 2.3 m behind the
     // pad on a 55° lens: anything level with the pad's front edge lands half-cut at the frame's side, so tee furniture
     // stays behind that line and reads from the flyover instead.
@@ -420,29 +437,36 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
   const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], archU = .5;
   let archF = 33;
   for (const af of [33, 31, 35, 29, 37]) if ([-1, 1].every(s => clearOf(...frame(h1, archU + s * legX, af), 1.5))) { archF = af; break; }
-  // each leg's foot: the lowest ground under its plate, so on a cross slope the uphill edge sinks and nothing floats
-  const feet = [-1, 1].map(s => frame(h1, archU + s * legX, archF)), footY = [-1, 1].map(s => Math.min(...[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([a, b]) => height(...frame(h1, archU + s * legX + a * (ARCH.leg / 2 + .25), archF + b * (ARCH.deep / 2 + .25))))) - .04);
+  // each leg's plinth top: 14 cm over the ground at its centre, its skirt cut to the ground (dug in on the uphill side)
+  const feet = [-1, 1].map(s => frame(h1, archU + s * legX, archF)), footY = feet.map(p => height(...p) + .14);
   const eye = h1.teeY + 1.42, pin = h1.basketY + 2.7 + 1.225 * Math.min(7, .065 * (L1 + 2.3));   // aim camera's eye 2.3 m behind the pad; marker top (course.js: 2.7 + .6 size up, 1.25 size tall, size .065/m)
   const yb = Math.max(height(...frame(h1, 0, archF)) + 6.2, eye + (pin - eye) * (archF + 2.3) / (L1 + 2.3) + .35, ...footY.map(y => y + 4.2));
   const [ax, az] = frame(h1, archU, archF); addArch(pose(ax, 0, az, h1.yaw), yb, footY);
   const top = yb + ARCH.beam / 2;
   feet.forEach(([x, z], j) => capsules.push({ a: [x, footY[j], z], b: [x, top, z], r: .7, tag: 'arch' }));
   capsules.push({ a: [feet[0][0], top, feet[0][1]], b: [feet[1][0], top, feet[1][1]], r: ARCH.beam / 2, tag: 'arch' });
-  // Chute: rope sagging between stakes from ahead of the pad's front corners to the arch's legs (inside the walking
-  // trail on the open side), sponsor boards on the rope line.
+  // Chute: gold gallery tape sagging between white stakes from ahead of the pad's front corners to the arch's legs
+  // (inside the walking trail on the open side), a sponsor board on each tape line.
   for (const s of [-1, 1]) {
-    const u0 = s * 2.5, f0 = 4.5, u1 = archU + s * (legX - .15), f1 = archF - ARCH.deep / 2 - .3, n = Math.max(3, Math.round((f1 - f0) / 3.4)), line = t => [u0 + (u1 - u0) * t, f0 + (f1 - f0) * t];
+    const u0 = s * 2.5, f0 = 5, u1 = archU + s * (legX - .15), f1 = archF - ARCH.deep / 2 - .3, n = Math.max(3, Math.round((f1 - f0) / 3.4)), line = t => [u0 + (u1 - u0) * t, f0 + (f1 - f0) * t];
     let prev = null;
     for (let k = 0; k <= n; k++) {
-      const [u, f] = line(k / n), [x, z] = frame(h1, u, f), y = height(x, z), post = new THREE.Vector3(x, y + .86, z);
-      paint(box(.045, .95, .045).translate(x, y + .445, z), '#f1efe8'); paint(box(.06, .05, .06).translate(x, y + .93, z), GOLD); shadeUnder(pose(x, y, z), .1, .1, 0, .4);
-      if (prev) { const mid = prev.clone().lerp(post, .5); mid.y -= .09; K.print(tube([prev, mid, post], .007, 6, 3), 'white', '#efe9dc'); }
+      const [u, f] = line(k / n), [x, z] = frame(h1, u, f), y = height(x, z), post = new THREE.Vector3(x, y + .84, z);
+      paint(box(.055, .98, .055).translate(x, y + .44, z), '#f4f2ea'); paint(box(.07, .05, .07).translate(x, y + .95, z), GOLD); shadeUnder(pose(x, y, z), .24, .24, 0, .5);
+      if (prev) K.print(tape(prev, post, .1, .045), 'white', '#e2bb2c');
       prev = post;
     }
-    const [u, f] = line(.45), bu = u + s * .35; addBoard(onGround(h1, bu, f, Math.atan2(-.75 - bu, f + 2.3), .02), s > 0 ? 1 : 0);   // turned to face the tee camera
+    // turned to face the tee camera; the left one inside the tape so the nearer stakes fall outside it on screen, the
+    // right one outside it, wholly behind the athlete rather than peeking past his arm (it reads from the flyover)
+    const [u, f] = line(.5), bu = u + (s < 0 ? .8 : .35); addBoard(onGround(h1, bu, f, Math.atan2(-.75 - bu, f + 2.3), .02), s > 0 ? 1 : 0);
   }
-  for (const [u, f] of [[-8.3, archF - 9], [-8.6, archF - 6], [-10.2, archF - 4], [-9.8, archF - 7]]) { const [x, z] = frame(h1, u, f); if (!clearOf(x, z, 1.9)) continue; addCart(onGround(h1, u, f, Math.atan2(-.75 - u, f + 2.3) + .9, .02)); break; }
-  [[archU - legX - 2, archF + 1.5, 2],[edge(h1, -1, archF + 8, 1.3), archF + 8, 1], [edge(h1, -1, archF + 13, 1.3), archF + 13, 0], [edge(h1, -1, archF + 18, 1.3), archF + 18, 2], [edge(h1, -1, 8, 1.3), 8, 1]].slice(0, full ? 5 : 3).forEach(([u0, f, d]) => {
+  // The staff cart takes the first spot clear of trees whose view from the tee camera no bush blocks.
+  const bushFree = (u, f, r) => { const [x, z] = frame(h1, u, f); return !bushes.some(b => (b.x - x) ** 2 + (b.z - z) ** 2 < (r + b.s) ** 2); };
+  for (const [u, f] of [[-7.6, archF - 14], [-7.9, archF - 12], [-7.2, archF - 16], [-8.3, archF - 9], [-8.6, archF - 6]]) {
+    if (!clearOf(...frame(h1, u, f), 1.9) || ![0, .2, .4, .6].every(k => bushFree(u + (-.75 - u) * k, f + (-2.3 - f) * k, k ? .9 : 1.6))) continue;
+    addCart(onGround(h1, u, f, Math.atan2(-.75 - u, f + 2.3) + .9, .02)); break;
+  }
+  [[archU - legX - 2, archF + 1.5, 2], [edge(h1, -1, archF + 9, 1.3), archF + 9, 1], [edge(h1, -1, 8, 1.3), 8, 0]].slice(0, full ? 3 : 2).forEach(([u0, f, d]) => {
     for (const df of [0, 2, -2, 4]) { const u = u0 - rnd() * .4, [x, z] = frame(h1, u, f + df); if (clearOf(x, z, 1.2)) return addFeather(onGround(h1, u, f + df, .45 + (rnd() - .5) * .3, .05), d); }
   });
   if (full) { const u = edge(h1, -1, 11.5, 5.3), [x, z] = frame(h1, u, 11.5); if (clearOf(x, z, 2.2)) addTent(onGround(h1, u, 11.5, .6, .02)); }
