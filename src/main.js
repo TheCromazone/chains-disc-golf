@@ -113,7 +113,7 @@ const podium=new THREE.Mesh(new THREE.CylinderGeometry(.92,1.04,.07,64),new THRE
 const podiumRing=new THREE.Mesh(new THREE.TorusGeometry(1.04,.025,8,64).rotateX(Math.PI/2),new THREE.MeshBasicMaterial({color:'#55c5d5'}));podiumRing.position.y=.005;stage.add(podiumRing);
 const heroBlob=new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({map:contactShadow.material.map,transparent:true,depthWrite:false,opacity:.5}));heroBlob.position.y=.038;stage.add(heroBlob);
 const studioFill=new THREE.HemisphereLight('#ffffff','#d0e8df',.9);scene.add(studioFill);studioFill.visible=false;
-let cameraOffset=null;
+let cameraOffset=null,panelOffset=0;
 function frameInterface() {
   const staged=cam.mode==='locker';   // the locker keeps its calm creator stage; the clubhouse hero stands on a real green
   stage.visible=staged;studioFill.visible=staged;
@@ -121,13 +121,16 @@ function frameInterface() {
   scene.background=staged?stageBackground:null;
   if(staged&&hero)stage.position.copy(hero.group.position).add(new THREE.Vector3(0,-.04,0));
   menuBlob.visible=cam.mode==='menu'&&!!hero?.group.visible;
-  let offset=0;
+  heroKick.value.w=cam.mode==='menu'?MENU.kick:0;scrim.visible=menuBlob.visible&&camera.aspect>1.2;   // portrait sees the ground where the sheet stands
+  panelOffset=0;
   if(camera.aspect<1.2){
     const panel=document.querySelector(staged?'#locker .panel':cam.mode==='menu'?'#menu .panel':'#controls');   // portrait: centre the shot in the view above the panel
     const bottom=panel?.getBoundingClientRect().top||innerHeight;
-    if(bottom>80&&bottom<innerHeight)offset=(innerHeight-bottom-80)/2;
+    if(bottom>80&&bottom<innerHeight)panelOffset=(innerHeight-bottom-80)/2;
   }
-  const key=`${innerWidth}:${innerHeight}:${offset}`;
+}
+function applyViewOffset() {   // the portrait panel's offset plus the putt's lens shift (cam.shift, half-frames), once the pose is final
+  const offset=Math.round((panelOffset+cam.shift*innerHeight/2)*2)/2,key=`${innerWidth}:${innerHeight}:${offset}`;
   if(cameraOffset!==key){cameraOffset=key;if(offset)camera.setViewOffset(innerWidth,innerHeight,0,offset,innerWidth,innerHeight);else camera.clearViewOffset();}
 }
 const LAYOUTS = COURSES.map(courseLayout);
@@ -135,12 +138,47 @@ const LAYOUTS = COURSES.map(courseLayout);
 // off-shoulder and the woods past it closing the top of the frame. Trees inside ~25 m keep 95% of their contrast
 // through the haze, so staging close is what clears the fog. Of the greens whose approach runs away from the sun (the
 // low key then lights his face and the woods instead of haloing him) the one with the most trees past it wins.
-const MENU = { short: 5, lat: 1.7, face: .2, wide: { back: 3.3, up: .8, aim: 1.2, x: .5, fov: 28 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
+const MENU = { short: 5, lat: 1.25, face: .2, kick: 40, haze: 1.6, wide: { back: 3.3, up: 1.3, aim: 1.37, x: .5, fov: 23 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
 const menuStage = { d: [0, 1], r: [-1, 0] };
 // Contact shade under the clubhouse hero: the key light sits behind the lens, so his own shadow falls out of sight behind him.
 const blobCanvas = document.createElement('canvas'); blobCanvas.width = blobCanvas.height = 64; const blobInk = blobCanvas.getContext('2d'), blobGrad = blobInk.createRadialGradient(32, 32, 0, 32, 32, 32);
 blobGrad.addColorStop(0, 'rgba(0,0,0,.72)'); blobGrad.addColorStop(.38, 'rgba(0,0,0,.42)'); blobGrad.addColorStop(1, 'rgba(0,0,0,0)'); blobInk.fillStyle = blobGrad; blobInk.fillRect(0, 0, 64, 64);
 const menuBlob = new THREE.Mesh(heroBlob.geometry, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(blobCanvas), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); menuBlob.scale.setScalar(.62); menuBlob.visible = false; scene.add(menuBlob);
+// Key art: a kicker raking the hero's far edge and a sheet of haze standing just behind him, so he poses in front of the woods
+// instead of being pasted on them. The kicker is patched into the hero's own materials (a scene light would recompile every
+// course material on the way in and out of the clubhouse); the haze is depth tested, so it veils only what stands behind him.
+// Both are off outside the clubhouse, where the hero is hidden anyway.
+const heroKick = { value: new THREE.Vector4(1, .84, .64, 0) }, heroKickDir = { value: new THREE.Vector3(.8, .25, -.55).normalize() };   // view space: from behind him, high on the frame's right; the strength is grazing-weighted in the shader
+function kickLight(root) {
+  root.traverse(o => { for (const m of [].concat(o.material || [])) {
+    if (!m.isMeshStandardMaterial || m.userData.kick) continue;
+    const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey; m.userData.kick = true;
+    m.onBeforeCompile = (s, r) => { prev.call(m, s, r); Object.assign(s.uniforms, { heroKick, heroKickDir });
+      s.fragmentShader = 'uniform vec4 heroKick; uniform vec3 heroKickDir;\n' + s.fragmentShader.replace('#include <lights_fragment_end>', '{ IncidentLight kick = IncidentLight(heroKick.rgb * heroKick.a * pow(1. - saturate(dot(geometryNormal, geometryViewDir)), 2.5), heroKickDir, true); RE_Direct(kick, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight); }\n#include <lights_fragment_end>'); };
+    m.customProgramCacheKey = () => prevKey.call(m) + '|kick'; m.needsUpdate = true;
+  } });
+}
+const hazeMat = new THREE.MeshBasicMaterial({ color: '#c3d5d4', transparent: true, opacity: .28, depthWrite: false, fog: false }), scrim = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), hazeMat); scrim.visible = false; scene.add(scrim);
+// Full: the sheet shows the woods themselves, defocused: a quarter-res snapshot of this frame with the hero hidden (no shadow
+// pass), read through a 12-tap golden-angle disc between its first two mips, the cheap shallow depth of field of a long lens:
+// soft enough to sit behind him, sharp enough that the basket and banners still read (a heavier blur read as a smeared photo).
+// Lite keeps the plain haze.
+const backdrop = { rt: null, mat: new THREE.ShaderMaterial({ uniforms: { map: { value: null }, texel: { value: new THREE.Vector2() }, blur: { value: .8 }, lod: { value: .7 } }, transparent: true, depthWrite: false,
+  vertexShader: 'varying vec4 vClip; void main() { gl_Position = vClip = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+  fragmentShader: `uniform sampler2D map; uniform vec2 texel; uniform float blur, lod; varying vec4 vClip;
+    void main() { vec2 uv = vClip.xy / vClip.w * .5 + .5; vec3 c = vec3(0.);
+      for (int i = 0; i < 12; i++) { float r = sqrt((float(i) + .5) / 12.) * blur, a = float(i) * 2.39996; c += textureLod(map, uv + vec2(cos(a), sin(a)) * r * texel, lod).rgb; }
+      gl_FragColor = vec4(c / 12., 1.); }` }) };   // the blur's radius is in snapshot texels (4 px each)
+function snapBackdrop() {
+  const s = renderer.getDrawingBufferSize(new THREE.Vector2()), w = Math.max(32, s.x >> 2), h = Math.max(18, s.y >> 2);
+  if (!backdrop.rt) backdrop.rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });   // linear HDR, like the scene pass it lands in; MSAA so chains and twigs don't alias into blocks
+  else if (backdrop.rt.width !== w || backdrop.rt.height !== h) backdrop.rt.setSize(w, h);
+  backdrop.mat.uniforms.map.value = backdrop.rt.texture; backdrop.mat.uniforms.texel.value.set(1 / w, 1 / h);
+  const shown = [hero.group, heroDisc, scrim, menuBlob].map(o => [o, o.visible]), auto = renderer.shadowMap.autoUpdate;
+  for (const [o] of shown) o.visible = false; renderer.shadowMap.autoUpdate = false;
+  renderer.setRenderTarget(backdrop.rt); renderer.render(scene, camera); renderer.setRenderTarget(null);
+  for (const [o, v] of shown) o.visible = v; renderer.shadowMap.autoUpdate = auto;
+}
 function placeHero() {
   hero.setPhase(null);
   if (cam.mode === 'locker') { const h = holes[0], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); hero.group.position.set(h.tee[0], h.teeY + 0.07, h.tee[1]); hero.faceDir(d[0] / L, d[1] / L); }   // locker: on the pad, down the fairway
@@ -161,10 +199,9 @@ function stageClubhouse() {
   hero.group.position.set(x, y, z);
   hero.faceDir(d[0] * Math.cos(a) + r[0] * Math.sin(a), d[1] * Math.cos(a) + r[1] * Math.sin(a));   // once: steering faceDir every frame reads as aiming and coils the stance
   const n = world.normal(x, z); menuBlob.position.set(x, y + .03, z); menuBlob.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]));
-  for (const o of course.group.children) if (o.isSprite && holes.some(h => h.basket[0] === o.position.x && h.basket[1] === o.position.z)) o.visible = false;   // the hole balloons belong to a round; startHole's setHole brings one back
 }
 let heroDisc = null;
-function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
+function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); kickLight(hero.group); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
 // Disc in the hand. Idle: carried by the rim at the thigh, plate hanging beside the leg. Throwing: gripped so the
 // plate rides the wrist through the windup and is exactly level with the planned release normal at phase .62.
 const _qh = new THREE.Quaternion(), _qg = new THREE.Quaternion(), _off = new THREE.Vector3(), _nrm = new THREE.Vector3(), _gp = new THREE.Vector3(), _gn = new THREE.Vector3();
@@ -280,7 +317,7 @@ function setupTurn(idx) {
   // sensible default club for the distance (players can change it)
   if (dist > 62) { G.throwType = 'backhand'; G.discId = 'driver'; } else if (dist > 34) { G.throwType = 'backhand'; G.discId = 'fairway'; } else if (dist > 15) { G.throwType = 'backhand'; G.discId = 'mid'; } else { G.throwType = 'putt'; G.discId = 'putter'; }
   UI.selectThrow(G.throwType); UI.selectDisc(G.discId); ensureDisc(p, G.discId); p.discMesh.visible = true;
-  UI.setHud({ dist, circle: dist <= 10, playerName: p.name, throwNo: p.strokes === 0 ? 'Tee shot' : `Throw ${p.strokes + 1}`, elev: holes[G.holeIdx].basketY - lie[1] });
+  UI.setHud({ dist, circle: dist <= 10, playerName: p.name, throwNo: p.strokes === 0 ? 'Tee shot' : `Throw ${p.strokes + 1}`, elev: holes[G.holeIdx].basketY - lie[1], toPar: p.scores.reduce((s, v, i) => v == null ? s : s + v - holes[i].par, 0) });
   updateWindHud();
   UI.setPower(0); G.gesture = { power: 0, lateral: 0 }; G.previewDirty = true;
   G.phase = 'aim'; cam.mode = 'aim'; G.overview = false; $('btnOverview').classList.remove('on'); $('btnOverview').setAttribute('aria-pressed', 'false');
@@ -460,7 +497,7 @@ function updatePreview() {
   const pw = G.phase === 'windup' && G.gesture.power > 0.1 ? G.gesture.power : 0.72;
   const o = gestureParams(pw, G.phase === 'windup' ? G.gesture.lateral : 0);
   const r = simulate(o, previewWorld(), { record: true, every: 6, maxT: 12 });
-  const pts = r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7)));
+  const lie = curP().lie, pts = r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))).filter((q, i, a) => i >= a.length - 2 || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);   // the ribbon starts at the thrower's shoulder instead of slashing across his back
   const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
   for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); }
   previewMat.color.set(pw > 0.72 ? '#ffd23f' : '#ffffff');
@@ -471,16 +508,21 @@ function updatePreview() {
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const baseFov = () => camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58;   // mirrors resize(); narrower lenses below are per camera mode
 const DEG = Math.PI / 180;
+cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's level camera looking down onto the green), eased like the pose
 // Over-the-left-shoulder aim frame (the Disc Golf Masters broadcast lens): a chest-high camera ~2 m behind the athlete's left
 // shoulder, near level, so he fills the right third cropped at the thigh. Drives: axis a few degrees right of the aim, pin
-// left of centre, horizon just under the middle, head ~18% from the top. Putts: the axis runs through the basket, dead centre;
-// the camera takes the height (lo-hi) that sets the athlete's eyes at P.eye and the basket band at P.band (half-frame units
+// left of centre, horizon just under the middle, head ~18% from the top. Putts: the camera stands ~27° round his left side, not
+// square behind him: from there the putter, both hands and his profile clear his body (square on, his back hid the disc, so
+// the frame never showed the putt); the axis runs P.pan right of the basket (just left of centre) so his spine lands near 80%
+// with air past his far shoulder (at 30° round, the 3/4 view jammed him against the edge). The camera stays level and slides
+// its lens instead (cam.shift, applyViewOffset), so a green below the lie drops into frame without tipping the trunks inward.
+// It takes the height (lo-hi) that sets the athlete's eyes at P.eye and the basket band at P.band (half-frame units
 // above centre: 20% and 46% from the top, the reference's 6 m putt), so uphill, flat and downhill greens frame alike; out of
 // that range the band wins until the eyes would pass P.eye. A lateral nudge of up to P.nudge clears trunks from behind the
 // basket (puttDodge). Portrait keeps its lift rule. Wide screens hold the horizontal lens (hfov), a 2:1 phone widening past it
 // rather than cropping under 29° tall; portrait holds the vertical one. Shared by the aim camera and the hole intro's landing.
 // Writes pos/look, returns the vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2, side: .75, lo: 1.15, hi: 1.95, eye: .6, band: .08, nudge: [-.15, .15], hfov: 50 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 1.8, side: .9, pan: 1.5, lo: 1.15, hi: 1.95, eye: .6, band: .08, nudge: [-.1, .15], hfov: 58 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
 function aimFrame(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = (portrait ? AIM.tall : AIM)[putt ? 'putt' : 'drive'];
@@ -490,10 +532,11 @@ function aimFrame(lie, d, putt, pos, look) {
   const bd = Math.hypot(h.basket[0] - pos.x, h.basket[1] - pos.z), bh = h.basketY - lie.y + 1.4, eye = putt && Math.atan(P.eye * vt), band = putt && Math.atan(P.band * vt);   // bh: band centre over the lie
   const eh = (curP()?.char.headY || 1.72) - .09;   // eyes in the putting stance, which sinks them ~9 cm
   let up = P.up + (putt && P.lift ? Math.max(-.5, Math.min(.5, P.lift * (lie.y - h.basketY))) : 0);
-  if (putt && P.lo) for (let lo = P.lo, hi = P.hi, i = 0; i < 12; i++) { up = (lo + hi) / 2; if (Math.atan2(eh - up, rho) - Math.atan2(bh - up, bd) > eye - band) lo = up; else hi = up; }   // eyes-to-band angle falls as the camera rises
+  if (putt && P.lo) for (let lo = P.lo, hi = P.hi, i = 0; i < 12; i++) { up = (lo + hi) / 2; if ((eh - up) / rho - (bh - up) / bd > (P.eye - P.band) * vt) lo = up; else hi = up; }   // level lens: the eyes-to-band gap on screen falls as the camera rises
   pos.y += up;
-  const pitch = (putt ? Math.max(-4, Math.min(14, Math.min(band - Math.atan2(bh - up, bd), eye - Math.atan2(eh - up, rho)) / DEG)) : P.pitch) - G.aim.pitch;   // drag up = look up
-  const yaw = putt ? Math.atan2(side, bd) : P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
+  if (putt && P.lo) cam.tShift = Math.max(-.3, Math.min(1, Math.min(P.band - (bh - up) / bd / vt, P.eye - (eh - up) / rho / vt)));   // slide the lens, don't tip it: the green drops into frame and the trunks stay upright
+  const pitch = (putt ? P.lo ? 0 : Math.max(-4, Math.min(14, Math.min(band - Math.atan2(bh - up, bd), eye - Math.atan2(eh - up, rho)) / DEG)) : P.pitch) - G.aim.pitch;   // drag up = look up
+  const yaw = putt ? Math.atan2(side, bd) + (P.pan || 0) * DEG : P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
   return 2 * Math.atan(vt) / DEG;
 }
@@ -503,6 +546,10 @@ function aimFrame(lie, d, putt, pos, look) {
 // trunk width x share of the window's height, fading with the haze past the pin. The cheapest wins, a small nudge preferred;
 // the rig then eases there. Once per lie, measured down the lie's line to the pin, so aiming never swims.
 const dodge = { key: '', ds: 0 };
+// Hole intro's opening drone: back/side/up from the pad, eyes on the ground `ahead` m down the line (+lift). Low and near level,
+// so the establishing shot has sky over the tree line and the fairway running from the pad to the target up the middle
+// (from 13 m up, looking ~30° down an uphill hole, the frame was all turf with the gantry and pin pinned under its top edge).
+const INTRO = { back: 18, side: 2.5, up: 7, ahead: 45, lift: 1 };
 function puttDodge(lie, P) {
   const h = holes[G.holeIdx], key = `${G.holeIdx}:${lie.x.toFixed(2)}:${lie.z.toFixed(2)}`;
   if (dodge.key === key) return dodge.ds;
@@ -527,14 +574,15 @@ function updateCamera(dt) {
   if (document.body.dataset.phase !== G.phase) document.body.dataset.phase = G.phase;
   frameInterface();
   const h = holes[G.holeIdx] || holes[0];
-  let k = 5, fov = baseFov();
-  if (cam.mode === 'menu') {   // clubhouse: a low full-length portrait of the athlete on the approach, basket over his off-shoulder, woods closing the top
+  let k = 5, fov = baseFov(); cam.tShift = 0;   // only a landscape putt's aimFrame slides the lens
+  if (cam.mode === 'menu') {   // clubhouse: a low portrait of the athlete cut at mid-thigh (key art's crop: never at a joint), basket over his off-shoulder, woods closing the top
     const { d, r } = menuStage, t = performance.now() / 1000, p = hero.group.position, wide = camera.aspect > 1.2, S = wide ? MENU.wide : MENU.portrait, sway = Math.sin(t * 0.18) * 0.06;
     // wide: the athlete centred in the view right of the panel (whatever its width); the axis swings left to put him there
     const right = wide ? (document.querySelector('#menu .panel')?.getBoundingClientRect().right || 0) / innerWidth : 0, sx = wide ? right + (1 - right) * S.x - .5 : S.x - .5;
     const yaw = -Math.atan(sx * 2 * Math.tan(S.fov * DEG / 2) * camera.aspect) + sway * .02, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
     cam.tPos.set(p.x - d[0] * S.back - r[0] * sway, p.y + S.up, p.z - d[1] * S.back - r[1] * sway);
     cam.tLook.set(cam.tPos.x + fx * S.back * 2, 2 * (p.y + S.aim) - cam.tPos.y, cam.tPos.z + fz * S.back * 2); k = 4; fov = S.fov;   // the axis meets the athlete's S.aim height, so his framing holds on any slope; aimed twice as far so the lie-focused tufts gather round the basket, not the lens
+    _v.set(p.x - cam.tPos.x, 0, p.z - cam.tPos.z).normalize(); scrim.position.set(p.x + _v.x * MENU.haze, p.y + 1.5, p.z + _v.z * MENU.haze); scrim.lookAt(cam.tPos.x, p.y + 1.5, cam.tPos.z); scrim.scale.set(16, 10, 1);   // the haze sheet, square to the lens, wider than any sway
   } else if (cam.mode === 'locker') {   // creator stage: orbit the avatar's front, slow sway
     const h0 = holes[0], t = performance.now() / 1000, d = [h0.basket[0] - h0.tee[0], h0.basket[1] - h0.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
     const r = rightOf(d), p = hero.group.position, wide = camera.aspect > 1.2;
@@ -548,12 +596,12 @@ function updateCamera(dt) {
   } else if (cam.mode === 'courses') {   // slow flyover of the whole course
     const t = performance.now() / 1000 * 0.06, cx = holes.reduce((a, h) => a + h.basket[0], 0) / holes.length, cz = holes.reduce((a, h) => a + h.basket[1], 0) / holes.length;
     cam.tPos.set(cx + Math.cos(t) * 170, world.height(cx, cz) + 95, cz + Math.sin(t) * 170); cam.tLook.set(cx, world.height(cx, cz), cz); k = 1.5;
-  } else if (cam.mode === 'intro') {   // flyover: a drone high behind the pad looking ~30° down the fairway (pad and pin both in frame), easing forward and down into the tee's aim frame
+  } else if (cam.mode === 'intro') {   // flyover: a drone low behind the pad looking down the fairway (INTRO), easing forward and down into the tee's aim frame
     const d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
     const r = rightOf(d), u = ease(Math.min(1, G.introT / 4.7));
     _v.set(h.tee[0], h.teeY, h.tee[1]); const aimFov = aimFrame(_v, d, false, _v2, _v3);   // landing = the aim camera on the tee, so the hand-off is seamless
-    _v.set(h.tee[0] - d[0] * 15 - r[0] * 2, h.teeY + 13, h.tee[1] - d[1] * 15 - r[1] * 2); cam.tPos.lerpVectors(_v, _v2, u);   // at 1.7 s: ~10 m up, 12 m back, 22° down — sky over the pin, pad at the bottom fifth
-    _v.set(h.tee[0] + d[0] * 12.5, h.teeY, h.tee[1] + d[1] * 12.5); cam.tLook.lerpVectors(_v, _v3, u);
+    const I = INTRO; _v.set(h.tee[0] - d[0] * I.back - r[0] * I.side, h.teeY + I.up, h.tee[1] - d[1] * I.back - r[1] * I.side); cam.tPos.lerpVectors(_v, _v2, u);
+    const ax = h.tee[0] + d[0] * I.ahead, az = h.tee[1] + d[1] * I.ahead; _v.set(ax, world.height(ax, az) + I.lift, az); cam.tLook.lerpVectors(_v, _v3, u);
     cam.tPos.y = Math.max(cam.tPos.y, world.height(cam.tPos.x, cam.tPos.z) + 1.6); k = 1e3;   // no smoothing: the eased path is the motion
     fov += (aimFov - fov) * u;
   } else if (cam.mode === 'aim' || (cam.mode === 'result' && !G.flight)) {
@@ -579,10 +627,16 @@ function updateCamera(dt) {
     }
   }
   const a = 1 - Math.exp(-k * dt);
-  cam.pos.lerp(cam.tPos, a); cam.look.lerp(cam.tLook, a); cam.fov += (fov - cam.fov) * a;
+  cam.pos.lerp(cam.tPos, a); cam.look.lerp(cam.tLook, a); cam.fov += (fov - cam.fov) * a; cam.shift += (cam.tShift - cam.shift) * a;
   const gy = world.height(cam.pos.x, cam.pos.z) + 0.7; if (cam.pos.y < gy) cam.pos.y = gy;
   camera.position.copy(cam.pos); camera.lookAt(cam.look);
   if (Math.abs(camera.fov - cam.fov) > .01) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }   // resize() resets fov by aspect; this re-applies the mode's lens every frame
+  applyViewOffset();
+  scrim.material = post ? backdrop.mat : hazeMat; if (scrim.visible && post) snapBackdrop(); else if (!post && backdrop.rt) { backdrop.rt.dispose(); backdrop.rt = null; }
+  // Target tag (ui.css #pin): the basket's distance on a hairline just over the flag while a hole is in play; it bows out as
+  // the camera closes inside ~20 m, where the basket itself is the target. This frame's matrices, so it never trails the drone.
+  if (/^(intro|aim|windup|release|flight)$/.test(G.phase)) { camera.updateMatrixWorld(); _v.set(h.basket[0], h.basketY + 2.3, h.basket[1]); const fade = THREE.MathUtils.smoothstep(_v.distanceTo(camera.position), 14, 22); _v.project(camera); UI.placePin((_v.x + 1) / 2 * innerWidth, (1 - _v.y) / 2 * innerHeight, _v.z < 1 ? fade : 0); }
+  else UI.placePin(0, 0, 0);
 }
 
 // ---------- main loop ----------
@@ -746,5 +800,5 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
+  window.__chains = { AIM, MENU, dodge, INTRO, startHole, heroKick, heroKickDir, scrim, backdrop, hazeMat, G, renderer, scene, camera, course, world, holes, cam, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
 }, 60);

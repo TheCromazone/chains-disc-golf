@@ -594,19 +594,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // model as capsules.
   const dressing = dressCourse({ holes, height, trees, bushes, def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW });
   group.add(...dressing.meshes);
-  const baskets = holes.map(h => new THREE.Group().translateX(h.basket[0]).translateY(h.basketY).translateZ(h.basket[1])), destinationMarkers = [];   // positions only: the geometry is merged
-  for (const h of holes) {
-    // A graphic flag remains readable from the tee without enlarging the physical basket.
-    const markerCanvas=document.createElement('canvas');markerCanvas.width=128;markerCanvas.height=160;
-    const ink=markerCanvas.getContext('2d');ink.fillStyle='#ffffff';ink.beginPath();ink.arc(64,62,55,0,Math.PI*2);ink.fill();
-    ink.fillStyle='#ffc928';ink.beginPath();ink.arc(64,62,47,0,Math.PI*2);ink.fill();
-    ink.beginPath();ink.moveTo(43,105);ink.lineTo(85,105);ink.lineTo(64,143);ink.fill();
-    ink.fillStyle='#174b58';ink.font='900 61px system-ui';ink.textAlign='center';ink.textBaseline='middle';ink.fillText(String(h.idx+1),64,64);
-    const markerMap=new THREE.CanvasTexture(markerCanvas);markerMap.colorSpace=THREE.SRGBColorSpace;
-    const destination=new THREE.Sprite(new THREE.SpriteMaterial({map:markerMap,depthWrite:false,fog:false}));
-    destination.position.set(h.basket[0],h.basketY+4,h.basket[1]);destination.scale.set(2,2.5,1);destination.visible=false;
-    group.add(destination);destinationMarkers.push(destination);
-  }
+  const baskets = holes.map(h => new THREE.Group().translateX(h.basket[0]).translateY(h.basketY).translateZ(h.basket[1]));   // positions only: the geometry is merged; the pin's distance tag is HUD (#pin, placed by main.js)
 
   // --- grass tufts ---
   // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
@@ -702,15 +690,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // 0 on the fairway, 1 in the rough: the flight model uses it for skip, roll and slide friction.
   const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough, capsules: dressing.capsules };
-  const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; destinationMarkers.forEach((m,j)=>m.visible=j===i); };
+  const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; };
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
     if (view) treeLod(view, t);   // trees: 3D near the eye, impostors beyond (the trees section)
-    if(view) for(const marker of destinationMarkers) if(marker.visible) {
-      const distance=Math.hypot(view.x-marker.position.x,view.z-marker.position.z), size=clamp(distance*.065,1.2,7);
-      marker.scale.set(size,size*1.25,1);marker.material.opacity=smooth(14,22,distance);   // gone inside putting range: the basket is the target there
-      marker.position.y=height(marker.position.x,marker.position.z)+2.7+size*.6;
-    }
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 180); FLECK.x = focus.dot(fleckR); FLECK.y = focus.dot(fleckU); }
