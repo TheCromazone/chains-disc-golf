@@ -547,9 +547,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // as the key, so the light reads from the disc and the shadows agree on where it comes from.
   const deg = THREE.MathUtils.degToRad, sunDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[0]), deg(def.sun[1]));
   const discDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[2]), deg(def.sun[3])), sunColor = new THREE.Color(def.sunColor);
-  const haze = new THREE.Color(def.fog[0]);
+  const haze = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.86, .92, .96));   // a deeper blue than the course swatch: distance reads cool, not milky
   Object.assign(FOG.sun, { x: discDir.x, y: discDir.y, z: discDir.z }); Object.assign(FOG.haze, { r: haze.r, g: haze.g, b: haze.b });
-  Object.assign(FOG.glow, { r: sunColor.r * .92, g: sunColor.g * .85, b: sunColor.b * .73 });   // the glare a shade warmer than the key: its light took the long way through the air
+  // The glare a shade warmer than the key (its light took the long way through the air), and ~half the key's strength:
+  // any brighter and the tee's back third, which looks into the lobe, whites out to a flat cream wall.
+  Object.assign(FOG.glow, { r: sunColor.r * .55, g: sunColor.g * .51, b: sunColor.b * .44 });
   scene.userData.sun = { dir: discDir, color: sunColor };   // effects.js aims the light shafts at the disc
   const sky = skyDome(def, quality === 'low'); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
@@ -567,16 +569,21 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const extent = 60, sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -extent; sc2.right = sc2.top = extent; sc2.near = 1; sc2.far = 400;
   sun.shadow.radius = quality === 'low' ? 2 : 4; sun.shadow.bias = -0.0004; sun.shadow.normalBias = .04;   // the Vogel taps reach `radius` texels (6 cm on Full, 12 on Lite): a ~25 cm leafy penumbra; the normal bias covers that slope
   scene.add(sun); scene.add(sun.target);
-  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], .3); scene.add(hemi);   // blue sky over a green bounce: shade keeps its colour
+  // The sky fill: the course's blue desaturated toward white. The dome's environment light already carries the blue, so a
+  // saturated hemisphere on top turned brown mulch in shade neutral grey; this keeps shade warm with a slight cool cast.
+  const hemi = new THREE.HemisphereLight(new THREE.Color(def.hemi[0]).lerp(new THREE.Color(1, 1, 1), .45), def.hemi[1], .5); scene.add(hemi);
+  // Shade fill (the chunk above skyDome()): sunlight scattered back into the sun's shadow, ~a quarter of the key, a touch cool.
+  Object.assign(SHADE, { r: .28 * .95, g: .28, b: .28 * 1.08 });
 
-  // Feathered canopies pool shade around nearby trunks; distance fades them into the same haze.
-  // This merged ground-conforming mesh costs one draw, with no shadow map or image request.
+  // Contact occlusion, multiplied into whatever is under it: tight rings where a trunk or the basket meets the ground (the
+  // shadow map cannot resolve that corner and the sky fill has no occlusion of its own), and the soft pool under each tee
+  // mat. One merged ground-conforming mesh, one draw; distance fades it into the haze. rings: radii (x, z) and occlusion.
   const shadowParts = [];
-  const groundShadow = (cx, cz, rx, rz, strength) => {
-    const positions=[], alpha=[], indices=[], segments=20, rings=[0,.48,.82,1.2], opacity=[1,.76,.3,0];
+  const groundShadow = (cx, cz, rx, rz, rings, occ, segments = 12) => {
+    const positions=[], alpha=[], indices=[];
     for(let ring=0;ring<rings.length;ring++) for(let j=0;j<=segments;j++) {
       const a=j/segments*Math.PI*2, x=cx+Math.cos(a)*rx*rings[ring], z=cz+Math.sin(a)*rz*rings[ring];
-      positions.push(x,height(x,z)+.05,z); alpha.push(strength*opacity[ring]);
+      positions.push(x,height(x,z)+.04,z); alpha.push(occ[ring]);
     }
     for(let ring=0;ring<rings.length-1;ring++) for(let j=0;j<segments;j++) {
       const a=ring*(segments+1)+j,b=a+segments+1;indices.push(a,a+1,b,b,a+1,b+1);
@@ -584,15 +591,16 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     g.setAttribute('shadowAlpha',new THREE.Float32BufferAttribute(alpha,1));g.setIndex(indices);shadowParts.push(g);
   };
-  for(const t of trees) groundShadow(t.x+.9,t.z+.6,t.fr*1.35,t.fr*1.1,.22);   // soft canopy occlusion under the real shadow
+  // A trunk standing on the ground hides about half the sky at its foot, a sixth at one diameter out, almost none at three.
+  for(const t of trees) groundShadow(t.x,t.z,t.r,t.r,[1,2,3.5,6],[.55,.3,.12,0],10);
   for(const h of holes) {
-    groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,.16);
-    groundShadow(h.basket[0]+.5,h.basket[1]+.3,.65,.85,.24);
+    groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,[0,.48,.82,1.2],[.16,.12,.05,0],20);
+    groundShadow(h.basket[0],h.basket[1],1,1,[0,.2,.27,.42,.75],[.35,.4,.62,.25,0],16);   // the tray's .34 m dish hides the sky from the footing; a dark crease where the footing meets the ground
   }
   if (shadowParts.length) {
-    const shadowMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false,
+    const shadowMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.MultiplyBlending, premultipliedAlpha: true,
       vertexShader: 'attribute float shadowAlpha;varying float vAlpha;varying float vDepth;void main(){vAlpha=shadowAlpha;vec4 mv=modelViewMatrix*vec4(position,1.);vDepth=-mv.z;gl_Position=projectionMatrix*mv;}',
-      fragmentShader: 'varying float vAlpha;varying float vDepth;void main(){float fade=1.-smoothstep(38.,170.,vDepth);gl_FragColor=vec4(.055,.16,.075,vAlpha*fade);}' });
+      fragmentShader: 'varying float vAlpha;varying float vDepth;void main(){gl_FragColor=linearToOutputTexel(vec4(vec3(1.-vAlpha*(1.-smoothstep(38.,170.,vDepth))),1.));}' });   // encoded, so Lite's sRGB canvas darkens by the same linear factor as Full's HDR target
     const shadows = new THREE.Mesh(mergeGeometries(shadowParts), shadowMat); shadows.renderOrder = 1; group.add(shadows);
     shadowParts.forEach(g => g.dispose());
   }
@@ -630,7 +638,29 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 } };
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogGlow: { value: FOG.glow } });
+// Shade fill. Ground the sun's shadow covers is still lit by sunlight the leaves and the air scatter back into it, from
+// roughly the sun's side; without that, dark mulch in shade sat ~2 stops under the sunlit ground in the scene and the
+// tone curve's toe sank it 4+ stops to near-black blobs. Where (and only where) the shadow map took the sun away, SHADE
+// of the key comes back as indirect light shaped by N·L, so shade keeps the sun's warmth, its texture and its forms and
+// sunlit surfaces do not change. It lands in `irradiance`, so a canopy's baked occlusion (applied to indirect light after
+// lights_fragment_end) still darkens crown cores. The same sun visibility dims reflected sky: whatever shades a surface
+// from the sun, a canopy or the basket's tray, hides most of the sky from it too, so shaded steel stops mirroring blue.
+const SHADE = { r: 0, g: 0, b: 0 };
+for (const s of Object.values(THREE.ShaderLib)) if (s.uniforms?.directionalLights) s.uniforms.shadeFill = { value: SHADE };
 Object.assign(THREE.ShaderChunk, {
+  lights_pars_begin: 'uniform vec3 shadeFill;\n' + THREE.ShaderChunk.lights_pars_begin,
+  lights_fragment_begin: THREE.ShaderChunk.lights_fragment_begin + `
+float sunVis = 1.;
+#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )
+	sunVis = dot( directLight.color, vec3( 1. ) ) / max( dot( directionalLights[ 0 ].color, vec3( 1. ) ), 1e-4 );   // the loop leaves the sun, shadow applied, in directLight
+	#if defined( RE_IndirectDiffuse )
+		irradiance += shadeFill * directionalLights[ 0 ].color * ( 1. - sunVis ) * saturate( dot( geometryNormal, directionalLights[ 0 ].direction ) );
+	#endif
+#endif`,
+  lights_fragment_end: THREE.ShaderChunk.lights_fragment_end + `
+#if defined( RE_IndirectSpecular )
+	reflectedLight.indirectSpecular *= mix( .45, 1., sunVis );
+#endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
   fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogGlow;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
