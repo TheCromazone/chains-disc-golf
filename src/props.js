@@ -436,36 +436,40 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // (top at feet[]) whose skirt is cut to the ground, so on hole 1's cross slope both stand planted rather than one
   // sinking into the hill; up to the level beam's underside yb; brushed aluminium corner extrusions. The leg art hangs
   // from the beam at its painted aspect, so the leg on higher ground shows less of its plain foot.
-  const ARCH = { span: 11.2, leg: 1.6, deep: .9, beam: 1.5 }, legX = ARCH.span / 2 + ARCH.leg / 2;
-  const addArch = (world, yb, feet) => {
+  const ARCH = { span: 11.2, leg: 1.6, deep: 1.3, beam: 1.5 }, legX = ARCH.span / 2 + ARCH.leg / 2;
+  const addArch = (world, yb, feet, rise) => {
     const { leg, deep, beam } = ARCH, face = deep / 2 + .004, skin = (g, region, color) => K.arch(g.applyMatrix4(world), region, color), AL = '#c3c8cc';
+    // Printed cover faces are cloth pulled over the frame: each bellies out a few centimetres between its edges (across
+    // its width, `across`; down its height otherwise), so the light rolls across it instead of lying flat as on a board.
+    const pillow = (g, w, h, across) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const t = across ? 2 * p.getX(i) / w : 2 * p.getY(i) / h; p.setZ(i, p.getZ(i) + (full ? .05 : .03) * (1 - t * t)); } g.computeVertexNormals(); return g; };
     const panel = (w, region, top, bottom) => {   // art of `region` at its own aspect, hung from `top`, cropped at `bottom`
-      const [, , rw, rh] = REGION[region], nat = w * rh / rw, h = Math.min(nat, top - bottom), g = new THREE.PlaneGeometry(w, h), uv = g.attributes.uv;
+      const [, , rw, rh] = REGION[region], nat = w * rh / rw, h = Math.min(nat, top - bottom), g = new THREE.PlaneGeometry(w, h, full ? 6 : 2, 1), uv = g.attributes.uv;
       for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - (1 - uv.getY(i)) * h / nat);
-      return g.translate(0, top - h / 2, 0);
+      return pillow(g, w, h, true).translate(0, top - h / 2, 0);
     };
     [-1, 1].forEach((s, j) => {
       const x = s * legX, y0 = feet[j], hgt = yb - y0;
-      skin(box(leg, hgt - .34, deep).translate(x, y0 + .34 + (hgt - .34) / 2, 0), 'white', '#1a2a48');   // the cover stops 34 cm short of the plinth, showing the truss foot
+      skin(roundBox(leg, hgt - .34, deep, .07, full ? 3 : 1).translate(x, y0 + .34 + (hgt - .34) / 2, 0), 'white', '#1a2a48');   // the cover stops 34 cm short of the plinth, showing the truss foot
       for (const z of [1, -1]) skin(panel(leg - .08, 'archLeg0', yb - .08, y0 + .3).rotateY(z < 0 ? Math.PI : 0).translate(x, 0, z * face), 'archLeg' + (s * z > 0 ? 1 : 0));   // left leg as seen from either side: LOFTWING
       skin(panel(deep - .06, 'archSide', yb - .08, y0 + .3).rotateY(-s * Math.PI / 2).translate(x - s * (leg / 2 + .004), 0, 0), 'archSide');   // inner face, toward the opening
-      for (const [ex, ez] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) K.steel(box(.05, hgt, .05).translate(x + ex * (leg / 2 - .02), y0 + hgt / 2, ez * (deep / 2 - .02)).applyMatrix4(world), AL);
-      // the truss foot under the cover: rails top and bottom, zigzag lacing on all four faces
-      const hx = leg / 2 - .02, hz = deep / 2 - .02, tv = (u, y, w) => new THREE.Vector3(x + u, y0 + y, w), lace = (a, b) => K.steel(rod(a, b, .013, full ? 5 : 3).applyMatrix4(world), AL);
+      // the truss foot under the cover: corner chords, rails top and bottom, zigzag lacing on all four faces
+      for (const [ex, ez] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) K.steel(box(.05, .4, .05).translate(x + ex * (leg / 2 - .04), y0 + .2, ez * (deep / 2 - .04)).applyMatrix4(world), AL);
+      const hx = leg / 2 - .04, hz = deep / 2 - .04, tv = (u, y, w) => new THREE.Vector3(x + u, y0 + y, w), lace = (a, b) => K.steel(rod(a, b, .013, full ? 5 : 3).applyMatrix4(world), AL);
       for (const y of [.03, .32]) for (const z of [-hz, hz]) lace(tv(-hx, y, z), tv(hx, y, z));
       for (const y of [.03, .32]) for (const u of [-hx, hx]) lace(tv(u, y, -hz), tv(u, y, hz));
       for (const z of [-hz, hz]) for (let k = 0; k < 5; k++) lace(tv(-hx + 2 * hx * k / 5, k % 2 ? .32 : .03, z), tv(-hx + 2 * hx * (k + 1) / 5, k % 2 ? .03 : .32, z));
       for (const u of [-hx, hx]) for (let k = 0; k < 3; k++) lace(tv(u, k % 2 ? .32 : .03, -hz + 2 * hz * k / 3), tv(u, k % 2 ? .03 : .32, -hz + 2 * hz * (k + 1) / 3));
-      const pl = box(leg + .36, 1, deep + .9, 3, 1, 3).translate(x, .5, 0).applyMatrix4(world), pp = pl.attributes.position;
-      for (let i = 0; i < pp.count; i++) pp.setY(i, pp.getY(i) > .5 ? y0 : height(pp.getX(i), pp.getZ(i)) - .08);
-      pl.computeVertexNormals(); paint(pl, '#8a8781');   // cast-concrete ballast
+      const pl = box(leg + .36, 1, deep + .9, 3, 1, 3).translate(x, .5, 0).applyMatrix4(world), pp = pl.attributes.position, top2 = rise[j] > .3 ? rise[j] * .5 + .12 : 0;
+      for (let i = 0; i < pp.count; i++) pp.setY(i, pp.getY(i) > .5 ? y0 - top2 : height(pp.getX(i), pp.getZ(i)) - .08);
+      pl.computeVertexNormals(); paint(pl, '#a29e96');   // cast-concrete ballast
+      if (top2) paint(box(leg + .28, top2, deep + .82).translate(x, y0 - top2 / 2, 0).applyMatrix4(world), '#98948c');   // the second course, set in 4 cm from the first
       K.steel(box(leg + .12, .04, deep + .12).translate(x, y0 + .02, 0).applyMatrix4(world), '#5d6368');   // the truss's base plate
       for (const z of [1, -1]) for (const dx of [-.42, .42]) paint(roundBox(.66, .19, .36, .08, 2).rotateY(dx * .25).translate(x + dx, y0 + .095, z * (deep / 2 + .23)).applyMatrix4(world), '#8c7b55');   // khaki sandbags on the plinth
       paint(roundBox(.66, .19, .36, .08, 2).rotateY(Math.PI / 2 + .1).translate(x + s * (leg / 2 + .22), y0 + .095, 0).applyMatrix4(world), '#83734f');
       shadeUnder(world, leg / 2 + .6, deep / 2 + .75, .55, .68, x, 0);
     });
-    skin(box(2 * legX + leg, beam, deep).translate(0, yb + beam / 2, 0), 'white', '#1a2a48');
-    for (const z of [1, -1]) skin(new THREE.PlaneGeometry(2 * legX + leg - .08, beam - .08).rotateY(z < 0 ? Math.PI : 0).translate(0, yb + beam / 2, z * face), 'archBeam');   // no extrusions on the beam: a chase camera passing through it would meet them as bars across the screen
+    skin(roundBox(2 * legX + leg, beam, deep, .07, full ? 3 : 1).translate(0, yb + beam / 2, 0), 'white', '#1a2a48');
+    for (const z of [1, -1]) skin(pillow(new THREE.PlaneGeometry(2 * legX + leg - .08, beam - .08, 1, full ? 4 : 2), 0, beam - .08, false).rotateY(z < 0 ? Math.PI : 0).translate(0, yb + beam / 2, z * face), 'archBeam');   // no extrusions on the beam: a chase camera passing through it would meet them as bars across the screen
   };
   // Event sign: a printed 2 x .57 m composite panel in a black edge frame, bolted to two square steel posts that stand
   // on T-feet held down with sandbags, so its legs show and it stands on its own like the ones at a real event.
@@ -624,13 +628,16 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], archU = .5;
   let archF = 33;
   for (const af of [33, 31, 35, 29, 37]) if ([-1, 1].every(s => clearOf(...frame(h1, archU + s * legX, af), 1.5))) { archF = af; break; }
-  // each leg's plinth top: 24 cm over the ground at its centre, its skirt cut to the ground (dug in on the uphill side)
-  const feet = [-1, 1].map(s => frame(h1, archU + s * legX, archF)), footY = feet.map(p => height(...p) + .24);
+  // each leg's plinth top: 24 cm over the ground at its centre, its skirt cut to the ground (dug in on the uphill side);
+  // on a cross slope the downhill leg stands on a second course of ballast blocks (up to 1.1 m), so the two legs differ
+  // by less than the hill does and neither reads as sunk into it
+  const feet = [-1, 1].map(s => frame(h1, archU + s * legX, archF)), ground = feet.map(p => height(...p)), rise = ground.map(g => Math.min(1.1, .4 * (Math.max(...ground) - g)));
+  const footY = ground.map((g, j) => g + .24 + rise[j]);
   const eye = h1.teeY + 1.42, pin = h1.basketY + 2.7 + 1.225 * Math.min(7, .065 * (L1 + 2.3));   // aim camera's eye 2.3 m behind the pad; marker top (course.js: 2.7 + .6 size up, 1.25 size tall, size .065/m)
   const yb = Math.max(height(...frame(h1, 0, archF)) + 6, eye + (pin - eye) * (archF + 2.3) / (L1 + 2.3) + .35, ...footY.map(y => y + 4.2));
-  const [ax, az] = frame(h1, archU, archF); addArch(pose(ax, 0, az, h1.yaw), yb, footY);
+  const [ax, az] = frame(h1, archU, archF); addArch(pose(ax, 0, az, h1.yaw), yb, footY, rise);
   const top = yb + ARCH.beam / 2;
-  feet.forEach(([x, z], j) => capsules.push({ a: [x, footY[j], z], b: [x, top, z], r: .7, tag: 'arch' }));
+  feet.forEach(([x, z], j) => capsules.push({ a: [x, ground[j], z], b: [x, top, z], r: .7, tag: 'arch' }));   // from the ground: the ballast is solid too
   capsules.push({ a: [feet[0][0], top, feet[0][1]], b: [feet[1][0], top, feet[1][1]], r: ARCH.beam / 2, tag: 'arch' });
   // Chute: yellow rope sagging between white stakes from ahead of the pad's front corners to the arch's legs
   // (inside the walking trail on the open side), an event sign on each rope line.
