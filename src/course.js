@@ -818,7 +818,7 @@ float sunVis = 1.;
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. ), fogCos2 = fogCos * fogCos;
 	#ifdef FOG_EXP2
-		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 20., 0. ) * smoothstep( 20., 110., fogDist ) );   // eased in over 20-110 m: the play and the woods round it stay clear (a veil from 10 m read as milky fog at the tee), the stands beyond fade in layers
+		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 20., 0. ) * smoothstep( 20., 110., fogDist ) );   // eased in over 20-110 m: the play and the woods round it stay clear (from 12 m the tee's hill went a milky tan), the stands beyond fade in layers
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
