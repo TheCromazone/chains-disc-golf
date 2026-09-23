@@ -84,25 +84,6 @@ function waterNormalTexture(noise) {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 4);
   return t;
 }
-// Leaf litter and needle duff for the ground under crowns: humus, needles, leaves, twigs. Marks wrap so the tile is
-// seamless. Built once per session (its own rng, so tree placement is untouched) and shared across course rebuilds.
-let litterTile = null;
-function litterTexture() {
-  if (litterTile) return litterTile;
-  const rng = makeRng(901);
-  litterTile = canvasTex(512, (g, s) => {
-    g.fillStyle = '#4a3a26'; g.fillRect(0, 0, s, s);
-    const wrap = (x, y, draw) => { const ox = x < s / 2 ? s : -s, oy = y < s / 2 ? s : -s; for (const [dx, dy] of [[0, 0], [ox, 0], [0, oy], [ox, oy]]) { g.save(); g.translate(x + dx, y + dy); draw(); g.restore(); } };
-    for (let i = 0; i < 60; i++) { const x = rng() * s, y = rng() * s, r = 30 + rng() * 70; g.fillStyle = rng() < .5 ? 'rgba(92,74,48,.35)' : 'rgba(50,38,26,.4)'; wrap(x, y, () => { g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); }); }
-    const needles = ['#6e5432', '#8a6a3c', '#5a4428', '#9c7a45', '#4c3a22'];
-    for (let i = 0; i < 2600; i++) { const x = rng() * s, y = rng() * s, a = rng() * Math.PI, l = 12 + rng() * 22; g.strokeStyle = needles[i % 5]; g.lineWidth = .8 + rng() * 1.2; wrap(x, y, () => { g.rotate(a); g.beginPath(); g.moveTo(-l / 2, 0); g.lineTo(l / 2, 0); g.stroke(); }); }
-    const leaves = ['#8a5a2c', '#a06f38', '#6e4a26', '#b98a4a', '#7d5a30', '#5d4024', '#c19a58', '#93613a'];
-    for (let i = 0; i < 700; i++) { const x = rng() * s, y = rng() * s, a = rng() * Math.PI, w = 9 + rng() * 14, h = w * (.4 + rng() * .3); g.fillStyle = leaves[i % 8]; wrap(x, y, () => { g.rotate(a); g.beginPath(); g.ellipse(0, 0, w, h, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(40,28,14,.5)'; g.lineWidth = .8; g.beginPath(); g.moveTo(-w, 0); g.lineTo(w, 0); g.stroke(); }); }
-    for (let i = 0; i < 40; i++) { const x = rng() * s, y = rng() * s, a = rng() * Math.PI, l = 40 + rng() * 90; g.strokeStyle = '#3b2b18'; g.lineWidth = 2 + rng() * 1.5; wrap(x, y, () => { g.rotate(a); g.beginPath(); g.moveTo(-l / 2, 0); g.lineTo(l / 2, 0); g.stroke(); }); }
-    for (let i = 0; i < 5000; i++) { g.fillStyle = `rgba(20,14,8,${.1 + rng() * .2})`; g.fillRect(rng() * s, rng() * s, 1 + rng() * 2, 1 + rng() * 2); }
-  });
-  litterTile.__shared = true; return litterTile;
-}
 export function textTexture(lines, { w = 512, h = 256, bg = '#f3efe4', fg = '#1a1a1a', font = 'bold 64px system-ui, sans-serif' } = {}) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
   g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -249,8 +230,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       const soilMask = (1 - smooth(.72, 1.08, soil)) * smooth(width + .35, width + 1.2, edge);
       // Dry patches follow dryNoise; trodden ground around the basket collects litter and wears to earth at the pole.
       const dry = dryNoise(x, z), bd = Math.hypot(x - h.basket[0], z - h.basket[1]);
-      splats[i * 4 + 3] = Math.max(smooth(.47 + fair * .07, .75, dry) * .85, soilMask * .9, (1 - smooth(2.5, 6, bd)) * .5);   // the unwatered rough dries out more than the fairway
-      splats[i * 4 + 2] = (1 - smooth(2.2, 4.4, bd + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 1.8)) * .95;
+      splats[i * 4 + 3] = Math.max(smooth(.47 + fair * .07, .75, dry) * .85, soilMask * .9, (1 - smooth(4, 9, bd)) * .55);   // the unwatered rough dries out more than the fairway
+      splats[i * 4 + 2] = (1 - smooth(3.2, 5.6, bd + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 2.2)) * .95;   // the putting circle is trodden to mulch
       // Tee: the gravel apron, a scuff at the sign post, and the driest patches within ~12 m worn through to earth.
       const tx = x - h.tee[0], tz = z - h.tee[1], cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy, wear = padWear(x, z);
       splats[i * 4] = Math.max(wear, soilMask * .45, (1 - smooth(.4, 1.3, Math.hypot(u - 2.4, v + 2.6))) * .7, smooth(.62, .8, dry) * .5 * (1 - smooth(5, 14, Math.hypot(tx, tz))), (1 - smooth(.3, .8, bd)) * .8);
@@ -265,7 +246,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     for(let i=0;i<pos.count;i++) { const light=terrainNormals.getX(i)*.55+terrainNormals.getY(i)*.70+terrainNormals.getZ(i)*.45; const gain=.55+smooth(.28,.90,light)*.6; colors[i*3]*=gain;colors[i*3+1]*=gain;colors[i*3+2]*=gain; }
   }
   const pads = holes.map(h => [h.tee[0], h.tee[1], Math.cos(h.yaw), Math.sin(h.yaw)]);   // the ground shades round them and the carpet stays off them
-  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, duff: litterTexture(), pads, lite: quality === 'low' }));
+  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, lite: quality === 'low' }));
   terrain.receiveShadow = true; group.add(terrain);
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their
@@ -329,12 +310,14 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = grid.get(key(i + a, j + b)); if (l) for (const t of l) lastList.push(t); }
     return lastList;
   };
-  // Under crowns the turf darkens and litter collects (duff splat); earth shows at the trunk base. Colour and splat weights only: no height change.
+  // Under crowns the turf goes thin, pale and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
+  // earth shows at the trunk base. Colour and splat weights only: no height change.
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i); let shade = 0, duff = 0, bare = 0;
-    for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.5, t.fr * .4, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
-    const k = 1 - Math.min(1, shade) * .3; colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
+    for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.7, t.fr * .5, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
+    const k = 1 - Math.min(1, shade) * .2; colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
     splats[i * 4 + 2] = Math.max(splats[i * 4 + 2], Math.min(1, duff) * .9); splats[i * 4] = Math.max(splats[i * 4], Math.min(1, bare) * .7);
+    splats[i * 4 + 3] = Math.max(splats[i * 4 + 3], Math.min(1, shade) * .65);
   }
 
   const bark = texture('bark', { repeat: [1, 3] });

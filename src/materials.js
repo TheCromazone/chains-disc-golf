@@ -69,9 +69,9 @@ vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-4
 // Full also shades a contact band where each tee pad meets the ground (pads: [x, z, cos yaw, sin yaw], 1.6 x 3.2 m).
 // No derivative bump: dFdx is constant per 2x2 pixel quad, so pebble-scale bumps render as blocky speckle.
 // Fallback when the manifest has no ground tiles: the vertex palette alone (the default color_fragment).
-export function terrainSplat(material, geometry, { splat, turf, duff, pads, lite = false }) {
+export function terrainSplat(material, geometry, { splat, turf, pads, lite = false }) {
   geometry.setAttribute('splat', new THREE.BufferAttribute(splat, 4)); geometry.setAttribute('turf', new THREE.BufferAttribute(turf, 4));
-  const tiles = { gLawn: texture('grass'), gRough: texture('turf_rough'), gMottle: texture('turf_mottle'), gGravel: texture('gravel'), gSand: texture('sand'), gDuff: duff };
+  const tiles = { gLawn: texture('grass'), gRough: texture('turf_rough'), gMottle: texture('turf_mottle'), gGravel: texture('gravel'), gSand: texture('sand'), gDuff: texture('litter') };
   if (!Object.values(tiles).every(Boolean)) return material;
   for (const t of Object.values(tiles)) t.anisotropy = 8;   // the tee camera sees the ground at a grazing angle
   const tile = (name, s) => `gTile(${name},p,${s},${vec3s(TILE_MEAN[name.slice(1).toLowerCase()])})`;
@@ -93,7 +93,8 @@ export function terrainSplat(material, geometry, { splat, turf, duff, pads, lite
         float d=length(vViewPosition),u=${lite ? 'clamp((5.8-d)/2.8,0.,1.)*.55' : 'clamp((8.5-d)/5.,0.,1.)*.9+.12*(1.-smoothstep(9.,15.,d))'};
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.5,1.25,.3),u*.75)*(1.-u*.3);   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo
         vec3 cov=gCover(vSplat,vTurf.zw,br);
-        if(cov.z>0.) c=mix(c,texture2D(gDuff,p*.45).rgb,cov.z);
+        float reach=smoothstep(.02,.4,vSplat.z+br*.5);   // beyond the litter's edge single leaves stray into the turf
+        if(reach>0.){ vec3 l=texture2D(gDuff,p/1.2).rgb; float ll=dot(l,vec3(.3,.59,.11)); c=mix(c,mix(l,vec3(ll),.25)*1.35,max(cov.z,reach*smoothstep(.05,.11,ll)*.85)); }   // dry, sun-faded litter
         if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.3).rgb;   // packed pea gravel, shaded per pebble in the tile; its contrast eases with distance so it cannot speckle
           g=mix(g,${vec3s([.328, .306, .271])},smoothstep(3.,16.,d)*.55)*vec3(1.5,1.43,1.25)*mix(1.,.62,smoothstep(.55,.85,gNoise(p*.8+3.)));   // packed earth shows in patches
           c=mix(c,g,cov.x)*(1.-cov.x*(1.-cov.x)*.6); }   // a damp trodden rim at the turf
