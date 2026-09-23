@@ -110,11 +110,12 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 /* Both lines belong to the plate, a black tab above it and a pale strip under it, so neither floats loose on the scenery. */
 #holeInfo, #throwNo { display: flex; gap: 8px; padding: 5px 8px 4px; font-size: 12px; font-weight: 700; letter-spacing: .8px; line-height: 1; white-space: nowrap; }
 #holeInfo { width: fit-content; padding-right: 18px; background: var(--black); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 0 100%); }
-#throwNo { background: #d9faea; color: var(--black); }
+#throwNo { justify-content: space-between; background: #d9faea; color: var(--black); }
+#dist { font-weight: 800; letter-spacing: .5px; white-space: nowrap; font-variant-numeric: tabular-nums; }   /* the live distance rides the strip, as broadcast plates do; the tag over the pin says it big */
 #holeLabel::after { content: '·'; margin-left: 8px; opacity: .7; }
 #playerInfo { display: flex; align-items: stretch; background: var(--mint); color: var(--black); }
 #playerName { flex: 1; min-width: 0; padding: 5px 10px 4px; font-size: 26px; font-weight: 800; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#dist { display: grid; place-items: center; min-width: 62px; padding: 0 9px; background: var(--black); color: #fff; font-size: 20px; font-weight: 800; letter-spacing: .3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#toPar { display: grid; place-items: center; min-width: 50px; padding: 0 10px; background: var(--black); color: #fff; font-size: 24px; font-weight: 800; letter-spacing: .3px; white-space: nowrap; font-variant-numeric: tabular-nums; }   /* the round's score to par: the player's standing at a glance */
 #conditions { position: absolute; right: 12px; bottom: calc(62px + var(--sab)); display: flex; gap: 14px; padding: 7px 10px 6px; pointer-events: none; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; border: 1px solid #ffffff2e; border-radius: 8px; background: #0c1114c4; box-shadow: 0 2px 8px #0006; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 #conditions b { font-weight: 800; margin-left: 3px; }
 #wind { display: inline-flex; align-items: center; gap: 4px; }
@@ -240,8 +241,11 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 #score td.s2 .mk, #score td.s3 .mk, #score td.s4 .mk { outline: 2px solid currentColor; outline-offset: 2px; }
 .score-grid { overflow-x: auto; padding: 16px 0 6px; }
 #score table { font-family: var(--display); font-size: 16px; }
-#score th { padding: 9px 3px; background: var(--black); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; border: 0; }
-#score th .muted { color: #ffffffbf; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+#score th { padding: 8px 3px 7px; background: var(--black); color: #fff; font-size: 18px; font-weight: 800; line-height: 1.05; letter-spacing: .3px; text-transform: uppercase; border: 0; }
+#score th .muted { color: #ffffffb8; font-size: 16px; font-weight: 700; letter-spacing: .3px; }
+#score th:not(.key):not(:last-child) { width: 7.2%; }   /* even hole columns, played or blank */
+#score th.key { padding-left: var(--gutter); text-align: left; color: #ffffffa8; font-size: 12px; font-weight: 700; letter-spacing: 1.4px; line-height: 1.6; }   /* names the two header lines; each column then prints just its numbers */
+#score th.key .muted { color: inherit; font-size: inherit; letter-spacing: inherit; }
 #score th.cur, #score th.cur .muted { color: var(--mint); }
 #score td { padding: 8px 3px; font-weight: 700; color: var(--black); border: 0; }
 #score tr:first-child + tr td { padding-top: 14px; }
@@ -250,9 +254,12 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 #score td.name .rank .icon { width: 16px; height: 16px; color: #b0731a; vertical-align: -3px; }
 #score td.name .dot { width: 10px; height: 10px; margin-right: 7px; vertical-align: -1px; border: 0; box-shadow: none; }
 #score td.cur { background: #5cf0a826; }   /* the lit column: a mint wash under the badges, over the global amber tint */
-#score td.blank { color: #b3b9b5; }
+#score tr + tr + tr td { box-shadow: inset 0 1px #0c111412; }   /* hairlines between players carry the eye from name to total across holes still to play (they are left blank, not dashed) */
 #score td.tot { padding-right: var(--gutter); font-size: 18px; }
-#score td.tot small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .5px; color: #6b7570; }
+/* Score to par is the number that matters: a solid chip under the total, mint under par, black over, a quiet ring at even. */
+#score td.tot small { display: block; width: fit-content; min-width: 34px; margin: 3px auto 0; padding: 2px 8px 1px; border-radius: 999px; font-size: 16px; font-weight: 800; line-height: 1.1; letter-spacing: .3px; color: var(--black); box-shadow: inset 0 0 0 1.5px #0c111433; }
+#score td.tot small.under { background: var(--mint); box-shadow: none; }
+#score td.tot small.over { background: var(--black); color: #fff; box-shadow: none; }
 #score td.s-1, #score td.s-2, #score td.s-3 { color: #0f8a55; } #score td.s1 { color: #b0731a; } #score td.s2, #score td.s3, #score td.s4 { color: #c0392b; }
 #score .score-actions { padding: 18px var(--gutter) var(--gutter); gap: 10px; }
 #score .score-actions button { font-family: var(--display); font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; border-radius: 999px; min-height: 44px; backdrop-filter: none; -webkit-backdrop-filter: none; }
@@ -273,7 +280,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .hub-main { padding: 12px; border-radius: 24px; }
   #top { width: min(236px, calc(100% - 84px)); }
   #score .panel { --gutter: 18px; }
-  #score th .muted span { display: none; }   /* narrow cells: just the par number under the hole */
+  #score th { font-size: 14px; } #score th .muted { font-size: 12px; } #score th.key { font-size: 10px; letter-spacing: .8px; }
   #score .mk { width: 20px; height: 20px; }
   #score .badge { width: 30px; height: 30px; font-size: 15px; }
   #score table { font-size: 14px; }
@@ -300,7 +307,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 @media (max-height: 520px) and (min-aspect-ratio: 5/4) {
   #top { width: 200px; }
   #playerName { font-size: 21px; }
-  #dist { font-size: 16px; min-width: 52px; }
+  #toPar { font-size: 19px; min-width: 42px; }
   #holeInfo, #throwNo { font-size: 11px; }
   #btnUtilities { width: 40px; height: 40px; }
   #sideBtns { top: 48px; }
@@ -337,11 +344,13 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .score-grid { padding: 4px 0 0; }
   #score .mk { width: 20px; height: 20px; }
   #score .badge { width: 30px; height: 30px; font-size: 15px; }
-  #score th { padding: 5px 2px; font-size: 10px; }
-  #score th .muted { font-size: 9px; }
+  #score th { padding: 5px 2px 4px; font-size: 14px; }
+  #score th .muted { font-size: 12px; }
+  #score th.key { font-size: 10px; line-height: 1.4; }
   #score td { padding: 4px 2px; font-size: 13px; }
   #score tr:first-child + tr td { padding-top: 6px; }
   #score td.tot { font-size: 15px; }
+  #score td.tot small { margin-top: 1px; font-size: 12px; }
   #score .score-actions { padding: 8px var(--gutter) 12px; }
   #score .score-actions button { min-height: 40px; }
 }
@@ -398,4 +407,13 @@ body[data-phase='intro'] #hud { opacity: 0; }
 #holeTitle { position: fixed; left: calc(22px + env(safe-area-inset-left, 0px)); bottom: calc(24px + var(--sab)); z-index: 11; pointer-events: none; opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; color: #fff; font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', Impact, sans-serif; font-weight: 800; text-transform: uppercase; line-height: .9; letter-spacing: .005em; text-shadow: 0 2px 3px #0009, 0 10px 34px #0008; }
 #holeTitle b, #holeTitle span { display: block; font-size: clamp(42px, 9.5vmin, 104px); font-weight: 800; }
 body[data-phase='intro'] #holeTitle { opacity: 1; transform: none; transition-duration: .5s; }
+/* Target tag: the basket's distance on a hairline over the pin (the camera in main.js places it every frame, UI.setHud writes
+   the metres). Dark glass like the HUD chips and a step under them in weight; it bows out inside the putting range. */
+#pin { position: fixed; left: 0; top: 0; z-index: 9; display: flex; flex-direction: column; align-items: center; pointer-events: none; opacity: 0; font-family: var(--display); will-change: transform, opacity; }
+#pin b { display: flex; align-items: center; gap: 4px; padding: 3px 9px 2px 7px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; color: #fff; font-size: 15px; font-weight: 800; line-height: 1.1; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; box-shadow: inset 0 1px #ffffff1f, 0 2px 8px #0004; backdrop-filter: blur(8px) saturate(1.3); -webkit-backdrop-filter: blur(8px) saturate(1.3); }
+#pin svg { width: 13px; height: 13px; color: var(--mint); }
+#pin i { width: 1.5px; height: 24px; background: linear-gradient(#ffffffd9, #ffffff59); transition: height .8s var(--ease); }
+body[data-phase='intro'] #pin i { height: 46px; }   /* the establishing shot sees the pin past the hole's gantry: the tag flies clear of its banner */
+#pin::after { content: ''; width: 5px; height: 5px; margin-top: -1px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 1.5px #0c111466; }
+@media (max-height: 520px) and (min-aspect-ratio: 5/4) { #pin b { font-size: 13px; padding: 2px 8px 1px 6px; } #pin svg { width: 11px; height: 11px; } #pin i { height: 18px; } }
 @media (prefers-reduced-motion: reduce) { #holeTitle, #hud { transition: none; } }

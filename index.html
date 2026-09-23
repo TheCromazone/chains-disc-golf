@@ -18,12 +18,14 @@
 <canvas id="c"></canvas>
 <div id="loading"><div class="spin"></div><div class="muted">Growing the course…</div></div>
 <div id="fade"></div>
+<!-- target tag over the basket: placed every frame by the camera section of src/main.js, text by UI.setHud's dist -->
+<div id="pin" aria-hidden="true"><b><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="1.5" width="10" height="2.6" rx="1"/><path d="M5.2 4.1 7 9m1-4.9V9m2.8-4.9L9 9M3 9.4h10l-1.6 2.4H4.6zM8 11.8V15m-2.2 0h4.4"/></svg><span id="pinDist">85 m</span></b><i></i></div>
 
 <div id="hud" class="hidden">
   <div id="top" aria-label="Round information">
     <div id="holeInfo"><span id="holeLabel">HOLE 1</span><span id="holePar">Par 3 · 85 m</span></div>
-    <div id="playerInfo"><b id="playerName">You</b><b id="dist" aria-label="Distance to basket">85 m</b></div>
-    <div id="throwNo">Throw 1</div>
+    <div id="playerInfo"><b id="playerName">You</b><b id="toPar" aria-label="Score to par">E</b></div>
+    <div id="throwNo"><span id="throwLabel">Throw 1</span><b id="dist" aria-label="Distance to basket">85 m</b></div>
   </div>
   <div id="conditions" aria-label="Conditions">
     <span id="wind"><span id="windArrow" data-icon="arrow"></span>Wind <b id="windText">calm</b></span>

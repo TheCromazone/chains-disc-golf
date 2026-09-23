@@ -38,15 +38,24 @@ export function setHint(throwType, sub) {
   if (sub !== undefined) $('hintSub').textContent = sub;
 }
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
-export function setHud({ hole, par, len, dist, playerName, throwNo, windText, windDeg, circle, elev }) {
+export function setHud({ hole, par, len, dist, playerName, throwNo, toPar, windText, windDeg, circle, elev }) {
+  if (toPar !== undefined) $('toPar').textContent = toPar === 0 ? 'E' : toPar > 0 ? `+${toPar}` : `−${-toPar}`;
   if (elev !== undefined) $('elevText').textContent = `${elev < -0.05 ? '−' : '+'}${Math.abs(elev).toFixed(1)} m`;
   if (hole !== undefined) $('holeLabel').textContent = `HOLE ${hole}`;
   if (par !== undefined) $('holePar').textContent = `Par ${par} · ${Math.round(len)} m`;
-  if (dist !== undefined) { const label = dist < 1 ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`; $('dist').textContent = label; $('dist').setAttribute('aria-label', dist < 1 ? label : `${label} to basket`); }
+  if (dist !== undefined) { const label = dist < 1 ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`; $('dist').textContent = label; $('dist').setAttribute('aria-label', dist < 1 ? label : `${label} to basket`); const pin = `${Math.round(dist)} m`; if ($('pinDist').textContent !== pin) $('pinDist').textContent = pin; }
   if (playerName !== undefined) $('playerName').textContent = playerName;
-  if (throwNo !== undefined) $('throwNo').textContent = throwNo;
+  if (throwNo !== undefined) $('throwLabel').textContent = throwNo;
   if (windText !== undefined) $('windText').textContent = windText;
   if (windDeg !== undefined) $('windArrow').style.transform = `rotate(${windDeg}deg)`;
+}
+// Target tag: the dot at the stem's foot lands on (x, y) in CSS px; written only when it moves, so a still aim frame costs nothing.
+let pinAt = '';
+export function placePin(x, y, alpha) {
+  const key = alpha > .01 ? `${x.toFixed(1)} ${y.toFixed(1)} ${alpha.toFixed(2)}` : '';
+  if (key === pinAt) return; pinAt = key;
+  const el = $('pin'); el.style.opacity = key ? alpha.toFixed(2) : '0';
+  if (key) el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, calc(-100% + 2.5px))`;
 }
 const equipmentPickers = { throwRow: 'btnThrowPicker', discRow: 'btnDiscPicker' };
 let openEquipment = null;
@@ -203,8 +212,8 @@ export function renderScorecard({ players, holes, holeIdx, final, isHost, online
   const sorted = [...totals].sort((a, b) => a.toPar - b.toPar);
   $('scoreTitle').textContent = final ? 'Final results' : `Hole ${holeIdx + 1} complete`;
   $('scoreStand').innerHTML = '';   // standings live in the grid now: rows are ranked, to-par sits in the total column
-  let html = `<tr><th></th>${holes.map((h, i) => `<th${i === holeIdx ? ' class="cur"' : ''}>${i + 1}<div class="muted"><span>Par </span>${h.par}</div></th>`).join('')}<th>Tot</th></tr>`;
-  sorted.forEach((t, i) => { html += `<tr><td class="name"><span class="rank">${final && i === 0 ? icon('trophy') : String(i + 1).padStart(2, '0')}</span><i class="dot" style="background:${t.p.color}"></i>${escapeText(t.p.name)}</td>${holes.map((h, j) => { const s = t.p.scores[j], cur = j === holeIdx; return s == null ? `<td class="blank">–</td>` : `<td class="s${Math.max(-3, Math.min(4, s - h.par))}${cur ? ' cur' : ''}"><span class="mk${cur ? ' badge' : ''}">${s}</span></td>`; }).join('')}<td class="tot">${t.s}<small>${fmt(t.toPar)}</small></td></tr>`; });
+  let html = `<tr><th class="key">Hole<div class="muted">Par</div></th>${holes.map((h, i) => `<th${i === holeIdx ? ' class="cur"' : ''}>${i + 1}<div class="muted">${h.par}</div></th>`).join('')}<th>Tot</th></tr>`;   // the row names the header's two lines once, so each column prints just its numbers, big
+  sorted.forEach((t, i) => { html += `<tr><td class="name"><span class="rank">${final && i === 0 ? icon('trophy') : String(i + 1).padStart(2, '0')}</span><i class="dot" style="background:${t.p.color}"></i>${escapeText(t.p.name)}</td>${holes.map((h, j) => { const s = t.p.scores[j], cur = j === holeIdx; return s == null ? `<td class="blank"></td>` :`<td class="s${Math.max(-3, Math.min(4, s - h.par))}${cur ? ' cur' : ''}"><span class="mk${cur ? ' badge' : ''}">${s}</span></td>`; }).join('')}<td class="tot">${t.s}<small class="${t.toPar < 0 ? 'under' : t.toPar > 0 ? 'over' : 'even'}">${fmt(t.toPar)}</small></td></tr>`; });
   $('scoreTable').innerHTML = html;
   $('btnScoreNext').innerHTML = `${final ? 'Play again' : 'Next hole'}${icon('arrow')}`;
   const hostOk = !online || isHost;
