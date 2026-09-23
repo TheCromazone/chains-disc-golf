@@ -40,8 +40,9 @@ function cloth(c) { const m = Math.max(c.r, c.g, c.b), l = c.r * .2126 + c.g * .
 // wrap was an even orange-tan and critics read the arm as smooth vinyl. `k` is the skin share of the texel.
 export const skinDirect = (name, k) => `void ${name}(const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
         // the warm course sun on top of the olive grade turned lit skin orange-tan (saturation .45 against the reference's .33):
-        // skin takes the sun's brightness but only half its hue, and a touch less of it (the lit forearm sat a stop over the reference's)
-        IncidentLight sl = directLight; sl.color = mix(directLight.color, vec3(dot(directLight.color, vec3(.2126, .7152, .0722))), .55 * ${k}) * (1. - .12 * ${k});
+        // skin takes the sun's brightness but only half its hue, and less of it: the lit forearm measured V .71 against the
+        // reference's .45-.56, and that bright, even tone is what critics called waxy orange vinyl
+        IncidentLight sl = directLight; sl.color = mix(directLight.color, vec3(dot(directLight.color, vec3(.2126, .7152, .0722))), .55 * ${k}) * (1. - .22 * ${k});
         RE_Direct_Physical(sl, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight);
         float nl = dot(geometryNormal, directLight.direction), wrap = saturate((nl + .4) / 1.4) - saturate(nl), band = saturate(nl) * saturate(1. - 2.5 * nl);
         reflectedLight.directDiffuse += ${k} * (wrap * vec3(.9, .6, .45) + band * vec3(.3, .06, .02)) * sl.color * BRDF_Lambert(material.diffuseColor);   // a softer rose: the deep red wrap read as a sunburnt, saturated shade side
@@ -112,7 +113,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
       diffuseColor.rgb *= 1. + chainsKnit;   // the knit runs under the print too`).replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Chains', 'chainsSkin')}`).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
       ${skinShade('chainsSkin')}
-      { float f = 1. - saturate(dot(normalize(normal), normalize(vViewPosition))); reflectedLight.indirectDiffuse += chainsHair * f * f * diffuseColor.rgb * 1.6; }`).replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= 1. - .3 * chainsSkin;   // skin reflects ~3 %, not the 4 % of a plastic').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor *= chainsRough;')
+      { float f = 1. - saturate(dot(normalize(normal), normalize(vViewPosition))); reflectedLight.indirectDiffuse += chainsHair * f * f * diffuseColor.rgb * 1.6; }`).replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= 1. - .55 * chainsSkin;   // pores and oil break up the sheen of skin: well under the 4 % of a plastic, or the arm reads as vinyl').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor *= chainsRough;')
       // the scan's shirt normals are pocked with pinhole dimples (dark specks round the collar), so the jersey takes 85 % of them:
       // at a quarter, and at half, critics read the fitted shirt as a smooth painted shell with no cloth in it
       .replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace('mapN.xy *= normalScale;', 'mapN.xy *= normalScale * (1. - .15 * chainsJersey);') + '\n' + PORES_GLSL('vJerseyPos', 'chainsSkin') + '\n' + PORES_GLSL('vJerseyPos', 'chainsHair', 'chainsHairK', '.0012')
@@ -155,7 +156,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         // shade at the tee, where a bump alone shows nothing, so the folds also carry a little occlusion in the cloth's tone
         { vec3 fp = vJerseyPos * mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW)); float n = chainsNoise(fp) * .7 + chainsNoise(fp * 2.3) * .3;
           chainsKnit += w[1] * (.06 - .3 * smoothstep(.72, .97, 1. - abs(2. * n - 1.))); }
-        chainsJersey = w[1]; chainsSkin = w[0]; chainsRough = 1. + w[0] * (-.06 + (chainsMot - .5) * .4 + .12 * min(chainsCav, 1.)) + w[3] * (-.22 + (chainsHairS - .5) * .7) + .2 * (w[1] + w[2] + w[4]); diffuseColor.rgb = col;
+        chainsJersey = w[1]; chainsSkin = w[0]; chainsRough = 1. + w[0] * (.1 + (chainsMot - .5) * .4 + .12 * min(chainsCav, 1.)) + w[3] * (-.22 + (chainsHairS - .5) * .7) + .2 * (w[1] + w[2] + w[4]); diffuseColor.rgb = col;
         chainsPanel = uPanelN > .5 ? max(smoothstep(.5, .78, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.3, .45, -vBindN.x * sign(vJerseyPos.x))) : -1.; }`);   // the side panels follow the torso's turn (a hard cut flattened the back into one tone, a wide blend read as a shadow); her folded scan's normals scatter them into shards, so she takes the width-based panels
   };
   material.customProgramCacheKey = () => 'chains-body';
