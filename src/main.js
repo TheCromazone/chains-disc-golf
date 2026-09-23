@@ -540,15 +540,10 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // pin stands on the midline (flag 29%, lid 40%, band 45%, base ~72%), the far ground line ~60% down, his back x 0.72-0.92 with
 // eyes ~20%. So the lens is a dolly-zoom longer (42° across, 24° tall) from 3.1 m back and 1.35 m aside: the athlete keeps his
 // size and is pushed to the right edge, the pin grows ~15% and sits at 49%, band 45%, base ~78%, far ground ~60%.
-// That long lens lost 3/6: its narrow cone stacked the woods into one wall of trunks behind the pin, with no ground running
-// away past it (the reference's lane of depth). The reference's own sizes (his shoulders ~24% of the width, the pin's band to
-// base ~100 px of 360) put its lens ~2.3 m off him at ~50° across, so now: 2.1 m back, 1.1 m aside, 50°. He is cut by the
-// right edge (x 0.76-1.0, head top ~12%), the pin centred (band 47%, base 77%) and the green recedes into open woods; the
-// banners and bench stay left, smaller against a wider frame (they are props, not the camera's to move).
 // The camera stays level and slides its lens
 // instead (cam.shift, applyViewOffset), so a green below the lie drops into frame without tipping the trunks inward (pitched
 // down onto the tray, it read as looking into a pit). It takes the height (lo-hi) that sets the athlete's eyes at P.eye and the
-// basket band at P.band (half-frame units above centre: 24% and 47% from the top), so uphill, flat and downhill greens frame
+// basket band at P.band (half-frame units above centre: 20% and 45% from the top), so uphill, flat and downhill greens frame
 // alike; a short putt's bigger basket lifts the band until its base plate stays over P.base (86%, a phone's 82%). On the
 // course's downhill putts (every green sits ~1 m under a 6.5 m lie) that puts the lens ~1.8 m up. A short phone (puttS) keeps
 // the earlier 2.3 m rig, the pin at 38% and the band at the midline: its 29° lens is set by the swipe ring, not hfov.
@@ -557,7 +552,7 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // widening past it rather than cropping under P.vmin tall (29° on a short phone, whose swipe ring takes the frame's lower
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.1, side: 1.1, lo: .9, hi: 2.3, eye: .52, band: .06, base: -.72, x: 0, nudge: [-.05, .15], hfov: 50, vmin: 10 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 3.1, side: 1.35, lo: .9, hi: 2.3, eye: .6, band: .1, base: -.72, x: .03, nudge: [-.05, .15], hfov: 42, vmin: 10 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
 AIM.puttS = { ...AIM.putt, back: 2.3, side: 1.2, hi: 1.9, hfov: 50, eye: .6, band: -.02, base: -.64, x: .24 };   // a short phone: the swipe pill and ring fill the lower third's middle, so the pin stands further left (38%) with its base plate beside them
 function aimFrame(lie, d, putt, pos, look) {
