@@ -1,28 +1,79 @@
 {
   "deciduous": {
     "variants": [
-      "deciduous0",
-      "deciduous1",
-      "deciduous2"
+      "birch0",
+      "birch1",
+      "broad0",
+      "broad1"
     ],
-    "triangles": 1924,
-    "bytes": 43808
+    "triangles": 7546,
+    "bytes": 90784
   },
   "pine": {
     "variants": [
-      "pine0",
-      "pine1",
-      "pine2"
+      "spruce0",
+      "spruce1",
+      "scots0"
     ],
-    "triangles": 1820,
-    "bytes": 33504
+    "triangles": 3778,
+    "bytes": 57968
   },
   "bush": {
     "variants": [
       "bush0",
       "bush1"
     ],
-    "triangles": 418,
-    "bytes": 12280
+    "triangles": 356,
+    "bytes": 12316
+  },
+  "impostors": {
+    "birch0": [
+      9.146,
+      18.106,
+      -0.406,
+      0
+    ],
+    "birch1": [
+      8.761,
+      19.956,
+      -0.412,
+      1
+    ],
+    "broad0": [
+      13.019,
+      17.012,
+      -0.421,
+      2
+    ],
+    "broad1": [
+      14.547,
+      15.676,
+      -0.431,
+      3
+    ],
+    "spruce0": [
+      7.612,
+      20.206,
+      -0.401,
+      4
+    ],
+    "spruce1": [
+      6.667,
+      17.921,
+      -0.406,
+      5
+    ],
+    "scots0": [
+      12.705,
+      21.592,
+      -0.417,
+      6
+    ],
+    "bush0": [
+      4.952,
+      4.001,
+      -1.124,
+      7
+    ]
   }
 }

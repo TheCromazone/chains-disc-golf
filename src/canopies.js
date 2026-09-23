@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CANOPY_DATA } from './canopy-data.js';
+export { IMPOSTOR } from './impostors.js';   // the impostor card extents, generated with the trees
 
 // Tiny Blender-authored geometry is embedded so Lite and an empty asset manifest
 // keep the same crowns without fetching a GLB, texture, decoder or loader.

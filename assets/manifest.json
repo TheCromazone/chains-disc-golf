@@ -39,7 +39,12 @@
     "leaf_deciduous": "textures/foliage/leaf_deciduous.webp",
     "leaf_deciduous_lod": "textures/foliage/leaf_deciduous_lod.webp",
     "leaf_pine": "textures/foliage/leaf_pine.webp",
-    "leaf_pine_lod": "textures/foliage/leaf_pine_lod.webp"
+    "leaf_pine_lod": "textures/foliage/leaf_pine_lod.webp",
+    "leaves": "textures/foliage/leaves.webp",
+    "leaves_n": "textures/foliage/leaves_n.webp",
+    "bark_birch": "textures/foliage/bark_birch.webp",
+    "impostors": "textures/foliage/impostors.webp",
+    "impostors_n": "textures/foliage/impostors_n.webp"
   },
   "courses": {
     "pine": "courses/pine_toon.jpg",

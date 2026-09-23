@@ -1,163 +1,311 @@
-"""Course trees for Chains: branching trunks with leaf-card crowns, the way most shipped games build them.
-Run: blender -b -P tools/build-trees.py [-- --preview docs/qa/r7]
-Each species is one Draco GLB with two meshes: 'wood' (material 'bark', tapered branch tubes) and 'leaves'
-(material 'leaf_deciduous' or 'leaf_pine', crossed cards that the runtime draws alpha-tested with the keyed
-photo clusters in assets/textures/foliage). Variants live in one file as separate nodes ('pine0', 'pine1', ...).
-The runtime instances one variant per tree spot and tints it per instance, so a forest never repeats exactly.
-Writes assets/models/pine.glb, deciduous.glb, bush.glb.
+"""Course trees for Chains (Blender 5.2): birches, broadleaves, spruces, a Scots pine and bushes, built the way shipped games
+build them. A branch skeleton (tapering trunk with a root flare, primary limbs that rise under gravitropism and spread or droop
+at the tips, secondaries, twigs) carries leaf-spray cards in separate clumps at the twig ends, so sky and light show between
+clumps and the limbs show through the gaps. Mature proportions: birches ~17 m with the crown in the top 55%, broadleaves ~15 m,
+spruces ~20 m, the pine ~21 m with a bare trunk to 60%.
+Run: blender -b -P tools/build-trees.py [-- --preview art/qa/trees-preview] (needs tools/build-foliage.py's atlas first)
+
+Lighting data baked per vertex, read by src/course.js:
+- normals: every leaf vertex points away from its own clump centre blended with the crown axis (and a little up), so each clump
+  has a lit side and a shaded side and the crown still reads as one volume; wood keeps its radial tube normals.
+- colour: sky visibility from 40 rays per vertex through the tree's own leaves and wood. A ray that hits a card samples the atlas
+  alpha at the hit and passes through transparent texels, so a clump behind a sparse spray is only partly occluded. Interior
+  leaves fall to ~0.2, the sunlit rim stays ~1; clumps carry a slight hue and brightness jitter; birch trunks darken at the base.
+Writes assets/models/deciduous.glb (birch0, birch1, broad0, broad1), pine.glb (spruce0, spruce1, scots0), bush.glb (bush0,
+bush1): one mesh per variant with two materials, 'bark' or 'bark_birch' (tubes, UV u around, v along in bark tiles) and 'leaves'
+(cards mapped to the atlas cells of assets/textures/foliage/leaves.webp).
 """
 from pathlib import Path
 import sys, math, random, json
-import bpy, bmesh
-from mathutils import Vector, Matrix
+import bpy
+import numpy as np
+import OpenImageIO as oiio
+from mathutils import Vector, Quaternion, geometry
+from mathutils.bvhtree import BVHTree
 
-ROOT = Path(__file__).resolve().parents[1]; OUT = ROOT / 'assets/models'
+ROOT = Path(__file__).resolve().parents[1]; OUT = ROOT / 'assets/models'; TEX = ROOT / 'assets/textures/foliage'
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-PREVIEW = '--preview' in argv
-PREVIEW_DIR = Path(argv[argv.index('--preview') + 1]) if PREVIEW else ROOT / 'docs/qa/r7'
-if not PREVIEW_DIR.is_absolute(): PREVIEW_DIR = ROOT / PREVIEW_DIR
+PREVIEW = Path(argv[argv.index('--preview') + 1]) if '--preview' in argv else None
+if PREVIEW and not PREVIEW.is_absolute(): PREVIEW = ROOT / PREVIEW
 REPORT = {}
 def log(*a): print('CHAINS', *a, flush=True)
+Z = Vector((0, 0, 1)); TAU = math.tau
 
-def material(name, color):
-  m = bpy.data.materials.new(name); m.use_nodes = True
-  m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (*color, 1); m.diffuse_color = (*color, 1); return m
+CELL = {'broad': 0, 'dense': 1, 'birch': 2, 'pine': 3}   # atlas cells, Blender UV space (v up): (i % 2, i // 2) halves
+BARK_V = 11.4   # metres per bark-v unit: the runtime shares assets/textures/bark.jpg at repeat 1 x 3, so one tile spans 3.8 m, square texels on a 0.3 m trunk
+def read_rgba(path):
+  cfg = oiio.ImageSpec(); cfg.attribute('oiio:UnassociatedAlpha', 1)
+  img = oiio.ImageInput.open(str(path), cfg); a = img.read_image('float'); img.close(); return a
+ALPHA = read_rgba(TEX / 'leaves.webp')[::-1, :, 3].copy()   # rows flipped so [v, u] follows Blender UVs
+AH, AW = ALPHA.shape
+def alpha_at(u, v): return ALPHA[min(AH - 1, max(0, int(v * AH))), min(AW - 1, max(0, int(u * AW)))]
 
-class Builder:
-  """Accumulates tube and card geometry for one tree into two meshes."""
-  def __init__(self, rng):
-    self.rng = rng; self.wv = []; self.wf = []; self.wuv = []; self.lv = []; self.lf = []; self.luv = []; self.lc = []; self.la = []; self.ao = lambda v, g: (g, g, g)
-    self.nrm = lambda v, anchor: Vector((0, 0, 1))
-  def tube(self, a, b, r1, r2, seg=6):
-    A, B = Vector(a), Vector(b); n = (B - A).normalized()
-    up = Vector((0, 0, 1)) if abs(n.z) < .9 else Vector((1, 0, 0)); u = n.cross(up).normalized(); v = n.cross(u)
-    base = len(self.wv)
-    for j, (c, r) in enumerate(((A, r1), (B, r2))):
-      for i in range(seg):
-        ang = i * math.tau / seg; self.wv.append(c + (u * math.cos(ang) + v * math.sin(ang)) * r)
-    for i in range(seg):
-      p, q = base + i, base + (i + 1) % seg; self.wf.append((p, q, q + seg, p + seg))
-      self.wuv.append([(i / seg, 0), ((i + 1) / seg, 0), ((i + 1) / seg, 1), (i / seg, 1)])
-  def card(self, centre, size, normal, roll, shade=1.0, aspect=1.0, cross=True):
-    """One or two crossed quads facing `normal`, bottom edge at the branch; every vertex takes the crown's baked occlusion."""
-    n = Vector(normal).normalized(); up = Vector((0, 0, 1)) if abs(n.z) < .95 else Vector((0, 1, 0))
-    for k in range(2 if cross else 1):
-      m = Matrix.Rotation(roll + k * math.pi / 2, 4, n)
-      u = (m @ up.cross(n)).normalized() * size * .5 * aspect; w = (m @ up).normalized() * size
-      c = Vector(centre); base = len(self.lv)
-      for v in (c - u, c + u, c + u + w, c - u + w): self.lv.append(v); self.lc.append(self.ao(v, shade)); self.la.append(c + w * .5)   # anchor: the card's centre
-      self.lf.append((base, base + 1, base + 2, base + 3)); self.luv.append([(0, 0), (1, 0), (1, 1), (0, 1)])
-  def crown(self, z0, z1, radius_at, centre):
-    """Hemispherical occlusion baked into leaf vertex colour: lit at the top rim, dark at the crown core and underside.
-    radius_at(up) is the crown's radius at that height fraction, so a cone and a globe both shade against their own outline.
-    Leaf normals point away from centre(v, anchor) instead of across each card (anchor is the card's base point), so the
-    runtime lights the crown as one volume: bright top, dark underside, whichever way the flat cards happen to face."""
-    def ao(v, gain):
-      up = min(1, max(0, (v.z - z0) / (z1 - z0))); r = min(1, math.hypot(v.x, v.y) / radius_at(up))
-      sky = min(1, max(0, .5 * r + .5 * up)) ** 1.4 * gain
-      return (.2 + .7 * sky, .22 + .68 * sky, .22 + .65 * sky)   # the shade leans cool, the light warm
-    self.ao = ao; self.nrm = lambda v, anchor: (v - centre(v, anchor)).normalized()
-  def finish(self, name, mats):
-    objs = []
-    for tag, verts, faces, uvs, cols, mat in (('wood', self.wv, self.wf, self.wuv, None, mats[0]), ('leaves', self.lv, self.lf, self.luv, self.lc, mats[1])):
-      me = bpy.data.meshes.new(f'{name}_{tag}'); me.from_pydata([tuple(v) for v in verts], [], faces); me.update()
-      layer = me.uv_layers.new(name='UVMap')
-      for poly, corners in zip(me.polygons, uvs):
-        for li, uv in zip(poly.loop_indices, corners): layer.data[li].uv = uv
-      if cols:
-        ca = me.color_attributes.new(name='Col', type='FLOAT_COLOR', domain='POINT')
-        for i, c in enumerate(cols): ca.data[i].color = (*c, 1)
-      me.materials.append(mat)
-      for p in me.polygons: p.use_smooth = True
-      o = bpy.data.objects.new(f'{name}_{tag}', me); bpy.context.collection.objects.link(o); objs.append(o)
-    bpy.ops.object.select_all(action='DESELECT')   # earlier trees stay selected otherwise and would be joined in
-    for o in objs: o.select_set(True)
-    bpy.context.view_layer.objects.active = objs[0]; bpy.ops.object.join(); o = objs[0]; o.name = name
-    me = o.data; normals = [v.normal.copy() for v in me.vertices]; nw = len(self.wv)   # wood keeps its smooth tube normals
-    assert len(me.vertices) == nw + len(self.lv) and (me.vertices[nw].co - self.lv[0]).length < 1e-4, 'join appends the leaf vertices after the wood'
-    for p in me.polygons:
-      if p.material_index == 1:
-        for vi in p.vertices: normals[vi] = self.nrm(me.vertices[vi].co, self.la[vi - nw])
-    me.normals_split_custom_set_from_vertices(normals)
-    return o
+def unit(rng):
+  while True:
+    v = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1)))
+    if .05 < v.length <= 1: return v.normalized()
 
-def deciduous(rng, name, mats, height=7.5, spread=1.0, lean=0.0, bare=.5):
-  """Bare trunk for `bare` of the height, a leader through the crown, few limbs each forking once. Leaf cards pack along the
-  outer half of every limb and fill the core around the leader, so the crown reads as one mass with no trunk showing
-  through; a few tips stay bare so the outline breaks and sky shows at the edge."""
-  b = Builder(rng); h = height * rng.uniform(.9, 1.1); R = h * .4 * spread; z0, z1 = h * bare * .8, h * 1.05
-  radius = lambda up: R * (.55 + .45 * math.sin(up * math.pi)); core = Vector((0, 0, z0 + (z1 - z0) * .42))
-  b.crown(z0, z1, radius, lambda v, a: core)   # core is re-centred on the leaf mass once the cards are placed (below)
-  p = Vector((0, 0, 0)); d = Vector((lean * .4, 0, 1)).normalized(); r = .2 * h / 7.5; tips = []
-  segs = 5
+def grow(rng, start, d, length, segs, rise=0., droop=0., jitter=.08, flatten=0.):
+  """Polyline from start: each step bends up by `rise` early and down by `droop` late (gravitropism, weeping tips),
+  `flatten` pulls it toward horizontal (a spreading limb), plus a little random wander."""
+  pts = [Vector(start)]; d = Vector(d).normalized()
   for i in range(segs):
-    d = (d + Vector((rng.uniform(-.1, .1) + lean * .05, rng.uniform(-.1, .1), 0))).normalized()
-    q = p + d * (h * bare / segs); b.tube(p, q, r, r * .84); p, r = q, r * .84
-  top = p
-  lead = top + Vector((rng.uniform(-.08, .08) * h, rng.uniform(-.08, .08) * h, h * (1 - bare) * .75))
-  b.tube(top, lead, r, r * .2); tips.append((lead, Vector((0, 0, 1)), h * .2))
-  count = rng.randint(4, 6)
-  for i in range(count):
-    ang = i * math.tau / count + rng.uniform(-.35, .35); tilt = rng.uniform(.3, .8)
-    start = top - Vector((0, 0, rng.uniform(0, h * .12)))
-    dirn = Vector((math.cos(ang) * math.cos(tilt), math.sin(ang) * math.cos(tilt), math.sin(tilt))).normalized()
-    L = h * rng.uniform(.3, .45) * spread; end = start + dirn * L; b.tube(start, end, r * .8, r * .3)
-    tips.append((end, dirn, L))
-    side = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(.4, 1))).normalized()
-    f = (dirn * .5 + side * .6).normalized(); mid = start + dirn * L * rng.uniform(.4, .65); fe = mid + f * L * rng.uniform(.5, .75)
-    b.tube(mid, fe, r * .3, r * .1); tips.append((fe, f, L * .6))
-  def leaf(c, size):
-    out = Vector((c.x, c.y, 0)).normalized() if c.xy.length > .5 else Vector((1, 0, 0))
-    b.card(c - Vector((0, 0, size * .4)), size, out + Vector((rng.uniform(-.6, .6), rng.uniform(-.6, .6), rng.uniform(-.3, .3))), rng.uniform(0, math.pi))
-  for end, dirn, L in tips:
-    if rng.random() < .15: continue   # bare tip: a gap in the crown
-    for j in range(rng.randint(7, 10)):
-      c = end - dirn * L * rng.uniform(0, .55) + Vector((rng.uniform(-.55, .55), rng.uniform(-.55, .55), rng.uniform(-.35, .35)))
-      leaf(c, h * rng.uniform(.15, .24) * spread)   # cards stay under ~2 m so the photo leaves keep a believable scale
-  for j in range(rng.randint(10, 14)):   # core fill: the leader and limb bases never show through
-    up = rng.uniform(.15, .8); ang = rng.uniform(0, math.tau); rad = radius(up) * rng.uniform(.1, .6)
-    leaf(Vector((math.cos(ang) * rad, math.sin(ang) * rad, z0 + up * (z1 - z0))), h * rng.uniform(.15, .22) * spread)
-  core.xy = (0, 0); core.z = sum(v.z for v in b.lv) / len(b.lv) - h * .1   # a little under the leaf centroid: two thirds of the cards face up
-  return b.finish(name, mats)
+    f = i / max(1, segs - 1)
+    d = d + Z * (rise * (1 - f) - droop * f) + unit(rng) * jitter
+    if flatten: d.z *= 1 - flatten * f
+    d.normalize(); pts.append(pts[-1] + d * length / segs)
+  return pts
 
-def pine(rng, name, mats, height=11, bare=.35, density=.85):
-  """Bare trunk to `bare` of the height, then loose tiers of unequal branches with a sprig standing at each tip and one mid-branch;
-  missing branches (1 - density) and the tier spacing leave sky gaps between the dark masses, as in the reference pines."""
-  b = Builder(rng); h = height * rng.uniform(.9, 1.1); r = .24 * h / 11; R = h * .3
-  # each sprig shades against its own tier: the card's top edge faces up and out, its hanging bottom edge faces down, so the
-  # tiers stack as lit shelves over dark undersides instead of one smooth cone
-  b.crown(h * bare, h, lambda up: R * (1 - .75 * up) + .3, lambda v, a: Vector((0, 0, a.z - R * .15)))
-  p = Vector((0, 0, 0)); segs = 6
-  for i in range(segs):
-    q = p + Vector((rng.uniform(-.05, .05), rng.uniform(-.05, .05), h / segs)); b.tube(p, q, r, r * .78); p, r = q, r * .78
-  z = h * bare
-  while z < h * .92:
-    t = (z - h * bare) / (h * (.92 - bare)); L = h * .27 * (1 - t) ** .7 + .6; n = rng.randint(3, 5)
+def along(pts, s):
+  L = [(pts[i + 1] - pts[i]).length for i in range(len(pts) - 1)]; x = s * sum(L)
+  for i, l in enumerate(L):
+    if x <= l or i == len(L) - 1:
+      f = min(1, x / (l + 1e-9)); return pts[i].lerp(pts[i + 1], f), (pts[i + 1] - pts[i]).normalized()
+    x -= l
+
+class Tree:
+  def __init__(self, rng, name, bark='bark', vscale=2.5):
+    self.rng, self.name, self.bark, self.vscale = rng, name, bark, vscale
+    self.v, self.n, self.tint, self.clump, self.kind = [], [], [], [], []   # per vertex: position, normal, tint, clump centre, 0 wood / 1 leaf
+    self.faces, self.fuv, self.fmat = [], [], []
+    self.axis = lambda z: Vector((0, 0, z))   # crown axis for leaf normals
+    self.base_dark = None                      # z -> darkening of the wood (birch base)
+  def tube(self, pts, r0, r1, sides, taper=1.):
+    """Tapered tube along pts with parallel-transported rings (no twist); radius r0 -> r1 with `taper` exponent."""
+    pts = [Vector(p) for p in pts]; n = len(pts)
+    tan = [(pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)]).normalized() for i in range(n)]
+    ref = tan[0].cross(Z if abs(tan[0].z) < .95 else Vector((1, 0, 0))).normalized(); rings = []; acc = 0.
     for i in range(n):
-      if rng.random() > density + t * (1 - density): continue   # gaps low in the crown; the top stays full so trunks do not read as poles
-      ang = i * math.tau / n + rng.uniform(-.5, .5); droop = -.08 - .12 * (1 - t) + rng.uniform(-.08, .08)
-      Li = L * rng.uniform(.6, 1.15); dirn = Vector((math.cos(ang), math.sin(ang), droop)).normalized(); start = Vector((0, 0, z)); end = start + dirn * Li
-      b.tube(start, end, .045 * Li + .02, .012)
-      for frac, k in ((1.0, 1.0), (.75, .85), (.5, .75), (.25, .65)):   # sprigs all along the branch, not one at the tip
-        if frac < 1 and Li * frac < .9: continue
-        c = start + dirn * Li * frac + Vector((rng.uniform(-.25, .25), rng.uniform(-.25, .25), rng.uniform(-.15, .15))); size = min(2.2, Li * .55 + .5) * k
-        b.card(c - Vector((0, 0, size * .5)), size, (dirn.x + rng.uniform(-.3, .3), dirn.y + rng.uniform(-.3, .3), .25), rng.uniform(-.35, .35), aspect=.7)
-    for i in range(2):   # sprigs hugging the trunk between tiers, so it never reads as a bare pole through the crown
-      ang = rng.uniform(0, math.tau); c = Vector((math.cos(ang) * .45, math.sin(ang) * .45, z + h * rng.uniform(.02, .08)))
-      b.card(c - Vector((0, 0, .6)), 1.2 + .6 * (1 - t), (math.cos(ang), math.sin(ang), .25), rng.uniform(-.35, .35), aspect=.7)
-    z += h * rng.uniform(.09, .13)
-  b.card(Vector((0, 0, h - .7)), 1.6, (1, 0, 0), rng.uniform(0, 1), aspect=.7)   # crown spike, standing
-  return b.finish(name, mats)
+      if i: ref = (tan[i - 1].rotation_difference(tan[i]) @ ref).normalized(); acc += (pts[i] - pts[i - 1]).length
+      b = tan[i].cross(ref); r = r0 + (r1 - r0) * (i / (n - 1)) ** taper; ring = []
+      for k in range(sides + 1):
+        a = k / sides * TAU; radial = ref * math.cos(a) + b * math.sin(a)
+        ring.append(len(self.v)); self.v.append(pts[i] + radial * r); self.n.append(radial); self.tint.append((1, 1, 1)); self.clump.append(None); self.kind.append(0)
+      rings.append((ring, acc / self.vscale))
+    for i in range(n - 1):
+      (ra, va), (rb, vb) = rings[i], rings[i + 1]
+      for k in range(sides):
+        self.faces.append((ra[k], ra[k + 1], rb[k + 1], rb[k])); self.fmat.append(0)
+        self.fuv.append([(k / sides, va), ((k + 1) / sides, va), ((k + 1) / sides, vb), (k / sides, vb)])
+  def card(self, base, up, facing, size, cell, centre, tint=(1, 1, 1)):
+    """One spray card: bottom edge centred on the twig point `base`, growing along `up`, facing `facing`."""
+    up = up.normalized(); f = facing - up * facing.dot(up)
+    if f.length < 1e-4: f = unit(self.rng).cross(up)
+    f.normalize(); side = up.cross(f) * size * .5; top = up * size
+    u0, v0 = (cell % 2) * .5, (cell // 2) * .5; e = .002
+    i0 = len(self.v)
+    for p in (base - side, base + side, base + side + top, base - side + top):
+      self.v.append(p); self.n.append(f); self.tint.append(tint); self.clump.append(centre); self.kind.append(1)
+    self.faces.append((i0, i0 + 1, i0 + 2, i0 + 3)); self.fmat.append(1)
+    self.fuv.append([(u0 + e, v0 + e), (u0 + .5 - e, v0 + e), (u0 + .5 - e, v0 + .5 - e), (u0 + e, v0 + .5 - e)])
+  def clump_at(self, tip, d, count, size, cell, hang=0., spread=.55, out_bias=.6):
+    """A clump: `count` cards fanning from the twig tip along its direction (or hanging), each turned to face out of the crown."""
+    rng = self.rng; axis = self.axis(tip.z); out = tip - axis; out.z = 0
+    out = out.normalized() if out.length > 1e-3 else unit(rng)
+    centre = tip + (d.normalized() * (1 - hang) - Z * hang).normalized() * size * .45
+    hue = rng.uniform(-1, 1); lit = rng.uniform(.86, 1.12)
+    tint = (lit * (1 + .05 * hue), lit, lit * (1 - .07 * hue))   # a clump leans a little yellow or blue-green
+    for k in range(count):
+      up = (d.normalized() * (1 - hang) - Z * hang + unit(rng) * spread).normalized()
+      facing = (out * out_bias + unit(rng) * (1 - out_bias) + Z * .25)
+      self.card(tip + unit(rng) * size * .08, up, facing, size * rng.uniform(.85, 1.12), cell, centre, tint)
+    return centre
 
-def bush(rng, name, mats):
-  b = Builder(rng); b.crown(0, 1.3, lambda up: 1.1, lambda v, a: Vector((0, 0, -.3)))
-  for i in range(rng.randint(8, 11)):
-    ang = rng.uniform(0, math.tau); rad = rng.uniform(0, .6); c = Vector((math.cos(ang) * rad, math.sin(ang) * rad, rng.uniform(.15, .8)))
-    b.tube(Vector((0, 0, 0)), c, .03, .01, 5)
-    for k in range(3):   # three cards per stem, spread around it
-      d = c + Vector((rng.uniform(-.35, .35), rng.uniform(-.35, .35), rng.uniform(-.2, .2)))
-      b.card(d - Vector((0, 0, .45)), rng.uniform(.9, 1.3), (d.x + rng.uniform(-.5, .5), d.y + rng.uniform(-.5, .5), rng.uniform(-.2, .5)), rng.uniform(0, math.pi))
-  return b.finish(name, mats)
+def finish(t, mats):
+  """Crown normals, sky-visibility bake, mesh + custom normals + colour + UVs."""
+  rng = t.rng; verts = t.v
+  for i in range(len(verts)):   # leaf normals: away from the clump centre, blended with away from the crown axis, a little up
+    if t.kind[i] != 1: continue
+    p = verts[i]; c = t.clump[i]; a = p - t.axis(p.z); a.z *= .5
+    own = (p - c).normalized() if (p - c).length > 1e-4 else Z
+    t.n[i] = (own * .55 + (a.normalized() if a.length > 1e-4 else Z) * .5 + Z * .3).normalized()
+  # BVH over triangles; each triangle remembers its quad's uv and whether it is a card
+  tris, tri_uv, tri_card = [], [], []
+  for f, uv, m in zip(t.faces, t.fuv, t.fmat):
+    for a, b, c in ((0, 1, 2), (0, 2, 3)):
+      tris.append((f[a], f[b], f[c])); tri_uv.append((uv[a], uv[b], uv[c])); tri_card.append(m == 1)
+  bvh = BVHTree.FromPolygons(verts, tris, all_triangles=True)
+  dirs = []
+  g = math.pi * (3 - math.sqrt(5))
+  for k in range(40):   # cosine-weighted Fibonacci hemisphere around +Z
+    zc = math.sqrt(1 - (k + .5) / 40); r = math.sqrt(1 - zc * zc); dirs.append(Vector((math.cos(k * g) * r, math.sin(k * g) * r, zc)))
+  def visible(p, d):
+    o = p + d * .02
+    for hop in range(5):
+      loc, nrm, idx, dist = bvh.ray_cast(o, d, 12.)
+      if loc is None: return 1.
+      if not tri_card[idx]: return 0.
+      A, B, C = (verts[j] for j in tris[idx]); ua, ub, uc = (Vector((*x, 0)) for x in tri_uv[idx])
+      uv = geometry.barycentric_transform(loc, A, B, C, ua, ub, uc)
+      if alpha_at(uv.x, uv.y) > .45: return 0.
+      o = loc + d * .01
+    return 1.
+  col = []
+  for i, p in enumerate(verts):
+    n = t.n[i]; q = Z.rotation_difference(n)
+    vis = sum(visible(p, q @ d) for d in dirs) / len(dirs)
+    if t.kind[i] == 1: c = .2 + .8 * vis ** 1.25
+    else: c = .3 + .7 * vis
+    tr, tg, tb = t.tint[i]; k = t.base_dark(p.z) if (t.kind[i] == 0 and t.base_dark) else 1.
+    col.append((tr * k, tg * k, tb * k, c))   # rgb tints the albedo; alpha is the sky visibility, which the runtime puts on ambient light only
+  me = bpy.data.meshes.new(t.name); me.from_pydata([tuple(v) for v in verts], [], t.faces); me.update()
+  for mat in mats: me.materials.append(mat)
+  for p, m in zip(me.polygons, t.fmat): p.material_index = m; p.use_smooth = True
+  uvl = me.uv_layers.new(name='UVMap')
+  for p, uv in zip(me.polygons, t.fuv):
+    for li, x in zip(p.loop_indices, uv): uvl.data[li].uv = x
+  ca = me.color_attributes.new(name='Col', type='FLOAT_COLOR', domain='POINT')
+  for i, c in enumerate(col): ca.data[i].color = c
+  me.color_attributes.active_color = ca; me.color_attributes.render_color_index = 0
+  me.normals_split_custom_set_from_vertices([tuple(n) for n in t.n])
+  o = bpy.data.objects.new(t.name, me); bpy.context.collection.objects.link(o)
+  leaves = sum(1 for m in t.fmat if m == 1); log('TREE', t.name, 'wood tris', 2 * (len(t.fmat) - leaves), 'cards', leaves, 'aoMin %.2f' % min(c[3] for c in col))
+  return o
+
+def trunk_pts(rng, H, top, lean=0., wave=.035, segs=12, base=-.3):
+  pts, d, p = [], Vector((lean, 0, 1)).normalized(), Vector((0, 0, base))
+  for i in range(segs + 1):
+    pts.append(p.copy()); d = (d + Vector((rng.uniform(-wave, wave), rng.uniform(-wave, wave), 0))).normalized(); p = p + d * (H * top - base) / segs
+  return pts
+
+def radius_along(pts, r0, r1, flare=.35, flare_h=1.2):
+  L = [0.]
+  for i in range(1, len(pts)): L.append(L[-1] + (pts[i] - pts[i - 1]).length)
+  return [(r0 + (r1 - r0) * (l / L[-1]) ** .85) * (1 + flare * max(0, 1 - l / flare_h) ** 2) for l in L]
+
+def ring_tube(t, pts, radii, sides):   # tube with an explicit radius per point (trunks with a root flare)
+  n0 = len(t.faces); t.tube(pts, 1, 1, sides)
+  per = sides + 1; start = len(t.v) - per * len(pts)
+  for i, r in enumerate(radii):
+    for k in range(per):
+      j = start + i * per + k; t.v[j] = pts[i] + t.n[j] * r
+
+def shell_points(rng, n, sample, min_d):
+  """Dart throwing: up to n points from sample() at least min_d apart."""
+  pts = []
+  for _ in range(n * 60):
+    p = sample()
+    if p is not None and all((p - q).length >= min_d for q in pts): pts.append(p)
+    if len(pts) >= n: break
+  return pts
+
+def bezier(a, b, c, n):
+  return [a * (1 - s) ** 2 + b * 2 * s * (1 - s) + c * s * s for s in (i / n for i in range(n + 1))]
+
+def crown(t, rng, tp, rads, H, lo, hi, W, n_limbs, n_clumps, min_d, cells, card, hang=0., limb_elev=(.35, .95), limb_r=.6, sides=6, count=(3, 4)):
+  """Envelope-guided crown: limbs leave the leader between lo*H and hi*H and arc up and out toward the envelope (an ellipsoid
+  W wide from lo*H to H); clump points are dart-thrown into its outer shell; each clump hangs on a twig from the nearest limb
+  point below it, so the skeleton shows between clumps and the outline breaks into separate masses."""
+  zc, rz = (lo + 1) * H / 2, (1 - lo) * H / 2
+  def trunk_at(z):
+    s = min(1, max(0, (z + .3) / (tp[-1].z + .3))); i = min(len(rads) - 1, int(s * (len(rads) - 1))); return along(tp, s)[0], rads[i]
+  limbs = [tp[i:] for i in range(len(tp)) if tp[i].z > lo * H][:1]   # the leader through the crown is a limb too
+  az = rng.uniform(0, TAU)
+  for i in range(n_limbs):
+    az += TAU * .382 + rng.uniform(-.4, .4); z = H * (lo + (hi - lo) * (i + rng.uniform(0, 1)) / n_limbs); base, r = trunk_at(z)
+    elev = rng.uniform(*limb_elev); reach = W * rng.uniform(.7, .92) * math.sqrt(max(.15, 1 - ((z - zc) / rz) ** 2))
+    end = base + Vector((math.cos(az) * reach, math.sin(az) * reach, reach * math.tan(elev) * .6 + 1.))
+    if hang: end.z -= reach * hang * .6   # birch limbs arch over and their tips weep
+    side = Vector((-math.sin(az), math.cos(az), 0)) * reach * rng.uniform(-.2, .2)
+    limb = bezier(base, base + Vector((math.cos(az) * reach * .25, math.sin(az) * reach * .25, reach * .55)) + side, end, 5)
+    for k in range(1, len(limb) - 1): limb[k] = limb[k] + unit(rng) * reach * .05   # sinuous, not a spoke
+    t.tube(limb, r * limb_r, .03, sides, .85); limbs.append(limb)
+    if reach > 2.2:   # the limb forks once toward a neighbouring part of the envelope
+      p, d = along(limb, rng.uniform(.4, .6)); a2 = az + rng.choice((-1, 1)) * rng.uniform(.45, .85); rr = reach * rng.uniform(.75, .95)
+      end2 = Vector((math.cos(a2) * rr, math.sin(a2) * rr, 0)) + Vector((0, 0, p.z + rng.uniform(.4, 1.6) - hang * rr * .4))
+      sub = bezier(p, p.lerp(end2, .4) + Z * rr * .2, end2, 3)
+      for k in range(1, len(sub) - 1): sub[k] = sub[k] + unit(rng) * rr * .05
+      t.tube(sub, r * limb_r * .5, .02, max(3, sides - 1), .85); limbs.append(sub)
+  def sample():
+    u = unit(rng); s = rng.uniform(.62, 1.) ** .5
+    p = Vector((u.x * W * s, u.y * W * s, zc + u.z * rz * s))
+    return p if p.z > lo * H + .6 else None
+  pts = []   # attachment points every ~0.4 m along every limb, so twigs leave all along it instead of in stars from its joints
+  for l in limbs:
+    n = max(2, int(sum((q - p).length for p, q in zip(l, l[1:])) / .4)); pts += [along(l, i / n)[0] for i in range(n + 1)]
+  for c in shell_points(rng, n_clumps, sample, min_d):
+    a = min(pts, key=lambda p: (p - c).length + max(0, p.z - c.z + .5) * 2)   # attach below or level, not from above
+    d = c - a
+    if d.length > 1.6: t.tube([a, a.lerp(c, .5) + Z * d.length * (.12 - hang * .3) + unit(rng) * .2, c], .025, .008, 3)   # long twigs bow, short ones run straight
+    elif d.length > .6: t.tube([a, c], .02, .008, 3)
+    t.clump_at(c, d if d.length > .1 else c - Vector((0, 0, c.z - 1)), rng.randint(*count), card * rng.uniform(.88, 1.1), rng.choice(cells), hang=hang)
+  return limbs
+
+def birch(rng, name, H=17., lean=0.):
+  t = Tree(rng, name, 'bark_birch', vscale=2.5)
+  tp = trunk_pts(rng, H, .95, lean, .03, 10); rads = radius_along(tp, .2, .03, .4, 1.4)
+  ring_tube(t, tp, rads, 8)
+  t.axis = lambda z: along(tp, min(1, max(0, (z + .3) / (H * .95 + .3))))[0]
+  t.base_dark = lambda z: .36 + .64 * min(1, max(0, (z - .3) / 2.2)) ** .7   # the black fissured foot of a birch
+  crown(t, rng, tp, rads, H, .4, .88, 2.9, rng.randint(11, 14), 66, 1.0, [CELL['birch']], 1.55, hang=.45, limb_elev=(.7, 1.1), limb_r=.42, sides=4, count=(2, 3))
+  return t
+
+def broadleaf(rng, name, H=15., W=5., lo=.38):
+  t = Tree(rng, name, 'bark', vscale=BARK_V)
+  tp = trunk_pts(rng, H, .84, rng.uniform(-.04, .04), .04, 9); rads = radius_along(tp, .32, .05, .45, 1.2)
+  ring_tube(t, tp, rads, 8); t.axis = lambda z: Vector((0, 0, z))
+  crown(t, rng, tp, rads, H, lo, .7, W, rng.randint(5, 7), 88, 1.2, [CELL['broad'], CELL['broad'], CELL['dense']], 1.75, limb_elev=(.3, .85), limb_r=.62, sides=5)
+  return t
+
+def spruce(rng, name, H=20., R0=3.4, zb=.1):
+  """Whorls of 4-5 branches that dip and turn up at the tip; each branch is a frond card laid along it (plus a hanging curtain on
+  the long ones), sized to the branch, so the cone is dense but layered, with sky between the tiers low down."""
+  t = Tree(rng, name, 'bark', vscale=BARK_V)
+  tp = trunk_pts(rng, H, .98, 0, .015, 10); rads = radius_along(tp, .32, .02, .3, 1.)
+  ring_tube(t, tp, rads, 7); t.axis = lambda z: Vector((0, 0, z - 1.))
+  z = H * zb
+  while z < H * .95:
+    f = (z - H * zb) / (H * (.95 - zb)); R = R0 * (1 - f) ** .9 + .45; n = rng.randint(4, 5); az = rng.uniform(0, TAU)
+    for i in range(n):
+      if rng.random() < .1 + .25 * (1 - f) ** 3: continue   # missing branches low down: sky through the skirt
+      a = az + i * TAU / n + rng.uniform(-.4, .4); L = R * rng.uniform(.8, 1.12); out = Vector((math.cos(a), math.sin(a), 0))
+      d = out + Z * (-.28 + .18 * f)
+      br = grow(rng, Vector((0, 0, z)), d, L, 2, rise=.2, jitter=.04)
+      t.tube([br[0], along(br, .6)[0]], .015 + .035 * L / R0, .006, 3)   # the wood stops inside the frond: from outside a spruce shows needles, not sticks
+      size = min(2.6, max(1.1, L * 1.05)); ctr = Vector((0, 0, z - .8)); g = (rng.uniform(.88, 1.05),) * 3
+      # a drooping, rolled frond along the branch (seen from above), a second crossing it at an irregular tilt (seen from the
+      # side) and a hanging curtain of branchlets under the longer ones (the cone's face as seen from the ground)
+      t.card(br[0] + out * .15, br[-1] - br[0] - Z * rng.uniform(.05, .3), Z * .75 + out * .55 + unit(rng) * .35, size, CELL['pine'], ctr, g)
+      t.card(br[0] + out * .25, br[-1] - br[0] + Z * rng.uniform(-.25, .15), out.cross(Z) + Z * rng.uniform(-.2, .5) + unit(rng) * .35, size * .9, CELL['pine'], ctr, g)
+      if L > .8:
+        p, dd = along(br, rng.uniform(.4, .7)); t.card(p, -Z + dd * .6 + unit(rng) * .2, out + unit(rng) * .35, min(1.9, L * .7), CELL['pine'], Vector((0, 0, p.z - .6)), g)
+    if f < .8:   # a short shoot between whorls, so the layers do not stack as shelves
+      a = rng.uniform(0, TAU); out = Vector((math.cos(a), math.sin(a), 0)); zz = z + rng.uniform(.25, .45)
+      t.card(Vector((0, 0, zz)) + out * .1, out - Z * .15, Z + unit(rng) * .5, min(2., R * .8 + .5), CELL['pine'], Vector((0, 0, zz - .8)))
+    z += rng.uniform(.6, .85)
+  for k in range(3): t.card(Vector((0, 0, H * .9)), Z + unit(rng) * .15, unit(rng), 1.6, CELL['pine'], Vector((0, 0, H * .85)))
+  return t
+
+def scots(rng, name, H=21.):
+  t = Tree(rng, name, 'bark', vscale=BARK_V)
+  tp = trunk_pts(rng, H, .9, .06, .045, 9); rads = radius_along(tp, .3, .05, .35, 1.)
+  ring_tube(t, tp, rads, 7); t.axis = lambda z: along(tp, min(1, max(0, (z + .3) / (H * .9 + .3))))[0] - Z * 1.5
+  t.base_dark = lambda z: .8 + .35 * min(1, max(0, (z - H * .5) / (H * .3)))   # the upper trunk reads warmer and lighter
+  for i in range(rng.randint(11, 13)):
+    z = rng.uniform(.55, .9); base, _ = along(tp, z / .9); a = rng.uniform(0, TAU); elev = rng.uniform(.25, .7)
+    L = H * rng.uniform(.13, .22); d = Vector((math.cos(a) * math.cos(elev), math.sin(a) * math.cos(elev), math.sin(elev)))
+    br = grow(rng, base, d, L, 4, rise=.12, flatten=.4, jitter=.1); t.tube(br, .08, .015, 4)
+    for k in range(rng.randint(3, 4)):
+      p, dd = along(br, rng.uniform(.4, 1.)); d2 = (dd + unit(rng) * .9 + Z * .3).normalized(); tw = grow(rng, p, d2, L * rng.uniform(.25, .4), 2)
+      t.tube(tw, .025, .008, 3); c = tw[-1]; ctr = c - Z * .6
+      for j in range(rng.randint(6, 8)):   # a rounded, flat-topped cloud of needled fronds turned every way
+        up = dd * .5 + unit(rng) * .8 + Z * .35; face = Z + unit(rng) * .5 if j % 2 else up.cross(Z) + unit(rng) * .5
+        t.card(c - up.normalized() * .5 + unit(rng) * .3, up, face, rng.uniform(1.1, 1.45), CELL['pine'], ctr)
+  p, dd = along(tp, 1.)
+  for j in range(4): t.card(p + unit(rng) * .2, Z + unit(rng) * .6, Z + unit(rng) * .5, 1.6, CELL['pine'], p - Z * .6)
+  return t
+
+def bush(rng, name, R=1.3, Hb=1.5):
+  """A dome of clumps: dart-thrown points over a squashed hemisphere, each on a straight stem from the root, so the bush is a
+  rounded mass with gaps instead of a fan of sprays."""
+  t = Tree(rng, name, 'bark', vscale=1.); t.axis = lambda z: Vector((0, 0, -.2))
+  def sample():
+    u = unit(rng); u.z = abs(u.z) * .9 + .1; s = rng.uniform(.55, 1.) ** .5; return Vector((u.x * R * s, u.y * R * s, u.z * Hb * s))
+  for c in shell_points(rng, 16, sample, .55):
+    root = Vector((rng.uniform(-.12, .12), rng.uniform(-.12, .12), -.1)); t.tube([root, c], .018, .006, 3)
+    low = c.z < Hb * .45   # low clumps spill outward and down to the ground, so the stems never show as a fan under the bush
+    t.clump_at(c, c - root + Z * (.1 if low else .4), rng.randint(2, 3), rng.uniform(1.05, 1.3), CELL['dense'], hang=.45 if low else 0., out_bias=.75)
+  return t
 
 def export(species, objs):
   bpy.ops.object.select_all(action='DESELECT')
@@ -166,32 +314,175 @@ def export(species, objs):
   for o in objs: o.data.calc_loop_triangles(); total += len(o.data.loop_triangles)
   path = OUT / f'{species}.glb'
   bpy.ops.export_scene.gltf(filepath=str(path), export_format='GLB', export_yup=True, use_selection=True, export_animations=False, export_image_format='NONE', export_extras=True,
-    export_texcoords=True, export_vertex_color='ACTIVE', export_apply=True,
-    export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6, export_draco_position_quantization=12, export_draco_normal_quantization=8, export_draco_texcoord_quantization=10)
+    export_texcoords=True, export_normals=True, export_vertex_color='ACTIVE', export_apply=False,
+    export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6, export_draco_position_quantization=13, export_draco_normal_quantization=10,
+    export_draco_texcoord_quantization=14, export_draco_color_quantization=10)
   REPORT[species] = {'variants': [o.name for o in objs], 'triangles': total, 'bytes': path.stat().st_size}
   log('EXPORT', species, json.dumps(REPORT[species]))
 
-def preview(objs, tag):
-  PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
-  scene = bpy.context.scene; scene.render.engine = 'BLENDER_WORKBENCH'; scene.render.resolution_x = 900; scene.render.resolution_y = 600
-  scene.display.shading.light = 'STUDIO'; scene.display.shading.color_type = 'MATERIAL'; scene.display.shading.show_shadows = True
-  for o in bpy.context.scene.objects:
-    if o.type == 'MESH': o.hide_render = o not in objs
-  for i, o in enumerate(objs): o.location = (i * 9 - 9 * (len(objs) - 1) / 2, 0, 0)
-  cam_data = bpy.data.cameras.new('cam'); cam = bpy.data.objects.new('cam', cam_data); bpy.context.collection.objects.link(cam); scene.camera = cam
-  cam_data.lens = 40; cam.location = (0, -34, 9); cam.rotation_mode = 'QUATERNION'; cam.rotation_quaternion = (Vector((0, 0, 5)) - Vector(cam.location)).to_track_quat('-Z', 'Y')
-  scene.render.filepath = str(PREVIEW_DIR / f'trees-{tag}.png'); bpy.ops.render.render(write_still=True)
-  bpy.data.objects.remove(cam); bpy.data.cameras.remove(cam_data)
+def impostors(objs):
+  """Far LOD and Lite trees: every variant rendered side-on (camera on -Y looking +Y, orthographic) into a 256 x 512 cell of
+  impostors.webp (albedo with the baked sky visibility, alpha) and impostors_n.webp (the crown normals in the view frame:
+  x right, y up, z toward the camera), so a billboard lights like the 3D tree: dark into the sun, rims lit, translucency.
+  Each cell frames the tree's own extent at 1:2 with the trunk at the centre; the extents land in the build report."""
+  sc = bpy.context.scene; sc.render.engine = 'CYCLES'
+  prefs = bpy.context.preferences.addons['cycles'].preferences
+  try:
+    prefs.compute_device_type = 'OPTIX'; prefs.get_devices()
+    for d in prefs.devices: d.use = d.type == 'OPTIX'
+    sc.cycles.device = 'GPU'
+  except Exception: pass
+  sc.cycles.samples = 32; sc.cycles.use_denoising = False; sc.cycles.max_bounces = 0; sc.cycles.transparent_max_bounces = 128
+  sc.render.film_transparent = True; sc.render.resolution_x, sc.render.resolution_y = 512, 1024; sc.render.filter_size = 1.
+  sc.render.image_settings.file_format = 'PNG'; sc.render.image_settings.color_mode = 'RGBA'; sc.render.image_settings.color_depth = '16'
+  sc.world = None
+  def emit(name, mode, image=None, alpha=False, vscale=1.):
+    m = bpy.data.materials.new(name); nt = node_tree(m); nt.nodes.clear(); out = nt.nodes.new('ShaderNodeOutputMaterial'); em = nt.nodes.new('ShaderNodeEmission')
+    tx = nt.nodes.new('ShaderNodeTexImage'); tx.image = image
+    if vscale != 1.:
+      uv = nt.nodes.new('ShaderNodeUVMap'); mp = nt.nodes.new('ShaderNodeVectorMath'); mp.operation = 'MULTIPLY'; mp.inputs[1].default_value = (1, vscale, 1)
+      nt.links.new(uv.outputs['UV'], mp.inputs[0]); nt.links.new(mp.outputs['Vector'], tx.inputs['Vector'])
+    if mode == 'albedo':
+      vc = nt.nodes.new('ShaderNodeVertexColor'); vc.layer_name = 'Col'; mul = nt.nodes.new('ShaderNodeVectorMath'); mul.operation = 'MULTIPLY'
+      nt.links.new(tx.outputs['Color'], mul.inputs[0]); nt.links.new(vc.outputs['Color'], mul.inputs[1]); nt.links.new(mul.outputs['Vector'], em.inputs['Color'])
+    elif mode == 'mask':   # leaves 1, wood .2 (not 0: WebP rewrites the colour under zero alpha)
+      em.inputs['Color'].default_value = (1, 1, 1, 1) if alpha else (.2, .2, .2, 1)
+    elif mode == 'ao':     # the baked sky visibility (vertex colour alpha)
+      vc = nt.nodes.new('ShaderNodeVertexColor'); vc.layer_name = 'Col'; nt.links.new(vc.outputs['Alpha'], em.inputs['Color'])
+    else:   # the true (unflipped) normal in the camera frame: (x, z, -y), 0.5-biased
+      g = nt.nodes.new('ShaderNodeNewGeometry'); flip = nt.nodes.new('ShaderNodeMath'); flip.operation = 'MULTIPLY_ADD'; flip.inputs[1].default_value = -2; flip.inputs[2].default_value = 1
+      nt.links.new(g.outputs['Backfacing'], flip.inputs[0]); sc_ = nt.nodes.new('ShaderNodeVectorMath'); sc_.operation = 'SCALE'
+      nt.links.new(g.outputs['Normal'], sc_.inputs[0]); nt.links.new(flip.outputs['Value'], sc_.inputs['Scale'])
+      sep = nt.nodes.new('ShaderNodeSeparateXYZ'); comb = nt.nodes.new('ShaderNodeCombineXYZ'); neg = nt.nodes.new('ShaderNodeMath'); neg.operation = 'MULTIPLY'; neg.inputs[1].default_value = -1
+      nt.links.new(sc_.outputs['Vector'], sep.inputs[0]); nt.links.new(sep.outputs['X'], comb.inputs['X']); nt.links.new(sep.outputs['Z'], comb.inputs['Y'])
+      nt.links.new(sep.outputs['Y'], neg.inputs[0]); nt.links.new(neg.outputs['Value'], comb.inputs['Z'])
+      bias = nt.nodes.new('ShaderNodeVectorMath'); bias.operation = 'MULTIPLY_ADD'; bias.inputs[1].default_value = (.5, .5, .5); bias.inputs[2].default_value = (.5, .5, .5)
+      nt.links.new(comb.outputs['Vector'], bias.inputs[0]); nt.links.new(bias.outputs['Vector'], em.inputs['Color'])
+    if alpha:
+      tr = nt.nodes.new('ShaderNodeBsdfTransparent'); mx = nt.nodes.new('ShaderNodeMixShader'); lt = nt.nodes.new('ShaderNodeMath'); lt.operation = 'GREATER_THAN'; lt.inputs[1].default_value = .5
+      nt.links.new(tx.outputs['Alpha'], lt.inputs[0]); nt.links.new(lt.outputs['Value'], mx.inputs['Fac'])   # the runtime alpha-tests at .5
+      nt.links.new(tr.outputs['BSDF'], mx.inputs[1]); nt.links.new(em.outputs['Emission'], mx.inputs[2]); nt.links.new(mx.outputs['Shader'], out.inputs['Surface'])
+    else: nt.links.new(em.outputs['Emission'], out.inputs['Surface'])
+    return m
+  imgs = {n: bpy.data.images.load(str(TEX / f if (TEX / f).exists() else ROOT / 'assets/textures' / f)) for n, f in (('bark', 'bark.jpg'), ('bark_birch', 'bark_birch.webp'), ('leaves', 'leaves.webp'))}
+  mats = {(mode, n): emit(f'imp_{mode}_{n}', mode, imgs[n], n == 'leaves', 3. if n == 'bark' else 1.) for mode in ('albedo', 'normal', 'mask', 'ao') for n in imgs}
+  cd = bpy.data.cameras.new('impcam'); cd.type = 'ORTHO'; cam = bpy.data.objects.new('impcam', cd); bpy.context.collection.objects.link(cam); sc.camera = cam
+  cam.rotation_euler = (math.pi / 2, 0, 0); cd.clip_end = 200
+  atlas = np.zeros((1024, 1024, 4)); atlas_n = np.zeros((1024, 1024, 4)); dims = {}
+  lin = lambda x: np.where(x <= .04045, x / 12.92, ((x + .055) / 1.055) ** 2.4)
+  srgb = lambda x: np.where(x <= .0031308, x * 12.92, 1.055 * np.power(np.clip(x, 0, 1), 1 / 2.4) - .055)
+  box = lambda x: x.reshape(512, 2, 256, 2, x.shape[2]).mean(axis=(1, 3))
+  for i, o in enumerate(objs):
+    for ob in bpy.context.scene.objects:
+      if ob.type == 'MESH': ob.hide_render = ob is not o
+    xs = [abs(v.co.x) for v in o.data.vertices]; zs = [v.co.z for v in o.data.vertices]
+    z0, z1 = min(zs) - .1, max(zs) + .1; Hc = z1 - z0; Wc = 2 * max(xs) + .2; Rx = max(64, round(1024 * Wc / Hc))
+    sc.render.resolution_x = Rx; cd.ortho_scale = max(Wc, Hc)   # square pixels over the tree's own extent; squeezed to 512 wide below
+    cam.location = (0, -60, z0 + Hc / 2); dims[o.name] = [round(Wc, 3), round(Hc, 3), round(z0, 3), i]
+    res = {}; names = [s.material.name.split('.')[0] for s in o.material_slots]
+    for mode in ('albedo', 'normal', 'mask', 'ao'):
+      for k, n in enumerate(names): o.data.materials[k] = mats[(mode, n)]
+      sc.view_settings.view_transform = 'Standard' if mode == 'albedo' else 'Raw'
+      path = ROOT / 'art/qa/foliage-build' / f'imp_{o.name}_{mode}.png'; path.parent.mkdir(parents=True, exist_ok=True); sc.render.filepath = str(path); bpy.ops.render.render(write_still=True)
+      res[mode] = read_rgba(path)
+    a = res['albedo'][..., 3:4]; sq = lambda x: box(area_x(x, 512))
+    A = sq(a); alb = sq(lin(res['albedo'][..., :3]) * a) / np.maximum(A, 1e-5); nrm = sq((res['normal'][..., :3] * 2 - 1) * a) / np.maximum(A, 1e-5)
+    msk = sq(res['mask'][..., :1] * a) / np.maximum(A, 1e-5); ao = sq(res['ao'][..., :1] * a) / np.maximum(A, 1e-5)
+    nrm = nrm / np.maximum(np.linalg.norm(nrm, axis=2, keepdims=True), 1e-5); A = A[..., 0]
+    alb = bleed(alb, A); nrm = bleed(nrm, A); msk = bleed(msk, A); ao = bleed(ao, A); nrm[A < .02] = (0, 0, 1)
+    col, row = i % 4, i // 4; ys, xs_ = row * 512, col * 256   # normal atlas: x, y (z rebuilt: the crown faces the camera), sky visibility, leaf mask
+    atlas[ys:ys + 512, xs_:xs_ + 256] = np.concatenate([srgb(alb), A[..., None]], 2); atlas_n[ys:ys + 512, xs_:xs_ + 256] = np.concatenate([nrm[..., :2] * .5 + .5, ao, np.clip(msk, .2, 1)], 2)
+    log('IMPOSTOR', o.name, dims[o.name])
+  write(TEX / 'impostors.webp', atlas); write(TEX / 'impostors_n.webp', atlas_n)   # normal xyz + leaf mask in alpha
+  write(ROOT / 'art/qa/foliage-build/impostors_preview.png', np.concatenate([atlas[..., :3] * atlas[..., 3:] + np.array((.55, .7, .9)) * (1 - atlas[..., 3:]), np.ones_like(atlas[..., :1])], 2))
+  REPORT['impostors'] = dims
+  (ROOT / 'src/impostors.js').write_text('// Generated by tools/build-trees.py: impostor card per variant, [width, height, bottom] in metres at scale 1, atlas cell\n'
+    '// (256 x 512 cells of assets/textures/foliage/impostors.webp, 4 across, row 0 at the top).\nexport const IMPOSTOR = ' + json.dumps(dims, separators=(', ', ': ')) + ';\n')
+
+def area_x(a, w):
+  """Exact box resample along x to width w (cumulative sums), for premultiplied data."""
+  h, W0, c = a.shape; cs = np.concatenate([np.zeros((h, 1, c)), np.cumsum(a, axis=1)], 1)
+  e = np.arange(w + 1) * W0 / w; i = np.minimum(np.floor(e).astype(int), W0); f = (e - i)[None, :, None]
+  C = cs[:, i] + f * a[:, np.minimum(i, W0 - 1)] * (i < W0)[None, :, None]
+  return (C[:, 1:] - C[:, :-1]) * (w / W0)
+
+def bleed(rgb, alpha, iters=24):
+  """Grow colour outward from covered texels so bilinear taps and mips outside the silhouette sample tree colour, not black."""
+  rgb = rgb.copy(); filled = alpha > .02
+  for _ in range(iters):
+    acc = np.zeros_like(rgb); cnt = np.zeros(alpha.shape)
+    for dy in (-1, 0, 1):
+      for dx in (-1, 0, 1):
+        if dx == dy == 0: continue
+        m = np.roll(np.roll(filled, dy, 0), dx, 1); acc += np.roll(np.roll(rgb, dy, 0), dx, 1) * m[..., None]; cnt += m
+    grow_ = (~filled) & (cnt > 0); rgb[grow_] = acc[grow_] / cnt[grow_][:, None]; filled = filled | grow_
+    if filled.all(): break
+  if filled.any(): rgb[~filled] = rgb[filled].mean(axis=0)
+  return rgb
+
+def write(path, arr):
+  h, w, c = arr.shape; spec = oiio.ImageSpec(w, h, c, 'uint8'); spec.attribute('oiio:UnassociatedAlpha', 1)
+  if str(path).endswith('.webp'): spec.attribute('compression', 'webp:92')
+  o = oiio.ImageOutput.create(str(path)); assert o, oiio.geterror(); assert o.open(str(path), spec), o.geterror()
+  o.write_image(np.ascontiguousarray(np.clip(arr, 0, 1).astype(np.float32))); o.close()
+
+def preview(objs, tag, mats):
+  """Cycles lineup on a ground plane under a low sun behind the trees (the tee shot's light), for eyeballing structure."""
+  PREVIEW.mkdir(parents=True, exist_ok=True); sc = bpy.context.scene; sc.render.engine = 'CYCLES'
+  prefs = bpy.context.preferences.addons['cycles'].preferences
+  try:
+    prefs.compute_device_type = 'OPTIX'; prefs.get_devices()
+    for d in prefs.devices: d.use = d.type == 'OPTIX'
+    sc.cycles.device = 'GPU'
+  except Exception: pass
+  sc.cycles.samples = 48; sc.cycles.use_denoising = True; sc.render.resolution_x = 1600; sc.render.resolution_y = 800; sc.view_settings.view_transform = 'AgX'
+  w = bpy.data.worlds.new('sky'); sc.world = w; wt = node_tree(w)
+  bg = wt.nodes.get('Background') or wt.nodes.new('ShaderNodeBackground')
+  if not bg.outputs['Background'].links: wt.links.new(bg.outputs['Background'], (wt.nodes.get('World Output') or wt.nodes.new('ShaderNodeOutputWorld')).inputs['Surface'])
+  bg.inputs['Color'].default_value = (.45, .6, .85, 1); bg.inputs['Strength'].default_value = .8
+  for side, az in (('back', 0.), ('side', 1.6)):
+    sun_d = bpy.data.lights.new('sun', 'SUN'); sun_d.energy = 4.5; sun_d.angle = .03; sun = bpy.data.objects.new('sun', sun_d); bpy.context.collection.objects.link(sun)
+    sun.rotation_euler = (math.radians(90 - 19), 0, math.pi + az)   # 19 deg elevation; 'back' puts it behind the trees
+    g = bpy.data.meshes.new('ground'); g.from_pydata([(-80, -60, 0), (80, -60, 0), (80, 80, 0), (-80, 80, 0)], [], [(0, 1, 2, 3)]); go = bpy.data.objects.new('ground', g); bpy.context.collection.objects.link(go)
+    gm = bpy.data.materials.new('groundm'); node_tree(gm).nodes['Principled BSDF'].inputs['Base Color'].default_value = (.12, .15, .06, 1); g.materials.append(gm)
+    for o in bpy.context.scene.objects:
+      if o.type == 'MESH' and o.name != 'ground': o.hide_render = o not in objs
+    for i, o in enumerate(objs): o.location = (i * 13 - 13 * (len(objs) - 1) / 2, 0, 0)
+    cd = bpy.data.cameras.new('cam'); cd.lens = 32; cam = bpy.data.objects.new('cam', cd); bpy.context.collection.objects.link(cam); sc.camera = cam
+    cam.location = (0, -48, 2.2); cam.rotation_mode = 'QUATERNION'; cam.rotation_quaternion = (Vector((0, 0, 9)) - cam.location).to_track_quat('-Z', 'Y')
+    sc.render.filepath = str(PREVIEW / f'trees-{tag}-{side}.png'); bpy.ops.render.render(write_still=True)
+    for ob in (sun, go, cam): bpy.data.objects.remove(ob)
   for o in objs: o.location = (0, 0, 0)
 
+def node_tree(idb):   # materials and worlds always carry nodes in Blender 5; older builds need use_nodes
+  try: idb.use_nodes = True
+  except Exception: pass
+  return idb.node_tree
+
+def materials():
+  def img(name):
+    p = TEX / name if (TEX / name).exists() else ROOT / 'assets/textures' / name
+    return bpy.data.images.load(str(p))
+  out = {}
+  for name, file in (('bark', 'bark.jpg'), ('bark_birch', 'bark_birch.webp'), ('leaves', 'leaves.webp')):
+    m = bpy.data.materials.new(name); nt = node_tree(m); bsdf = nt.nodes['Principled BSDF']
+    tx = nt.nodes.new('ShaderNodeTexImage'); tx.image = img(file); vc = nt.nodes.new('ShaderNodeVertexColor'); vc.layer_name = 'Col'
+    mul = nt.nodes.new('ShaderNodeVectorMath'); mul.operation = 'MULTIPLY'; occ = nt.nodes.new('ShaderNodeVectorMath'); occ.operation = 'SCALE'
+    nt.links.new(tx.outputs['Color'], mul.inputs[0]); nt.links.new(vc.outputs['Color'], mul.inputs[1]); nt.links.new(mul.outputs['Vector'], occ.inputs[0])
+    nt.links.new(vc.outputs['Alpha'], occ.inputs['Scale']); nt.links.new(occ.outputs['Vector'], bsdf.inputs['Base Color'])
+    bsdf.inputs['Roughness'].default_value = .8
+    if name == 'leaves': nt.links.new(tx.outputs['Alpha'], bsdf.inputs['Alpha'])
+    out[name] = m
+  return out
+
 bpy.ops.wm.read_factory_settings(use_empty=True)
-mats = {'bark': material('bark', (.36, .25, .16)), 'leaf_deciduous': material('leaf_deciduous', (.3, .55, .2)), 'leaf_pine': material('leaf_pine', (.15, .35, .18))}
-rng = random.Random(7)
-# three distinct skeletons per species: upright, broad-and-tall, narrow-and-leaning / tall-sparse, short-full
-dec = [deciduous(rng, f'deciduous{i}', (mats['bark'], mats['leaf_deciduous']), height=h, spread=s, lean=l, bare=bare) for i, (h, s, l, bare) in enumerate(((7.5, 1.0, 0, .5), (8.8, 1.2, .15, .55), (6.5, .85, -.12, .45)))]
-pin = [pine(rng, f'pine{i}', (mats['bark'], mats['leaf_pine']), height=h, bare=bare, density=d) for i, (h, bare, d) in enumerate(((11, .35, .85), (13.5, .45, .7), (9, .3, 1.0)))]
-bsh = [bush(rng, f'bush{i}', (mats['bark'], mats['leaf_deciduous'])) for i in range(2)]
-if PREVIEW: preview(dec, 'deciduous'); preview(pin, 'pine'); preview(bsh, 'bush')
+M = materials(); rng = random.Random(7)
+W = lambda t: (M[t.bark], M['leaves'])
+dec = [finish(t, W(t)) for t in (birch(rng, 'birch0', 17.), birch(rng, 'birch1', 18.5, .05), broadleaf(rng, 'broad0', 15.), broadleaf(rng, 'broad1', 13.5, 5.6, .34))]
+pin = [finish(t, W(t)) for t in (spruce(rng, 'spruce0', 20.), spruce(rng, 'spruce1', 17.5, 3.0, .16), scots(rng, 'scots0', 21.))]
+bsh = [finish(t, W(t)) for t in (bush(rng, 'bush0'), bush(rng, 'bush1'))]
+if PREVIEW: preview(dec, 'deciduous', M); preview(pin, 'pine', M); preview(bsh, 'bush', M)
 export('deciduous', dec); export('pine', pin); export('bush', bsh)
+impostors(dec + pin + bsh[:1])   # cells 0-7: birch0 birch1 broad0 broad1 spruce0 spruce1 scots0 bush0
 (OUT / 'trees-build-report.json').write_text(json.dumps(REPORT, indent=2) + '\n')
 log('TREES_DONE')
