@@ -49,14 +49,20 @@ const vec3s = a => `vec3(${a.map(x => x.toFixed(4)).join(',')})`;
 export const GROUND_GLSL = `
 float gHash(vec2 p){vec3 q=fract(p.xyx*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}   // no sin(): cheap and stable on phones
 float gNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(gHash(i),gHash(i+vec2(1,0)),f.x),mix(gHash(i+vec2(0,1)),gHash(i+vec2(1,1)),f.x),f.y);}
+#ifdef GROUND_LITE   // Lite: one octave for the edge fingers and no warm patches, so the phone shader stays under the old one
+float gBreak(vec2 p){return gNoise(p*1.3+5.)-.5;}
+#define gWarm(p) 1.
+#else
 float gBreak(vec2 p){return gNoise(p*1.3+5.)*.6+gNoise(p*4.1+17.)*.4-.5;}   // fingers along every splat edge
+#define gWarm(p) mix(vec3(1.),vec3(1.1,1.02,.78),smoothstep(.5,.8,gNoise(p/23.+40.)))
+#endif
 float gDry(float w,float b){return smoothstep(.3,.85,w+b*.5);}
 vec3 gCover(vec4 s,vec2 trail,float b){   // gravel, sand, litter over the turf; the trail is gravel too, 1 m wide
   float t=trail.y*(1.-smoothstep(.35,.75,abs(trail.x)+b*.5));
   return vec3(max(smoothstep(.3,.7,s.x+b*.6),t*.95),s.y,smoothstep(.25,.7,s.z+b*.5));
 }
 vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-40 m drift, sun-warmed patches, stripes, straw
-  vec3 c=zone*(.78+(gNoise(p/37.)*.6+gNoise(p/11.+5.)*.4)*.44)*mix(vec3(1.),vec3(1.1,1.02,.78),smoothstep(.5,.8,gNoise(p/23.+40.)));
+  vec3 c=zone*(.78+(gNoise(p/37.)*.6+gNoise(p/11.+5.)*.4)*.44)*gWarm(p);
   c*=1.+(smoothstep(-.08,.08,abs(fract(turf.y/7.)-.5)-.25)-.5)*.12*turf.x;   // 3.5 m mown stripes, fairway only
   return mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
 }`;
@@ -73,7 +79,7 @@ export function terrainSplat(material, geometry, { splat, turf, duff, pads, lite
     for (const k in tiles) s.uniforms[k] = { value: tiles[k] };
     s.uniforms.gPads = { value: pads.map(p => new THREE.Vector4(...p)) };
     s.vertexShader = 'attribute vec4 splat,turf;varying vec4 vSplat,vTurf;varying vec2 vGround;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSplat=splat;vTurf=turf;vGround=position.xz;');
-    s.fragmentShader = `uniform sampler2D gLawn,gRough,gMottle,gGravel,gSand,gDuff;uniform vec4 gPads[${pads.length}];varying vec4 vSplat,vTurf;varying vec2 vGround;${GROUND_GLSL}
+    s.fragmentShader = `${lite ? '#define GROUND_LITE\n' : ''}uniform sampler2D gLawn,gRough,gMottle,gGravel,gSand,gDuff;uniform vec4 gPads[${pads.length}];varying vec4 vSplat,vTurf;varying vec2 vGround;${GROUND_GLSL}
       vec3 gTile(sampler2D t,vec2 p,float s,vec3 mean){
         vec3 a=texture2D(t,p/s).rgb;
         ${lite ? '' : `vec3 b=texture2D(t,mat2(.8,-.6,.6,.8)*p/(s*1.9)+.37).rgb; float w=smoothstep(.3,.7,gNoise(p/(s*2.7)+11.));
@@ -81,15 +87,17 @@ export function terrainSplat(material, geometry, { splat, turf, duff, pads, lite
         return a/mean;
       }\n` + s.fragmentShader.replace('#include <color_fragment>', `float gH=0.,gHW=0.;   // bump height (m) and its weight, for normal_fragment_maps
       { vec2 p=vGround; float br=gBreak(p),dry=gDry(vSplat.w,br);
-        vec3 detail=mix(${tile('gRough', 1.7)},${tile('gLawn', .9)},vTurf.x);
-        detail*=mix(vec3(1.),gTile(gMottle,mat2(.6,.8,-.8,.6)*p,8.,${vec3s(TILE_MEAN.mottle)}),.7);   // two orientations break the photo's diagonal mowing bands into patches
+        vec3 detail=${lite ? tile('gRough', 1.7) : `mix(${tile('gRough', 1.7)},${tile('gLawn', .9)},vTurf.x)`};   // Lite: one turf photo, the palette still lightens the fairway
+        ${lite ? '' : `detail*=mix(vec3(1.),gTile(gMottle,mat2(.6,.8,-.8,.6)*p,8.,${vec3s(TILE_MEAN.mottle)}),.7);   // two orientations break the photo's diagonal mowing bands into patches
+        detail*=mix(1.,dot(gTile(gRough,mat2(-.28,.96,-.96,-.28)*p,5.5,${vec3s(TILE_MEAN.rough)}),vec3(.33)),.45);   // clumps 0.5-2 m wide that still read at 20-80 m, where the fine tiles have gone to their mean`}
         vec3 c=gTurf(p,vColor,vTurf.xy,dry)*mix(detail,vec3(dot(detail,vec3(.33))),dry*.4);
         float d=length(vViewPosition),u=${lite ? 'clamp((5.8-d)/2.8,0.,1.)*.55' : 'clamp((8.5-d)/5.,0.,1.)*.9+.12*(1.-smoothstep(9.,15.,d))'};
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.6,1.22,.34),u*.6)*(1.-u*.4);   // under the blade carpet the gaps are shaded green thatch, not the flat photo
         vec3 cov=gCover(vSplat,vTurf.zw,br);
-        if(cov.z>0.){ vec3 l=texture2D(gDuff,p*.45).rgb; c=mix(c,l,cov.z); gH+=dot(l,vec3(.33))*cov.z*.012; gHW+=cov.z; }
+        float near=smoothstep(14.,5.,d);   // the bump fades before pebbles go sub-pixel and shimmer
+        if(cov.z>0.){ vec3 l=texture2D(gDuff,p*.45).rgb; c=mix(c,l,cov.z); gH+=dot(l,vec3(.33))*cov.z*near*.012; gHW+=cov.z*near; }
         if(cov.x>0.){ float g=dot(texture2D(gGravel,p/1.1).rgb,vec3(.3,.59,.11)); c=mix(c,g*vec3(1.75,1.66,1.42),cov.x)*(1.-cov.x*(1.-cov.x)*.6);   // pale crushed stone, a damp trodden rim
-          gH+=g*cov.x*.03; gHW+=cov.x; }
+          gH+=g*cov.x*near*.03; gHW+=cov.x*near; }
         if(cov.y>0.) c=mix(c,texture2D(gSand,p*.32).rgb,cov.y);
         ${lite ? '' : `float pd=1e3; for(int i=0;i<${pads.length};i++){ vec2 q=p-gPads[i].xy; q=vec2(q.x*gPads[i].z-q.y*gPads[i].w,q.x*gPads[i].w+q.y*gPads[i].z); pd=min(pd,max(abs(q.x)-.8,abs(q.y)-1.6)); }
         c*=1.-.45*(1.-smoothstep(0.,.25,pd));   // contact shade where the pad sits on the ground`}

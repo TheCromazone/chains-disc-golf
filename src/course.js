@@ -249,7 +249,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       const soilMask = (1 - smooth(.72, 1.08, soil)) * smooth(width + .35, width + 1.2, edge);
       // Dry patches follow dryNoise; trodden ground around the basket collects litter and wears to earth at the pole.
       const dry = dryNoise(x, z), bd = Math.hypot(x - h.basket[0], z - h.basket[1]);
-      splats[i * 4 + 3] = Math.max(smooth(.52, .76, dry) * .85, soilMask * .9, (1 - smooth(2.5, 6, bd)) * .5);
+      splats[i * 4 + 3] = Math.max(smooth(.47 + fair * .07, .75, dry) * .85, soilMask * .9, (1 - smooth(2.5, 6, bd)) * .5);   // the unwatered rough dries out more than the fairway
       splats[i * 4 + 2] = (1 - smooth(2.2, 4.4, bd + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 1.8)) * .95;
       // Tee: the gravel apron, a scuff at the sign post, and the driest patches within ~12 m worn through to earth.
       const tx = x - h.tee[0], tz = z - h.tee[1], cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy, wear = padWear(x, z);
