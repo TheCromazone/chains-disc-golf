@@ -252,11 +252,12 @@ def spruce(rng, name, H=20., R0=3.4, zb=.1):
       d = out + Z * (-.28 + .18 * f)
       br = grow(rng, Vector((0, 0, z)), d, L, 2, rise=.2, jitter=.04); t.tube(br, .02 + .045 * L / R0, .008, 3)
       size = min(2.6, max(1.1, L * 1.05)); ctr = Vector((0, 0, z - .8)); g = (rng.uniform(.88, 1.05),) * 3
-      # an X of fronds along the branch: one drooping and rolled (seen from above), one upright (seen from the side)
-      t.card(br[0] + out * .15, br[-1] - br[0] - Z * rng.uniform(0, .2), Z * .8 + out * .45 + unit(rng) * .35, size, CELL['pine'], ctr, g)
-      t.card(br[0] + out * .25, br[-1] - br[0] + Z * .1, out.cross(Z) + unit(rng) * .35, size * .9, CELL['pine'], ctr, g)
-      if L > 1.3 and rng.random() < .75:   # a hanging curtain under the long ones
-        p, dd = along(br, rng.uniform(.45, .75)); t.card(p, -Z + dd * .5, out + unit(rng) * .3, min(1.8, L * .6), CELL['pine'], Vector((0, 0, p.z - .6)))
+      # a drooping, rolled frond along the branch (seen from above), a second crossing it at an irregular tilt (seen from the
+      # side) and a hanging curtain of branchlets under the longer ones (the cone's face as seen from the ground)
+      t.card(br[0] + out * .15, br[-1] - br[0] - Z * rng.uniform(.05, .3), Z * .75 + out * .55 + unit(rng) * .35, size, CELL['pine'], ctr, g)
+      t.card(br[0] + out * .25, br[-1] - br[0] + Z * rng.uniform(-.25, .15), out.cross(Z) + Z * rng.uniform(-.2, .5) + unit(rng) * .35, size * .9, CELL['pine'], ctr, g)
+      if L > .8:
+        p, dd = along(br, rng.uniform(.4, .7)); t.card(p, -Z + dd * .6 + unit(rng) * .2, out + unit(rng) * .35, min(1.9, L * .7), CELL['pine'], Vector((0, 0, p.z - .6)), g)
     if f < .8:   # a short shoot between whorls, so the layers do not stack as shelves
       a = rng.uniform(0, TAU); out = Vector((math.cos(a), math.sin(a), 0)); zz = z + rng.uniform(.25, .45)
       t.card(Vector((0, 0, zz)) + out * .1, out - Z * .15, Z + unit(rng) * .5, min(2., R * .8 + .5), CELL['pine'], Vector((0, 0, zz - .8)))

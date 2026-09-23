@@ -474,9 +474,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const leafFull = leafAtlas && near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.7, -.7), alphaTest: .5, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock)));
   const wood = map => map && near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false));
   const woodMats = { bark: wood(bark), bark_birch: wood(texture('bark_birch')) };
-  // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm; each tree
-  // is then yellower or bluer, lighter or darker by about 12%.
-  const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5; return col.setRGB(1.14 + h * .16, 1.02, .74 - h * .2).multiplyScalar(.95 + noise(s.z / 23, s.x / 23 + 7) * .3); };
+  // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
+  // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
+  // conifers sit darker and bluer than the broadleaves; each tree is then yellower or bluer, lighter or darker by about 12%.
+  const KIND_TINT = { spruce: [.6, .76, .74], scots: [.78, .86, .8] };
+  const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5, k = KIND_TINT[s.kind] || [1, 1, 1]; return col.setRGB((1.14 + h * .16) * k[0], 1.02 * k[1], (.74 - h * .2) * k[2]).multiplyScalar(1.3 + noise(s.z / 23, s.x / 23 + 7) * .35); };
   for (const b of bushes) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
   const planted = (name, spots, shadow = true, lod = true) => {
     const src = quality !== 'low' && leafFull && model(name); if (!src) return false;
@@ -510,7 +512,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     spots.forEach((s, i) => { const [w, h, b, c] = IMPOSTOR[s.variant] || IMPOSTOR.bush0, sy = s.s * (s.sy || 1), flip = noise(s.x * .71 + 5, s.z * .71 + 9) > .5 ? -1 : 1;
       m.makeScale(w * s.s * flip, h * sy, 1).setPosition(s.x, s.y - .15 + b * sy, s.z); im.setMatrixAt(i, m); im.setColorAt(i, leafTint(s)); cells[i] = c; });
     im.geometry.setAttribute('impCell', new THREE.InstancedBufferAttribute(cells, 1));
-    im.frustumCulled = false; im.castShadow = shadow; im.receiveShadow = true; im.customDepthMaterial = impDepth; group.add(im);   // one card per tree over the whole course: one draw
+    // One card per tree over the whole course: one draw. It casts (turned to the sun) but does not receive: the camera-facing
+    // card crosses its own sun-facing caster at the trunk, so it would shadow half of itself.
+    im.frustumCulled = false; im.castShadow = shadow; im.receiveShadow = false; im.customDepthMaterial = impDepth; group.add(im);
     return true;
   };
   // Lite (or no GLBs): impostors only. With neither, the embedded crowns, scaled to the trees' height so what the disc hits shows.

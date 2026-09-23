@@ -138,12 +138,17 @@ def broadleaf_spray(rng, dense):
 def frond(rng):
   """Spruce frond for conifer cards: a brown axis with the pine-sprig photo repeated along it as side sprigs (alternating,
   45-70 deg, shorter toward the tip) plus a terminal sprig, all tilted a little, so one card is a whole needled branch."""
-  S = 2.0; sp = Spray(rng, S); twig = srgb_to_lin((84, 62, 44)); main = curve(rng, (0, 0, 0), (rng.uniform(-.05, .05), 1, 0), S * .9, 8, .05)
+  S = 2.0; sp = Spray(rng, S); twig = srgb_to_lin((84, 62, 44)); main = curve(rng, (0, 0, 0), (rng.uniform(-.05, .05), 1, 0), S * .9, 8, .06)
   sp.tube(main, S * .007, S * .002, twig); quads = []
-  t, side = .04, 1
-  while t < .9:
-    p, d = along(main, t); L = S * (.3 - .18 * t) * rng.uniform(.85, 1.15); dirn = rot2(d, side * rng.uniform(.75, 1.2)); dirn[2] = rng.uniform(-.15, .15)
-    quads.append((p, dirn, L, rng.uniform(-.5, .5))); t += rng.uniform(.035, .06); side = -side
+  t = .03
+  while t < .9:   # sprigs on both sides at irregular spacing, angles, lengths and rolls, plus strays across the axis: no herringbone
+    p, d = along(main, t)
+    for side in (-1, 1):
+      if rng.random() < .15: continue
+      L = S * (.3 - .17 * t) * rng.uniform(.7, 1.25); dirn = rot2(d, side * rng.uniform(.55, 1.35)); dirn[2] = rng.uniform(-.25, .25)
+      quads.append((p + np.array((rng.uniform(-.02, .02), 0, 0)), dirn, L, rng.uniform(-.8, .8)))
+    if rng.random() < .35: quads.append((p, rot2(d, rng.uniform(-.35, .35)), S * rng.uniform(.12, .2), rng.uniform(-1, 1)))
+    t += rng.uniform(.04, .075)
   p, d = along(main, 1.); quads.append((p - d * S * .06, d, S * .22, 0))
   return sp, quads
 
