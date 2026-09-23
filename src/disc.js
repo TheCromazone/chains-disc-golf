@@ -46,8 +46,10 @@ function stampTexture(disc) {
 }
 
 function plastic(color) {
-  // Premium-plastic look under the sports lighting: soft sheen, a clearcoat for the glossy dome, a hint of depth.
-  const m = new THREE.MeshPhysicalMaterial({ color, roughness: 0.28, metalness: 0, clearcoat: 0.85, clearcoatRoughness: 0.18, sheen: 0.35, sheenRoughness: 0.6, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: 0.8 });
+  // Base plastic under the sports lighting: satin rather than lacquer, a light clearcoat on the dome. The old full clearcoat
+  // and neon palette read as "a thick saturated magenta lozenge" at the tee; real opaque plastic is duller, a fifth of the chroma goes.
+  const c = new THREE.Color(color), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.lerp(new THREE.Color(l, l, l), .2);
+  const m = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.44, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.32, sheen: 0.2, sheenRoughness: 0.7, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: 0.8 });
   return m;
 }
 
@@ -59,7 +61,7 @@ export function createDiscMesh(disc) {
   if (imported) { imported.scene.traverse(o => { if (o.isMesh) { o.material = plastic(disc.color); o.castShadow = true; } }); g.add(imported.scene); }
   const stamp = new THREE.Mesh(stampGeo, new THREE.MeshStandardMaterial({ map: stampMap(disc), transparent: true, roughness: 0.35, metalness: 0.15, polygonOffset: true, polygonOffsetFactor: -1, depthWrite: false }));
   stamp.renderOrder = 1; g.add(stamp);
-  g.userData.disc = disc; g.userData.spinAngle = 0;
+  g.scale.y = .6;   // both profiles stand 3.6 cm tall; a driver is ~2 cm, and at the tee the disc read as a thick lozenge  g.userData.disc = disc; g.userData.spinAngle = 0;
   g.userData.dispose = () => g.traverse(o => { for (const m of [].concat(o.material || [])) if (!m.__shared) m.dispose(); });
   return g;
 }
