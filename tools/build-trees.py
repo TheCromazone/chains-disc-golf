@@ -13,7 +13,7 @@ Lighting data baked per vertex, read by src/course.js:
   alpha at the hit and passes through transparent texels, so a clump behind a sparse spray is only partly occluded. Interior
   leaves fall to ~0.2, the sunlit rim stays ~1; clumps carry a slight hue and brightness jitter; birch trunks darken at the base,
   pine stems go fox-orange up in the crown.
-Writes assets/models/deciduous.glb (birch0, birch1, broad0, broad1), pine.glb (spruce0, spruce1, scots0, scots1), bush.glb
+Writes assets/models/deciduous.glb (birch0, birch1, broad0, broad1), pine.glb (spruce0, spruce1, scots0-2), bush.glb
 (bush0, bush1): one mesh per variant with two materials, 'bark' or 'bark_birch' (tubes, UV u around, v along in bark tiles) and
 'leaves' (cards mapped to the atlas cells of assets/textures/foliage/leaves.webp); the impostor atlas (see impostors()); and
 src/impostors.js with the card extents and each species' collider (trunk radius and height, crown centre and radius), measured
@@ -301,7 +301,7 @@ def base_r(tp, rads, z=1.):   # trunk radius at about 1 m, for the physics recor
 
 def birch(rng, name, H=17., lean=0., girth=.2):
   t = Tree(rng, name, 'bark_birch', vscale=2.5)
-  tp = trunk_pts(rng, H, .95, lean, .03, 10); rads = radius_along(tp, girth, .03, .4, 1.4)
+  tp = trunk_pts(rng, H, .95, lean, .03, 10); rads = radius_along(tp, girth, .045, .4, 1.4)
   ring_tube(t, tp, rads, 8); t.trunk_h, t.r_base = H * .9, base_r(tp, rads)
   t.axis = lambda z: along(tp, min(1, max(0, (z + .3) / (H * .95 + .3))))[0]
   t.base_dark = lambda z: .36 + .64 * min(1, max(0, (z - .3) / 2.2)) ** .7   # the black fissured foot of a birch
@@ -311,7 +311,7 @@ def birch(rng, name, H=17., lean=0., girth=.2):
 
 def broadleaf(rng, name, H=15., W=5., lo=.38, girth=.34):
   t = Tree(rng, name, 'bark', vscale=BARK_V)
-  tp = trunk_pts(rng, H, .84, rng.uniform(-.04, .04), .04, 9); rads = radius_along(tp, girth, .05, .45, 1.2)
+  tp = trunk_pts(rng, H, .84, rng.uniform(-.04, .04), .04, 9); rads = radius_along(tp, girth, .09, .45, 1.2)
   ring_tube(t, tp, rads, 8); t.axis = lambda z: Vector((0, 0, z)); t.trunk_h, t.r_base = H * .6, base_r(tp, rads)
   crown(t, rng, tp, rads, H, lo, .7, W, rng.randint(5, 7), 142, .9, [CELL['broad'], CELL['broad'], CELL['dense']], 2.0, limb_elev=(.3, .85), limb_r=.62, sides=4, count=(3, 4), lobes=9, lobe_r=2.0)
   stubs(t, rng, tp, rads, 1.8, H * lo * .9, 3)
@@ -321,7 +321,7 @@ def spruce(rng, name, H=20., R0=3.4, zb=.1):
   """Whorls of 4-5 branches that dip and turn up at the tip; each branch is a frond card laid along it (plus a hanging curtain on
   the long ones), sized to the branch, so the cone is dense but layered, with sky between the tiers low down."""
   t = Tree(rng, name, 'bark', vscale=BARK_V)
-  tp = trunk_pts(rng, H, .98, 0, .015, 10); rads = radius_along(tp, .36, .02, .3, 1.)
+  tp = trunk_pts(rng, H, .98, 0, .015, 10); rads = radius_along(tp, .44, .03, .3, 1.)
   ring_tube(t, tp, rads, 7); t.axis = lambda z: Vector((0, 0, z - 1.)); t.trunk_h, t.r_base = H * .85, base_r(tp, rads)
   z = H * zb
   while z < H * .95:
@@ -369,7 +369,7 @@ def scots(rng, name, H=21., lo=.5, girth=.34, lean=.05):
   furthest and spreading flat, the high ones climbing, each carrying one or two dense pads, with a rounded cluster on the leader,
   so the crown reads as a mass of green clouds, lit on top and dark under, with sky only in the gaps between them."""
   t = Tree(rng, name, 'bark', vscale=BARK_V)
-  tp = trunk_pts(rng, H, .9, lean, .045, 9); rads = radius_along(tp, girth, .05, .35, 1.)
+  tp = trunk_pts(rng, H, .9, lean, .045, 9); rads = radius_along(tp, girth, .08, .35, 1.)
   ring_tube(t, tp, rads, 7); t.axis = lambda z: along(tp, min(1, max(0, (z + .3) / (H * .9 + .3))))[0] - Z * 1.5
   t.trunk_h, t.r_base = H * .82, base_r(tp, rads)
   t.base_dark = lambda z: (lambda f: (.74 + .56 * f, .74 + .3 * f, .74 + .06 * f))(min(1, max(0, (z - H * .42) / (H * .25))))   # grey foot, fox-orange upper stem
@@ -592,11 +592,11 @@ def materials():
 bpy.ops.wm.read_factory_settings(use_empty=True)
 M = materials(); rng = random.Random(7)
 W = lambda t: (M[t.bark], M['leaves'])
-dec = [finish(t, W(t)) for t in (birch(rng, 'birch0', 17., 0., .22), birch(rng, 'birch1', 18.5, .05, .25), broadleaf(rng, 'broad0', 15., 5.2, .34, .41), broadleaf(rng, 'broad1', 13.5, 5.8, .3, .47))]
-pin = [finish(t, W(t)) for t in (spruce(rng, 'spruce0', 20.), spruce(rng, 'spruce1', 17.5, 3.0, .16), scots(rng, 'scots0', 21., .41, .39), scots(rng, 'scots1', 19., .38, .45, .09))]
+dec = [finish(t, W(t)) for t in (birch(rng, 'birch0', 17., 0., .27), birch(rng, 'birch1', 18.5, .05, .3), broadleaf(rng, 'broad0', 15., 5.2, .34, .5), broadleaf(rng, 'broad1', 13.5, 5.8, .3, .56))]
+pin = [finish(t, W(t)) for t in (spruce(rng, 'spruce0', 20.), spruce(rng, 'spruce1', 17.5, 3.0, .16), scots(rng, 'scots0', 21., .41, .46), scots(rng, 'scots1', 19., .38, .52, .09), scots(rng, 'scots2', 22.5, .44, .56, .03))]
 bsh = [finish(t, W(t)) for t in (bush(rng, 'bush0'), bush(rng, 'bush1'))]
 if PREVIEW: preview(dec, 'deciduous', M); preview(pin, 'pine', M); preview(bsh, 'bush', M)
 export('deciduous', dec); export('pine', pin); export('bush', bsh)
-impostors(dec + pin + bsh[:1])   # cells 0-8: birch0 birch1 broad0 broad1 spruce0 spruce1 scots0 scots1 bush0
+impostors(dec + pin + bsh[:1])   # cells 0-9: birch0 birch1 broad0 broad1 spruce0 spruce1 scots0 scots1 scots2 bush0
 (OUT / 'trees-build-report.json').write_text(json.dumps(REPORT, indent=2) + '\n')
 log('TREES_DONE')

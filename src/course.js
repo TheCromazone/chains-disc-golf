@@ -299,9 +299,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   };
   // per-instance tilt, height and girth (a stout or a slender tree: trunk and crown width together) so one variant never
   // tiles; hashed from position, so the rng stream (and the layout) stays put. The record scales with the drawn tree.
+  const VARIANTS = {}; for (const v in IMPOSTOR) VARIANTS[v.replace(/\d+$/, '')] = (VARIANTS[v.replace(/\d+$/, '')] || 0) + 1;   // how many each species has
   const plant = (x, z, s, rot, kind, pine) => {
     const y = height(x, z), D = DIMS[kind], sy = .92 + noise(x * .53 + 17, z * .53 + 23) * .16, g = .84 + noise(x * .47 + 61, z * .47 + 19) * .36;
-    (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.floor(noise(x * .37 + 13, z * .37 + 5) * 2), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * .12, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * .12, sy, g });
+    (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.min(VARIANTS[kind] - 1, Math.floor(noise(x * .37 + 13, z * .37 + 5) * VARIANTS[kind])), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * .12, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * .12, sy, g });
     const t = { x, y, z, r: D[0] * s * g, h: D[1] * s * sy, fy: D[2] * s * sy, fr: D[3] * s * (g + sy) / 2 }; trees.push(t); return t;
   };
   for (let gx = -W / 2 + 8; gx < W / 2 - 8; gx += 5) for (let gz = -H / 2 + 8; gz < H / 2 - 8; gz += 5) {
