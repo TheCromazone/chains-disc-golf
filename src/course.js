@@ -22,7 +22,7 @@ export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
     hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#689a3c', '#588a38', '#446f33', '#e3cf9a'], leafHue: 0.29,
-    sun: [33, 48, 11.5, 13, 5], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .011], hemi: ['#a5c6ee', '#74663f'], water: '#2d6f95' },
+    sun: [33, 48, 11.5, 13, 5], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .011], hemi: ['#a5c6ee', '#e8d0a0'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
     hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#74a03e', '#65933a', '#4f7434', '#e6d29c'], leafHue: 0.265,
@@ -719,10 +719,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const lightR = new THREE.Vector3(0, 1, 0).cross(sunDir).normalize(), lightU = sunDir.clone().cross(lightR), aim = new THREE.Vector3();
   const place = (light, p, texel) => { const a = p.dot(lightR), b = p.dot(lightU);
     light.target.position.copy(p).addScaledVector(lightR, Math.round(a / texel) * texel - a).addScaledVector(lightU, Math.round(b / texel) * texel - b); light.position.copy(light.target.position).addScaledVector(sunDir, 180); };
-  // The sky fill: the course's sky blue half way to white over an earthy bounce, about a quarter of the light on open turf
-  // (the sun the rest), so on screen shade sits at about half of sun (sRGB) and reads cool: it is lit by the sky alone (the
-  // environment map adds the dome's own blue). Any bluer and brown mulch in shade went a dead charcoal grey instead of the
-  // same tan dirt, darker and a touch cooler; a third of sun read as brown stains, two thirds as soft shapeless patches.
+  // The sky fill: the course's sky blue half way to white, about a quarter of the light on open turf (the sun the rest), so
+  // on screen shade sits at about half of sun (sRGB) and reads cool: it is lit by the sky alone (the environment map adds the
+  // dome's own blue). Any bluer and brown mulch in shade went a dead charcoal grey instead of the same tan dirt, darker and a
+  // touch cooler; a third of sun read as brown stains, two thirds as soft shapeless patches. From below, the warm bounce off
+  // the sunlit ground (def.hemi[1]): it lights trunks and crown undersides, which went near-black against the haze without it.
   const hemi = new THREE.HemisphereLight(new THREE.Color(def.hemi[0]).lerp(new THREE.Color(1, 1, 1), .55), def.hemi[1], 1.4); scene.add(hemi);
 
   // Contact occlusion, multiplied into whatever is under it: tight rings where a trunk or the basket meets the ground (the
@@ -780,8 +781,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose };
 }
 
-// Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 12 m (not
-// FogExp2's squared view depth, which whited out 150 m), toward a pale blue haze plus a warm forward-scatter lobe
+// Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 20 m (not
+// FogExp2's squared view depth, which whited out 150 m), toward a clear blue haze plus a warm forward-scatter lobe
 // round the sun's disc, so the tree line glows where the sun hangs and stays a clean blue behind the golfer. The
 // haze is our own linear uniform (three hands fogColor to direct-to-screen Lite draws already sRGB-encoded) and the
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
@@ -817,7 +818,7 @@ float sunVis = 1.;
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. ), fogCos2 = fogCos * fogCos;
 	#ifdef FOG_EXP2
-		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 12., 0. ) * smoothstep( 20., 110., fogDist ) );   // eased in over 20-110 m: the play and the woods round it stay clear and dark-trunked (a veil from 10 m read as milky fog), the tree line beyond fades
+		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 20., 0. ) * smoothstep( 20., 110., fogDist ) );   // eased in over 20-110 m: the play and the woods round it stay clear (a veil from 10 m read as milky fog at the tee), the stands beyond fade in layers
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
