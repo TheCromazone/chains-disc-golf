@@ -97,9 +97,9 @@ const fhIO = throwIt({ throwType: 'forehand_io' }), fhOI = throwIt({ throwType: 
 assert(fhIO.rest[0] > fh.rest[0] + 2, 'IO forehand finishes further right than flat');
 assert(fhOI.rest[0] < fh.rest[0] - 3, 'OI forehand finishes left of flat');
 // The event arch is a real obstacle (w.capsules: its legs and beam as swollen segments, as props.js builds it on hole 1:
-// 12.8 m between leg centres, beam underside 6.2 m up; here 31 m out on flat ground): a drive flies under the beam
+// 12.8 m between leg centres, beam underside 6 m up; here 31 m out on flat ground): a drive flies under the beam
 // untouched, a lofted one clips the beam and a throw at a leg bounces back off it, each reporting 'arch', not a tree.
-const archWorld = { ...w, capsules: [[[-6.4, 0, -31], [-6.4, 6.95, -31], .7], [[6.4, 0, -31], [6.4, 6.95, -31], .7], [[-6.4, 6.95, -31], [6.4, 6.95, -31], .75]].map(([a, b, r]) => ({ a, b, r, tag: 'arch' })) };
+const archWorld = { ...w, capsules: [[[-6.4, 0, -31], [-6.4, 6.75, -31], .7], [[6.4, 0, -31], [6.4, 6.75, -31], .7], [[-6.4, 6.75, -31], [6.4, 6.75, -31], .75]].map(([a, b, r]) => ({ a, b, r, tag: 'arch' })) };
 const archThrow = o => simulate({ pos: [0, 1.2, 0], dir: [0, -1], power: 1, throwType: 'backhand', disc: discById('driver'), ...o }, archWorld);
 const under = archThrow({}), lob = archThrow({ launchOffset: 6 }), leg = archThrow({ dir: [6.4 / Math.hypot(6.4, 31), -31 / Math.hypot(6.4, 31)] });
 console.log('arch: under', under.result.thrown.toFixed(1), 'm; lob', lob.result.thrown.toFixed(1), 'm', lob.state.events.join(','), '; leg rest z', leg.result.rest[2].toFixed(1), leg.state.events.join(','));
