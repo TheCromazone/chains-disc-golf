@@ -122,7 +122,7 @@ export const STANCE = {
   // axes): the elbow ~20 cm out to the target side, 6 cm under the shoulder and 12 cm forward; the forearm dropping from it
   // to the disc centre ~17 cm under the shoulder and 34 cm in front of the chest, the plate within ~25° of level. Upper arm,
   // elbow and forearm now stand clear of the shirt and the disc sits outside the torso, against the grass.
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-.351, .722, 1.755], elR: [1.831, .237, 0], shL: [.6, 0, -.1], elL: [.4, 0, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-.351, .722, 1.755], elR: [1.831, .237, 0], shL: [.6, 0, -.1], elL: [.4, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },

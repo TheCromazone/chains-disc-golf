@@ -48,8 +48,8 @@ export const skinDirect = (name, k) => `void ${name}(const in IncidentLight dire
 // Skin in shade: the course's sky fill and the canopy tint land on it blue-green, and the body's cooler white balance (the
 // albedo is pushed blue to cancel the warm sun) doubled it, so a shaded forearm read cold lavender-grey against a sunlit pink
 // face. Light under skin scatters back out warm whatever lights it: keep the fill's brightness, drop its hue, and let the
-// skin's own tone (with the white balance undone and a little blood red) carry the colour. `k` is the skin share.
-export const skinShade = k => `{ vec3 id = reflectedLight.indirectDiffuse, a = material.diffuseColor * vec3(1.12, 1., .78); float l = dot(id, vec3(.2126, .7152, .0722));
+// skin's own tone (with the white balance undone) carry the colour. `k` is the skin share.
+export const skinShade = k => `{ vec3 id = reflectedLight.indirectDiffuse, a = material.diffuseColor * vec3(1.05, 1., .8); float l = dot(id, vec3(.2126, .7152, .0722));
         reflectedLight.indirectDiffuse = mix(id, a * l / max(dot(a, vec3(.2126, .7152, .0722)), 1e-4), ${k}); }`;
 // value noise in bind-pose metres (the same cell size on every UV island): skin mottling, roughness breakup and pores
 export const NOISE_GLSL = `float chainsHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
