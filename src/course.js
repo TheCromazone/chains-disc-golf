@@ -657,7 +657,7 @@ Object.assign(THREE.ShaderChunk, {
 float sunVis = 1.;
 #if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )
 	sunVis = dot( directLight.color, vec3( 1. ) ) / max( dot( directionalLights[ 0 ].color, vec3( 1. ) ), 1e-4 );   // the loop leaves the sun, shadow applied, in directLight
-	#if defined( RE_IndirectDiffuse )
+	#if defined( RE_IndirectDiffuse ) && !( defined( USE_ALPHATEST ) && defined( DOUBLE_SIDED ) )   // not leaf cards: the canopy shader scatters sun leaf to leaf itself, and crown cores stay dark
 		irradiance += shadeFill * directionalLights[ 0 ].color * ( 1. - sunVis ) * saturate( dot( geometryNormal, directionalLights[ 0 ].direction ) );
 	#endif
 #endif`,
