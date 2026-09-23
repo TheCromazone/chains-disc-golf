@@ -241,8 +241,11 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 #score td.s2 .mk, #score td.s3 .mk, #score td.s4 .mk { outline: 2px solid currentColor; outline-offset: 2px; }
 .score-grid { overflow-x: auto; padding: 16px 0 6px; }
 #score table { font-family: var(--display); font-size: 16px; }
-#score th { padding: 9px 3px; background: var(--black); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; border: 0; }
-#score th .muted { color: #ffffffe0; font-size: 12px; font-weight: 700; letter-spacing: .5px; }
+#score th { padding: 8px 3px 7px; background: var(--black); color: #fff; font-size: 18px; font-weight: 800; line-height: 1.05; letter-spacing: .3px; text-transform: uppercase; border: 0; }
+#score th .muted { color: #ffffffb8; font-size: 16px; font-weight: 700; letter-spacing: .3px; }
+#score th:not(.key):not(:last-child) { width: 7.2%; }   /* even hole columns, played or blank */
+#score th.key { padding-left: var(--gutter); text-align: left; color: #ffffffa8; font-size: 12px; font-weight: 700; letter-spacing: 1.4px; line-height: 1.6; }   /* names the two header lines; each column then prints just its numbers */
+#score th.key .muted { color: inherit; font-size: inherit; letter-spacing: inherit; }
 #score th.cur, #score th.cur .muted { color: var(--mint); }
 #score td { padding: 8px 3px; font-weight: 700; color: var(--black); border: 0; }
 #score tr:first-child + tr td { padding-top: 14px; }
@@ -251,7 +254,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 #score td.name .rank .icon { width: 16px; height: 16px; color: #b0731a; vertical-align: -3px; }
 #score td.name .dot { width: 10px; height: 10px; margin-right: 7px; vertical-align: -1px; border: 0; box-shadow: none; }
 #score td.cur { background: #5cf0a826; }   /* the lit column: a mint wash under the badges, over the global amber tint */
-#score td.blank { color: #b3b9b5; }
+#score tr + tr + tr td { box-shadow: inset 0 1px #0c111412; }   /* hairlines between players carry the eye from name to total across holes still to play (they are left blank, not dashed) */
 #score td.tot { padding-right: var(--gutter); font-size: 18px; }
 /* Score to par is the number that matters: a solid chip under the total, mint under par, black over, a quiet ring at even. */
 #score td.tot small { display: block; width: fit-content; min-width: 34px; margin: 3px auto 0; padding: 2px 8px 1px; border-radius: 999px; font-size: 16px; font-weight: 800; line-height: 1.1; letter-spacing: .3px; color: var(--black); box-shadow: inset 0 0 0 1.5px #0c111433; }
@@ -277,7 +280,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .hub-main { padding: 12px; border-radius: 24px; }
   #top { width: min(236px, calc(100% - 84px)); }
   #score .panel { --gutter: 18px; }
-  #score th .muted span { display: none; }   /* narrow cells: just the par number under the hole */
+  #score th { font-size: 14px; } #score th .muted { font-size: 12px; } #score th.key { font-size: 10px; letter-spacing: .8px; }
   #score .mk { width: 20px; height: 20px; }
   #score .badge { width: 30px; height: 30px; font-size: 15px; }
   #score table { font-size: 14px; }
@@ -341,8 +344,9 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .score-grid { padding: 4px 0 0; }
   #score .mk { width: 20px; height: 20px; }
   #score .badge { width: 30px; height: 30px; font-size: 15px; }
-  #score th { padding: 5px 2px; font-size: 10px; }
-  #score th .muted { font-size: 10px; }
+  #score th { padding: 5px 2px 4px; font-size: 14px; }
+  #score th .muted { font-size: 12px; }
+  #score th.key { font-size: 10px; line-height: 1.4; }
   #score td { padding: 4px 2px; font-size: 13px; }
   #score tr:first-child + tr td { padding-top: 6px; }
   #score td.tot { font-size: 15px; }

@@ -527,7 +527,7 @@ const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov:
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
 function aimFrame(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = (portrait ? AIM.tall : AIM)[putt ? 'putt' : 'drive'];
-  const vt = portrait ? Math.tan(P.fov * DEG / 2) : Math.max(Math.tan(14.5 * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least, so a 2:1 phone keeps headroom
+  const vt = portrait ? Math.tan(P.fov * DEG / 2) : Math.max(Math.tan((P.vmin || 14.5) * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least, so a 2:1 phone keeps headroom
   const side = P.side + (putt && P.nudge ? puttDodge(lie, P) : 0), rho = Math.hypot(P.back, side);
   pos.set(lie.x - d[0] * P.back - r[0] * side, lie.y, lie.z - d[1] * P.back - r[1] * side);
   const bd = Math.hypot(h.basket[0] - pos.x, h.basket[1] - pos.z), bh = h.basketY - lie.y + 1.4, eye = putt && Math.atan(P.eye * vt), band = putt && Math.atan(P.band * vt);   // bh: band centre over the lie
@@ -550,7 +550,7 @@ const dodge = { key: '', ds: 0 };
 // Hole intro's opening drone: back/side/up from the pad, eyes on the ground `ahead` m down the line (+lift). Low and near level,
 // so the establishing shot has sky over the tree line and the fairway running from the pad to the target up the middle
 // (from 13 m up, looking ~30° down an uphill hole, the frame was all turf with the gantry and pin pinned under its top edge).
-const INTRO = { back: 18, side: 2.5, up: 7, ahead: 45, lift: 1 };
+const INTRO = { back: 20, side: 1.5, up: 7, ahead: 40, lift: 1.5 };   // far enough back that the group waiting by the pad stands whole in frame
 function puttDodge(lie, P) {
   const h = holes[G.holeIdx], key = `${G.holeIdx}:${lie.x.toFixed(2)}:${lie.z.toFixed(2)}`;
   if (dodge.key === key) return dodge.ds;
