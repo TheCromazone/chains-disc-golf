@@ -71,8 +71,8 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
 const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
-  fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [30, 95, 55]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [28, 97, 55]],
-    [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [30, 98, 55]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [36, 100, 55]]],
+  fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [40, 108, 72]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [38, 110, 72]],
+    [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [40, 110, 72]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [46, 112, 72]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .023, -.048], [-.06, .025, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
 // The same hand at rest, for the free hand in the set-up: the scan's hanging hand is one fused mitten ("a mitten under a
 // swollen wrist knob"). Fingers in a loose cascade, more curl toward the little finger; the thumb lies along the index.
@@ -269,7 +269,7 @@ export function createGLTFCharacter(avatar) {
   if (!joints.elR || !joints.root || !body || !skin) return null;
   // the modelled grip hands (handMorphs), children of the forearm bones, shown in the backhand set-up in place of the tucked
   // scan hand; their skin takes the palette tone the way the body shader turns the scan's (a quarter of the chroma gone)
-  const gripMat = new THREE.MeshStandardMaterial({ roughness: .56, vertexColors: true }); owned.add(gripMat);
+  const gripMat = new THREE.MeshStandardMaterial({ roughness: .74, vertexColors: true }); owned.add(gripMat);
   gripMat.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= mix(vec3(1.), vec3(1.02, .78, .78), saturate(1.15 - vColor.g));')   // its AO creases (knuckles, between the fingers) go red like the body's
     .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.')); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove
