@@ -914,6 +914,15 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
     if (view) treeLod(view, t, focus);   // trees: 3D near the eye, impostors beyond (the trees section)
     if (view) FOG.shape.w = height(view.x, view.z);   // the haze thins with height above the ground, not above the eye: the flyover drone looks through thinner air
+    // Near the pin the air thickens, as the broadcast's long putt lens compresses the woods behind the basket (w4-5 putt
+    // verdicts: the stand 30-45 m out, 25-40 m past the pin, took no haze at all under the tee's 34 m clear zone and read as
+    // "a flat wall a few metres behind the pin"). Within ~15 m of the basket the clear zone shrinks to 22 m and the ramp
+    // steepens (30 m 5%, 40 m 17%, 60 m 38%, 100 m 66%), so birches just past the pin keep their bark and each row behind
+    // them lifts a step; the air turns a darker, faintly green grey (the tee's near-white bank read as "a fog bank as
+    // bright as the sunlit dirt" under a canopy) and keeps its warm lift toward the sun. The tee (85 m out) keeps its crisp air.
+    if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40);
+      Object.assign(FOG.shape, { x: 34 - 12 * k, y: 2.25 + 1.05 * k, z: 30 - 20 * k });
+      Object.assign(FOG.haze, { r: haze.r * (1 - .38 * k), g: haze.g * (1 - .41 * k), b: haze.b * (1 - .5 * k) }); Object.assign(FOG.warm, { r: warm.r * (1 - .15 * k), g: warm.g * (1 - .15 * k), b: warm.b * (1 - .15 * k) }); }
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
