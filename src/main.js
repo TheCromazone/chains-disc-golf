@@ -205,7 +205,7 @@ function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if
 // Disc in the hand. Idle: carried by the rim at the thigh, plate hanging beside the leg. Throwing: gripped so the
 // plate rides the wrist through the windup and is exactly level with the planned release normal at phase .62.
 const _qh = new THREE.Quaternion(), _qg = new THREE.Quaternion(), _off = new THREE.Vector3(), _nrm = new THREE.Vector3(), _gp = new THREE.Vector3(), _gn = new THREE.Vector3();
-const CARRY_N = new THREE.Vector3(0, .35, -1).normalize(), CARRY_OFF = new THREE.Vector3(0, -.095, -.02);
+const CARRY_N = new THREE.Vector3(0, .35, -1).normalize(), CARRY_OFF = new THREE.Vector3(0, -.095, -.02), GRIP_TIP = .24, _gh = new THREE.Vector3(), _gr = new THREE.Vector3(), _gt = new THREE.Vector3();
 function holdDisc(char, mesh, n, spin, throwType) {
   char.hand.getWorldPosition(_v); char.hand.getWorldQuaternion(_qh); if (!throwType) char.carry?.();   // a disc on show outside a throw: the cover-shot pose, not a bystander's idle
   const rel = throwType && char.getPhase() !== null ? char.releaseFrame?.(throwType) : null;
@@ -218,7 +218,12 @@ function holdDisc(char, mesh, n, spin, throwType) {
   _v.add(_off);
   // backhand set-up: the rim seated in the gripping hand, handed over to the release frame through the windup (level at .62)
   const w = rel ? char.gripPose?.(_gp, _gn) || 0 : 0;
-  if (w > 0) { _v.lerp(_gp, w); _nrm.normalize().lerp(_gn, w); spin *= 1 - w; }
+  if (w > 0) { _v.lerp(_gp, w); _nrm.normalize().lerp(_gn, w); spin *= 1 - w;
+    // tipped ~14° toward the lens about the rim in the palm: dead level at chest height the tee camera saw the disc exactly
+    // edge-on, "a thin hot-pink stick" with no plate or rim; tipped, the plate shows a lit ellipse above a darker rim
+    char.hand.getWorldPosition(_gh).sub(_v); _nrm.normalize(); _gh.addScaledVector(_nrm, -_gh.dot(_nrm)).normalize();   // _gh: in-plane, centre to the gripped rim
+    _gr.copy(_v).addScaledVector(_gh, .1); _nrm.addScaledVector(_gt.subVectors(camera.position, _v).normalize(), GRIP_TIP * w).normalize();
+    _v.copy(_gr).addScaledVector(_gh.addScaledVector(_nrm, -_gh.dot(_nrm)).normalize(), -.1); }
   setDiscPose(mesh, [_v.x, _v.y, _v.z], [_nrm.x, _nrm.y, _nrm.z], spin);
 }
 function updateHub() { const i = COURSES.findIndex(c => c.id === G.courseId); UI.setHub({ name: G.avatar.name, jersey: G.avatar.jersey, course: COURSES[i], holes: LAYOUTS[i], img: asset('courses', G.courseId) }); }

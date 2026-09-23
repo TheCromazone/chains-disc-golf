@@ -48,8 +48,16 @@ function stampTexture(disc) {
 function plastic(color) {
   // Base plastic under the sports lighting: satin rather than lacquer, a light clearcoat on the dome. The old full clearcoat
   // and neon palette read as "a thick saturated magenta lozenge" at the tee; real opaque plastic is duller, a fifth of the chroma goes.
-  const c = new THREE.Color(color), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.lerp(new THREE.Color(l, l, l), .2);
+  const c = new THREE.Color(color);   // ponytail: the driver stays pink; turned red it vanished against the red #7 jersey at the tee
+  const l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.lerp(new THREE.Color(l, l, l), .2);
   const m = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.44, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.32, sheen: 0.2, sheenRoughness: 0.7, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: 0.8 });
+  // the rim a shade deeper than the plate (thicker plastic, worn and handled): edge-on or tipped, the disc shows a plate and
+  // a rim instead of one flat bright band. Object space, so both the imported and the lathed profile get it.
+  m.onBeforeCompile = s => {
+    s.vertexShader = 'varying float vRimR;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vRimR = length(position.xz);');
+    s.fragmentShader = 'varying float vRimR;\n' + s.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= 1. - .38 * smoothstep(.08, .097, vRimR);');
+  };
+  m.customProgramCacheKey = () => 'chains-disc-rim';
   return m;
 }
 
@@ -61,7 +69,8 @@ export function createDiscMesh(disc) {
   if (imported) { imported.scene.traverse(o => { if (o.isMesh) { o.material = plastic(disc.color); o.castShadow = true; } }); g.add(imported.scene); }
   const stamp = new THREE.Mesh(stampGeo, new THREE.MeshStandardMaterial({ map: stampMap(disc), transparent: true, roughness: 0.35, metalness: 0.15, polygonOffset: true, polygonOffsetFactor: -1, depthWrite: false }));
   stamp.renderOrder = 1; g.add(stamp);
-  g.scale.y = .6;   // both profiles stand 3.6 cm tall; a driver is ~2 cm, and at the tee the disc read as a thick lozenge  g.userData.disc = disc; g.userData.spinAngle = 0;
+  g.scale.y = .6;   // both profiles stand 3.6 cm tall; a driver is ~2 cm, and at the tee the disc read as a thick lozenge
+  g.userData.disc = disc; g.userData.spinAngle = 0;
   g.userData.dispose = () => g.traverse(o => { for (const m of [].concat(o.material || [])) if (!m.__shared) m.dispose(); });
   return g;
 }

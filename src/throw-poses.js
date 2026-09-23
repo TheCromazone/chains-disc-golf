@@ -137,7 +137,9 @@ export const STANCE = {
   // Round 12: still "an arm stuck straight out with a sleeve web". Solved in screen space against the tee camera to the
   // Disc Golf Masters frame: elbow bent ~88°, upper arm lowered and forward, the hand hanging off a level forearm just
   // outside the chest with the plate edge-on and level, reaching back across the shirt (GRIP.cock re-solved with it).
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [.37, -1.5, -.05], shR: [.111, .639, 1.388], elR: [1.528, -.171, 0], shL: [.6, 0, -.1], elL: [.4, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // Round 13: that hand still hung ~7 cm past the chest at the end of a forearm lying flat to the lens ("thrust out sideways");
+  // the elbow closes ~13° more so the hand comes in to the edge of the chest and the forearm foreshortens toward the target.
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [.37, -1.5, -.05], shR: [.111, .639, 1.388], elR: [1.75, -.171, 0], shL: [.6, 0, -.1], elL: [.4, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
