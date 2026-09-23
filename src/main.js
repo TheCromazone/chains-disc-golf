@@ -493,11 +493,11 @@ function aimFrame(lie, d, putt, pos, look) {
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
   return 2 * Math.atan(vt) / DEG;
 }
-// Putt background: a trunk standing behind the basket reads as a pole growing out of it. Each lie scores the camera's lateral
-// nudges (5 cm steps across P.nudge; + swings the athlete toward the frame edge, - toward the pin) by the trunk that would
-// stand behind the basket's silhouette: angular overlap x trunk width x share of the basket's height it covers, fading with
-// the haze past the pin. The cheapest wins, a small nudge preferred; the rig then eases there. Once per lie, measured down
-// the lie's line to the pin, so aiming never swims.
+// Putt background: a trunk standing behind the basket's band and flag reads as a pole growing out of the target. Each lie
+// scores the camera's lateral nudges (5 cm steps across P.nudge; + swings the athlete toward the frame edge, - toward the pin)
+// by the trunk behind that window (the band's left rim to the flag's free end, band foot to flag top): angular overlap x
+// trunk width x share of the window's height, fading with the haze past the pin. The cheapest wins, a small nudge preferred;
+// the rig then eases there. Once per lie, measured down the lie's line to the pin, so aiming never swims.
 const dodge = { key: '', ds: 0 };
 function puttDodge(lie, P) {
   const h = holes[G.holeIdx], key = `${G.holeIdx}:${lie.x.toFixed(2)}:${lie.z.toFixed(2)}`;
@@ -507,13 +507,13 @@ function puttDodge(lie, P) {
   let best = Infinity; dodge.ds = 0;
   for (let ds = P.nudge[0]; ds <= P.nudge[1] + 1e-3; ds += .05) {
     const cx = lie.x - d[0] * P.back - r[0] * (P.side + ds), cz = lie.z - d[1] * P.back - r[1] * (P.side + ds), D = Math.hypot(bx - cx, bz - cz), ux = (bx - cx) / D, uz = (bz - cz) / D;
-    const bw = Math.atan2(.4, D) + .005, b0 = Math.atan2(h.basketY - cy, D), b1 = Math.atan2(h.basketY + 2.07 - cy, D);   // tray rim + flag, pole foot to flag top
-    let cost = ds * ds * 3e-3;   // a 5 cm nudge is nearly free; the full 15 cm (the athlete ~7% nearer the pin) outweighs a mid-distance trunk
+    const wl = -Math.atan2(.3, D) - .004, wr = Math.atan2(.42, D) + .004, w0 = Math.atan2(h.basketY + 1.3 - cy, D), w1 = Math.atan2(h.basketY + 2.07 - cy, D);   // the flag flies right of the mast
+    let cost = ds * ds * 3e-3;   // a 5 cm nudge is nearly free; the full 15 cm (the athlete ~5% nearer the pin) must clear a trunk's worth
     for (const t of trees) {
       const tx = t.x - cx, tz = t.z - cz, along = tx * ux + tz * uz; if (along < D + 1 || along > D + 45) continue;
-      const a = Math.atan2(tz * ux - tx * uz, along), w = Math.atan2(t.r, along), ov = Math.min(bw, a + w) - Math.max(-bw, a - w); if (ov <= 0) continue;
-      const v = Math.min(b1, Math.atan2(t.y + t.h - cy, along)) - Math.max(b0, Math.atan2(t.y - cy, along));   // the trunk runs on up through the crown
-      if (v > 0) cost += ov * w * v / (b1 - b0) * Math.exp((D - along) / 60);
+      const a = Math.atan2(tz * ux - tx * uz, along), w = Math.atan2(t.r, along), ov = Math.min(wr, a + w) - Math.max(wl, a - w); if (ov <= 0) continue;
+      const v = Math.min(w1, Math.atan2(t.y + t.h - cy, along)) - Math.max(w0, Math.atan2(t.y - cy, along));   // the trunk runs on up through the crown
+      if (v > 0) cost += ov * w * v / (w1 - w0) * Math.exp((D - along) / 60);
     }
     if (cost < best - 1e-9) { best = cost; dodge.ds = ds; }
   }
