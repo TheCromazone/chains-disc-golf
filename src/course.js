@@ -274,7 +274,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   group.add(new THREE.Mesh(hillGeometry,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide})));   // takes the haze: a faint silhouette, not a green cut-out
 
   // --- trees ---
-  const trees = [], bushes = [], tufts = [];
+  const trees = [], bushes = [], tufts = [], FRAME_TREE = [20, 10, .75];   // framing tree: metres ahead of the tee, metres to its open side, scale
   const pineSpots = [], decSpots = [];
   // Species by stand, variant by tree: Scots pines gather in stands among the spruces, birches in groves among the broadleaves.
   // DIMS at scale 1, measured by tools/build-trees.py off the models it draws: trunk radius, trunk height the disc can hit,
@@ -349,6 +349,14 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const pine = noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine, t = plant(x, z, s, rot, pine ? 'spruce' : kindOf(x, z, false), pine);
     const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
   }
+  // Framing tree: a broadleaf just off the open side of each tee, ahead of the pad, so the aim shot has one near crown over the
+  // clearing (the stands there are 50-100 m out, where the haze leaves them one flat veil) the way a real tee has a tree
+  // overhead. Hashed, no rng; a record and grid entry like any tree.
+  for (const h of holes) { const w = h.way[1] || h.basket, dx = w[0] - h.tee[0], dz = w[1] - h.tee[1], L = Math.hypot(dx, dz), os = h.idx % 2 ? -1 : 1;
+    const x = h.tee[0] + dx / L * FRAME_TREE[0] - dz / L * os * FRAME_TREE[1], z = h.tee[1] + dz / L * FRAME_TREE[0] + dx / L * os * FRAME_TREE[1];
+    const { fi, halfW } = stand(x, z);   // not in another hole's fairway, a pond, a pad or another crown
+    if (fi.hole !== h && fi.d < halfW || treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < 4) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7)) continue;
+    const t = plant(x, z, FRAME_TREE[2], noise(x, z) * 6.28, 'broad', false), k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null; }
   // Under crowns the turf goes thin, pale and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
   // earth shows at the trunk base. Colour and splat weights only: no height change.
   for (let i = 0; i < pos.count; i++) {
@@ -491,7 +499,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
           vCrownP = ((im * vec4(transformed, 1.)).xyz - (im * vec4(0., treeCrown.x, 0., 1.)).xyz) / vCrownR.xyx;
           vClump = fract(sin(dot(vColor.rgb, vec3(12.9898, 78.233, 37.719)) * 43.758) * 437.585); }
         #endif`);
-      s.fragmentShader = '#define CROWN\nvarying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;\n' + s.fragmentShader;
+      s.fragmentShader = '#define CROWN\n#define CLUMP_LIGHT 1.6\n#define SKY_HOLES .5\nvarying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;\n' + s.fragmentShader;
     }
     s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `float bakedAO = 1., leafMask = 1., sunOcc = 1., anyFace = 0., crownDepth = 1., sunThin = 1.;
       #if defined( USE_COLOR_ALPHA )
@@ -526,7 +534,17 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(1., .88, .42);   // olive-gold, not chartreuse
         // sunlight scattered leaf to leaf through the crown: a soft yellow-green fill that follows the sun, not the shadow map,
         // so the shaded side of a back-lit crown reads green instead of black (a fifth of it at the heart of the crown)
-        reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * mix(.2, 1., sunThin) * leafMask * vec3(1., 1., .4); }
+        reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * mix(.2, 1., sunThin) * leafMask * vec3(1., 1., .4);
+        #ifdef CROWN
+        // Clump light (a crown past 30 m read as one flat dark-green mass under the haze): the crown's sun-side shell, lit by
+        // the crown-sphere normal with wrap, breaks into warm yellow-green clumps, clump by clump bright or dim, and its heart
+        // falls dark, so light and shade inside a crown carry through the veil.
+        { vec3 o = normalize(vCrownP + vec3(0., 1e-4, 0.)), Lw = (vec4(L, 0.) * viewMatrix).xyz;
+          float shell = smoothstep(.5, 1., crownDepth), face = saturate((dot(o, Lw) + .5) / 1.5);
+          reflectedLight.directDiffuse *= mix(.45, 1., smoothstep(.3, .9, crownDepth));
+          reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * CLUMP_LIGHT * shell * face * face * mix(.15, 1.3, vClump) * vec3(1.05, 1., .5); }
+        #endif
+      }
       #endif` : ''));
     // 3D leaves sample the atlas half a mip sharper: at 40-60 m the default level had blurred each spray into a soft blob
     if (crown) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )'));
@@ -547,6 +565,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare)); }`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
+      #ifdef CROWN
+      diffuseColor.a *= 1. - SKY_HOLES * smoothstep(.7, 1., crownDepth) * step(.6, vClump);   // some outer clumps thin out: sky holes and a broken edge, not a solid silhouette
+      #endif
       #include <alphatest_fragment>`); };
     mat.customProgramCacheKey = () => prevKey.call(mat) + (leaf ? '|leaf' : '|wood') + (crown ? '|crown' : ''); return mat; };
   // alphaToCoverage: both tiers draw into multisampled targets (Full's 4x scene target, Lite's antialiased canvas), so the
