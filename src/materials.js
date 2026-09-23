@@ -95,7 +95,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         detail*=mix(1.,dot(gTile(gRough,mat2(-.28,.96,-.96,-.28)*p,5.5,${vec3s(TILE_MEAN.rough)}),vec3(.33)),.45);   // clumps 0.5-2 m wide that still read at 20-80 m, where the fine tiles have gone to their mean`}
         vec3 c=gTurf(p,vColor,vTurf.xy,dry)*mix(detail,vec3(dot(detail,vec3(.33))),dry*.4);
         float d=length(vViewPosition),u=${lite ? 'clamp((5.8-d)/2.8,0.,1.)*.55' : 'clamp((8.5-d)/5.,0.,1.)*.9+.12*(1.-smoothstep(9.,15.,d))'};
-        c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.5,1.25,.3),u*.75)*(1.-u*.3);   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo
+        c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.25,.28),u*.75)*(1.-u*.18);   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo or bare soil
         vec3 cov=gCover(vSplat,vTurf.zw,br);
         float reach=${lite ? 'cov.z' : 'smoothstep(.02,.4,vSplat.z+br*.5)'};   // beyond the litter's edge single leaves stray into the turf (Full)
         if(reach>0.){ vec3 l=texture2D(gDuff,p/2.3).rgb; float ll=dot(l,vec3(.3,.59,.11)),dp=gPatch(p);
