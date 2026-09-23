@@ -16,7 +16,7 @@ const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0); 
 const glassesOf = a => a.glasses && a.glasses !== 'none' ? a.glasses : a.shades ? 'sport' : 'none';
 const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
 // The female scan keeps folded slivers and ~1600 flipped triangles; Blender's vertex normals follow them and the cloth
-// shades as dark shards. Rebuild them once per loaded body: every face oriented to agree with the normals it replaces,
+// shades as dark shards (the male scan has a few too: dark ticks by his collar and chest print). Rebuild them once per loaded body: every face oriented to agree with the normals it replaces,
 // area-weighted, shared across UV-seam duplicates, then relaxed over the neighbours (the head keeps its own detail).
 // ponytail: a flood-filled consistent winding looked the same here; the one remaining dark wedge on her upper back is a
 // real fold of the scan, which only a mesh fix removes.
