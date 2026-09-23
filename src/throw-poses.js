@@ -101,10 +101,12 @@ export function poseAt(keys, phase) {
 // added per frame; the windup morphs them into the clip (stanceFade below). Spine and head pitch: negative leans forward.
 // Hips pitch forward and every leg is solved so both soles stay planted with the shin near vertical: the rig has no
 // ankle, so a leaning shin tips the foot onto its toe.
-export const STANCE = {
+const STANCE = {
   // backhand: side-on and pre-coiled (pelvis ~70°, chest ~135° off the line), weight settled into bent knees, head turned
-  // back over the leading shoulder to the target, elbow winged out and the disc palm-down across the chest, the off arm
-  // hanging loose: the set-up a real reach-back starts from, and the one Disc Golf Masters shows its thrower in
+  // back over the leading shoulder to the target, the off arm hanging loose: the set-up a real reach-back starts from, and
+  // the one Disc Golf Masters shows its thrower in. The throwing arm was solved (shR, elR incl. the forearm's roll) for
+  // the elbow a hand below shoulder height and the forearm pointed at the aim camera behind the pad, so the disc, seated
+  // level in the hand by the grip morph (gltf-player.js), sits in front of the chest and reads against the grass
   backhand: { root: [-.12, 1.22, 0], spine: [-.18, 1.15, .08], head: [.25, -1.4, -.05], shR: [.234, 1.032, 1.061], elR: [.929, -1.105, 0], shL: [.18, 0, -.14], elL: [.62, 0, 0], hipR: [.72, 0, .42], knR: [-.56, 0, 0], hipL: [.55, 0, -.2], knL: [-.58, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target

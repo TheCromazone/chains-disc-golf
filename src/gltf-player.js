@@ -52,20 +52,20 @@ function relaxNormals(g, headBone, passes = 3) {
 // pointed at the lens; the stance pairs it with a seat (disc centre and normal in the forearm bone's frame) that puts
 // the rim in the palm. Built once per body from its bind pose, hand-local and mirrored so the palm faces -x on either
 // side, with lengths in units of the hand's own wrist-to-fingertip drop so the female scan and the phone LODs fit too.
-export const GRIP = { mcp: 1.3, pip: .5, dip: .3, fmcp: .5, fpip: .74, fdip: .87, thumb: [-.8, -.08, -.6], bend: -1.57, seat: .3 };
+const GRIP = { mcp: 1.3, pip: .5, dip: .3, fmcp: .5, fpip: .74, fdip: .87, thumb: [-.9, -.05, .1], bend: -1.57, seat: .3 };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
-function gripMorph(mesh, handOffset, rebuild = false) {
-  const g = mesh.geometry; if (g.userData.grip && !rebuild) return g.userData.grip;
+function gripMorph(mesh, handOffset) {
+  const g = mesh.geometry; if (g.userData.grip) return g.userData.grip;
   const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = pos.count, seats = {}, dP = [], dN = [];
-  const Z = new THREE.Vector3(0, 0, -1), X = new THREE.Vector3(1, 0, 0), m = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Vector3(), o = new THREE.Vector3();
+  const Z = new THREE.Vector3(0, 0, -1), X = new THREE.Vector3(1, 0, 0), m = new THREE.Matrix4(), p = new THREE.Vector3(), o = new THREE.Vector3();
   for (const [name, side] of [['elR', 1], ['elL', -1]]) {
     const b = mesh.skeleton.bones.findIndex(x => x.name === name), E = new THREE.Vector3().setFromMatrixPosition(m.copy(mesh.skeleton.boneInverses[b]).invert());
     const W = E.clone().add(_v.set(handOffset.x * side, handOffset.y + .075, handOffset.z + .012));   // the wrist joint (build-golfer-v3.py: handOffset = wrist - elbow + (0, -.075, -.012))
     const local = i => p.set((pos.getX(i) - W.x) * side, pos.getY(i) - W.y, pos.getZ(i) - W.z);
     const hand = []; let tip = 0;
     for (let i = 0; i < n; i++) { let w = 0; for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === b) w += sw.getComponent(i, k); if (w > .3 && local(i).y < .02) { hand.push(i); tip = Math.min(tip, p.y); } }
-    const L = -tip, zt = -.21 * L, R = [], F = new Float32Array(n), T = new Float32Array(n);
+    const L = -tip, zt = -.21 * L, F = new Float32Array(n), T = new Float32Array(n);
     for (const i of hand) { local(i); F[i] = smooth(zt + .024 * L, zt + .096 * L, p.z); T[i] = (1 - smooth(zt - .06 * L, zt + .036 * L, p.z)) * smooth(-.12 * L, -.3 * L, p.y); }
     const P = hand.map(i => local(i).clone()), N = hand.map(i => new THREE.Vector3(nrm.getX(i) * side, nrm.getY(i), nrm.getZ(i)));
     const hinge = (frac, ang) => {   // everything past the hinge line rotates toward the palm about the finger's own centre line
@@ -86,7 +86,7 @@ function gripMorph(mesh, handOffset, rebuild = false) {
     const origin = new THREE.Vector3();
     hand.forEach((i, k) => { const w = smooth(.09 * L, -.12 * L, local(i).y); if (w > 0) { turn(P[k], origin, X, w * GRIP.bend); N[k].applyAxisAngle(X, w * GRIP.bend); } });
     // seat: the rim in the palm, the plate reaching across from it; palm surface and finger band measured at seat height
-    let px = 0, pz = 0, pc = 0, zc = 0, zn = 0;
+    let px = 0, zc = 0, zn = 0;
     for (const i of hand) { local(i); if (p.y < -.2 * L && p.y > -.4 * L) { px = Math.min(px, p.x); } if (F[i] > .5 && p.y < -.5 * L) { zc += p.z; zn++; } }
     const c = new THREE.Vector3(px - .102, -GRIP.seat * L, zn ? zc / zn : 0).applyAxisAngle(X, GRIP.bend), cn = new THREE.Vector3(0, 1, 0).applyAxisAngle(X, GRIP.bend);
     seats[name] = { c: new THREE.Vector3(c.x * side + W.x - E.x, c.y + W.y - E.y, c.z + W.z - E.z), n: new THREE.Vector3(cn.x * side, cn.y, cn.z) };
@@ -228,7 +228,6 @@ export function createGLTFCharacter(avatar) {
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
     get heroWeight() { return heroW; },   // how far into the cover-shot pose: holdDisc spins the disc on the raised hand past half
-    _regrip(prm) { Object.assign(GRIP, prm); gripMorph(skin, handOffset, true); skin.geometry.dispose(); },   // DEV tuning hook, remove
     gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c)); nrm.copy(s.n).transformDirection(forearm.matrixWorld); } return w; },   // holdDisc: the disc seated in the gripping hand, and how much of it to use
     carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
     react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
