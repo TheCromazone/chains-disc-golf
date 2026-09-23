@@ -511,18 +511,19 @@ const DEG = Math.PI / 180;
 cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's level camera looking down onto the green), eased like the pose
 // Over-the-left-shoulder aim frame (the Disc Golf Masters broadcast lens): a chest-high camera ~2 m behind the athlete's left
 // shoulder, near level, so he fills the right third cropped at the thigh. Drives: axis a few degrees right of the aim, pin
-// left of centre, horizon just under the middle, head ~18% from the top. Putts: the camera stands ~27° round his left side, not
-// square behind him: from there the putter, both hands and his profile clear his body (square on, his back hid the disc, so
-// the frame never showed the putt); the axis runs P.pan right of the basket (just left of centre) so his spine lands near 80%
-// with air past his far shoulder (at 30° round, the 3/4 view jammed him against the edge). The camera stays level and slides
-// its lens instead (cam.shift, applyViewOffset), so a green below the lie drops into frame without tipping the trunks inward.
+// left of centre, horizon just under the middle, head ~18% from the top. Putts: the camera stands 2.5 m off, ~25° round his
+// left side rather than square behind him, so he reads head to knee on the right third with the putter and both hands clear of
+// his body in the gap before the basket (square on and close, he was a slab of jersey hiding the disc); the axis runs P.pan
+// right of the basket, which lands it on centre and his spine near 80%. The camera stays level and slides its lens instead
+// (cam.shift, applyViewOffset), so a green below the lie drops into frame without tipping the trunks inward (a camera pitched
+// down onto the tray read as looking into a pit), and it stays low (hi) so the far ground line holds near 58%.
 // It takes the height (lo-hi) that sets the athlete's eyes at P.eye and the basket band at P.band (half-frame units
-// above centre: 20% and 46% from the top, the reference's 6 m putt), so uphill, flat and downhill greens frame alike; out of
+// above centre: 20% and 47% from the top, the reference's 6 m putt), so uphill, flat and downhill greens frame alike; out of
 // that range the band wins until the eyes would pass P.eye. A lateral nudge of up to P.nudge clears trunks from behind the
 // basket (puttDodge). Portrait keeps its lift rule. Wide screens hold the horizontal lens (hfov), a 2:1 phone widening past it
 // rather than cropping under 29° tall; portrait holds the vertical one. Shared by the aim camera and the hole intro's landing.
 // Writes pos/look, returns the vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 1.8, side: .9, pan: 1.5, lo: 1.15, hi: 1.95, eye: .6, band: .08, nudge: [-.1, .15], hfov: 58 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.3, side: 1.05, pan: .5, lo: 1.15, hi: 1.65, eye: .6, band: .06, nudge: [-.1, .15], hfov: 54 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
 function aimFrame(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = (portrait ? AIM.tall : AIM)[putt ? 'putt' : 'drive'];
