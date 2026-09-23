@@ -51,8 +51,10 @@ export const skinDirect = (name, k) => `void ${name}(const in IncidentLight dire
 // Skin in shade: the course's sky fill and the canopy tint land on it blue-green, and the body's cooler white balance (the
 // albedo is pushed blue to cancel the warm sun) doubled it, so a shaded forearm read cold lavender-grey against a sunlit pink
 // face. Light under skin scatters back out warm whatever lights it: keep the fill's brightness, drop its hue, and let the
-// skin's own tone (with the white balance undone) carry the colour. `k` is the skin share.
-export const skinShade = k => `{ vec3 id = reflectedLight.indirectDiffuse, a = material.diffuseColor * vec3(1.05, 1., .8); a = mix(vec3(dot(a, vec3(.2126, .7152, .0722))), a, .8); float l = dot(id, vec3(.2126, .7152, .0722));
+// skin's own tone (with the white balance undone) carry the colour. `k` is the skin share. The albedo is clamped at zero first:
+// multisampled edge pixels of the modelled hands extrapolate the vertex AO past its range, a negative channel drove the
+// luminance divisor to ~0, and the ratio lit the free hand like a bulb (a bloomed white square at the tee).
+export const skinShade = k => `{ vec3 id = reflectedLight.indirectDiffuse, a = max(material.diffuseColor, vec3(0.)) * vec3(1.05, 1., .8); a = mix(vec3(dot(a, vec3(.2126, .7152, .0722))), a, .8); float l = dot(id, vec3(.2126, .7152, .0722));
         reflectedLight.indirectDiffuse = mix(id, a * l / max(dot(a, vec3(.2126, .7152, .0722)), 1e-4), ${k});
         // then the grade's S-curve and warm split tone push sunlit tones further toward orange: sunlit skin leaves the lighting
         // with two fifths of its chroma gone, which lands it near the reference's .33 saturation after the grade. Shade keeps its
