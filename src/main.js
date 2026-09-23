@@ -545,11 +545,6 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // base ~100 px of 360) put its lens ~2.3 m off him at ~50° across, so now: 2.1 m back, 1.1 m aside, 50°. He is cut by the
 // right edge (x 0.76-1.0, head top ~12%), the pin centred (band 47%, base 77%) and the green recedes into open woods; the
 // banners and bench stay left, smaller against a wider frame (they are props, not the camera's to move).
-// That lost 0/4: the right edge sliced his putting shoulder, arm and disc off (all a critic saw of the putt was a back), and the
-// basket sat low (cage ~55%) over a dark dirt foreground. The reference keeps his whole silhouette in frame (x 0.66-0.92, a
-// thin gap past his shoulder, disc at his chest): 2.35 m back and 1.0 m aside (~16° off the axis, not ~20°) parks him at
-// x 0.70-0.93, head top ~10%; eyes 21% and band 43% (a wider eye-to-band gap sets the lens lower, so it looks down less), cage
-// centre ~50%, band to base ~105 px of 360.
 // The camera stays level and slides its lens
 // instead (cam.shift, applyViewOffset), so a green below the lie drops into frame without tipping the trunks inward (pitched
 // down onto the tray, it read as looking into a pit). It takes the height (lo-hi) that sets the athlete's eyes at P.eye and the
@@ -562,7 +557,7 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // widening past it rather than cropping under P.vmin tall (29° on a short phone, whose swipe ring takes the frame's lower
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.35, side: 1, lo: .9, hi: 2.3, eye: .58, band: .13, base: -.72, x: 0, nudge: [-.05, .15], hfov: 50, vmin: 10 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.1, side: 1.1, lo: .9, hi: 2.3, eye: .52, band: .06, base: -.72, x: 0, nudge: [-.05, .15], hfov: 50, vmin: 10 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
 AIM.puttS = { ...AIM.putt, back: 2.3, side: 1.2, hi: 1.9, hfov: 50, eye: .6, band: -.02, base: -.64, x: .24 };   // a short phone: the swipe pill and ring fill the lower third's middle, so the pin stands further left (38%) with its base plate beside them
 function aimFrame(lie, d, putt, pos, look) {
