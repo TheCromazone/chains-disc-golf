@@ -106,10 +106,11 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     // per-region roughness: skin keeps a soft sheen, hair and cloth stay matte (a glossy jersey or scalp reads as plastic).
     // Skin also scatters: direct light wraps a little past the terminator with a warm tint, the cheap stand-in for
     // subsurface that keeps a face from looking like painted vinyl.
-    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve; float chainsTrim = 0., chainsTrimD = 1.; vec3 cloth(vec3 c) { return c * min(1., .74 / max(max(c.r, max(c.g, c.b)), 1e-4)); }\nfloat chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { vec3 j = vJerseyPos; bool back = j.z > 0.; vec4 b = back ? uPrintB : uPrintF;   // after the jersey style, so the print sits on its panels; seen from its own side, the print reads left to right
         vec2 q = vec2((back ? j.x : -j.x) / b.y + .5, (j.y - b.x) / b.z + .5);
         if (q.x > 0. && q.x < 1. && q.y > 0. && q.y < 1.) diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * chainsJersey); }
+      diffuseColor.rgb = mix(diffuseColor.rgb, cloth(jerseyAccent) * chainsTrimD, chainsTrim);   // collar and cuffs over the style and print
       diffuseColor.rgb *= 1. + chainsKnit;   // the knit runs under the print too`).replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Chains', 'chainsSkin')}`).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
       ${skinShade('chainsSkin')}
@@ -161,6 +162,17 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         // shade at the tee, where a bump alone shows nothing, so the folds also carry a little occlusion in the cloth's tone
         { vec3 fp = vJerseyPos * mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW)); float n = chainsNoise(fp) * .7 + chainsNoise(fp * 2.3) * .3;
           chainsKnit += w[1] * (.06 - .3 * smoothstep(.72, .97, 1. - abs(2. * n - 1.))); }
+        // Trim and seams, for every jersey style and colour (critics: "no collar, no seams, no raglan lines, inflated plastic").
+        // Collar: jersey texels whose texel 1.2 or 2.2 cm up the bind pose is skin, found by walking the UVs along bind-pose height
+        // (screen derivatives give uv per metre, so it works on any island and on her scan too; a quad straddling a UV seam
+        // jumps and is skipped). Cuffs: the last 2.2 cm of the extended sleeve. Both take the accent colour with the cloth's
+        // folds. Raglan seams: a stitched crease where the arm's skin weight crosses a half, from the underarm up to the neck.
+        { vec2 du = dFdx(vMapUv), dv = dFdy(vMapUv); float yx = dFdx(vJerseyPos.y), yy = dFdy(vJerseyPos.y), g = yx * yx + yy * yy;
+          vec2 up = (du * yx + dv * yy) / max(g, 1e-12) * .022; float ok = step(1e-10, g) * (1. - step(.03, length(up)));
+          float neck = ok * (1. - smoothstep(.15, .3, vArmW)) * step(uSleeve + .12, vJerseyPos.y) * max(texture2D(uMask1, vMapUv + up).r, texture2D(uMask1, vMapUv + up * .55).r);   // shoulder height and up: a UV seam at the waist lit a fleck
+          float cuff = sleeveK * (1. - smoothstep(uSleeve + .018, uSleeve + .026, vJerseyPos.y));
+          chainsTrim = max(neck * w[1], cuff); chainsTrimD = mix(1., clamp(lum / uMean[0], .45, 1.4), .9 * cuff) * mix(1., clamp(lum / uMean[1], .25, 1.8), uDetail[1] * (1. - cuff));
+          col *= 1. - .35 * w[1] * (1. - chainsTrim) * (1. - smoothstep(.0, .045, abs(vArmW - .5))) * smoothstep(-.05, .05, vJerseyPos.y - uSleeve); }
         chainsJersey = w[1]; chainsSkin = w[0]; chainsRough = 1. + w[0] * (.1 + (chainsMot - .5) * .4 + .12 * min(chainsCav, 1.)) + w[3] * (-.22 + (chainsHairS - .5) * .7) + .2 * (w[1] + w[2] + w[4]); diffuseColor.rgb = col;
         chainsPanel = uPanelN > .5 ? max(smoothstep(.5, .78, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.3, .45, -vBindN.x * sign(vJerseyPos.x))) : -1.; }`);   // the side panels follow the torso's turn (a hard cut flattened the back into one tone, a wide blend read as a shadow); her folded scan's normals scatter them into shards, so she takes the width-based panels
   };
