@@ -521,6 +521,9 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // the banners and his disc hand. At 32° from 2.3 m (eyes 22%, band 42%) the critics called the lower third empty dirt and the
 // far ground line at mid-frame flat: the slightly longer lens from 0.4 m further back puts the cage centre at ~47% and the field
 // line ~60% down, like the reference's lower chest-high camera, with the dirt in front of the basket down to the bottom quarter.
+// That rig still cut him at mid-thigh, a small figure beside the basket, with a bench sliced by the left edge: 2.15 m back
+// (P.x pans the pin 3% left of centre) he stands cut at the hip like the reference, eyes 19%, cage centre ~45%, and the
+// frame's left edge clears the green-side bench.
 // The camera stays level and slides its lens
 // instead (cam.shift, applyViewOffset), so a green below the lie drops into frame without tipping the trunks inward (pitched
 // down onto the tray, it read as looking into a pit). It takes the height (lo-hi) that sets the athlete's eyes at P.eye and the
@@ -533,7 +536,7 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // widening past it rather than cropping under P.vmin tall (29° on a short phone, whose swipe ring takes the frame's lower
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.5, side: 1.1, lo: .9, hi: 1.9, eye: .6, band: .06, nudge: [-.05, .15], hfov: 50, vmin: 10 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.15, side: .95, lo: .9, hi: 1.9, eye: .62, band: .1, x: .06, nudge: [-.05, .15], hfov: 50, vmin: 10 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
 AIM.puttS = { ...AIM.putt, back: 2.1, side: .95, eye: .55, band: .2 };   // a short phone's 29° lens: the band sits higher, so the basket's base plate clears the swipe ring's pill
 function aimFrame(lie, d, putt, pos, look) {
@@ -548,7 +551,7 @@ function aimFrame(lie, d, putt, pos, look) {
   pos.y += up;
   if (putt && P.lo) cam.tShift = Math.max(-.3, Math.min(1, Math.min(P.band - (bh - up) / bd / vt, P.eye - (eh - up) / rho / vt)));   // slide the lens, don't tip it: the green drops into frame and the trunks stay upright
   const pitch = (putt ? P.lo ? 0 : Math.max(-4, Math.min(14, Math.min(band - Math.atan2(bh - up, bd), eye - Math.atan2(eh - up, rho)) / DEG)) : P.pitch) - G.aim.pitch;   // drag up = look up
-  const yaw = putt ? Math.atan2(side, bd) : P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
+  const yaw = putt ? Math.atan2(side, bd) + Math.atan((P.x || 0) * vt * camera.aspect) : P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
   return 2 * Math.atan(vt) / DEG;
 }
