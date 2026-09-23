@@ -554,9 +554,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // as the key, so the light reads from the disc and the shadows agree on where it comes from.
   const deg = THREE.MathUtils.degToRad, sunDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[0]), deg(def.sun[1]));
   const discDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[2]), deg(def.sun[3])), sunColor = new THREE.Color(def.sunColor);
-  const haze = new THREE.Color(def.fog[0]);
+  const haze = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.86, .92, .96));   // a deeper blue than the course swatch: distance reads cool, not milky
   Object.assign(FOG.sun, { x: discDir.x, y: discDir.y, z: discDir.z }); Object.assign(FOG.haze, { r: haze.r, g: haze.g, b: haze.b });
-  Object.assign(FOG.glow, { r: sunColor.r * .92, g: sunColor.g * .85, b: sunColor.b * .73 });   // the glare a shade warmer than the key: its light took the long way through the air
+  // The glare a shade warmer than the key (its light took the long way through the air), and ~half the key's strength:
+  // any brighter and the tee's back third, which looks into the lobe, whites out to a flat cream wall.
+  Object.assign(FOG.glow, { r: sunColor.r * .55, g: sunColor.g * .51, b: sunColor.b * .44 });
   scene.userData.sun = { dir: discDir, color: sunColor };   // effects.js aims the light shafts at the disc
   const sky = skyDome(def, quality === 'low'); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
@@ -574,16 +576,25 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const extent = 60, sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -extent; sc2.right = sc2.top = extent; sc2.near = 1; sc2.far = 400;
   sun.shadow.radius = quality === 'low' ? 2 : 4; sun.shadow.bias = -0.0004; sun.shadow.normalBias = .04;   // the Vogel taps reach `radius` texels (6 cm on Full, 12 on Lite): a ~25 cm leafy penumbra; the normal bias covers that slope
   scene.add(sun); scene.add(sun.target);
-  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], .3); scene.add(hemi);   // blue sky over a green bounce: shade keeps its colour
+  // The shadow camera's own axes (Object3D.lookAt from the sun toward the focus, up +y): update() projects the focus on
+  // them so the sun flecks (the shadow chunk above skyDome()) stay put on the ground while the camera follows the play.
+  const fleckR = new THREE.Vector3(0, 1, 0).cross(sunDir).normalize(), fleckU = sunDir.clone().cross(fleckR);
+  Object.assign(FLECK, { z: extent * 2, w: sc2.far - sc2.near });
+  // The sky fill: the course's blue desaturated toward white. The dome's environment light already carries the blue, so a
+  // saturated hemisphere on top turned brown mulch in shade neutral grey; this keeps shade warm with a slight cool cast.
+  const hemi = new THREE.HemisphereLight(new THREE.Color(def.hemi[0]).lerp(new THREE.Color(1, 1, 1), .45), def.hemi[1], .5); scene.add(hemi);
+  // Shade fill (the chunk above skyDome()): sunlight scattered back into the sun's shadow, ~30% of the key, a touch cool.
+  Object.assign(SHADE, { r: .3 * .92, g: .3, b: .3 * 1.12 });
 
-  // Feathered canopies pool shade around nearby trunks; distance fades them into the same haze.
-  // This merged ground-conforming mesh costs one draw, with no shadow map or image request.
+  // Contact occlusion, multiplied into whatever is under it: tight rings where a trunk or the basket meets the ground (the
+  // shadow map cannot resolve that corner and the sky fill has no occlusion of its own), and the soft pool under each tee
+  // mat. One merged ground-conforming mesh, one draw; distance fades it into the haze. rings: radii (x, z) and occlusion.
   const shadowParts = [];
-  const groundShadow = (cx, cz, rx, rz, strength) => {
-    const positions=[], alpha=[], indices=[], segments=20, rings=[0,.48,.82,1.2], opacity=[1,.76,.3,0];
+  const groundShadow = (cx, cz, rx, rz, rings, occ, segments = 12) => {
+    const positions=[], alpha=[], indices=[];
     for(let ring=0;ring<rings.length;ring++) for(let j=0;j<=segments;j++) {
       const a=j/segments*Math.PI*2, x=cx+Math.cos(a)*rx*rings[ring], z=cz+Math.sin(a)*rz*rings[ring];
-      positions.push(x,height(x,z)+.05,z); alpha.push(strength*opacity[ring]);
+      positions.push(x,height(x,z)+.04,z); alpha.push(occ[ring]);
     }
     for(let ring=0;ring<rings.length-1;ring++) for(let j=0;j<segments;j++) {
       const a=ring*(segments+1)+j,b=a+segments+1;indices.push(a,a+1,b,b,a+1,b+1);
@@ -591,15 +602,16 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     g.setAttribute('shadowAlpha',new THREE.Float32BufferAttribute(alpha,1));g.setIndex(indices);shadowParts.push(g);
   };
-  for(const t of trees) groundShadow(t.x+.9,t.z+.6,t.fr*1.35,t.fr*1.1,.22);   // soft canopy occlusion under the real shadow
+  // A trunk standing on the ground hides about half the sky at its foot, a quarter half a diameter out, none at 2.5 diameters.
+  for(const t of trees) groundShadow(t.x,t.z,t.r,t.r,[1,2.2,6],[.55,.25,0],8);
   for(const h of holes) {
-    groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,.16);
-    groundShadow(h.basket[0]+.5,h.basket[1]+.3,.65,.85,.24);
+    groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,[0,.48,.82,1.2],[.16,.12,.05,0],20);
+    groundShadow(h.basket[0],h.basket[1],1,1,[0,.2,.27,.42,.75],[.35,.4,.62,.25,0],16);   // the tray's .34 m dish hides the sky from the footing; a dark crease where the footing meets the ground
   }
   if (shadowParts.length) {
-    const shadowMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false,
+    const shadowMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.MultiplyBlending, premultipliedAlpha: true,
       vertexShader: 'attribute float shadowAlpha;varying float vAlpha;varying float vDepth;void main(){vAlpha=shadowAlpha;vec4 mv=modelViewMatrix*vec4(position,1.);vDepth=-mv.z;gl_Position=projectionMatrix*mv;}',
-      fragmentShader: 'varying float vAlpha;varying float vDepth;void main(){float fade=1.-smoothstep(38.,170.,vDepth);gl_FragColor=vec4(.055,.16,.075,vAlpha*fade);}' });
+      fragmentShader: 'varying float vAlpha;varying float vDepth;void main(){gl_FragColor=linearToOutputTexel(vec4(vec3(1.-vAlpha*(1.-smoothstep(38.,170.,vDepth))),1.));}' });   // encoded, so Lite's sRGB canvas darkens by the same linear factor as Full's HDR target
     const shadows = new THREE.Mesh(mergeGeometries(shadowParts), shadowMat); shadows.renderOrder = 1; group.add(shadows);
     shadowParts.forEach(g => g.dispose());
   }
@@ -617,7 +629,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     }
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
-    if (focus) { sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 180); }
+    if (focus) { sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 180); FLECK.x = focus.dot(fleckR); FLECK.y = focus.dot(fleckU); }
   };
   const dispose = () => {   // tear down so another course can be built into the same scene
     for(const w of waters)w.userData.dispose?.();
@@ -637,14 +649,36 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 } };
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogGlow: { value: FOG.glow } });
+// Shade fill. Ground the sun's shadow covers is still lit by sunlight the leaves and the air scatter back into it, from
+// roughly the sun's side; without that, dark mulch in shade sat ~2 stops under the sunlit ground in the scene and the
+// tone curve's toe sank it 4+ stops to near-black blobs. Where (and only where) the shadow map took the sun away, SHADE
+// of the key comes back as indirect light shaped by N·L, so shade keeps the sun's warmth, its texture and its forms and
+// sunlit surfaces do not change. It lands in `irradiance`, so a canopy's baked occlusion (applied to indirect light after
+// lights_fragment_end) still darkens crown cores. The same sun visibility dims reflected sky: whatever shades a surface
+// from the sun, a canopy or the basket's tray, hides most of the sky from it too, so shaded steel stops mirroring blue.
+const SHADE = { r: 0, g: 0, b: 0 }, FLECK = { x: 0, y: 0, z: 120, w: 399 };   // FLECK: the shadow camera's centre in the light's plane (m), its width (m), its depth range (m)
+for (const s of Object.values(THREE.ShaderLib)) if (s.uniforms?.directionalLights) Object.assign(s.uniforms, { shadeFill: { value: SHADE }, sunFleck: { value: FLECK } });
 Object.assign(THREE.ShaderChunk, {
+  lights_pars_begin: 'uniform vec3 shadeFill;\n' + THREE.ShaderChunk.lights_pars_begin,
+  lights_fragment_begin: THREE.ShaderChunk.lights_fragment_begin + `
+float sunVis = 1.;
+#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )
+	sunVis = dot( directLight.color, vec3( 1. ) ) / max( dot( directionalLights[ 0 ].color, vec3( 1. ) ), 1e-4 );   // the loop leaves the sun, shadow applied, in directLight
+	#if defined( RE_IndirectDiffuse ) && !( defined( USE_ALPHATEST ) && defined( DOUBLE_SIDED ) )   // not leaf cards: the canopy shader scatters sun leaf to leaf itself, and crown cores stay dark
+		irradiance += shadeFill * directionalLights[ 0 ].color * ( 1. - sunVis ) * saturate( dot( geometryNormal, directionalLights[ 0 ].direction ) );
+	#endif
+#endif`,
+  lights_fragment_end: THREE.ShaderChunk.lights_fragment_end + `
+#if defined( RE_IndirectSpecular )
+	reflectedLight.indirectSpecular *= mix( .45, 1., sunVis );
+#endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
   fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogGlow;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. ), fogCos2 = fogCos * fogCos;
 	#ifdef FOG_EXP2
-		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 12., 0. ) );
+		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 12., 0. ) * smoothstep( 12., 60., fogDist ) );   // eased in over 12-60 m: a crown overhead keeps its dark core, distance still goes milky
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
@@ -656,13 +690,30 @@ Object.assign(THREE.ShaderChunk, {
 #endif`,
   // Sun shadows: the stock PCF kernel spaced at `radius` texels leaves blocky rings under leafy canopies. 16 taps on a
   // Vogel disk turned per pixel (white noise: IGN's diagonals show without TAA) give the same cost a smooth penumbra, grain instead of steps.
-  shadowmap_pars_fragment: THREE.ShaderChunk.shadowmap_pars_fragment.replace(/#if defined\( SHADOWMAP_TYPE_PCF \)\n[\s\S]*?(?=#elif defined\( SHADOWMAP_TYPE_PCF_SOFT \))/, `#if defined( SHADOWMAP_TYPE_PCF )
+  // Sun flecks: a crown's shadow map is a solid silhouette, but a real canopy lets the sun through its gaps in soft spots.
+  // The taps already read the occluders' depths, so their mean height above the receiver along the ray comes free; where
+  // it is crown height (6-10 m and up, so a trunk's stripe near its foot stays whole) two octaves of value noise in the
+  // light's plane open ~0.2-0.5 m spots, clustered by a 4 m octave. sunFleck anchors that plane to the world (the shadow
+  // camera follows the focus), so a fleck lights everything under its gap, leaf, ground or athlete, and never swims.
+  shadowmap_pars_fragment: `uniform vec4 sunFleck;
+float fleckHash( vec2 p ) { vec3 q = fract( p.xyx * .1031 ); q += dot( q, q.yzx + 33.33 ); return fract( ( q.x + q.y ) * q.z ); }
+float fleckNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3. - 2. * f ); return mix( mix( fleckHash( i ), fleckHash( i + vec2( 1., 0. ) ), f.x ), mix( fleckHash( i + vec2( 0., 1. ) ), fleckHash( i + 1. ), f.x ), f.y ); }
+` + THREE.ShaderChunk.shadowmap_pars_fragment.replace(/#if defined\( SHADOWMAP_TYPE_PCF \)\n[\s\S]*?(?=#elif defined\( SHADOWMAP_TYPE_PCF_SOFT \))/, `#if defined( SHADOWMAP_TYPE_PCF )
 			const vec2 vogel[ 16 ] = vec2[ 16 ]( ${Array.from({ length: 16 }, (_, i) => { const r = Math.sqrt((i + .5) / 16), a = i * 2.39996323; return `vec2( ${(r * Math.cos(a)).toFixed(4)}, ${(r * Math.sin(a)).toFixed(4)} )`; }).join(', ')} );
 			float spin = 6.2831853 * fract( sin( dot( gl_FragCoord.xy, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
 			vec2 turn = vec2( cos( spin ), sin( spin ) ) * shadowRadius / shadowMapSize.x;
+			float gap = 0.;
 			shadow = 0.;
-			for ( int i = 0; i < 16; i ++ ) shadow += texture2DCompare( shadowMap, shadowCoord.xy + vec2( vogel[ i ].x * turn.x - vogel[ i ].y * turn.y, vogel[ i ].x * turn.y + vogel[ i ].y * turn.x ), shadowCoord.z );
+			for ( int i = 0; i < 16; i ++ ) {
+				float d = unpackRGBAToDepth( texture2D( shadowMap, shadowCoord.xy + vec2( vogel[ i ].x * turn.x - vogel[ i ].y * turn.y, vogel[ i ].x * turn.y + vogel[ i ].y * turn.x ) ) ), lit = step( shadowCoord.z, d );
+				shadow += lit; gap += ( 1. - lit ) * ( shadowCoord.z - d );
+			}
 			shadow *= .0625;
+			if ( shadow < 1. ) {
+				vec2 p = ( shadowCoord.xy - .5 ) * sunFleck.z + sunFleck.xy;
+				float n = fleckNoise( p * 1.3 ) * .65 + fleckNoise( p * 3.7 + 17. ) * .35;
+				shadow = max( shadow, smoothstep( .62, .72, n ) * smoothstep( .3, .7, fleckNoise( p * .2 + 41. ) ) * smoothstep( 4., 8., gap / ( 16. - 16. * shadow ) * sunFleck.w ) );
+			}
 		`),
 });
 
