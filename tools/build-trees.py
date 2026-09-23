@@ -79,6 +79,7 @@ class Tree:
     self.trunk_h, self.r_base = 0., 0.         # top of the wood the disc can hit and trunk radius, for the physics record
     self.wood, self.tag = {}, 'trunk'
     self.tag_tint = {}                         # wood tint by part (a birch's white trunk and limbs, its dark twigs)
+    self.lobe_mix = (.6, .35)                  # leaf normal weights: away from the lobe (or pad) centre, away from the crown axis
   def tube(self, pts, r0, r1, sides, taper=1.):
     """Tapered tube along pts with parallel-transported rings (no twist); radius r0 -> r1 with `taper` exponent."""
     pts = [Vector(p) for p in pts]; n = len(pts)
@@ -134,8 +135,8 @@ def finish(t, mats):
     lb = t.lobe[i]
     if lb is None: t.n[i] = (own * .55 + ax * .5 + Z * .3).normalized()
     else:   # a lobed crown: each mass of clumps rounds off as one volume, lit on its sun side and dark in its lee
-      lo_ = (p - lb).normalized() if (p - lb).length > 1e-4 else own
-      t.n[i] = (own * .25 + lo_ * .6 + ax * .35 + Z * .25).normalized()
+      lo_ = (p - lb).normalized() if (p - lb).length > 1e-4 else own; wl, wa = t.lobe_mix
+      t.n[i] = (own * .25 + lo_ * wl + ax * wa + Z * .25).normalized()
   # BVH over triangles; each triangle remembers its quad's uv and whether it is a card
   tris, tri_uv, tri_card = [], [], []
   for f, uv, m in zip(t.faces, t.fuv, t.fmat):
@@ -362,14 +363,15 @@ def pad(t, c, r, n, ax=None):
   radiating from two or three sub-centres strung along the branch (`ax`), in every direction
   round the horizontal (tilted up more than down, so it is dome-topped and flat-bottomed), half standing on edge and half lying
   open, the ones along the branch longest, sizes varied: from the side an irregular, elongated cloud about 2r across with a
-  ragged edge, not a repeated oval or a spray of flat slivers. Its cards face out of a centre just below c, so it lights on
-  top and falls dark underneath, and the clump tint varies pad to pad."""
+  ragged edge, not a repeated oval or a spray of flat slivers: the sub-centres spread most of r along the branch and the cards
+  keep near the horizontal, so a pad is a flat, drawn-out tuft rather than a ball. Its cards face out of a centre just below c,
+  so it lights on top and falls dark underneath, and the clump tint varies pad to pad."""
   rng = t.rng; hue = rng.uniform(-1, 1); lit = rng.uniform(.82, 1.14); tint = (lit * (1 + .08 * hue), lit, lit * (1 - .1 * hue))
   ax = Vector((ax.x, ax.y, 0)).normalized() if ax is not None and Vector((ax.x, ax.y, 0)).length > 1e-3 else unit(rng).cross(Z).normalized()
-  subs = [c + ax * r * rng.uniform(-.5, .5) + ax.cross(Z) * r * rng.uniform(-.25, .25) + Z * r * rng.uniform(-.1, .12) for _ in range(rng.randint(2, 3))]
+  subs = [c + ax * r * rng.uniform(-.8, .8) + ax.cross(Z) * r * rng.uniform(-.35, .35) + Z * r * rng.uniform(-.15, .15) for _ in range(rng.randint(2, 3))]
   t.cur_lobe = c - Z * r * .35
   for k in range(n):
-    a = rng.uniform(0, TAU); out = Vector((math.cos(a), math.sin(a), rng.uniform(-.2, .45))).normalized(); s = subs[k % len(subs)]
+    a = rng.uniform(0, TAU); out = Vector((math.cos(a), math.sin(a), rng.uniform(-.15, .3))).normalized(); s = subs[k % len(subs)]
     size = r * rng.uniform(.8, 1.35) * (1 + .4 * abs(out.dot(ax)))
     face = (out.cross(Z) * rng.choice((-1, 1)) + Z * rng.uniform(-.3, .3) + unit(rng) * .3) if k % 2 else (Z + unit(rng) * .55)
     t.card(s - out * size * rng.uniform(.3, .5) + Z * r * rng.uniform(-.2, .15), out, face, size, CELL['tuft'], c, tint)
@@ -383,6 +385,7 @@ def scots(rng, name, H=21., lo=.5, girth=.34, lean=.05, sweep=0., top=.08):
   variants differ in girth, taper (`top`, the stem's radius under the crown's top), lean and `sweep` (an S-bowed stem), so a
   stand of them is not a row of identical poles."""
   t = Tree(rng, name, 'bark', vscale=BARK_V)
+  t.lobe_mix = (.3, .6)   # pads shade with the whole crown (its sun side lit, its far side dark), not each as its own lit ball
   tp = trunk_pts(rng, H, .9, lean, .045, 9, sweep=sweep); rads = radius_along(tp, girth, top, .35, 1.)
   ring_tube(t, tp, rads, 7); t.axis = lambda z: along(tp, min(1, max(0, (z + .3) / (H * .9 + .3))))[0] - Z * 1.5
   t.trunk_h, t.r_base = H * .82, base_r(tp, rads)
@@ -394,9 +397,9 @@ def scots(rng, name, H=21., lo=.5, girth=.34, lean=.05, sweep=0., top=.08):
     az += TAU * .382 + rng.uniform(-.5, .5); elev = rng.uniform(.12, .38) + .5 * f
     L = H * (.27 - .14 * f) * rng.uniform(.82, 1.12); d = Vector((math.cos(az) * math.cos(elev), math.sin(az) * math.cos(elev), math.sin(elev)))
     br = grow(rng, base, d, L, 3, rise=.1, flatten=.45, jitter=.1); t.tube(br, .14 - .05 * f, .03, 5)   # thick enough to show at 60 m holding its pad up
-    p, dd = along(br, 1.); pad(t, p + Z * .3, rng.uniform(1.3, 2.4), rng.randint(14, 18), d)
+    r = rng.uniform(.9, 2.8); p, dd = along(br, 1.); pad(t, p + Z * .3, r, round(7 + 5 * r), d)   # pads of very different sizes, cards in proportion
     if L > 3.1:   # the longest branches carry a second pad part-way out, so the low tiers join into one crown
-      p, dd = along(br, rng.uniform(.42, .6)); pad(t, p + Z * .4, rng.uniform(1.1, 1.8), rng.randint(11, 15), d)
+      r = rng.uniform(.8, 2.); p, dd = along(br, rng.uniform(.42, .6)); pad(t, p + Z * .4, r, round(5 + 5 * r), d)
     for s_ in (rng.uniform(.26, .4), rng.uniform(.62, .8)):   # small tufts clothe the branch between stem and pad, so the pads run together into one ragged crown, not pom-poms on bare sticks
       p, dd = along(br, s_); pad(t, p + Z * .15, rng.uniform(.6, 1.), rng.randint(4, 5), d)
   p, dd = along(tp, 1.)

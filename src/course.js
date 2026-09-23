@@ -470,14 +470,16 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // its core with only the thin rim lit, not lit through. The leaves' albedo is 30% desaturated (a summer crown reads olive in
   // the reference, not lime).
   const canopy = (mat, leaf = true, crown = null) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
-    if (crown) {   // a 3D crown: where this fragment sits in its variant's crown envelope (a spheroid about the trunk, per instance scale)
+    if (crown) {   // a 3D crown: where this fragment sits in its variant's crown envelope (see crownOf, per instance scale), and a random per clump
       s.uniforms.treeCrown = { value: crown };
-      s.vertexShader = 'uniform vec3 treeCrown;varying vec3 vCrownP;varying vec2 vCrownR;\n' + s.vertexShader.replace('#include <fog_vertex>', `#include <fog_vertex>
+      s.vertexShader = 'uniform vec4 treeCrown;varying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;\n' + s.vertexShader.replace('#include <fog_vertex>', `#include <fog_vertex>
         #ifdef USE_INSTANCING
-        { mat4 im = modelMatrix * instanceMatrix; vCrownR = vec2(length(im[0].xyz), length(im[1].xyz)) * treeCrown.yz;
-          vCrownP = ((im * vec4(transformed, 1.)).xyz - (im * vec4(0., treeCrown.x, 0., 1.)).xyz) / vCrownR.xyx; }
+        { mat4 im = modelMatrix * instanceMatrix; float r = mix(treeCrown.y, treeCrown.z, saturate((transformed.y - treeCrown.x) / (2. * treeCrown.w) + .5));
+          vCrownR = vec2(length(im[0].xyz) * r, length(im[1].xyz) * treeCrown.w);
+          vCrownP = ((im * vec4(transformed, 1.)).xyz - (im * vec4(0., treeCrown.x, 0., 1.)).xyz) / vCrownR.xyx;
+          vClump = fract(sin(dot(vColor.rgb, vec3(12.9898, 78.233, 37.719)) * 43.758) * 437.585); }
         #endif`);
-      s.fragmentShader = '#define CROWN\nvarying vec3 vCrownP;varying vec2 vCrownR;\n' + s.fragmentShader;
+      s.fragmentShader = '#define CROWN\nvarying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;\n' + s.fragmentShader;
     }
     s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `float bakedAO = 1., leafMask = 1., sunOcc = 1., anyFace = 0., crownDepth = 1., sunThin = 1.;
       #if defined( USE_COLOR_ALPHA )
@@ -490,7 +492,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       #endif`).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
       reflectedLight.indirectDiffuse *= bakedAO; reflectedLight.directDiffuse *= mix(1., bakedAO, .3) * sunOcc;` + (leaf ? `
       reflectedLight.directSpecular *= .3 * bakedAO; reflectedLight.indirectSpecular *= .3 * bakedAO;
-      reflectedLight.indirectDiffuse *= mix(vec3(1.), vec3(1.4, 1.5, 1.05), leafMask);   // a thin blade takes sky light on both faces, and inside a canopy that light comes filtered green through other leaves
+      reflectedLight.indirectDiffuse *= mix(vec3(1.), vec3(1.5, 1.45, .8), leafMask);   // a thin blade takes sky light on both faces, and inside a canopy that light comes filtered yellow-green through other leaves (the shaded side of a stand reads olive, not the sky's teal)
       #if NUM_DIR_LIGHTS > 0
       { vec3 L = directionalLights[0].direction, sun = directionalLights[0].color, V = -normalize(vViewPosition);
         #ifdef CROWN
@@ -504,6 +506,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         float disc = saturate(dot(V, normalize((viewMatrix * vec4(treeDisc, 0.)).xyz)));
         float into = max(pow(saturate(dot(V, L)), 3.), pow(disc, 6.)) + 4. * pow(disc, 60.);
         float thru = mix(saturate(.3 - dot(normal, L)), .6, anyFace) * (.1 + 1.5 * into) * leafMask * mix(.4, 1., bakedAO) * sunThin;
+        #ifdef CROWN
+        thru *= mix(.2, 1., smoothstep(.2, .8, vClump));   // clump to clump the light gets through or does not: broken highlights, not one even halo on every pad
+        #endif
         // light reaches a back-lit leaf through several leaves, not only through gaps: soften its shadow to 35% for this term
         float lit = mix(.35, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
         reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(1., .88, .42);   // olive-gold, not chartreuse
@@ -533,11 +538,16 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     mat.customProgramCacheKey = () => prevKey.call(mat) + (leaf ? '|leaf' : '|wood') + (crown ? '|crown' : ''); return mat; };
   // alphaToCoverage: both tiers draw into multisampled targets (Full's 4x scene target, Lite's antialiased canvas), so the
   // alpha-tested edge resolves to sample coverage and leaf silhouettes come out soft instead of stair-stepped.
-  // One leaf material per variant (they share one program): its crown envelope, from the variant's own leaves, as a spheroid
-  // about the trunk: centre height, horizontal radius (95th percentile reach), vertical radius (3rd-97th percentile height).
-  const crownOf = g => { const p = g.attributes.position, ys = [], rs = [], q = (a, f) => a.sort((u, v) => u - v)[Math.floor(f * (a.length - 1))];
-    for (let i = 0; i < p.count; i++) { ys.push(p.getY(i)); rs.push(Math.hypot(p.getX(i), p.getZ(i))); }
-    const y0 = q(ys, .03), y1 = q(ys, .97); return new THREE.Vector3((y0 + y1) / 2, q(rs, .95), (y1 - y0) / 2); };
+  // One leaf material per variant (they share one program): its crown envelope, from the variant's own leaves, about the trunk:
+  // centre height, radius at the foot and the top, half-height (3rd-97th percentile). The widest reach (95th percentile) of the
+  // lower and upper halves lands near the foot and the middle of a cone and both at the equator of a dome, so a line through
+  // them tapers a spruce's envelope to its tip (a spheroid had called its whole upper cone "interior" and darkened it) and
+  // leaves a broadleaf's round.
+  const crownOf = g => { const p = g.attributes.position, pts = [], q = (a, f) => a.sort((u, v) => u - v)[Math.floor(f * (a.length - 1))];
+    for (let i = 0; i < p.count; i++) pts.push([p.getY(i), Math.hypot(p.getX(i), p.getZ(i))]);
+    const ys = pts.map(v => v[0]), y0 = q(ys, .03), y1 = q(ys, .97), ym = (y0 + y1) / 2;
+    const lo = q(pts.filter(v => v[0] < ym).map(v => v[1]), .95), hi = q(pts.filter(v => v[0] >= ym).map(v => v[1]), .95);
+    return new THREE.Vector4(ym, lo, Math.max(2 * hi - lo, .3, hi * .25), (y1 - y0) / 2); };
   const leafFull = g => near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.7, -.7), alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock), true, crownOf(g)));
   const wood = map => map && near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false));
   const woodMats = { bark: wood(bark), bark_birch: wood(full && texture('bark_birch')) };
@@ -545,7 +555,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
   // conifers sit darker than the broadleaves (a deep green, not grey-blue); stands drift yellower or bluer, lighter or darker by
   // about 12%, and each tree differs from its neighbours by as much again, so no two crowns in a row read the same.
-  const KIND_TINT = { spruce: [.74, .82, .52], scots: [.86, .86, .52] };
+  const KIND_TINT = { spruce: [.86, .9, .54], scots: [.86, .86, .52] };
   const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5 + (noise(s.x * .53 + 7, s.z * .53 + 3) - .5) * .8, k = KIND_TINT[s.kind] || [1, 1, 1];
     return col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.88 + noise(s.x * .61 + 11, s.z * .61 + 17) * .26)); };
   // Bark differs tree to tree as well (a stem greyer or redder, lighter or darker by ~15%), so a stand is not one repeated pole.
