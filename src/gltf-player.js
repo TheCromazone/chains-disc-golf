@@ -45,7 +45,8 @@ export function createGLTFCharacter(avatar) {
   ink.font = 'bold 116px system-ui'; ink.fillText(String(avatar.number), 128, 184);
   const print = new THREE.CanvasTexture(printCanvas); print.colorSpace = THREE.SRGBColorSpace;
   const printGeo = new THREE.PlaneGeometry(.2, .2);
-  const printMat = new THREE.MeshBasicMaterial({ map: print, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }); owned.add(printMat);
+  // lit like the cloth it is printed on: an unlit print glowed white in the shade and read as a sticker
+  const printMat = new THREE.MeshStandardMaterial({ map: print, roughness: .85, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }); owned.add(printMat);
   const chestY = (spec.chestY || 1.30) - joints.spine.getWorldPosition(_v).y, chestZ = spec.chestZ || [.13, .13];
   for (const side of [-1, 1]) { const badge = new THREE.Mesh(printGeo, printMat); badge.position.set(0, chestY, side * ((side < 0 ? chestZ[0] : chestZ[1]) + .004)); badge.rotation.y = side < 0 ? Math.PI : 0; badge.rotation.x = side < 0 ? -.1 : .1; joints.spine.add(badge); }
   // Disc socket: a roll-free wrist frame under the group rather than a child of the forearm bone. The clips roll the arm
