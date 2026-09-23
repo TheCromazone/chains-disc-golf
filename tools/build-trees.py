@@ -237,14 +237,14 @@ def birch(rng, name, H=17., lean=0.):
   ring_tube(t, tp, rads, 8)
   t.axis = lambda z: along(tp, min(1, max(0, (z + .3) / (H * .95 + .3))))[0]
   t.base_dark = lambda z: .36 + .64 * min(1, max(0, (z - .3) / 2.2)) ** .7   # the black fissured foot of a birch
-  crown(t, rng, tp, rads, H, .4, .88, 2.9, rng.randint(11, 14), 52, 1.15, [CELL['birch']], 1.55, hang=.45, limb_elev=(.7, 1.1), limb_r=.42, sides=4, count=(2, 3))
+  crown(t, rng, tp, rads, H, .4, .88, 2.9, rng.randint(11, 14), 66, 1.0, [CELL['birch']], 1.55, hang=.45, limb_elev=(.7, 1.1), limb_r=.42, sides=4, count=(2, 3))
   return t
 
 def broadleaf(rng, name, H=15., W=5., lo=.38):
   t = Tree(rng, name, 'bark', vscale=BARK_V)
   tp = trunk_pts(rng, H, .84, rng.uniform(-.04, .04), .04, 9); rads = radius_along(tp, .32, .05, .45, 1.2)
   ring_tube(t, tp, rads, 8); t.axis = lambda z: Vector((0, 0, z))
-  crown(t, rng, tp, rads, H, lo, .7, W, rng.randint(5, 7), 74, 1.35, [CELL['broad'], CELL['broad'], CELL['dense']], 1.75, limb_elev=(.3, .85), limb_r=.62, sides=5)
+  crown(t, rng, tp, rads, H, lo, .7, W, rng.randint(5, 7), 88, 1.2, [CELL['broad'], CELL['broad'], CELL['dense']], 1.75, limb_elev=(.3, .85), limb_r=.62, sides=5)
   return t
 
 def spruce(rng, name, H=20., R0=3.4, zb=.1):
@@ -300,7 +300,7 @@ def bush(rng, name, R=1.3, Hb=1.5):
   t = Tree(rng, name, 'bark', vscale=1.); t.axis = lambda z: Vector((0, 0, -.2))
   def sample():
     u = unit(rng); u.z = abs(u.z) * .9 + .1; s = rng.uniform(.55, 1.) ** .5; return Vector((u.x * R * s, u.y * R * s, u.z * Hb * s))
-  for c in shell_points(rng, 11, sample, .7):
+  for c in shell_points(rng, 16, sample, .55):
     root = Vector((rng.uniform(-.12, .12), rng.uniform(-.12, .12), -.1)); t.tube([root, c], .018, .006, 3)
     low = c.z < Hb * .45   # low clumps spill outward and down to the ground, so the stems never show as a fan under the bush
     t.clump_at(c, c - root + Z * (.1 if low else .4), rng.randint(2, 3), rng.uniform(1.05, 1.3), CELL['dense'], hang=.45 if low else 0., out_bias=.75)
