@@ -86,7 +86,7 @@ export function createCharacter(opts = {}) {
   const motionEuler = new THREE.Euler(), motionA = new THREE.Quaternion(), motionB = new THREE.Quaternion();
   const cur = {}; for (const j of JOINTS) cur[j] = [...IDLE[j]]; cur.rootY = 0;
   let throwType = 'backhand', phase = null, time = Math.random() * 10, mood = null, locomotion = null;
-  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, aimType = 'backhand';   // aiming = faceDir steered and the disc gripped for a throw every frame (see gltf-player.js)
+  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, aimType = 'backhand';   // aiming = faceDir steered and the disc gripped for a throw every frame; the cover shot needs a carried disc (see gltf-player.js)
   const apply = () => { for (const j of JOINTS) joints[j].rotation.set(cur[j][0], cur[j][1], cur[j][2]); root.position.y = ROOT_Y + cur.rootY; };
   const frames = new Map(), _gi = new THREE.Quaternion();
   function releaseFrame(t) {
@@ -109,14 +109,15 @@ export function createCharacter(opts = {}) {
     react(name) { mood={name,t:0};phase=null; },
     play(name) { locomotion=name;phase=null;mood=null;time=0; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },
+    carry() { carryHit = true; },
     update(dt) {
-      time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false;
+      time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false; carries = carryHit ? carries + 1 : 0; carryHit = false;
       let target;
       if (phase === null) {
         target = {}; for (const j of JOINTS) target[j] = [...IDLE[j]]; target.rootY = Math.sin(time * 1.8) * 0.004;
         target.spine[0] += Math.sin(time * 1.8) * 0.02; target.spine[2] += Math.sin(time * 0.6) * 0.015; target.shR[2] += Math.sin(time * 1.3) * 0.02; target.shL[2] -= Math.sin(time * 1.1) * 0.02;
         target.head[1] += Math.sin(time * 0.45) * 0.22; target.head[0] += Math.sin(time * 0.7) * 0.04;
-        if(!mood&&!locomotion) target=aimFrames>=2&&grips>=1?readyPose(aimType,time):heroPose(time);
+        if(!mood&&!locomotion) target=aimFrames>=2&&grips>=1?readyPose(aimType,time):carries>=1?heroPose(time):target;
         if(locomotion==='walk') { const step=Math.sin(time*Math.PI*2);target.hipR[0]=step*.45;target.hipL[0]=-step*.45;target.shR[0]=-step*.4;target.shL[0]=step*.4; }
         if(locomotion==='practice') { const swing=(Math.sin(time*Math.PI/1.2)+1)*.5;target.root[1]=-.35+swing*.55;target.shR[0]=.7+swing*.5;target.elR[0]=1.2-swing*.6; }
         if(mood) { mood.t+=dt;const strength=Math.sin(Math.min(1,mood.t/2.4)*Math.PI);if(mood.name==='celebrate'){target.shR[0]=2.9*strength;target.shL[0]=2.9*strength;target.elR[0]=.4;target.elL[0]=.4;target.rootY=.1*strength;}else{target.spine[0]=.28*strength;target.head[0]=.35*strength;target.shR[0]=.1;}if(mood.t>=2.4)mood=null; }

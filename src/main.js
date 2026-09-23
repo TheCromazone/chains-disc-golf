@@ -145,7 +145,7 @@ function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if
 const _qh = new THREE.Quaternion(), _qg = new THREE.Quaternion(), _off = new THREE.Vector3(), _nrm = new THREE.Vector3();
 const CARRY_N = new THREE.Vector3(0, .35, -1).normalize(), CARRY_OFF = new THREE.Vector3(0, -.095, -.02);
 function holdDisc(char, mesh, n, spin, throwType) {
-  char.hand.getWorldPosition(_v); char.hand.getWorldQuaternion(_qh);
+  char.hand.getWorldPosition(_v); char.hand.getWorldQuaternion(_qh); if (!throwType) char.carry?.();   // a disc on show outside a throw: the cover-shot pose, not a bystander's idle
   const rel = throwType && char.getPhase() !== null ? char.releaseFrame?.(throwType) : null;
   if (rel) {
     _qg.copy(char.group.quaternion).invert();

@@ -3,7 +3,7 @@
 // prints and recolouring follow whatever body Blender exported. The male and female bodies share the rig,
 // the clips and every hair, headwear and glasses variant.
 import * as THREE from 'three';
-import { cloneModel } from './models.js';
+import { cloneModel, model } from './models.js';
 import { rimLight } from './materials.js';
 import { bodyMaterial } from './body-material.js';
 import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade } from './throw-poses.js';
@@ -16,8 +16,11 @@ const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0); 
 const glassesOf = a => a.glasses && a.glasses !== 'none' ? a.glasses : a.shades ? 'sport' : 'none';
 
 export function createGLTFCharacter(avatar) {
-  const female = avatar.figure === 'female';
-  const src = cloneModel((female ? 'golfer_f' : 'golfer') + (avatar.lod ? '_lod' : '')); if (!src) return null;
+  const female = avatar.figure === 'female', key = female ? 'golfer_f' : 'golfer';
+  // the phone LOD has its own texture set (its UVs differ). Lite loads the LOD under the full name too, so ask the loader
+  // rather than guess from the triangle count: the female LOD keeps ~9.7k triangles and passed for the full body (patchwork)
+  const lod = !!avatar.lod || model(key) === model(key + '_lod');
+  const src = cloneModel(key + (avatar.lod ? '_lod' : '')); if (!src) return null;
   const group = new THREE.Group(), actor = src.scene; group.add(actor);
   const joints = {}, owned = new Set(), glasses = [];
   const colors = { hair: avatar.hairColor, headwear: avatar.headwearColor, trim: avatar.accent };
@@ -30,9 +33,9 @@ export function createGLTFCharacter(avatar) {
     if (o.name.startsWith('glasses_')) { glasses.push(o); o.visible = o.name === 'glasses_' + glassesOf(avatar); }
     if (o.name.startsWith('accessory_wristband')) o.visible = avatar.wristband === 'both' || avatar.wristband === (o.name.endsWith('R') ? 'right' : 'left');
     if (!o.isMesh) return;
-    const key = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (key === 'body') { body = bodyMaterial(spec, avatar, o.geometry.index.count < 27000, female ? 'body_f_' : 'body_'); o.material = body.material; }
-    else { const slot = SLOT[key] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[key] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
+    const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; }
+    else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     owned.add(o.material); o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
   });
   if (!joints.elR || !joints.root || !body) return null;
@@ -78,9 +81,10 @@ export function createGLTFCharacter(avatar) {
   // Aim stance. main.js steers faceDir every frame for the player lining up a throw and for the menu hero; only the player
   // also grips the disc for a throw (holdDisc asks releaseFrame for the selected type), so two steered frames plus a grip
   // request mean "aiming" and the coiled stance blends over the idle clip, following the throw picker through aimType.
-  // The hero and bystanders get the cover-shot pose instead. ponytail: inferred rather than a setStance() call because
-  // main.js is shared; add the call if a second consumer needs the state.
-  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, readyW = 0, heroW = 0, aimType = 'backhand';
+  // The menu hero, whose disc holdDisc carries outside any throw (carry()), gets the cover-shot pose instead; bystanders,
+  // who hold no visible disc, keep the relaxed idle clip rather than raising an empty hand. ponytail: inferred rather than
+  // a setStance() call because main.js is shared; add the call if a second consumer needs the state.
+  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand';
   function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; group.updateMatrixWorld(true); }
   function blendTo(pose, w, base = null) {   // slerp the bones toward a shared-contract pose: over the mixer output, or over the windup pose the clip was baked from
     // (the mixer skips bones whose value did not change, so a held windup phase is rebuilt from the shared keys instead of read back)
@@ -143,10 +147,11 @@ export function createGLTFCharacter(avatar) {
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
     get heroWeight() { return heroW; },   // how far into the cover-shot pose: holdDisc spins the disc on the raised hand past half
+    carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
     react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
     update(dt) {
-      frameDt = dt; time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false;
+      frameDt = dt; time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false; carries = carryHit ? carries + 1 : 0; carryHit = false;
       const aiming = phase === null && !mood && !locomotion && aimFrames >= 2 && grips >= 1;
       let name = null;
       if (phase !== null) { const a = actions.get(throwType); sample(throwType, phase * (a?.getClip().duration || 1)); }
@@ -154,7 +159,7 @@ export function createGLTFCharacter(avatar) {
       else { name = handed(locomotion || 'idle'); sample(name, time % (actions.get(name)?.getClip().duration || 4)); }   // ponytail: no more practice-swing cycle; the cover-shot pose holds, play('practice') still works
       settle();
       readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < STANCE_FADE ? readyW : Math.max(0, readyW - dt / .22);
-      heroW = name?.startsWith('idle') && !locomotion && !aiming ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
+      heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
       overlay();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
