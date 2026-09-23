@@ -265,9 +265,10 @@ export function createGLTFCharacter(avatar) {
       settle();
       readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < STANCE_FADE ? readyW : Math.max(0, readyW - dt / .22);
       heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
-      // the disc hand hooks round the rim while it holds one (a bystander's hands hang open) and lets go just after release
+      // the disc hand hooks round the rim while it holds one (a bystander's hands hang open) and lets go just after release;
+      // the free hand keeps a relaxed third of the curl (straight scanned fingers read as a flat paddle)
       const gw = gripW(), holding = phase !== null ? phase < .68 : carries >= 1 || grips >= 1, mi = skin.morphTargetInfluences;
-      hookW = THREE.MathUtils.clamp(hookW + (holding ? 1 : -1) * dt * 8, 0, 1); mi[lefty ? 1 : 0] = gw; mi[lefty ? 3 : 2] = hookW * (1 - gw);
+      hookW = THREE.MathUtils.clamp(hookW + (holding ? 1 : -1) * dt * 8, 0, 1); mi[lefty ? 1 : 0] = gw; mi[lefty ? 3 : 2] = Math.max(.35, hookW) * (1 - gw); mi[lefty ? 2 : 3] = .35;
       overlay();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },

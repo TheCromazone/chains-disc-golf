@@ -106,12 +106,12 @@ const STANCE = {
   // back over the leading shoulder to the target, the off arm hanging loose: the set-up a real reach-back starts from, and
   // the one Disc Golf Masters shows its thrower in; the chest hunched over the disc (a bolt-upright torso read as a
   // mannequin). The throwing arm was solved numerically (shR, elR incl. the forearm's roll) against the aim camera for a
-  // compact address: the elbow out at shoulder height, the forearm across the chest dipping a little toward the hand, which
-  // stays a hand's width off the chest, the wrist flexed toward the palm (grip morph, gltf-player.js) so the disc lies level
-  // beside the hand ~22 cm under the shoulder, its far edge out toward the target. Critics read the earlier solves (the
-  // forearm pointed at the lens, a dangling forearm, a wrist bent 90° sideways) as a chicken wing with the disc hanging off
-  // a broken wrist
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-1.006, .885, 2.433], elR: [2.05, .27, 0], shL: [.18, 0, -.14], elL: [.62, 0, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // compact address: the elbow ~10 cm under the shoulder and open ~105°, the forearm level across the front of the body a
+  // forearm's length off the chest, the wrist flexed toward the palm (grip morph, gltf-player.js) so the disc lies level
+  // beside the hand ~25 cm under the shoulder, its far edge out toward the target. Critics read the earlier solves (the
+  // forearm pointed at the lens, a dangling forearm, a wrist bent 90° sideways, an elbow folded shut) as a chicken wing
+  // or one rubbery tube with the disc hanging off a broken wrist
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-1.341, 1.165, 2.587], elR: [1.303, .286, 0], shL: [.18, 0, -.14], elL: [.62, 0, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
