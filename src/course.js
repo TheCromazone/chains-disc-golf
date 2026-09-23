@@ -376,6 +376,22 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const t = Object.assign(plant(x, z, (young || front ? s : s + .22) * (young && !guard && fi.t > .6 ? 2 : 1), rot, pine ? (front ? 'spruce' : kindOf(x, z, true)) : front ? 'broad' : kindOf(x, z, false), pine), { edge: 1 }); if (young || !guard) (pine ? pineSpots : decSpots).at(-1).quiet = 1;
     const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
   }
+  // Clearing stand (w2 verdict: past the arch the tee looked onto a bare, evenly lit grass hill with a few crowns on its
+  // crest): the open side's clearing, from past the edge stand out to where the main stands begin, gets an open wood of
+  // broadleaves with a pine or a birch among them, in groves, so the slope right of the arch reads as trees and trunks at
+  // 25-60 m, rows behind rows. Own rng, flagged edge (the dressing and the main layout stay put) and quiet (no shadow
+  // pass: the slope's light stays as it was). None within 28 m of a tee or 16 m of a basket.
+  const crng = makeRng(seed * 211 + 43);
+  for (let gx = -W / 2 + 12; gx < W / 2 - 12; gx += 4) for (let gz = -H / 2 + 12; gz < H / 2 - 12; gz += 4) {
+    const x = gx + (crng() - .5) * 3.6, z = gz + (crng() - .5) * 3.6, pick = crng(), s = .72 + crng() * .5, rot = crng() * Math.PI * 2;
+    const { fi, halfW, side, openSide } = stand(x, z);
+    if (!fi.hole || side * openSide < 0 || fi.d < (fi.t < .5 ? 9.5 : halfW + 7) * def.fairwayW || fi.d > halfW + 30 || fi.t < .12 || fi.t > .85 || pick > .75 * Math.min(1, def.trees * 1.4) * (.45 + .55 * smooth(.25, .6, noise(x / 19 + 41, z / 19 + 87)))) continue;
+    if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 16 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 26) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7) || inLane({ x, z })) continue;
+    if (treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < 3.6)) continue;
+    const pine = noise(x / 23 + 7, z / 23 + 61) > .66, kind = pine ? kindOf(x, z, true) : noise(x / 11 + 5, z / 11 + 3) > .72 ? 'birch' : 'broad';
+    const t = Object.assign(plant(x, z, s, rot, kind, pine), { edge: 1 }); (pine ? pineSpots : decSpots).at(-1).quiet = 1;
+    const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
+  }
   // Under crowns the turf goes thin, pale and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
   // earth shows at the trunk base. Colour and splat weights only: no height change.
   for (let i = 0; i < pos.count; i++) {
@@ -426,12 +442,18 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const treeDisc = { value: new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[2]), THREE.MathUtils.degToRad(def.sun[3])) };   // the sun's visible disc (the sky section's discDir)
   let lodT = -1;
   const LOD_CELL = 32, lodKey = (i, j) => i * 100000 + j;
-  const treeLod = (view, t) => { if (t - lodT < .25) return; lodT = t; treeEye.value.copy(view);
+  // Behind the eye: a 3D tree over 15 m behind the camera plane never enters the frame (the view cone is under 50 deg each side,
+  // so that is a 40 deg margin for a quarter second of turning), and with the sun ahead its shadow falls further behind too;
+  // with the sun behind, the margin grows by the shadow's reach. About a third of the near trees, drawn three times each.
+  const lodSun = (v => new THREE.Vector2(v.x, v.z).normalize())(new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1]))), lodReach = 22 / Math.tan(THREE.MathUtils.degToRad(def.sun[0]));
+  const treeLod = (view, t, focus) => { if (t - lodT < .25) return; lodT = t; treeEye.value.copy(view);
+    let fx = focus ? focus.x - view.x : 0, fz = focus ? focus.z - view.z : 0; const fl = Math.hypot(fx, fz); if (fl > 1) { fx /= fl; fz /= fl; } else fx = fz = 0;
+    const back = 15 + Math.max(0, -(fx * lodSun.x + fz * lodSun.y)) * lodReach;
     const R = treeNear.value + 4, i0 = Math.floor((view.x - R) / LOD_CELL), i1 = Math.floor((view.x + R) / LOD_CELL), j0 = Math.floor((view.z - R) / LOD_CELL), j1 = Math.floor((view.z + R) / LOD_CELL);
     for (const { im, mats, cols, pos, byCell } of nearSets) {
       const dm = im.instanceMatrix, dc = im.instanceColor; let n = 0;
       for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (const k of byCell.get(lodKey(i, j)) || []) {
-        if ((pos[k * 2] - view.x) ** 2 + (pos[k * 2 + 1] - view.z) ** 2 > R * R) continue;
+        const dx = pos[k * 2] - view.x, dz = pos[k * 2 + 1] - view.z; if (dx * dx + dz * dz > R * R || dx * fx + dz * fz < -back) continue;
         dm.array.set(mats.subarray(k * 16, k * 16 + 16), n * 16); if (dc) dc.array.set(cols.subarray(k * 3, k * 3 + 3), n * 3); n++;
       }
       im.count = n; dm.clearUpdateRanges(); dm.addUpdateRange(0, n * 16); dm.needsUpdate = true;
@@ -584,6 +606,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.);
         gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare)); }`);
+    // Leaves stop short of the bloom threshold (2, linear): a crown against the sun blazed past it and the bloom spread every
+    // back-lit card into one even yellow haze with no dark core. Clamped by luminance, so the hue holds.
+    if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `outgoingLight *= min(1., 1.2 / max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4));
+      #include <opaque_fragment>`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
       #ifndef CROWN
@@ -617,7 +643,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5 + (noise(s.x * .53 + 7, s.z * .53 + 3) - .5) * .8, k = KIND_TINT[s.kind] || [1, 1, 1];
     return col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.88 + noise(s.x * .61 + 11, s.z * .61 + 17) * .26)); };
   // Bark differs tree to tree as well (a stem greyer or redder, lighter or darker by ~15%), so a stand is not one repeated pole.
-  const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = .85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3; return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
+  const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = (.85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3) * (s.kind === 'birch' ? .62 + noise(s.x * .29 + 9, s.z * .29 + 2) * .25 : 1); return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
   for (const b of bushes) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
   const planted = (name, spots, shadow = true, lod = true) => {
     const src = quality !== 'low' && leafAtlas && model(name); if (!src) return false;
@@ -821,7 +847,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; };
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
-    if (view) treeLod(view, t);   // trees: 3D near the eye, impostors beyond (the trees section)
+    if (view) treeLod(view, t, focus);   // trees: 3D near the eye, impostors beyond (the trees section)
     windClock.value=t; sky.material.uniforms.time.value = t; if (world.basket) gapHole.value.set(world.basket.x, world.basket.z, gapHole.value.z);
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
