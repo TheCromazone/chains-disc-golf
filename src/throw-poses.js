@@ -124,10 +124,11 @@ export const STANCE = {
   // elbow and forearm now stand clear of the shirt and the disc sits outside the torso, against the grass. Round 10: that
   // elbow was the arm's outermost point with the forearm folded back under it to the disc ("a chicken wing", 2 of 3
   // critics). The grip hand is now cocked (gltf-player.js GRIP.cock), so a thumb-up hand holds the plate level at the end
-  // of a forearm reaching on toward the target: the upper arm out and forward at about shoulder height, the elbow open
-  // ~130°, the forearm dropping ~37° to a hand that is the arm's leftmost point, the disc level (within 3°) at the chest,
-  // reaching back from the hand across the front of the shirt, as in the Disc Golf Masters address.
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-1.502, -.629, 3.021], elR: [.832, -1.624, 0], shL: [.6, 0, -.1], elL: [.4, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // of a forearm reaching on toward the target: the upper arm out and forward, the elbow just over shoulder height and open
+  // ~133°, the forearm dropping ~33° to a hand that is the arm's leftmost point, the disc level at the chest (~18 cm under
+  // the shoulder) reaching back from the hand across the front of the shirt, as in the Disc Golf Masters address. Held
+  // 5 cm lower, the phone frame hid the hand and disc behind the swipe prompt.
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.25, .1], head: [.37, -1.5, -.05], shR: [-1.37, -.428, 2.992], elR: [.827, -1.618, 0], shL: [.6, 0, -.1], elL: [.4, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
@@ -158,7 +159,7 @@ export const stanceFade = phase => { const u = Math.min(1, Math.max(0, phase / S
 // the same elbow-out address as his, solved for her shorter arm with the elbow ~8 cm less abducted (further out her
 // sleeve shears), the forearm roll still under 20°. Round 10: re-solved with the cocked grip like his (her forearm roll
 // ~70°, at the edge of where her skin shears).
-export const STANCE_F = { backhand: { shR: [-1.511, -.425, 2.965], elR: [.819, -1.23, 0] } };
+export const STANCE_F = { backhand: { shR: [-1.401, -.383, 2.971], elR: [.808, -1.228, 0] } };
 export function readyPose(type, time, rig = RIGS.lite, over = null) {
   const family = type.split('_')[0], stance = { ...(STANCE[family] || STANCE.forehand), ...over?.[family] }, breath = Math.sin(time * 1.3), pose = { rootY: 0 };
   for (const j of JOINTS) pose[j] = [...(stance[j] || IDLE[j])];
