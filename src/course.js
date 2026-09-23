@@ -373,7 +373,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 12 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 40) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || inLane({ x, z })) continue;
     if (treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < (young ? 2.2 : 3))) continue;
     const front = fi.d < inner + 2.5, pine = front ? noise(x / 13 + 9, z / 13 + 4) > .55 : noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine;
-    const t = Object.assign(plant(x, z, young || front ? s : s + .22, rot, pine ? (front ? 'spruce' : kindOf(x, z, true)) : front ? 'birch' : kindOf(x, z, false), pine), { edge: 1 }); if (young || !guard) (pine ? pineSpots : decSpots).at(-1).quiet = 1;
+    const t = Object.assign(plant(x, z, (young || front ? s : s + .22) * (young && !guard && fi.t > .6 ? 2 : 1), rot, pine ? (front ? 'spruce' : kindOf(x, z, true)) : front ? 'broad' : kindOf(x, z, false), pine), { edge: 1 }); if (young || !guard) (pine ? pineSpots : decSpots).at(-1).quiet = 1;
     const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
   }
   // Under crowns the turf goes thin, pale and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
@@ -546,7 +546,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         // carrying the same glowing halo as the ones against the sun
         float disc = saturate(dot(V, normalize((viewMatrix * vec4(treeDisc, 0.)).xyz)));
         float into = max(pow(saturate(dot(V, L)), 3.), pow(disc, 6.)) + 4. * pow(disc, 60.);
-        float thru = mix(saturate(.3 - dot(normal, L)), .6, anyFace) * (.1 + 1.5 * into) * leafMask * mix(.4, 1., bakedAO) * sunThin;
+        float thru = mix(saturate(.3 - dot(normal, L)), .6, anyFace) * (.1 + 1.5 * into) * leafMask * mix(.4, 1., bakedAO) * sunThin * mix(1., .25, smoothstep(40., 110., length(vViewPosition)));
         #ifdef CROWN
         thru *= mix(.2, 1., smoothstep(.2, .8, vClump));   // clump to clump the light gets through or does not: broken highlights, not one even halo on every pad
         #endif
@@ -571,7 +571,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if (crown) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )'));
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', `{ float l = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
         diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, .7);
-        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .3, diffuseColor.rgb, crownDepth * crownDepth); }
+        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .3, diffuseColor.rgb, crownDepth * crownDepth); }
       #include <lights_physical_fragment>`);
     // Haze on foliage: the scene's fog, eased to 35% on crowns within 40 m (a near crown keeps its dark core and lit rim; at 80%
     // the glare side of the tee went one flat grey-lime veil) and rising to all of it by 150 m, so a stand reads in layers, each
@@ -586,6 +586,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare)); }`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
+      #ifndef CROWN
+      { vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)) - 1., 0., 2.) * .35; }
+      #endif
       #ifdef CROWN
       diffuseColor.a *= 1. - SKY_HOLES * smoothstep(.7, 1., crownDepth) * step(.6, vClump);   // some outer clumps thin out: sky holes and a broken edge, not a solid silhouette
       #endif
