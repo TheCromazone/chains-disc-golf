@@ -472,21 +472,27 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // gapHole: the pin (x, z) and the cut within 15 m of it. It was 1.3, which opened every crown there and left the putt
   // lawn one even sunlit sheet crossed only by trunk bars; .96 lets the crowns over the green cast dappled pools again. w4 putt
   // verdicts at .96: the floor round the pin sat in one shade with shapeless smears, basket and flags casting nothing; 1.15
-  // puts sun on it again, crossed by trunk, flag and pole shadows and crown pools.
-  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector3(0, 0, 1.15) };
-  const canopyGaps = (mat, open = 1) => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole;
+  // puts sun on it again, crossed by trunk, flag and pole shadows and crown pools. w4-3 putt verdict at 1.15 everywhere
+  // near the pin: "the whole foreground floor evenly sunlit under a dense dark canopy". So the open cut is now a clearing
+  // on the far side of the pin, measured where a leaf's shadow lands (its point carried down the sun ray to the pin's
+  // height, not the leaf's own x, z: at 24° a crown 15 m up shades ground 34 m away): the pin and the lawn past it in
+  // sun, and from ~3 m short of the pin toward the tee (gapAim) the crowns cast their full shade, so the near floor
+  // sits in shade with scattered sun pools and the lit green reads as a clearing. gapHole.w: the pin's ground height.
+  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector4(0, 0, 1.15, 0) }, gapAim = { value: new THREE.Vector4(0, 1, 1, 4) };
+  const canopyGaps = (mat, open = 1) => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole; s.uniforms.gapAim = gapAim;
     s.vertexShader = 'varying vec3 vGap;\n' + (s.vertexShader.includes('#include <project_vertex>') ? s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       { vec4 g = vec4(position, 1.);
       #ifdef USE_INSTANCING
       g = instanceMatrix * g;
       #endif
       vGap = (modelMatrix * g).xyz; }`) : s.vertexShader.replace('gl_Position = projectionMatrix * mvPosition;', '$& vGap = (modelMatrix * vec4(transformed, 1.)).xyz;'));   // an impostor card writes its own projection, and its `transformed` is already the sun-facing card in world space
-    s.fragmentShader = `uniform vec4 gapSun;uniform vec3 gapHole;varying vec3 vGap;
+    s.fragmentShader = `uniform vec4 gapSun, gapHole, gapAim;varying vec3 vGap;
       float gapHash(vec2 p) { vec3 q = fract(p.xyx * .1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
       float gapNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(gapHash(i), gapHash(i + vec2(1., 0.)), f.x), mix(gapHash(i + vec2(0., 1.)), gapHash(i + 1.), f.x), f.y); }
       ` + s.fragmentShader.replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
       { vec3 r = normalize(cross(vec3(0., 1., 0.), gapSun.xyz)), u = cross(gapSun.xyz, r); vec2 p = vec2(dot(vGap, r), dot(vGap, u)) / 3.2;
-        if (gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25 < ${open.toFixed(2)} * mix(gapHole.z, gapSun.w, smoothstep(15., 45., distance(vGap.xz, gapHole.xy)))) discard; }`); };
+        vec2 land = vGap.xz - gapSun.xz * max(vGap.y - gapHole.w, 0.) / gapSun.y - gapHole.xy;
+        if (gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25 < ${open.toFixed(2)} * mix(gapHole.z, gapSun.w, max(smoothstep(gapAim.z, gapAim.w, dot(land, gapAim.xy)), smoothstep(20., 45., length(land))))) discard; }`); };
     mat.customProgramCacheKey = () => prevKey.call(mat) + '|gaps' + open; return mat; };
   const inst = (geo, mat, spots, colorFn, shadow = true, lod = false) => {
     if (lod) {   // near-tree set: every tree's matrix and tint precomputed, drawn only once treeLod() picks it
@@ -820,7 +826,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The glare a shade warmer than the key (its light took the long way through the air), and ~40% of the key's strength:
   // any brighter and the tee's back third, which looks into the lobe, goes to a milky cream veil.
   Object.assign(FOG.glow, { r: sunColor.r * .42, g: sunColor.g * .39, b: sunColor.b * .33 });
-  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG };   // effects.js aims the light shafts at the disc; FOG for the debug hook
+  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG, gap: { hole: gapHole, aim: gapAim } };   // effects.js aims the light shafts at the disc; FOG for the debug hook
   const sky = skyDome(def, quality === 'low'); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
   // green-brown bounce from below (the dome's `ground` switch) and the sun's aureole glints in discs, chains and water.
@@ -901,12 +907,12 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // 0 on the fairway, 1 in the rough: the flight model uses it for skip, roll and slide friction.
   const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough, capsules: dressing.capsules };
-  const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; };
+  const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; gapHole.value.set(h.basket[0], h.basket[1], gapHole.value.z, h.basketY); const L = Math.hypot(h.tee[0] - h.basket[0], h.tee[1] - h.basket[1]) || 1; gapAim.value.set((h.tee[0] - h.basket[0]) / L, (h.tee[1] - h.basket[1]) / L, gapAim.value.z, gapAim.value.w); };
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
     if (view) treeLod(view, t, focus);   // trees: 3D near the eye, impostors beyond (the trees section)
     if (view) FOG.shape.w = height(view.x, view.z);   // the haze thins with height above the ground, not above the eye: the flyover drone looks through thinner air
-    windClock.value=t; sky.material.uniforms.time.value = t; if (world.basket) gapHole.value.set(world.basket.x, world.basket.z, gapHole.value.z);
+    windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
       if (near) { aim.set(focus.x - (view?.x ?? focus.x), 0, focus.z - (view?.z ?? focus.z)); const l = aim.length(); [FLECK.x, FLECK.y] = place(near, aim.multiplyScalar(l > .1 ? 5 / l : 0).add(focus), nearTexel); } }
