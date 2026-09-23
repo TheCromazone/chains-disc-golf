@@ -42,7 +42,7 @@ const QUAD_VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatri
 const _sun = new THREE.Vector3(), _fwd = new THREE.Vector3();
 class LightShafts extends Pass {
   constructor(scene, camera) {
-    super(); this.needsSwap = false; this.scene = scene; this.camera = camera; this.strength = 2.5; this.glare = .8;
+    super(); this.needsSwap = false; this.scene = scene; this.camera = camera; this.strength = 2.5; this.glare = .5;
     this.a = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false }); this.b = this.a.clone();
     const u = this.u = { tDepth: { value: null }, tColor: { value: null }, tMask: { value: null }, uSun: { value: new THREE.Vector2() }, uAspect: { value: 1 }, uTint: { value: new THREE.Color() }, uGlow: { value: new THREE.Color() } };
     const quad = (fragmentShader, extra = {}) => new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: u, vertexShader: QUAD_VS, fragmentShader, depthTest: false, depthWrite: false, ...extra }));
@@ -67,7 +67,7 @@ class LightShafts extends Pass {
     this.add = quad(`uniform sampler2D tMask,tDepth;uniform vec3 uTint,uGlow;uniform vec2 uSun;uniform float uAspect;varying vec2 vUv;
       void main(){ vec2 d=(vUv-uSun)*vec2(uAspect,1.); float r2=dot(d,d),open=0.;
         for(int i=0;i<12;i++){ float a=float(i)*2.3998,r=.004+.0025*float(i); open+=step(.99999,texture2D(tDepth,uSun+vec2(cos(a)/uAspect,sin(a))*r).x); }
-        gl_FragColor=vec4(texture2D(tMask,vUv).r*uTint+uGlow*(1.-open/12.)*(exp(-r2*14.)*.3+exp(-r2*60.)*.5),1.); }`, { blending: THREE.AdditiveBlending, transparent: true });
+        gl_FragColor=vec4(texture2D(tMask,vUv).r*uTint+uGlow*(1.-open/12.)*(exp(-r2*20.)*.3+exp(-r2*70.)*.6),1.); }`, { blending: THREE.AdditiveBlending, transparent: true });
   }
   setSize(w, h) { this.a.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2)); this.b.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2)); this.u.uAspect.value = w / h; }
   render(renderer, writeBuffer, readBuffer) {
