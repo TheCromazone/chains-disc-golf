@@ -249,7 +249,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const terrainNormals=geo.attributes.normal;
     for(let i=0;i<pos.count;i++) { const light=terrainNormals.getX(i)*.55+terrainNormals.getY(i)*.70+terrainNormals.getZ(i)*.45; const gain=.55+smooth(.28,.90,light)*.6; colors[i*3]*=gain;colors[i*3+1]*=gain;colors[i*3+2]*=gain; }
   }
-  const pads = holes.flatMap(h => [[-.8, -.6], [.8, -.6], [-.8, 2.6], [.8, 2.6]].map(([u, k]) => [h.tee[0] + Math.cos(h.yaw) * u - Math.sin(h.yaw) * k, h.tee[1] - Math.sin(h.yaw) * u - Math.cos(h.yaw) * k, Math.cos(h.yaw), Math.sin(h.yaw)]));   // 1.6 x 3.2 m rectangles the ground shades round and the carpet stays off: four tile each tee's gravel bed round its 5 m mat (props.js BED)
+  const pads = holes.flatMap(h => [[-.65, -.45], [.65, -.45], [-.65, 2.45], [.65, 2.45]].map(([u, k]) => [h.tee[0] + Math.cos(h.yaw) * u - Math.sin(h.yaw) * k, h.tee[1] - Math.sin(h.yaw) * u - Math.cos(h.yaw) * k, Math.cos(h.yaw), Math.sin(h.yaw)]));   // 1.6 x 3.2 m rectangles the ground shades round and the carpet stays off: four tile each tee's gravel bed round its 5 m mat (props.js BED), 15 cm short of its edging so the turf's blades spill over it
   // Lite drops the blade normal map: the turf photo already carries the grain, and the fetch buys back the splat cost.
   const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, lite: quality === 'low' }));
   terrain.receiveShadow = true; group.add(terrain);
