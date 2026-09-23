@@ -442,8 +442,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   };
   const col = new THREE.Color();
   // Full: the Blender trees (tools/build-trees.py over the tools/build-foliage.py atlas). A variant is a branch skeleton
-  // ('bark' / 'bark_birch') plus leaf-spray cards ('leaves'), instanced per 32 m cell with a per-tree tint. Wood and leaves
-  // share the wind, so the limbs carry their clumps as they sway, and both cast shadows.
+  // ('bark' / 'bark_birch') plus leaf-spray cards ('leaves'), one near-tree set per variant and material (see treeLod) with a
+  // per-tree tint. Wood and leaves share the wind, so the limbs carry their clumps as they sway, and both cast shadows.
   const full = quality !== 'low', leafAtlas = full && texture('leaves', { clamp: true, flipY: false }), leafNormals = full && texture('leaves_n', { clamp: true, flipY: false, srgb: false });   // Lite never fetches them
   // Canopy shading on top of three's PBR loop. Vertex colour rgb tints the albedo and its alpha is the build's sky visibility,
   // which dims ambient light fully and sunlight a little (the shadow map does the rest), so sunlit clumps stay bright while the
