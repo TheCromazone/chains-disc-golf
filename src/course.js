@@ -634,7 +634,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // the glare side of the tee went one flat grey-lime veil) and rising to all of it by 150 m, so a stand reads in layers, each
     // row back paler than the one before, and to about a third again where the view runs toward the sun's disc, so crowns
     // against the glare stand as dark, rim-lit silhouettes instead of pale grey-olive puffs. Trunks and stems take 80% from 15 m:
-    // bark 15-40 m out has to fall back into the haze row by row, and it has no lit rim to lose.
+    // bark 15-40 m out has to fall back into the haze row by row, and it has no lit rim to lose. At the putt (AIR.x) they take all
+    // of it: eased there, trees 20 m out stayed crisp over a hazed floor and the stand behind jumped to pale (w6 "a step").
     s.uniforms.treeDisc = treeDisc;
     s.fragmentShader = 'uniform vec3 treeDisc;\n' + s.fragmentShader;
     // Bark in the canopy's shadow also loses a third of its sky (w3-4: "white trunks lit evenly from crown to ground, no
@@ -655,7 +656,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // shade and its colour carry less far out, as a real stand's do (many small gaps average out, the eye resolves no clumps).
       // From 20 m to 100 m its luminance is squeezed toward a mid tone in log space (up to 55%) and it loses up to 45% of its
       // saturation, so each row back is softer than the one before even where the haze (the light group's fog) is thin. Bark too:
-      // the ridge's trunks at 50-60 m kept their near red-brown contrast. Eased toward the sun's disc, where crowns stay dark rim-lit shapes
+      // the ridge's trunks at 50-60 m kept their near red-brown contrast. Eased toward the sun's disc, where crowns stay dark rim-lit shapes.
+      // Off at the putt (AIR.x), where the air's own curve starts at 12 m: stacked on it, the squeeze made the step the w6 critics saw
       { float fd = smoothstep(20., 100., length(vViewPosition)) * (1. - sunAir.x) * (1. - .7 * pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.)), l = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
         outgoingLight = mix(vec3(l), outgoingLight, 1. - .45 * fd) * (.15 * pow(l / .15, 1. - .55 * fd) / l); }
       #include <opaque_fragment>`);
@@ -927,12 +929,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // so birches just past the pin keep their bark and each row behind them lifts a step; the air turns a darker grey
     // (the tee's near-white bank read as "a fog bank as
     // bright as the sunlit dirt" under a canopy) and keeps its warm lift toward the sun. The tee (85 m out) keeps its crisp air.
-    // w5-1 putt verdict ("a milky white-green fog a few metres behind the basket; trees 10 m past it as flat as trees 60 m
-    // away"): a 22 m clear zone with a 10 m knee put 16% on the stand 30 m past the pin, and against that dim understorey
-    // even 16% of bright air lifted every trunk to one value. Now clear to 28 m (~19 m past the pin) with a 50 m knee, so
-    // the optical depth creeps in (eye distance 40 m 4%, 50 m 12%, 60 m 21%, 80 m 39%, 100 m 55%, 150 m 80%): rows at 20 m
-    // past the pin keep full dark trunks, 40 m a light veil, 80 m most of the way to the air, which is a cool blue-grey
-    // (#aab8c6-ish on screen) instead of the green-grey that read as fog.
+    // w6 putt verdicts ("no aerial perspective in the midground, then one step to flat pale birches"; "a cold grey-blue veil
+    // with no light behind it"): one curve from 12 m with a 60 m knee (eye 1.5 m up: 25 m 2%, 40 m 9%, 60 m 20%, 80 m 32%,
+    // 100 m 43%, 150 m 64%; measured by fogging everything past a set distance: the framing pines and birches stand 25-40 m
+    // out, the stand behind them 40-70 m). Low near on purpose: the air adds light linearly, so even 5% of it doubles a
+    // shaded trunk. The trees take it whole here (AIR.x, the trees section), and the air is a warm near-neutral, not blue.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
       Object.assign(FOG.shape, { x: m(34, P.clear), y: m(2.25, P.density), z: m(30, P.knee) });
       Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm), g: warm.g * m(1, P.warm), b: warm.b * m(1, P.warm) }); AIR.x = k; }
@@ -957,7 +958,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
-const PUTT_AIR = { clear: 12, density: 3.1, knee: 60, haze: [.7, .68, .6], warm: .95 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
+const PUTT_AIR = { clear: 12, density: 2.65, knee: 60, haze: [1.05, .83, .63], warm: 1.18 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
@@ -983,7 +984,7 @@ float sunVis = 1.;
 	reflectedLight.indirectSpecular *= mix( .45, 1., sunVis );
 #endif
 #ifndef NO_SHADE_TINT
-reflectedLight.indirectDiffuse *= mix( mix( vec3( .9, .87, .8 ), vec3( .9, .97, 1.1 ), sunAir.x ), vec3( 1. ), sunVis );   // w3-4: the old teal tint (.74, .86, .92) on the blue sky fill turned shaded dirt a colourless grey-green (sRGB ~61, 62, 54); a faint warm bounce off the sunlit floor round it keeps it brown (the blue fill times this sits near neutral).   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
+reflectedLight.indirectDiffuse *= mix( mix( vec3( .9, .87, .8 ), vec3( 1.07, 1.09, 1.15 ), sunAir.x ), vec3( 1. ), sunVis );   // at the putt (AIR.x) a touch cooler and 15% more of it: w6 "shaded dirt a heavy muddy brown, no sky fill" (the pin's floor is open to the sky round it). w3-4: the old teal tint (.74, .86, .92) on the blue sky fill turned shaded dirt a colourless grey-green (sRGB ~61, 62, 54); a faint warm bounce off the sunlit floor round it keeps it brown (the blue fill times this sits near neutral).   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
 #endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
