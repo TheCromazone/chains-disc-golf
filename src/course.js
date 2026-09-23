@@ -621,7 +621,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // bark 15-40 m out has to fall back into the haze row by row, and it has no lit rim to lose.
     s.uniforms.treeDisc = treeDisc;
     s.fragmentShader = 'uniform vec3 treeDisc;\n' + s.fragmentShader;
-    s.fragmentShader = s.fragmentShader.replace('#include <fog_fragment>', `vec3 treeClear = gl_FragColor.rgb;
+    // Bark in the canopy's shadow also loses a third of its sky (w3-4: "white trunks lit evenly from crown to ground, no
+    // patches of sun and shade"): at the putt we see their back-lit faces, which the sun's term never reaches, so without this
+    // the leaf shadow crossing a stem changed nothing on it. sunVis: the sun's shadow here, from lights_fragment_begin.
+    s.fragmentShader = s.fragmentShader.replace('#include <fog_fragment>', `${leaf ? '' : 'gl_FragColor.rgb *= mix(.62, 1., sunVis);'}
+      vec3 treeClear = gl_FragColor.rgb;
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.);
         gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare${leaf ? '' : ' * (1. - smoothstep(25., 70., length(vViewPosition)))'})); }`);   // a trunk's exemption ends by 70 m: far trunks against the glare took half the floor's haze and stood dark in front of it like cut-outs
@@ -804,7 +808,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // swatch mostly replaced by the key's own warm white, brighter than the away side, so backlit woods fade into sunlit air.
   const haze = new THREE.Color(def.fog[0]).lerp(new THREE.Color(.66, .66, .62), .5).multiplyScalar(.9);
   Object.assign(FOG.sun, { x: discDir.x, y: discDir.y, z: discDir.z });
-  const warm = haze.clone().multiplyScalar(.4).add(sunColor.clone().multiplyScalar(.6)).multiplyScalar(.9);
+  // w3-4 verdicts called 60% of the key "a uniform peach-cream veil", "a sepia backdrop": a quarter of it now, over the
+  // haze a little brighter, so the backlit side is bright near-neutral air with a mild warm lift, not a golden filter.
+  const warm = haze.clone().multiplyScalar(.85).add(sunColor.clone().multiplyScalar(.25));
   // The environment fill is baked from the dome with the old, dimmer blue-grey horizon, so brighter air does not also lift
   // every shade and the athlete's skin: the fill is sky light, the haze colour is what the air between us and the woods adds.
   const fillHaze = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.66, .72, .82)), fillWarm = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.95, .86, .6));
@@ -936,7 +942,7 @@ float sunVis = 1.;
 	reflectedLight.indirectSpecular *= mix( .45, 1., sunVis );
 #endif
 #ifndef NO_SHADE_TINT
-reflectedLight.indirectDiffuse *= mix( vec3( .74, .86, .92 ), vec3( 1. ), sunVis );   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
+reflectedLight.indirectDiffuse *= mix( vec3( .9, .87, .8 ), vec3( 1. ), sunVis );   // w3-4: the old teal tint (.74, .86, .92) on the blue sky fill turned shaded dirt a colourless grey-green (sRGB ~61, 62, 54); a faint warm bounce off the sunlit floor round it keeps it brown (the blue fill times this sits near neutral).   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
 #endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
@@ -944,7 +950,7 @@ reflectedLight.indirectDiffuse *= mix( vec3( .74, .86, .92 ), vec3( 1. ), sunVis
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. );
 	#ifdef FOG_EXP2
-		float fogRise = vFogRay.y / 14., fogRun = max( fogDist - 8., 0. ), fogFactor = 1. - exp( - fogDensity * 1.6 * fogRun * fogRun / ( fogRun + 40. ) * ( fogRise > .01 ? ( 1. - exp( - fogRise ) ) / fogRise : 1. ) );   // the haze thins with height (14 m scale, integrated along the ray): a stand's crowns keep their shape over a hazier floor. Optical depth grows with the square of the run over the first 40 m, then linearly (pine: ~2% at 20 m, 7% at 30, 19% at 50, 38% at 80, 70% at 150): the forest floor 20-40 m out keeps its dirt colour and shadows, and the far rows dissolve in steps (the old linear ramp, 16% at 30 m, drowned the near floor in the same veil as the tree line)
+		float fogRise = vFogRay.y / 14., fogRun = max( fogDist - 8., 0. ), fogFactor = 1. - exp( - fogDensity * 1.25 * fogRun * fogRun / ( fogRun + 60. ) * ( fogRise > .01 ? ( 1. - exp( - fogRise ) ) / fogRise : 1. ) );   // the haze thins with height (14 m scale, integrated along the ray): a stand's crowns keep their shape over a hazier floor. Optical depth grows with the square of the run over the first 60 m, then linearly (pine: 4% at 30 m, 11% at 50, 24% at 80, 50% at 150, 74% at 250). w3-4 verdicts: the old 40 m knee at 1.6x (38% at 80 m) laid one cream veil over the floor 30-80 m out, hiding its shadows and cutting every far trunk out; the reference keeps dark trunks and a sun-dappled floor to the tree line and pales only the far rows
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
@@ -952,7 +958,7 @@ reflectedLight.indirectDiffuse *= mix( vec3( .74, .86, .92 ), vec3( 1. ), sunVis
 	#ifdef TONE_MAPPING
 		fogTint = toneMapping( fogTint );
 	#endif
-	gl_FragColor.rgb = mix( gl_FragColor.rgb, linearToOutputTexel( vec4( fogTint, 1. ) ).rgb, fogFactor );
+	gl_FragColor.rgb = mix( mix( gl_FragColor.rgb, vec3( dot( gl_FragColor.rgb, vec3( .2126, .7152, .0722 ) ) ), .8 * fogFactor ), linearToOutputTexel( vec4( fogTint, 1. ) ).rgb, fogFactor );   // what the haze veils also loses its colour first: far greens go grey-green row by row, not a saturated olive under a tinted wash
 #endif`,
   // Sun shadows: the stock PCF kernel spaced at `radius` texels leaves blocky rings under leafy canopies. 16 taps on a
   // Vogel disk turned per pixel (white noise: IGN's diagonals show without TAA) give the same cost a smooth penumbra, grain
