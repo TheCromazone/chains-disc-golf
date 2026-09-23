@@ -229,11 +229,17 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 #score h2 { margin: 0; padding: 16px var(--gutter) 12px; border-radius: 0 6px 0 0; background: var(--mint); color: var(--black); font-size: clamp(40px, 6vw, 56px); letter-spacing: -.02em; line-height: .95; }
 .score-body { display: flex; flex-direction: column; background: #f4f5f3; border-radius: 0 0 6px 6px; overflow: hidden; }
 #score #scoreBest { padding: 16px var(--gutter) 0; font-size: 13px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: #0f5a3c; }
-#score .badge { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--mint); color: var(--black); font-size: 19px; font-weight: 800; }
+/* A golfer's scorecard shorthand: circle under par, square over, a second ring for each stroke past one; par stays bare. */
+#score .mk { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 800; }
+#score .badge { width: 40px; height: 40px; font-size: 19px; }
+#score td.s-1 .mk, #score td.s-2 .mk, #score td.s-3 .mk { background: var(--mint); color: var(--black); }
+#score td.s-2 .mk, #score td.s-3 .mk { outline: 2px solid var(--mint); outline-offset: 2px; }
+#score td.s1 .mk, #score td.s2 .mk, #score td.s3 .mk, #score td.s4 .mk { border-radius: 3px; box-shadow: inset 0 0 0 2px currentColor; }
+#score td.s2 .mk, #score td.s3 .mk, #score td.s4 .mk { outline: 2px solid currentColor; outline-offset: 2px; }
 .score-grid { overflow-x: auto; padding: 16px 0 6px; }
 #score table { font-family: var(--display); font-size: 16px; }
 #score th { padding: 9px 3px; background: var(--black); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; border: 0; }
-#score th .muted { color: #ffffff80; font-size: 10px; font-weight: 700; letter-spacing: .5px; }
+#score th .muted { color: #ffffffbf; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
 #score th.cur, #score th.cur .muted { color: var(--mint); }
 #score td { padding: 8px 3px; font-weight: 700; color: var(--black); border: 0; }
 #score tr:first-child + tr td { padding-top: 14px; }
@@ -266,6 +272,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #top { width: min(236px, calc(100% - 84px)); }
   #score .panel { --gutter: 18px; }
   #score th .muted span { display: none; }   /* narrow cells: just the par number under the hole */
+  #score .mk { width: 20px; height: 20px; }
   #score .badge { width: 30px; height: 30px; font-size: 15px; }
   #score table { font-size: 14px; }
   #score td { padding: 6px 2px; }
@@ -326,9 +333,10 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #score h2 { font-size: 34px; padding: 8px var(--gutter) 6px; }
   #score #scoreBest { padding-top: 8px; }
   .score-grid { padding: 4px 0 0; }
+  #score .mk { width: 20px; height: 20px; }
   #score .badge { width: 30px; height: 30px; font-size: 15px; }
   #score th { padding: 5px 2px; font-size: 10px; }
-  #score th .muted { font-size: 8px; }
+  #score th .muted { font-size: 9px; }
   #score td { padding: 4px 2px; font-size: 13px; }
   #score tr:first-child + tr td { padding-top: 6px; }
   #score td.tot { font-size: 15px; }

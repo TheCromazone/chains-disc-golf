@@ -204,7 +204,7 @@ export function renderScorecard({ players, holes, holeIdx, final, isHost, online
   $('scoreTitle').textContent = final ? 'Final results' : `Hole ${holeIdx + 1} complete`;
   $('scoreStand').innerHTML = '';   // standings live in the grid now: rows are ranked, to-par sits in the total column
   let html = `<tr><th></th>${holes.map((h, i) => `<th${i === holeIdx ? ' class="cur"' : ''}>${i + 1}<div class="muted"><span>Par </span>${h.par}</div></th>`).join('')}<th>Tot</th></tr>`;
-  sorted.forEach((t, i) => { html += `<tr><td class="name"><span class="rank">${final && i === 0 ? icon('trophy') : String(i + 1).padStart(2, '0')}</span><i class="dot" style="background:${t.p.color}"></i>${escapeText(t.p.name)}</td>${holes.map((h, j) => { const s = t.p.scores[j]; return s == null ? `<td class="blank">–</td>` : j === holeIdx ? `<td class="cur"><span class="badge">${s}</span></td>` : `<td class="s${Math.max(-3, Math.min(4, s - h.par))}">${s}</td>`; }).join('')}<td class="tot">${t.s}<small>${fmt(t.toPar)}</small></td></tr>`; });
+  sorted.forEach((t, i) => { html += `<tr><td class="name"><span class="rank">${final && i === 0 ? icon('trophy') : String(i + 1).padStart(2, '0')}</span><i class="dot" style="background:${t.p.color}"></i>${escapeText(t.p.name)}</td>${holes.map((h, j) => { const s = t.p.scores[j], cur = j === holeIdx; return s == null ? `<td class="blank">–</td>` : `<td class="s${Math.max(-3, Math.min(4, s - h.par))}${cur ? ' cur' : ''}"><span class="mk${cur ? ' badge' : ''}">${s}</span></td>`; }).join('')}<td class="tot">${t.s}<small>${fmt(t.toPar)}</small></td></tr>`; });
   $('scoreTable').innerHTML = html;
   $('btnScoreNext').innerHTML = `${final ? 'Play again' : 'Next hole'}${icon('arrow')}`;
   const hostOk = !online || isHost;
