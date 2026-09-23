@@ -544,7 +544,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         #endif`);
       s.fragmentShader = `#define CROWN
 #define CLUMP_LIGHT 1.6
-#define SKY_HOLES .5
+#define SKY_HOLES .65
 varying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;
 float crownHash(vec3 p) { p = fract(p * .1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
 float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
@@ -582,14 +582,14 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         // lobes are narrow: a crown well off the sun's line (the stand across the fairway) falls back to shaded green instead of
         // carrying the same glowing halo as the ones against the sun
         float disc = saturate(dot(V, normalize((viewMatrix * vec4(treeDisc, 0.)).xyz)));
-        float into = max(pow(saturate(dot(V, L)), 3.), pow(disc, 6.)) + 4. * pow(disc, 60.);
+        float into = max(pow(saturate(dot(V, L)), 3.), pow(disc, 6.)) + 1.5 * pow(disc, 60.);
         float thru = mix(saturate(.3 - dot(normal, L)), .6, anyFace) * (.1 + 1.5 * into) * leafMask * mix(.4, 1., bakedAO) * sunThin * mix(1., .25, smoothstep(40., 110., length(vViewPosition)));
         #ifdef CROWN
         thru *= mix(.2, 1., smoothstep(.2, .8, vClump));   // clump to clump the light gets through or does not: broken highlights, not one even halo on every pad
         #endif
         // light reaches a back-lit leaf through several leaves, not only through gaps: soften its shadow to 35% for this term
         float lit = mix(.35, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
-        reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(1., .88, .42);   // olive-gold, not chartreuse
+        reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(.92, .95, .4);   // olive, not chartreuse or cream (w3: gold read as cream glare under the bloom)
         // sunlight scattered leaf to leaf through the crown: a soft yellow-green fill that follows the sun, not the shadow map,
         // so the shaded side of a back-lit crown reads green instead of black (a fifth of it at the heart of the crown)
         reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * mix(.2, 1., sunThin) * leafMask * vec3(1., 1., .4);
@@ -612,7 +612,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       .replace('diffuseColor *= sampledDiffuseColor;', 'diffuseColor *= vec4(mix(sampledDiffuseColor.rgb, texture2D(map, vMapUv, 2.5).rgb, .75), sampledDiffuseColor.a);'));
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', `{ float l = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
         diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, .7);
-        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .3, diffuseColor.rgb, crownDepth * crownDepth); }
+        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .4, diffuseColor.rgb, crownDepth * crownDepth); }
       #include <lights_physical_fragment>`);
     // Haze on foliage: the scene's fog, eased to 35% on crowns within 40 m (a near crown keeps its dark core and lit rim; at 80%
     // the glare side of the tee went one flat grey-lime veil) and rising to all of it by 150 m, so a stand reads in layers, each
@@ -627,7 +627,16 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare)); }`);
     // Leaves stop short of the bloom threshold (2, linear): a crown against the sun blazed past it and the bloom spread every
     // back-lit card into one even yellow haze with no dark core. Clamped by luminance, so the hue holds.
-    if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `outgoingLight *= min(1., 1.2 / max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4));
+    if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `outgoingLight *= min(1., mix(1.2, .75, pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 8.)) / max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4));
+      #include <opaque_fragment>`);
+    s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `
+      // w3 verdicts ("the tree line behind the arch is one flat row at the near trees' value and contrast"): a crown's light and
+      // shade and its colour carry less far out, as a real stand's do (many small gaps average out, the eye resolves no clumps).
+      // From 20 m to 100 m its luminance is squeezed toward a mid tone in log space (up to 55%) and it loses up to 45% of its
+      // saturation, so each row back is softer than the one before even where the haze (the light group's fog) is thin. Bark too:
+      // the ridge's trunks at 50-60 m kept their near red-brown contrast. Eased toward the sun's disc, where crowns stay dark rim-lit shapes
+      { float fd = smoothstep(20., 100., length(vViewPosition)) * (1. - .7 * pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.)), l = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
+        outgoingLight = mix(vec3(l), outgoingLight, 1. - .45 * fd) * (.15 * pow(l / .15, 1. - .55 * fd) / l); }
       #include <opaque_fragment>`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
@@ -639,7 +648,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // w3 verdicts (the framing oak: "a dense mass with almost no sky holes", "no dark hollow voids between clumps"): pockets
       // ~1-1.5 m across cut through the outer third of the crown, fixed to the crown (crown-space noise), so the shell breaks
       // into separate clumps with the dark interior showing between them and sky through the rim
-      if (crownN * smoothstep(.55, .95, crownDepth) > .6) diffuseColor.a = 0.;
+      if (crownN * smoothstep(.55, .95, crownDepth) > .53) diffuseColor.a = 0.;
       diffuseColor.a = smoothstep(.25, .75, diffuseColor.a); if (diffuseColor.a < .01) discard;
       #else
       #include <alphatest_fragment>
