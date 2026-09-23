@@ -476,9 +476,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // near the pin: "the whole foreground floor evenly sunlit under a dense dark canopy". So the open cut is now a clearing
   // on the far side of the pin, measured where a leaf's shadow lands (its point carried down the sun ray to the pin's
   // height, not the leaf's own x, z: at 24° a crown 15 m up shades ground 34 m away): the pin and the lawn past it in
-  // sun, and from ~3 m short of the pin toward the tee (gapAim) the crowns cast their full shade, so the near floor
-  // sits in shade with scattered sun pools and the lit green reads as a clearing. gapHole.w: the pin's ground height.
-  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector4(0, 0, 1.15, 0) }, gapAim = { value: new THREE.Vector4(0, 1, 1, 4) };
+  // sun (gapHole.z), and from 1 m short of it toward the tee (gapAim.xy, ramping over 2 m from gapAim.z) the crowns keep
+  // most of their cards (gapAim.w), so the near floor sits in shade with scattered sun pools and the lit ground round the
+  // pin reads as a clearing; past 15-35 m the course-wide cut (gapSun.w). Measured at 640x360 on the critic's floor box:
+  // luma 116 before, 79 after, the reference 77. gapHole.w: the pin's ground height. setHole() aims both.
+  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector4(0, 0, 1.15, 0) }, gapAim = { value: new THREE.Vector4(0, 1, -1, .75) };
   const canopyGaps = (mat, open = 1) => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole; s.uniforms.gapAim = gapAim;
     s.vertexShader = 'varying vec3 vGap;\n' + (s.vertexShader.includes('#include <project_vertex>') ? s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       { vec4 g = vec4(position, 1.);
@@ -492,7 +494,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       ` + s.fragmentShader.replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
       { vec3 r = normalize(cross(vec3(0., 1., 0.), gapSun.xyz)), u = cross(gapSun.xyz, r); vec2 p = vec2(dot(vGap, r), dot(vGap, u)) / 3.2;
         vec2 land = vGap.xz - gapSun.xz * max(vGap.y - gapHole.w, 0.) / gapSun.y - gapHole.xy;
-        if (gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25 < ${open.toFixed(2)} * mix(gapHole.z, gapSun.w, max(smoothstep(gapAim.z, gapAim.w, dot(land, gapAim.xy)), smoothstep(20., 45., length(land))))) discard; }`); };
+        if (gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25 < ${open.toFixed(2)} * mix(mix(gapHole.z, gapAim.w, smoothstep(gapAim.z, gapAim.z + 2., dot(land, gapAim.xy))), gapSun.w, smoothstep(15., 35., length(land)))) discard; }`); };
     mat.customProgramCacheKey = () => prevKey.call(mat) + '|gaps' + open; return mat; };
   const inst = (geo, mat, spots, colorFn, shadow = true, lod = false) => {
     if (lod) {   // near-tree set: every tree's matrix and tint precomputed, drawn only once treeLod() picks it
