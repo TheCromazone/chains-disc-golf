@@ -143,7 +143,15 @@ export const STANCE = {
   // relative offsets: that elbow was still the arm's outermost point with the forearm folded back to the chest ("one fleshy
   // lump"). Now the upper arm reaches forward, the elbow bent ~50°, the hand drops off it toward the target with the plate
   // level (~7° to the lens) reaching back across the chest, clear of the shirt: the Disc Golf Masters silhouette.
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [.37, -1.5, -.05], shR: [-.439, 1.177, 1.907], elR: [.899, -.318, 0], shL: [.6, 0, -.1], elL: [.4, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // Round 15: measured on a grid against the reference, that whole arm sat ~25 px (at 640) too high under a near-level upper
+  // arm, so the forearm pointed at the lens and read as a lump. Re-solved in screen space from the throwing shoulder: the upper
+  // arm slopes down to an elbow ~29 px under the shoulder, the forearm drops from it showing its side, the hand ~47 px under
+  // the shoulder and the plate level at the hand reaching back across the chest (the reference's full drop put hand and disc
+  // behind the phone's swipe prompt). The chin drops ~.4 rad and the head turns
+  // ~.25 rad further to the target: the reference's head sits low between the shoulders seen from three-quarters behind,
+  // and the upright head on a long neck read as a full profile bolted onto a square chest. The
+  // off elbow softens ~10° more (hanging straight to the thigh, critics read the free arm as dead).
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.02, -1.75, -.12], shR: [.377, 1.121, .914], elR: [.832, -.359, 0], shL: [.6, 0, -.1], elL: [.58, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
