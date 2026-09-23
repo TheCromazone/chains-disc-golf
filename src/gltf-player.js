@@ -227,7 +227,7 @@ function hairShellMaterial(mask) {
     Object.assign(s.uniforms, u);
     s.vertexShader = 'attribute float shell; varying float vShell; varying vec3 vHP, vHN; varying vec2 vHUv;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       vShell = shell; vHP = position; vHN = normal; vHUv = uv;
-      transformed += normal * shell * .024 - vec3(0., shell * shell * .018, 0.);`);   // ~2 cm of volume past the scan's cap, the ends falling a little
+      transformed += normal * shell * .032 - vec3(0., shell * shell * .03, 0.);`);   // ~3 cm of volume past the scan's cap, the ends falling ~3 cm: at 2 cm the outline still read as a sculpted cap against the sky
     s.fragmentShader = 'uniform sampler2D uHairMask; varying float vShell; varying vec3 vHP, vHN; varying vec2 vHUv;\n' + NOISE_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { float hm = smoothstep(.35, .8, texture2D(uHairMask, vHUv).a);
         vec3 flow = mix(vec3(1., .2, 1.), vec3(1., 1., .2), smoothstep(.35, .8, vHN.y));   // strands run down the sides and back, front to back on top
