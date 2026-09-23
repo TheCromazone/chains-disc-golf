@@ -460,12 +460,16 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // passes it through as a warm yellow-green, strongest looking into the sun (thin-leaf translucency), and directLight.color
   // still carries the shadow after three's directional loop, so leaves in shade do not glow; specular is damped to a third
   // (a matte blade against the low sun otherwise reads as grey sheen); alpha grows with the mip level (capped, so a card seen
-  // edge-on does not fill in) so distant crowns keep their coverage. An impostor overwrites bakedAO, leafMask and rimGlow from
-  // its maps and sets sunOcc, the self-shadow the shadow map gives the 3D crowns.
-  window.__treeNear = treeNear; const treeTune = window.__treeTune ={ value: new THREE.Vector4(.6, .7, .35, 1) }, treeTune2 = window.__treeTune2 = { value: new THREE.Vector4(.3, .2, -.5, .35) }, treeGlow = window.__treeGlow = { value: new THREE.Vector3(1, .88, .42) };   // TEMP probe knobs
+  // edge-on does not fill in) so distant crowns keep their coverage. An impostor overwrites bakedAO and leafMask from its maps,
+  // takes sunThin and crownDepth from its baked crown depth and sets sunOcc, the self-shadow the shadow map gives the 3D crowns.
+  // Crown depth (round 6: a crown read as one evenly lit lime wall of cards). A 3D crown (`crown` = its variant's envelope) knows
+  // where each fragment sits in it: crownDepth, 0 at the heart and 1 at the envelope, darkens and greys the albedo toward the
+  // heart (to 30% of a half-saturated leaf, with depth squared), so a gap in the leaves shows a dark interior; sunThin is how much
+  // crown the sun has to cross to reach the fragment (the chord to the envelope along the light, through foliage that lets
+  // e^-.6 per metre through), and it gates the back-light glow and the leaf-to-leaf fill, so a crown against the sun is dark at
+  // its core with only the thin rim lit, not lit through. The leaves' albedo is 30% desaturated (a summer crown reads olive in
+  // the reference, not lime).
   const canopy = (mat, leaf = true, crown = null) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
-    s.uniforms.treeTune = treeTune; s.uniforms.treeTune2 = treeTune2; s.uniforms.treeGlow = treeGlow;
-    s.fragmentShader = 'uniform vec4 treeTune, treeTune2;uniform vec3 treeGlow;\n' + s.fragmentShader;
     if (crown) {   // a 3D crown: where this fragment sits in its variant's crown envelope (a spheroid about the trunk, per instance scale)
       s.uniforms.treeCrown = { value: crown };
       s.vertexShader = 'uniform vec3 treeCrown;varying vec3 vCrownP;varying vec2 vCrownR;\n' + s.vertexShader.replace('#include <fog_vertex>', `#include <fog_vertex>
@@ -475,7 +479,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         #endif`);
       s.fragmentShader = '#define CROWN\nvarying vec3 vCrownP;varying vec2 vCrownR;\n' + s.fragmentShader;
     }
-    s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `float bakedAO = 1., leafMask = 1., rimGlow = 1., sunOcc = 1., anyFace = 0., crownDepth = 1., sunThin = 1.;
+    s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `float bakedAO = 1., leafMask = 1., sunOcc = 1., anyFace = 0., crownDepth = 1., sunThin = 1.;
       #if defined( USE_COLOR_ALPHA )
       diffuseColor.rgb *= vColor.rgb; bakedAO = vColor.a;
       #elif defined( USE_COLOR )
@@ -491,35 +495,37 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       { vec3 L = directionalLights[0].direction, sun = directionalLights[0].color, V = -normalize(vViewPosition);
         #ifdef CROWN
         { vec3 sN = (vec4(L, 0.) * viewMatrix).xyz / vCrownR.xyx; float a = dot(sN, sN), b = dot(vCrownP, sN), c = dot(vCrownP, vCrownP) - 1.;
-          sunThin = exp(-treeTune.x * max(0., (-b + sqrt(max(b * b - a * c, 0.))) / a)); }
+          sunThin = exp(-.6 * max(0., (-b + sqrt(max(b * b - a * c, 0.))) / a)); }
         #endif
         // forward scatter peaks toward the visible disc (low in the frame at the tee), not the high key light that casts the shadows;
-        // within a few degrees of the disc thin foliage blazes (the tight lobe), so crowns against the sun ring it with light
+        // within a few degrees of the disc thin foliage blazes (the tight lobe), so crowns against the sun ring it with light. The
+        // lobes are narrow: a crown well off the sun's line (the stand across the fairway) falls back to shaded green instead of
+        // carrying the same glowing halo as the ones against the sun
         float disc = saturate(dot(V, normalize((viewMatrix * vec4(treeDisc, 0.)).xyz)));
-        float into = max(pow(saturate(dot(V, L)), 2.), pow(disc, 4.)) + 4. * pow(disc, 60.);
-        float thru = mix(saturate(.3 - dot(normal, L)), 1., anyFace) * (.2 + 1.5 * into) * leafMask * mix(.4, 1., bakedAO) * rimGlow * sunThin * treeTune.w;
+        float into = max(pow(saturate(dot(V, L)), 3.), pow(disc, 6.)) + 4. * pow(disc, 60.);
+        float thru = mix(saturate(.3 - dot(normal, L)), .6, anyFace) * (.1 + 1.5 * into) * leafMask * mix(.4, 1., bakedAO) * sunThin;
         // light reaches a back-lit leaf through several leaves, not only through gaps: soften its shadow to 35% for this term
-        float lit = mix(treeTune2.w, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
-        reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * treeGlow;
+        float lit = mix(.35, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
+        reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(1., .88, .42);   // olive-gold, not chartreuse
         // sunlight scattered leaf to leaf through the crown: a soft yellow-green fill that follows the sun, not the shadow map,
-        // so the shaded side of a back-lit crown reads green instead of black
-        reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * mix(treeTune2.y, 1., sunThin) * leafMask * vec3(1., 1., .4); }
+        // so the shaded side of a back-lit crown reads green instead of black (a fifth of it at the heart of the crown)
+        reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * mix(.2, 1., sunThin) * leafMask * vec3(1., 1., .4); }
       #endif` : ''));
-    if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, treeTune2.z )'))
-      .replace('texture2D(impNormal, vMapUv)', 'texture2D(impNormal, vMapUv, treeTune2.z)');
+    // 3D leaves sample the atlas half a mip sharper: at 40-60 m the default level had blurred each spray into a soft blob
+    if (crown) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )'));
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', `{ float l = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
-        diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, treeTune.y);
-        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * treeTune2.x, diffuseColor.rgb, crownDepth * crownDepth); }
+        diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, .7);
+        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .3, diffuseColor.rgb, crownDepth * crownDepth); }
       #include <lights_physical_fragment>`);
-    // Haze on foliage: the scene's fog, eased to 80% on crowns within ~60 m (rising to all of it by 240 m, where the tree line
-    // melts into the sky) and to about half where the view runs toward the sun's disc, so a crown in the glare keeps its dark
-    // core and lit rim under the veil instead of going one flat cream.
+    // Haze on foliage: the scene's fog, eased to 35% on crowns within 40 m (a near crown keeps its dark core and lit rim; at 80%
+    // the glare side of the tee went one flat grey-lime veil) and rising to all of it by 120 m, so a stand reads in layers, each
+    // row back paler than the one before, and to about 80% again where the view runs toward the sun's disc.
     s.uniforms.treeDisc = treeDisc;
     s.fragmentShader = 'uniform vec3 treeDisc;\n' + s.fragmentShader;
     s.fragmentShader = s.fragmentShader.replace('#include <fog_fragment>', `vec3 treeClear = gl_FragColor.rgb;
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 16.);
-        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(treeTune.z, 1., smoothstep(50., 160., length(vViewPosition))) * (1. - .22 * glare)); }`);
+        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.35, 1., smoothstep(40., 120., length(vViewPosition))) * (1. - .22 * glare)); }`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
       #include <alphatest_fragment>`); };
@@ -538,7 +544,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
   // conifers sit darker than the broadleaves (a deep green, not grey-blue); stands drift yellower or bluer, lighter or darker by
   // about 12%, and each tree differs from its neighbours by as much again, so no two crowns in a row read the same.
-  const KIND_TINT = { spruce: [.62, .76, .5], scots: [.86, .86, .52] };
+  const KIND_TINT = { spruce: [.74, .82, .52], scots: [.86, .86, .52] };
   const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5 + (noise(s.x * .53 + 7, s.z * .53 + 3) - .5) * .8, k = KIND_TINT[s.kind] || [1, 1, 1];
     return col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.88 + noise(s.x * .61 + 11, s.z * .61 + 17) * .26)); };
   // Bark differs tree to tree as well (a stem greyer or redder, lighter or darker by ~15%), so a stand is not one repeated pole.
@@ -572,7 +578,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     // squared and only the thin rim transmits, while a crown lit from behind the camera keeps its lit face.
     s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
       normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * tz, 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); anyFace = 1.;   // the billboard's normals are a crown average: thinness, not facing, gates what it transmits
-      sunThin = smoothstep(.3, .82, n.z); crownDepth = mix(.7, 1., smoothstep(.2, .7, n.z));   // the 3D crown's two depths, from the baked one
+      sunThin = smoothstep(.4, .9, n.z); crownDepth = mix(.7, 1., smoothstep(.2, .7, n.z));   // the 3D crown's two depths, from the baked one
       diffuseColor.rgb = mix(diffuseColor.rgb / max(vColor, vec3(1e-3)) * vImpBark, diffuseColor.rgb, leafMask);   // the instance colour is the crown's tint: the stem takes its bark tint instead, as the 3D tree's does
       #if NUM_DIR_LIGHTS > 0
       sunOcc = mix(1., n.z * n.z, smoothstep(-.2, .6, dot(-normalize(vViewPosition), directionalLights[0].direction)) * leafMask);
