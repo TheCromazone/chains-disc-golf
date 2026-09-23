@@ -849,8 +849,8 @@ vec2 vogelTurn() { float spin = 6.2831853 * fract( sin( dot( gl_FragCoord.xy, ve
 	float fleckNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3. - 2. * f ); return mix( mix( fleckHash( i ), fleckHash( i + vec2( 1., 0. ) ), f.x ), mix( fleckHash( i + vec2( 0., 1. ) ), fleckHash( i + 1. ), f.x ), f.y ); }
 	float sunFlecks( vec2 p, float h ) {
 		vec2 c = floor( p / .45 ), o = ( vec2( fleckHash( c + 17. ), fleckHash( c + 31. ) ) * .5 + .25 ) * .45;
-		float rad = max( .0047 * h, .035 ), open = step( fleckHash( c ), .35 * smoothstep( .35, .7, fleckNoise( p / 3. + 7. ) ) );
-		return open * smoothstep( rad, rad * .75, length( p - c * .45 - o ) ) * smoothstep( 6., 9., h );
+		float rad = max( .0047 * h, .035 ) * mix( .6, 1.4, fleckHash( c + 53. ) ), open = step( fleckHash( c ), .45 * smoothstep( .5, .8, fleckNoise( p / 3. + 7. ) ) );   // gaps differ: some flecks blur wider, and they gather under the thin parts of a crown
+		return open * smoothstep( rad, rad * .6, length( p - c * .45 - o ) ) * smoothstep( 6., 9., h );
 	}
 	float sunShadow() {   // the near cascade inside its box, blended out over its outer fifth into the far map
 		vec4 nc = vDirectionalShadowCoord[ 1 ] / vDirectionalShadowCoord[ 1 ].w;
