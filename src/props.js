@@ -464,7 +464,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     for (const x of [-.8, .8]) {
       K.steel(at(box(.045, y0 + ph + .06, .045), pose(x, (y0 + ph + .06) / 2, -.04), world), '#44484c');
       K.steel(at(box(.06, .035, .62), pose(x, .018, -.04), world), '#3a3d40');   // T-foot across the panel
-      paint(at(roundBox(.4, .12, .24, .055, 2), pose(x + (x < 0 ? .03 : -.03), .075, -.22, x < 0 ? .12 : -.1), world), '#56533f');   // sandbag on the foot
+      paint(at(roundBox(.4, .12, .24, .055, 2), pose(x + (x < 0 ? .03 : -.03), .075, -.22, x < 0 ? .12 : -.1), world), '#8c7b55');   // sandbag on the foot
       shadeUnder(world, .26, .4, .25, .6, x, -.08);
     }
   };
@@ -627,9 +627,12 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     let prev = null;
     for (let k = 0; k <= n; k++) {
       const [u, f] = line(k / n), [x, z] = frame(h1, u, f), y = height(x, z), post = new THREE.Vector3(x, y + .84, z);
-      K.print(box(.055, 1.1, .055).translate(x, y + .4, z), 'white', '#eeeae0', -.04); paint(box(.06, .1, .06).translate(x, y + .91, z), GOLD);   // painted timber stake driven 15 cm into the turf, a gold-dipped top, the mud of every wet round on it
-      shadeUnder(pose(x, y, z), .22, .22, .1, .6);
-      if (prev) K.print(tube([0, .25, .5, .75, 1].map(t => prev.clone().lerp(post, t).setY(prev.y + (post.y - prev.y) * t - .14 * 4 * t * (1 - t))), .013, 8, full ? 5 : 3), 'white', '#e4c53a');   // yellow polypropylene rope tied at each stake, sagging
+      // a white-painted timber stake hammered 15 cm into the turf, a little off plumb, its tip dipped in marker orange,
+      // the mud of every wet round up its foot; the rope is tied round it just under the tip
+      const lean = pose(x, y, z, hash2(k, s, 51) * 6.3, (hash2(k, s, 52) - .5) * .07, (hash2(k, s, 53) - .5) * .07);   // hashed, so the rng stream the later dressing draws from is untouched
+      K.print(at(box(.05, 1.07, .05), pose(0, .385, 0), lean), 'white', '#ebe8df', -.04); paint(at(box(.054, .09, .054), pose(0, .875, 0), lean), '#ef6a1d');
+      post.set(0, .8, 0).applyMatrix4(lean); shadeUnder(pose(x, y, z), .22, .22, .1, .6);
+      if (prev) K.print(tube([0, .25, .5, .75, 1].map(t => prev.clone().lerp(post, t).setY(prev.y + (post.y - prev.y) * t - .15 * 4 * t * (1 - t))), .012, 8, full ? 5 : 3), 'white', '#f7cf0a');   // yellow polypropylene rope, sagging
       prev = post;
     }
     // turned to face the tee camera; the left one inside the rope so the nearer stakes fall outside it on screen, the
