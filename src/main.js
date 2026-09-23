@@ -511,23 +511,27 @@ const DEG = Math.PI / 180;
 cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's level camera looking down onto the green), eased like the pose
 // Over-the-left-shoulder aim frame (the Disc Golf Masters broadcast lens): a chest-high camera ~2 m behind the athlete's left
 // shoulder, near level, so he fills the right third cropped at the thigh. Drives: axis a few degrees right of the aim, pin
-// left of centre, horizon just under the middle, head ~18% from the top. Putts: a 33° (tall) lens 2.4 m from the athlete and
+// left of centre, horizon just under the middle, head ~18% from the top. Putts: a 36° (tall) lens 2.4 m from the athlete and
 // ~20° round his left side, so the frame reads in three depths: he stands big on the right third cut at the thigh, the putting
 // hand and disc clear of his body, the whole basket (flag to base plate) mid-frame, the banners and trunks behind it small.
 // (A 40° wide long lens from 3.5 m flattened those into one crowded layer, flags as tall as the athlete; square behind him on a
 // wide lens he was a slab of jersey hiding the disc.) The camera stays level and slides its lens
 // instead (cam.shift, applyViewOffset), so a green below the lie drops into frame without tipping the trunks inward (pitched
 // down onto the tray, it read as looking into a pit). It takes the height (lo-hi) that sets the athlete's eyes at P.eye and the
-// basket band at P.band (half-frame units above centre: 19% and 44% from the top), so uphill, flat and downhill greens frame
-// alike; out of that range the band wins until the eyes would pass P.eye. A lateral nudge of up to P.nudge clears trunks from
+// basket band at P.band (half-frame units above centre: 18% and 53% from the top, the reference's own marks), so uphill, flat
+// and downhill greens frame alike. That wide a gap puts the lens at chest height (~1.4 m over a lie 1.2 m above the pin), the
+// band near edge-on against the far woods and haze; eyes-to-band at 19%/44% sat it at 1.7 m, looking down onto the tray over
+// a foreground of dirt with the basket lost against the ground and shrubs behind it. A short phone keeps 44% (puttS).
+// Out of the lo-hi range the band wins until the eyes would pass P.eye. A lateral nudge of up to P.nudge clears trunks from
 // behind the basket (puttDodge). Portrait keeps its lift rule. Wide screens hold the horizontal lens (hfov), a 2:1 phone
 // widening past it rather than cropping under P.vmin tall (29° on a short phone, whose swipe ring takes the frame's lower
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.2, side: .92, lo: .9, hi: 1.8, eye: .62, band: .12, nudge: [-.1, .15], hfov: 56, vmin: 10 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.2, side: .92, lo: .9, hi: 1.8, eye: .63, band: -.06, nudge: [-.1, .15], hfov: 60, vmin: 10 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
+AIM.puttS = { ...AIM.putt, band: .12 };   // a short phone's 29-30° lens: the band sits higher, so the base plate clears the swipe ring's pill
 function aimFrame(lie, d, putt, pos, look) {
-  const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = (portrait ? AIM.tall : AIM)[putt ? 'putt' : 'drive'];
+  const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = portrait ? AIM.tall[putt ? 'putt' : 'drive'] : putt ? innerHeight > 520 ? AIM.putt : AIM.puttS : AIM.drive;
   const vt = portrait ? Math.tan(P.fov * DEG / 2) : Math.max(Math.tan((innerHeight > 520 && P.vmin || 14.5) * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least on a short phone, so it keeps headroom
   const side = P.side + (putt && P.nudge ? puttDodge(lie, P) : 0), rho = Math.hypot(P.back, side);
   pos.set(lie.x - d[0] * P.back - r[0] * side, lie.y, lie.z - d[1] * P.back - r[1] * side);
