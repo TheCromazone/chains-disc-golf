@@ -231,9 +231,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       const soil = ((along - length * .76) / (length * .14)) ** 2 + ((across + side * 8.8) / (4.8 + Math.sin(along * .19) * .8)) ** 2;
       const soilMask = (1 - smooth(.72, 1.08, soil)) * smooth(width + .35, width + 1.2, edge);
       // Dry patches follow dryNoise. Around the basket the putting circle is trodden to mulch and leaf litter: a lobed,
-      // frayed teardrop drawn out toward the tee, where players stand to putt.
+      // frayed teardrop drawn out toward the tee, where players stand to putt. w7: a narrower one, out to the 6.5 m lie, so the
+      // lawn round the pin (trees section) reaches the basket's sides as in the reference, trodden only along the putting line.
       const dry = dryNoise(x, z), bd = Math.hypot(x - h.basket[0], z - h.basket[1]);
-      const bm = segDist(x, z, h.basket, [h.basket[0] - dx / length * 3, h.basket[1] - dz / length * 3]).d;
+      const bm = segDist(x, z, h.basket, [h.basket[0] - dx / length * 6.5, h.basket[1] - dz / length * 6.5]).d * 1.45;
       splats[i * 4 + 3] = Math.max(smooth(.4 + fair * .12, .72, dry) * .85, soilMask * .9, (1 - smooth(4, 9, bd)) * .25);   // the unwatered rough dries out more than the fairway
       splats[i * 4 + 2] = (1 - smooth(1.8, 5.2, bm + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 2.8 + (noise(x / 4.5 + 31, z / 4.5 + 31) - .5) * 4.4)) * .95;
       // Tee: the gravel apron, a scuff at the sign post, and the driest patches within ~12 m worn through to earth.
@@ -396,12 +397,19 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
   // Under crowns the turf goes thin, pale and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
   // earth shows at the trunk base. Colour and splat weights only: no height change.
+  // w7 putt: round each pin the ground is a mown green, not forest floor. The reference's midground past the basket is a
+  // sunlit lawn crossed by long trunk shadows (w7-1 verdicts: our duff-brown floor "reads flat overcast, nothing lit by a
+  // sun"): within ~24 m of a basket (frayed out to ~34) the crowns' duff, shade-dry and tint give way to the fairway's
+  // turf; the trodden approach and the worn ring at the pole (terrain section) stay, and trunk feet keep their bare earth.
   for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i); let shade = 0, duff = 0, bare = 0;
+    const x = pos.getX(i), z = pos.getZ(i); let shade = 0, duff = 0, bare = 0, lawn = 0;
+    for (const h of holes) { const bd = Math.hypot(x - h.basket[0], z - h.basket[1]); if (bd < 38) lawn = Math.max(lawn, 1 - smooth(22, 34, bd + (noise(x / 6 + 13, z / 6 + 41) - .5) * 8)); }
     for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.4, t.fr * .4, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
-    const k = 1 - Math.min(1, shade) * .2; colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
-    splats[i * 4 + 2] = Math.max(splats[i * 4 + 2], Math.min(1, duff) * .9); splats[i * 4] = Math.max(splats[i * 4], Math.min(1, bare) * .7);
-    splats[i * 4 + 3] = Math.max(splats[i * 4 + 3], Math.min(1, shade) * .4);
+    const k = 1 - Math.min(1, shade) * .2 * (1 - lawn); colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
+    if (lawn > 0) { tmp.setRGB(colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]).lerp(cFair, lawn * .85); colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
+      turf[i * 4] = Math.max(turf[i * 4], lawn * .9); splats[i * 4 + 3] *= 1 - lawn * .85; }
+    splats[i * 4 + 2] = Math.max(splats[i * 4 + 2], Math.min(1, duff) * .9 * (1 - lawn)); splats[i * 4] = Math.max(splats[i * 4], Math.min(1, bare) * .7);
+    splats[i * 4 + 3] = Math.max(splats[i * 4 + 3], Math.min(1, shade) * .4 * (1 - lawn));
   }
 
   const bark = texture('bark', { repeat: [1, 3] });
@@ -481,8 +489,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // sun (gapHole.z), and from 1 m short of it toward the tee (gapAim.xy, ramping over 2 m from gapAim.z) the crowns keep
   // most of their cards (gapAim.w), so the near floor sits in shade with scattered sun pools and the lit ground round the
   // pin reads as a clearing; past 15-35 m the course-wide cut (gapSun.w). Measured at 640x360 on the critic's floor box:
-  // luma 116 before, 79 after, the reference 77. gapHole.w: the pin's ground height. setHole() aims both.
-  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector4(0, 0, 1.15, 0) }, gapAim = { value: new THREE.Vector4(0, 1, -1, .75) };
+  // luma 116 before, 79 after, the reference 77. gapHole.w: the pin's ground height. setHole() aims both. w7: the green past the
+  // pin is now a mown lawn (the reference's sunlit grass crossed by long trunk shadows), so it takes more sun (1.15 -> 1.5)
+  // and the trodden approach keeps more of its canopy (.75 -> .4) from the pin itself (gapAim.z -1 -> 0), so the pin, its
+  // shadow and the lawn stand in sun and the floor nearest the lens in open shade, as in the reference (floor luma at
+  // 640x360: mid band 107 -> 116, the reference 129; bottom band 62 -> 72, the reference 69).
+  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector4(0, 0, 1.5, 0) }, gapAim = { value: new THREE.Vector4(0, 1, 0, .4) };
   const canopyGaps = (mat, open = 1) => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole; s.uniforms.gapAim = gapAim;
     s.vertexShader = 'varying vec3 vGap;\n' + (s.vertexShader.includes('#include <project_vertex>') ? s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       { vec4 g = vec4(position, 1.);

@@ -396,7 +396,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     K.cloth(feather.cloth.clone().applyMatrix4(world), 'feather' + design);
     K.steel(tube(feather.pole, .012, full ? 12 : 4, 4).applyMatrix4(world), '#d9dcdc');
     K.steel(box(.7, .025, .05).applyMatrix4(world), '#3a3d40'); K.steel(box(.05, .025, .7).applyMatrix4(world), '#3a3d40');
-    shadeUnder(world, .5, .5, 0, .5);
+    shadeUnder(world, .55, .55, .2, .8);   // w7 putt verdicts: the banners' feet met the ground with no dark contact line, 'pasted onto the terrain'
   };
   const paint = (g, color) => K.print(g, 'white', color);   // powder-coated steel, plastic, canvas: dielectric, solid colour
   const addBench = world => {
