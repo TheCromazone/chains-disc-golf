@@ -200,11 +200,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
   const splats = new Float32Array(pos.count * 4);   // gravel/earth, sand, leaf litter, dry
   const turf = new Float32Array(pos.count * 4);     // fairway weight, metres across the tee-basket line (mown stripes), trail offset, trail wear
+  const alongs = new Float32Array(pos.count);       // metres along it: the turf's clumps stretch down the hole so they stay round on screen from the tee
   // Each colour is a zone's mean albedo: the photo tiles are divided by their means in the shader, so these are what
   // the turf averages to. Mown fairway lightest, rough, then deep rough away from the line and in damp hollows.
   const grassNormal = texture('grass_normal', { repeat: [480, 368], srgb: false });
   const cFair = new THREE.Color(def.grass[0]), cRough = new THREE.Color(def.grass[1]), cDark = new THREE.Color(def.grass[2]), cSand = new THREE.Color(def.grass[3]), tmp = new THREE.Color();
-  const cCollar = cRough.clone().lerp(cDark, .5);
+  const cCollar = cRough.clone().lerp(cDark, .75);
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i), y = height(x, z); pos.setY(i, y);
     const fi = fairwayInfo(holes, x, z);
@@ -213,14 +214,14 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const phase = fi.t * Math.PI * 4;
     const width = (2.0 + smooth(.06,.22,fi.t) * 1.7 + Math.sin(phase - .6) * .6 + Math.sin(phase * 1.8) * .25) * def.fairwayW;
     const edge = fi.d + (n2 - .5) * .8;
-    const fair = 1 - smooth(width, width + .55, edge), collar = 1 - smooth(width + 1.05, width + 1.8, edge);
+    const fair = 1 - smooth(width, width + .55, edge), collar = 1 - smooth(width + 2.2, width + 3.4, edge + (noise(x / 3 + 17, z / 3 + 17) - .5) * 1.2);   // a 2-3 m band of uncut rough along each edge, ragged
     tmp.copy(cRough).lerp(cDark, clamp(smooth(width + 5, width + 24, edge) * .6 + smooth(.55, .8, noise(x / 19 + 77, z / 19 + 77)) * .5, 0, 1));
-    tmp.lerp(cCollar, collar * .7).lerp(cFair, fair);
+    tmp.lerp(cCollar, collar * .85).lerp(cFair, fair);
     turf[i * 4] = fair;
     if(fi.hole) {
       const h = fi.hole, dx = h.basket[0] - h.tee[0], dz = h.basket[1] - h.tee[1], length = Math.hypot(dx, dz);
       const px = x - h.tee[0], pz = z - h.tee[1], along = (px * dx + pz * dz) / length, across = (-px * dz + pz * dx) / length;
-      turf[i * 4 + 1] = across + 1.75;   // a stripe edge runs down the line
+      turf[i * 4 + 1] = across + 1; alongs[i] = along;   // a stripe edge runs down the line
       // The walking trail: players leave the pad on the open side and walk the rough beside the fairway to the basket.
       // Stored as a signed offset from its meandering centre line (linear across the 2 m grid, so the fragment
       // shader draws a crisp 1 m trail) plus how worn it is along the hole: patchy, fading out before the basket.
@@ -251,7 +252,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
   const pads = holes.flatMap(h => [[-.65, -.45], [.65, -.45], [-.65, 2.45], [.65, 2.45]].map(([u, k]) => [h.tee[0] + Math.cos(h.yaw) * u - Math.sin(h.yaw) * k, h.tee[1] - Math.sin(h.yaw) * u - Math.cos(h.yaw) * k, Math.cos(h.yaw), Math.sin(h.yaw)]));   // 1.6 x 3.2 m rectangles the ground shades round and the carpet stays off: four tile each tee's gravel bed round its 5 m mat (props.js BED), 15 cm short of its edging so the turf's blades spill over it
   // Lite drops the blade normal map: the turf photo already carries the grain, and the fetch buys back the splat cost.
-  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, lite: quality === 'low' }));
+  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, along: alongs, pads, lite: quality === 'low' }));
   terrain.receiveShadow = true; group.add(terrain);
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their

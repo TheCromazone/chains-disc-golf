@@ -69,7 +69,8 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,ga.zw,br);
         float through=step(.9,fract(aRoot.z*7.7));   // one clump in ten pushes up through the litter, ragged
         float grow=1.-max(max(cov.x,cov.y),cov.z*(1.-through));
-        for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);grow*=smoothstep(.05,.3,max(abs(q.x)-.8,abs(q.y)-1.6));}
+        float pd=1e3;for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);pd=min(pd,max(abs(q.x)-.8,abs(q.y)-1.6));}
+        grow*=smoothstep(-.1,.25,pd+(gNoise(root*4.3+9.)-.5)*.4);   // the bed's union, frayed: tufts root up to 25 cm in over its timber edging, the rest of the bed stays clear
         vec2 spot=gSpot(root,gEdge(sp.x,ga.zw));grow*=1.-spot.x*.92;   // bare scuffs keep only a few blades; clover mats hold them low
         float keep=${lite ? '1.' : 'mix(.55,1.,fract(aRoot.z*23.9))'}*mix(1.,.5,through*cov.z);   // each clump drops its own subset of blades: no two share a silhouette
         float sc=k*step(mix(.06,.5,fract(aRoot.z*5.3)),grow)*step(fract(aBlade.y*13.1+aRoot.z*7.3),keep),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // each clump gives up at its own point of the thinning into path, gravel and litter: a ragged edge of whole tufts, not a fade
