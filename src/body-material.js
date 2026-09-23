@@ -96,7 +96,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         col = mix(col, uHair * (.5 + .5 * clamp(lum / uMean[0], .3, 1.4)), zone * (.6 + .4 * grain));
         chainsKnit = (texture2D(uKnit, vec2(vJerseyPos.x * .7 + vJerseyPos.z * .7, vJerseyPos.y) * 16.).r - .49) * ${knitAmp.toFixed(2)} * (w[1] + .5 * w[2] + .6 * w[4]);   // bind-pose projection: ~3 mm cells, the same scale on every island
         chainsJersey = w[1]; chainsSkin = w[0]; chainsRough = 1. - .12 * w[0] + .14 * w[3] + .2 * (w[1] + w[2] + w[4]); diffuseColor.rgb = col;
-        chainsPanel = max(smoothstep(.45, .85, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.2, .6, -vBindN.x * sign(vJerseyPos.x))); }`);
+        chainsPanel = max(smoothstep(.6, .7, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.3, .45, -vBindN.x * sign(vJerseyPos.x))); }`);   // a cut panel edge: soft, it read as a shadow down the side
   };
   material.customProgramCacheKey = () => 'chains-body';
   jerseyStyle(material, avatar.jerseyStyle, avatar.accent, 1, [0, 0, 0], 'chainsJersey');

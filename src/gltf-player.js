@@ -61,13 +61,13 @@ function relaxNormals(g, headBone, passes = 3) {
 //      knuckles instead, the fingers hid under the disc and the hand read as a paw pressed on top of it.
 // Joints as shares of the hanging hand's wrist-to-fingertip drop: knuckles .55, middle joints .79, end joints .9.
 const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal first
-const GRIP = { fingers: [[.9, .9], [.79, 1.6], [.55, .6]], spread: .45, seat: -.015, bend: 0, flex: 1.35, wrist: [.12, -.12] };   // wrist: flexed ~77° (a sideways cock that far read as a broken wrist), blended over ~5 cm that end above the thumb's base (inside the blend it tore into a flap)
+const GRIP = { fingers: [[.9, .9], [.79, 1.6], [.55, .6]], spread: .45, seat: .02, flex: 1.35, wrist: [.12, -.12] };   // seat: the rim sunk into the palm so the fingertips show under the plate (seated at the fingertips, the disc only brushed the hand); wrist: flexed ~77° (a sideways cock that far read as a broken wrist), blended over ~5 cm that end above the thumb's base (inside the blend it tore into a flap)
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
 function handMorphs(mesh, handOffset) {
   const g = mesh.geometry; if (g.userData.grip) return g.userData.grip;
   const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = pos.count, seats = {}, grips = [], hooks = [];
-  const Z = new THREE.Vector3(0, 0, -1), X = new THREE.Vector3(1, 0, 0), m = new THREE.Matrix4(), p = new THREE.Vector3(), o = new THREE.Vector3();
+  const Z = new THREE.Vector3(0, 0, -1), m = new THREE.Matrix4(), p = new THREE.Vector3(), o = new THREE.Vector3();
   for (const [name, side] of [['elR', 1], ['elL', -1]]) {
     const b = mesh.skeleton.bones.findIndex(x => x.name === name), E = new THREE.Vector3().setFromMatrixPosition(m.copy(mesh.skeleton.boneInverses[b]).invert());
     const W = E.clone().add(_v.set(handOffset.x * side, handOffset.y + .075, handOffset.z + .012));   // the wrist joint (build-golfer-v3.py: handOffset = wrist - elbow + (0, -.075, -.012))
@@ -104,8 +104,8 @@ function handMorphs(mesh, handOffset) {
     if (fingers) R.forEach((r, k) => { if (T[k] > .9) { const dist = r.distanceTo(base); if (dist > far) { far = dist; d0 = r.clone().sub(base).normalize(); } } });
     if (d0) { const d1 = new THREE.Vector3(px - .017, c.y + .025, c.z - .015).sub(base).normalize(), axis = d0.clone().cross(d1).normalize(), ang = Math.acos(THREE.MathUtils.clamp(d0.dot(d1), -1, 1));
       P.forEach((q, k) => { if (T[k] > 0) { turn(q, base, axis, T[k] * ang); N[k].applyAxisAngle(axis, T[k] * ang); } }); }
-    // the wrist: the hand below the joint cocks toward the little finger (bend) and flexes toward the palm (flex)
-    const qw = new THREE.Quaternion().setFromAxisAngle(Z, GRIP.flex).multiply(new THREE.Quaternion().setFromAxisAngle(X, GRIP.bend)), qi = new THREE.Quaternion(), qk = new THREE.Quaternion();
+    // the wrist: the hand below the joint flexes toward the palm
+    const qw = new THREE.Quaternion().setFromAxisAngle(Z, GRIP.flex), qi = new THREE.Quaternion(), qk = new THREE.Quaternion();
     R.forEach((r, k) => { const w = smooth(GRIP.wrist[0] * L, GRIP.wrist[1] * L, r.y); if (w > 0) { qk.copy(qi).slerp(qw, w); P[k].applyQuaternion(qk); N[k].applyQuaternion(qk); } });
     c.applyQuaternion(qw); const cn = new THREE.Vector3(0, 1, 0).applyQuaternion(qw);
     seats[name] = { c: new THREE.Vector3(c.x * side + W.x - E.x, c.y + W.y - E.y, c.z + W.z - E.z), n: new THREE.Vector3(cn.x * side, cn.y, cn.z) };
