@@ -54,7 +54,9 @@ float gBreak(vec2 p){return gNoise(p*1.3+5.)-.5;}
 #define gMacro(p) gNoise(p/19.+5.)
 #define gWarm(p,rough) 1.
 #define gPatch(p) .5
+#define gOlive .7   /* Lite has no grade to ease greens toward olive: the turf does it alone */
 #else
+#define gOlive .8
 float gBreak(vec2 p){return gNoise(p*1.3+5.)*.6+gNoise(p*4.1+17.)*.4-.5;}   // fingers along every splat edge
 #define gMacro(p) (gNoise(p/37.)*.6+gNoise(p/11.+5.)*.4)
 #define gWarm(p,rough) mix(vec3(1.),vec3(1.1,1.02,.78),smoothstep(.5,.8,gNoise(p/23.+40.)))*mix(vec3(1.),vec3(.76,.9,.78),smoothstep(.6,.76,gNoise(p/1.9+13.))*rough*.8)   /* sun-warmed patches; clover and weed clumps in the rough */
@@ -68,7 +70,8 @@ vec3 gCover(vec4 s,vec2 trail,float b){   // gravel, sand, litter over the turf;
 vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-40 m drift, sun-warmed patches, stripes, straw
   vec3 c=zone*(.78+gMacro(p)*.44)*gWarm(p,1.-turf.x);
   c*=1.+(smoothstep(-.08,.08,abs(fract(turf.y/7.)-.5)-.25)-.5)*.16*turf.x;   // 3.5 m mown stripes, fairway only
-  return mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
+  c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
+  return mix(vec3(dot(c,vec3(.3,.59,.11))),c,gOlive)*vec3(1.05,1.,.9);   // summer olive, not lime: a fifth less saturation, a touch warmer
 }`;
 // Full also shades a contact band where each tee pad meets the ground (pads: [x, z, cos yaw, sin yaw], 1.6 x 3.2 m).
 // No derivative bump: dFdx is constant per 2x2 pixel quad, so pebble-scale bumps render as blocky speckle.
@@ -101,7 +104,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         if(reach>0.){ vec3 l=texture2D(gDuff,p/2.3).rgb; float dp=gPatch(p);
           ${lite ? '' : 'l=mix(l,texture2D(gDuff,mat2(.6,-.8,.8,.6)*p/1.2+.3).rgb,smoothstep(.35,.65,gNoise(p/.9+41.)));   // finer, fresher shreds in drifts: chip size varies'}
           float ll=dot(l,vec3(.3,.59,.11));
-          l=mix(l,vec3(ll),.2+dp*.3)*vec3(1.8,2.05,1.75)*mix(.62,1.3,dp);   // shredded bark and leaves, 2-6 cm, sampled to DGM's #6f593f: damp dark patches, sun-bleached ones
+          l=mix(l,vec3(ll),.2+dp*.3)*vec3(2.4,2.6,2.1)*mix(.62,1.3,dp);   // shredded bark and leaves, 2-6 cm, lit to DGM's (sunlit ~#b08a60, shade ~#5a4632): damp dark patches, sun-bleached ones
           c=mix(c,l,max(cov.z,reach*smoothstep(.1,.2,ll)*.85)); }
         if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.3).rgb;   // packed pea gravel, shaded per pebble in the tile; its contrast eases with distance so it cannot speckle
           g=mix(g,${vec3s([.328, .306, .271])},smoothstep(3.,16.,d)*.55)*vec3(1.5,1.43,1.25)${lite ? '' : '*mix(1.,.62,smoothstep(.55,.85,gNoise(p*.8+3.)))'};   // packed earth shows in patches
