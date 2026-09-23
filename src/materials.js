@@ -68,7 +68,8 @@ vec3 gCover(vec4 s,vec2 trail,float b){   // gravel, sand, litter over the turf;
 vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-40 m drift, sun-warmed patches, stripes, straw
   vec3 c=zone*(.78+gMacro(p)*.44)*gWarm(p,1.-turf.x);
   c*=1.+(smoothstep(-.08,.08,abs(fract(turf.y/7.)-.5)-.25)-.5)*.16*turf.x;   // 3.5 m mown stripes, fairway only
-  return mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
+  c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
+  return mix(vec3(dot(c,vec3(.3,.59,.11))),c,.8)*vec3(1.05,1.,.9);   // summer olive, not lime: a fifth less saturation, a touch warmer
 }`;
 // Full also shades a contact band where each tee pad meets the ground (pads: [x, z, cos yaw, sin yaw], 1.6 x 3.2 m).
 // No derivative bump: dFdx is constant per 2x2 pixel quad, so pebble-scale bumps render as blocky speckle.

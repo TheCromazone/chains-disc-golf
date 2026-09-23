@@ -80,7 +80,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         bladePos=vec3(root.x,ga.x-.01,root.y)+bp*step(.001,sc);   // a dropped blade collapses to a point
         vec2 bn=R*normal.xz;bladeNormal=normalize(gn+vec3(bn.x,0.,bn.y)*.12);   // a low sun would black out blades tilted away; thin blades pass light anyway
         vec3 c=gTurf(root,zf.rgb*zf.rgb,vec2(fair,ga.y),gDry(sp.w,br))*(.8+.4*fract(aRoot.z*91.7+aBlade.y*7.3));
-        c=max(mix(vec3(dot(c,vec3(.3,.59,.11))),c,1.3),0.);   // live blades richer than the turf's average, which includes soil and thatch
+        c=max(mix(vec3(dot(c,vec3(.3,.59,.11))),c,1.15),0.);   // live blades richer than the turf's average, which includes soil and thatch
         c*=mix(vec3(.9,1.,1.02),vec3(1.12,1.05,.76),fract(aRoot.z*57.3));   // clumps range from green to yellow-green
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.4,1.18,.62),step(.96,fract(aBlade.y*17.3+aRoot.z*5.1))*.6);   // one blade in 25 is dead straw
         float y=fract(aBlade.y*29.1+aRoot.z*3.3);y*=y;   // some tips yellow in the sun, most stay green

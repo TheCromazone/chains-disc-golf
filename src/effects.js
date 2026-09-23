@@ -14,16 +14,21 @@ export async function loadSky() { return null; }
 
 // Broadcast finish for Full: render -> light shafts -> bloom (the sun's halo, lit cloud tops, chalk, glossy plastic)
 // -> output (ACES) -> grade. The grade is one fullscreen pass in display space: gain and lift, a gentle S-curve (at .5
-// it sank dark mulch in shade under the toe), saturation about luma, film grain, corner vignette.
+// it sank dark mulch in shade under the toe), saturation about luma with greens eased toward summer olive (the lawn and
+// leaves were a neon lime), a split tone (shade toward the sky's blue, sunlit tones toward the key's warmth, so sun and
+// shade read apart at a glance), film grain, corner vignette.
 // Screen-space AO was tried and dropped (r5): too faint at thin contacts, grime in the lawn; the contact rings under trunks
 // and baskets (course.js) and the canopy's baked occlusion carry it.
 const GRADE = {
-  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.03, 1, .96) }, uLift: { value: new THREE.Vector3(0, .003, .01) }, uSat: { value: 1.1 }, uCurve: { value: .4 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.03, 1, .96) }, uLift: { value: new THREE.Vector3(0, .003, .01) }, uSat: { value: 1 }, uOlive: { value: .3 },
+    uCool: { value: new THREE.Vector3(.93, .99, 1.1) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uCurve: { value: .4 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
   vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-  fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift;uniform float uSat,uCurve,uGrain,uVignette,uTime;varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift,uCool,uWarm;uniform float uSat,uOlive,uCurve,uGrain,uVignette,uTime;varying vec2 vUv;
     void main(){ vec4 c=texture2D(tDiffuse,vUv); c.rgb=clamp(c.rgb*uGain+uLift,0.,1.);
       c.rgb=mix(c.rgb,c.rgb*c.rgb*(3.-2.*c.rgb),uCurve);
-      float l=dot(c.rgb,vec3(.2126,.7152,.0722)); c.rgb=mix(vec3(l),c.rgb,uSat);
+      float l=dot(c.rgb,vec3(.2126,.7152,.0722)), lead=clamp((c.g-max(c.r,c.b))*3.,0.,1.);   // how far green leads: turf and leaves
+      c.rgb=mix(vec3(l),c.rgb,uSat*(1.-uOlive*lead)); c.r+=(c.g-c.r)*lead*uOlive*.8;
+      c.rgb*=mix(uCool,uWarm,smoothstep(.06,.5,l));
       float n=fract(sin(dot(gl_FragCoord.xy+vec2(uTime*61.,uTime*37.),vec2(12.9898,78.233)))*43758.5453); c.rgb+=(n-.5)*uGrain*(1.-l*.6);
       vec2 d=(vUv-.5)*vec2(1.,.85); float v=1.-smoothstep(.35,.95,dot(d,d)*2.2)*uVignette; gl_FragColor=vec4(c.rgb*v,c.a); }`,
 };
