@@ -123,7 +123,7 @@ def clean(alb, m1, m2, maps, rig, lines):
   # albedo: texels whose colour disagrees with their new region take their nearest trusted 3D neighbours
   jmed = float(np.median(lum[hit & (C0 == JERSEY)])); smed = float(np.median(lum[hit & (C0 == SKIN) & skinc & ~headp]))
   hemband = hips & above_hem & (y < hem + .05)   # the scan's hem stitching and fold shadow
-  trusted = {SKIN: headp | skinc & (lum < 2.2 * smed) & (lum > .3 * smed), JERSEY: (lum > np.where(hemband, .7, .52) * jmed) & (sat < .3), SHORTS: lum < .06, SOCKS: (lum > .12) & (sat < .3), SHOES: lum < .08}
+  trusted = {SKIN: headp & ~neckzone | skinc & (lum < 2.2 * smed) & (lum > .3 * smed), JERSEY: (lum > np.where(hemband, .7, .52) * jmed) & (sat < .3), SHORTS: lum < .06, SOCKS: (lum > .12) & (sat < .3), SHOES: lum < .08}   # the face keeps every texel; the neck under the collar must look like skin (the white trim frayed it)
   out = alb.copy()
   for k, ok in trusted.items():
     cls = hit & (C1 == k); trust = cls & (C0 == k) & ok; bad = cls & ~trust
@@ -138,6 +138,12 @@ def clean(alb, m1, m2, maps, rig, lines):
   for k, keep, size in ((SHORTS, .4, .015), (JERSEY, .45, .012)):   # near-black shorts carry sensor noise; the jersey keeps its folds, loses its streaks
     sel = hit & (C1 == k)
     if sel.sum() > 50: out[sel] = keep * out[sel] + (1 - keep) * voxel_mean(sel, size)
+  # the scan's white collar and sleeve trims sit right against the skin, and the masks' soft edge (resampling, filtering)
+  # blends some skin weight over them: a pale fringe. Jersey texels within 8 mm of skin take the skin's colour, darkened
+  # a little like a seam, so either side of the edge shades plausibly.
+  sk, edge = hit & (C1 == SKIN), hit & (C1 == JERSEY) & (y > shY - .3)
+  d, i = cKDTree(P[sk]).query(P[edge], distance_upper_bound=.008); near = np.isfinite(d)
+  flat = out.reshape(-1, 3); flat[np.flatnonzero(edge)[near]] = out[sk][i[near]] * .8
   W = np.stack([(C1 == k).astype(np.float32) for k in range(7)], -1); keep = headp & (C1 == C0) & ~neckzone; W[keep] = W7[keep]   # the face keeps its soft iris and brow edges
   idx = ndimage.distance_transform_edt(~hit, return_distances=False, return_indices=True)   # gutters copy their nearest island texel
   out, W, beard = out[idx[0], idx[1]], W[idx[0], idx[1]], m2[..., 3][idx[0], idx[1]]
