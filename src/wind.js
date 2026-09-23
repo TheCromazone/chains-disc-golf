@@ -19,7 +19,7 @@ export function createWindFx(scene, holes, height) {
   geo.setIndex(index);
   const mat = new THREE.ShaderMaterial({
     uniforms: { color: { value: new THREE.Color('#f4fbff') }, strength: { value: 0 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    vertexShader: 'attribute float alpha; varying float vA; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.); vA = alpha * smoothstep(2., 5., -mv.z); gl_Position = projectionMatrix * mv; }',   // fades within 5 m: a ribbon brushing the chest-high aim lens would sheet across the frame
+    vertexShader: 'attribute float alpha; varying float vA; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.); vA = alpha * smoothstep(7., 16., -mv.z); gl_Position = projectionMatrix * mv; }',   // gone within 7 m, full from 16 m: nearer, a camera-facing ribbon sheets across the aim frame like a lens smear
     fragmentShader: 'uniform vec3 color; uniform float strength; varying float vA; void main(){ gl_FragColor = vec4(color, vA * strength);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
   });
   const streaks = new THREE.Mesh(geo, mat); streaks.frustumCulled = false; streaks.renderOrder = 3; scene.add(streaks);
@@ -75,7 +75,7 @@ export function createWindFx(scene, holes, height) {
           for (let i = rb.n - 1; i > 0; i--) { rb.pts[i * 3] = rb.pts[(i - 1) * 3]; rb.pts[i * 3 + 1] = rb.pts[(i - 1) * 3 + 1]; rb.pts[i * 3 + 2] = rb.pts[(i - 1) * 3 + 2]; }
         }
         rb.pts[0] = rb.x; rb.pts[1] = rb.y; rb.pts[2] = rb.z;
-        const env = Math.sin(Math.PI * Math.min(1, rb.life)) * Math.min(1, rb.n / 5), width = .09 + k * .09;
+        const env = Math.sin(Math.PI * Math.min(1, rb.life)) * Math.min(1, rb.n / 5), width = .06 + k * .07;
         for (let i = 0; i < POINTS; i++) {
           const j = Math.min(i, rb.n - 1), o = (r * POINTS + i) * 2;
           _p.set(rb.pts[j * 3], rb.pts[j * 3 + 1], rb.pts[j * 3 + 2]);
