@@ -55,15 +55,19 @@ float gBreak(vec2 p){return gNoise(p*1.3+5.)-.5;}
 #define gWarm(p,rough) 1.
 #define gPatch(p) .5
 #define gPatchy(p) gNoise(p/4.7+71.)
+#define gPatchE vec2(.28,.72)
+#define gFar(c,d) (c)
 #define gOlive .7   /* Lite has no grade to ease greens toward olive: the turf does it alone */
 #define gThin(p) 0.
 #define gSpot(p,edge) vec2(0.)
 #define gEdge(g,trail) 0.
+#define gBump(p,fair) vec2(0.)
+#define gStray(p,g,trail,b) 0.
 #else
 #define gThin(p) (1.-smoothstep(.36,.62,gNoise(p/3.2+51.)*.45+gNoise(p/14.+83.)*.55))   /* 3 m and 15 m lumpy patches of thin, sun-dried turf between lush ones: value and height, not just hue */
 vec2 gSpot(vec2 p,float edge){   // sparse bare-soil scuffs (x) and clover/broadleaf weed mats (y), 0.5-1.2 m, one per 2.4 m cell at most; thicker along trail and apron edges
   vec2 q=p/2.4,i=floor(q),f=q-i-.3-.4*vec2(gHash(i+5.1),gHash(i+9.7));float h=gHash(i+3.3),r=length(f)/(.1+.15*gHash(i+1.9))+(gNoise(p*2.7+i*3.1)-.5)*.7;
-  return vec2(step(h,.025+edge*.35),step(.92-edge*.1,h))*(1.-smoothstep(.7,1.,r));
+  return vec2(step(h,.09+edge*.4),step(.9-edge*.1,h))*(1.-smoothstep(.7,1.,r));
 }
 float gEdge(float g,vec2 trail){return max(smoothstep(.02,.25,g)*(1.-smoothstep(.4,.7,g)),trail.y*smoothstep(.45,.65,abs(trail.x))*(1.-smoothstep(.8,1.6,abs(trail.x))));}   // the worn margin of gravel beds and trails
 vec2 gCell(vec2 p){   // Voronoi: x = F2-F1 (0 on a border between two tufts), y = the tuft's own random vigour
@@ -72,9 +76,14 @@ vec2 gCell(vec2 p){   // Voronoi: x = F2-F1 (0 on a border between two tufts), y
     if(d<d1){d2=d1;d1=d;id=gHash(i+g+71.3);}else d2=min(d2,d);}
   return vec2(sqrt(d2)-sqrt(d1),id);
 }
-#define gPatchy(p) (gNoise(p/5.3+71.)*.65+gNoise(p/1.7+13.)*.35)
+float gPatchy(vec2 p){p+=(vec2(gNoise(p/3.1+2.),gNoise(p/3.1+9.))-.5)*2.4;return gNoise(p/5.3+71.)*.55+gNoise(p/1.7+13.)*.3+gNoise(p/.55+3.)*.15;}   // warped, with a 0.5 m octave: patch borders wander and fray like real lawn wear
+#define gPatchE vec2(.43,.57)   /* crisp borders: soft 5 m blotches read as painted light, not turf */
+vec3 gFar(vec3 c,float d){float f=smoothstep(14.,55.,d);return mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.24,1.1,.64),f*.45);}   // distant turf shifts to yellow-olive and loses saturation, as it does in summer light
 #define gOlive .62
 float gBreak(vec2 p){return gNoise(p*1.3+5.)*.6+gNoise(p*4.1+17.)*.4-.5;}   // fingers along every splat edge
+float gStray(vec2 p,float g,vec2 trail,float b){return max(trail.y*(1.-smoothstep(.6,1.25,abs(trail.x)+b*.5)),smoothstep(.05,.3,g+b*.6))*smoothstep(.66,.74,gNoise(p*4.3+13.)*.7+gNoise(p*11.+5.)*.3);}   // kicked-out stones in 5-25 cm scatters through the turf beside every path and bed: no clean cut at the gravel's edge
+float gHump(vec2 p){return gNoise(p/3.4+63.)*.62+gNoise(p/1.15+31.)*.38;}
+vec2 gBump(vec2 p,float fair){float h=gHump(p);return (vec2(gHump(p+vec2(.2,0.)),gHump(p+vec2(0.,.2)))-h)*mix(2.6,1.3,fair);}   // dh/dx, dh/dz of 0.3-0.5 m hummocks, 1-3.5 m across (a finite difference in world space, not dFdx: no quad speckle); the low sun lights their faces and shades their backs, so the slope reads as lumpy ground at every distance
 #define gMacro(p) (gNoise(p/37.)*.6+gNoise(p/11.+5.)*.4)
 #define gWarm(p,rough) mix(vec3(1.),vec3(1.1,1.02,.78),smoothstep(.5,.8,gNoise(p/23.+40.)))*mix(vec3(1.),vec3(.76,.9,.78),smoothstep(.6,.76,gNoise(p/1.9+13.))*rough*.8)   /* sun-warmed patches; clover and weed clumps in the rough */
 #define gPatch(p) (gNoise(p/1.3+23.)*.65+gNoise(p/.45+7.)*.35)   /* damp and sun-bleached patches in the litter */
@@ -85,9 +94,9 @@ vec3 gCover(vec4 s,vec2 trail,float b){   // gravel, sand, litter over the turf;
   return vec3(max(smoothstep(.3,.7,s.x+b*.6),t*.95),s.y,smoothstep(.25,.7,s.z+b*.5));
 }
 vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-40 m drift, 2-8 m patches, stripes, straw
-  vec3 c=zone*(.78+gMacro(p)*.44)*gWarm(p,1.-turf.x);float th=gThin(p);c*=mix(1.14,.74,th);c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.3,1.12,.62),th*.25);
-  c*=mix(vec3(.62,.8,.78),vec3(1.22,1.12,.72),smoothstep(.28,.72,gPatchy(p)));   // lush blue-green in the damp, sun-baked yellow-green on the crowns: a lawn is never one green at 640 px
-  c*=1.+(smoothstep(-.03,.03,abs(fract(turf.y/7.)-.5)-.25)-.5)*mix(.14,.32,turf.x);   // 3.5 m mown stripes with a mower's crisp edge, fainter in the rough
+  vec3 c=zone*(.78+gMacro(p)*.44)*gWarm(p,1.-turf.x);float th=gThin(p);c*=mix(1.14,.74,th);c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.3,1.12,.62),th*.45);
+  c*=mix(vec3(.56,.74,.74),vec3(1.28,1.16,.68),smoothstep(gPatchE.x,gPatchE.y,gPatchy(p)));   // lush blue-green in the damp, sun-baked yellow-green on the crowns: a lawn is never one green at 640 px
+  float st=smoothstep(-.04,.04,abs(fract(turf.y/3.6)-.5)-.25)-.5;c*=1.+st*mix(.24,.6,turf.x);c=mix(c,vec3(dot(c,vec3(.3,.59,.11))),max(st,0.)*turf.x*.25);   // 1.8 m mown stripes (a mower's pass) with its crisp edge, 4 across the fairway, fainter in the rough; blades laid away from the eye show their pale undersides
   c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
   return mix(vec3(dot(c,vec3(.3,.59,.11))),c,gOlive)*vec3(1.05,1.,.9);   // summer olive, not lime: a fifth less saturation, a touch warmer
 }`;
@@ -110,7 +119,8 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         ${lite ? '' : `vec3 b=texture2D(t,mat2(.8,-.6,.6,.8)*p/(s*1.9)+.37).rgb; float w=smoothstep(.3,.7,gNoise(p/(s*2.7)+11.));
         a=mean+(mix(a,b,w)-mean)*inversesqrt(w*w+(1.-w)*(1.-w));`}
         return a/mean;
-      }\n` + s.fragmentShader.replace('#include <color_fragment>', `{ vec2 p=vGround; float br=gBreak(p),dry=gDry(vSplat.w,br);
+      }\n` + s.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        { vec2 gb=gBump(vGround,vTurf.x); normal=normalize(normal-(viewMatrix*vec4(gb.x,0.,gb.y,0.)).xyz); }`).replace('#include <color_fragment>', `{ vec2 p=vGround; float br=gBreak(p),dry=gDry(vSplat.w,br);
         vec3 detail=${lite ? tile('gRough', 1.7) : `mix(${tile('gRough', 1.7)},${tile('gLawn', .9)},vTurf.x)`};   // Lite: one turf photo, the palette still lightens the fairway
         ${lite ? '' : `detail*=mix(vec3(1.),gTile(gMottle,mat2(.6,.8,-.8,.6)*p,8.,${vec3s(TILE_MEAN.mottle)}),.7);   // two orientations break the photo's diagonal mowing bands into patches
         detail*=mix(1.,dot(gTile(gRough,mat2(-.28,.96,-.96,-.28)*p,5.5,${vec3s(TILE_MEAN.rough)}),vec3(.33)),.45);   // clumps 0.5-2 m wide that still read at 20-80 m, where the fine tiles have gone to their mean`}
@@ -127,6 +137,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         c=mix(c,mix(${vec3s([.2, .14, .085])},c*.6,step(.62,gNoise(p*9.+4.))*(1.-smoothstep(.04,.1,fw))),sp.x);   // scuffed to soil, a few blades left`}
         float d=length(vViewPosition),u=${lite ? 'clamp((5.8-d)/2.8,0.,1.)*.55' : 'clamp((8.5-d)/5.,0.,1.)*.9+.12*(1.-smoothstep(9.,15.,d))'};
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.25,.28),u*.75)*(1.-u*.18);   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo or bare soil
+        c=gFar(c,d);
         vec3 cov=gCover(vSplat,vTurf.zw,br);
         float reach=${lite ? 'cov.z' : 'smoothstep(.02,.4,vSplat.z+br*.5)'};   // beyond the litter's edge single leaves stray into the turf (Full)
         if(reach>0.){ vec3 l=texture2D(gDuff,p/2.3).rgb; float dp=gPatch(p);
@@ -137,6 +148,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.3).rgb;   // packed pea gravel, shaded per pebble in the tile; its contrast eases with distance so it cannot speckle
           g=mix(g,${vec3s([.328, .306, .271])},smoothstep(3.,16.,d)*.25)*vec3(1.5,1.43,1.25)${lite ? '' : '*mix(1.,.62,smoothstep(.55,.85,gNoise(p*.8+3.)))*mix(1.,dot(texture2D(gGravel,mat2(.6,.8,-.8,.6)*p/4.1).rgb,vec3(1.12)),.55)'};   // packed earth shows in patches; stones three times the size keep a grain at 20 m
           c=mix(c,g,cov.x)*(1.-cov.x*(1.-cov.x)*.6); }   // a damp trodden rim at the turf
+        ${lite ? '' : `float fr=gStray(p,vSplat.x,vTurf.zw,br)*(1.-cov.x); if(fr>0.) c=mix(c,texture2D(gGravel,p/1.3).rgb*vec3(1.4,1.34,1.17),fr*.85);`}
         if(cov.y>0.) c=mix(c,texture2D(gSand,p*.32).rgb,cov.y);
         ${lite ? '' : `float pd=1e3; for(int i=0;i<${pads.length};i++){ vec2 q=p-gPads[i].xy; q=vec2(q.x*gPads[i].z-q.y*gPads[i].w,q.x*gPads[i].w+q.y*gPads[i].z); pd=min(pd,max(abs(q.x)-.8,abs(q.y)-1.6)); }
         c*=1.-.45*(1.-smoothstep(0.,.25,pd));   // contact shade where the pad sits on the ground`}
