@@ -65,7 +65,9 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         reflectedLight.directDiffuse += chainsSkin * wrap * directLight.color * BRDF_Lambert(material.diffuseColor) * vec3(1., .38, .24);
       }
       #undef RE_Direct
-      #define RE_Direct RE_Direct_Chains`).replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= 1. - .3 * chainsSkin;   // skin reflects ~3 %, not the 4 % of a plastic').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor *= chainsRough;').replace('#include <map_fragment>', `float chainsJersey = 0., chainsRough = 1., chainsKnit = 0.;
+      #define RE_Direct RE_Direct_Chains`).replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= 1. - .3 * chainsSkin;   // skin reflects ~3 %, not the 4 % of a plastic').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor *= chainsRough;')
+      // the scan's shirt normals are pocked with pinhole dimples (dark specks round the collar); its folds live in the geometry
+      .replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace('mapN.xy *= normalScale;', 'mapN.xy *= normalScale * (1. - .75 * chainsJersey);')).replace('#include <map_fragment>', `float chainsJersey = 0., chainsRough = 1., chainsKnit = 0.;
       #include <map_fragment>
       { vec4 m1 = texture2D(uMask1, vMapUv), m2 = texture2D(uMask2, vMapUv);
         vec3 base = diffuseColor.rgb; float lum = dot(base, vec3(.2126, .7152, .0722));
