@@ -158,8 +158,11 @@ def clean(alb, m1, m2, maps, rig, lines):
   # the scan's white collar and sleeve trims sit right against the skin, and the masks' soft edge (resampling, filtering)
   # blends some skin weight over them: a pale fringe. Jersey texels within 8 mm of skin take the skin's colour, darkened
   # a little like a seam, so either side of the edge shades plausibly.
+  # A seam joins surface that carries on (normals agree): where the hanging arm touches the ribs in the bind pose, the flank
+  # took the facing arm's skin and the jersey shader turned it into a dark 'M' stain.
   sk, edge = hit & (C1 == SKIN), hit & (C1 == JERSEY) & (y > shY - .3)
   d, i = cKDTree(P[sk]).query(P[edge], distance_upper_bound=.008); near = np.isfinite(d)
+  near[near] = (Nn[edge][near] * Nn[sk][i[near]]).sum(-1) > .3
   flat = out.reshape(-1, 3); flat[np.flatnonzero(edge)[near]] = out[sk][i[near]] * .8
   W = np.stack([(C1 == k).astype(np.float32) for k in range(7)], -1); keep = headp & (C1 == C0) & ~neckzone; W[keep] = W7[keep]   # the face keeps its soft iris and brow edges
   idx = ndimage.distance_transform_edt(~hit, return_distances=False, return_indices=True)   # gutters copy their nearest island texel

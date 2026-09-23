@@ -74,10 +74,12 @@ function gripMorph(mesh, handOffset, rebuild = false) {
       if (!c) return; o.set(sx / c, y0, 0);
       hand.forEach((i, k) => { const w = F[i] * smooth(y0 + .048 * L, y0 - .048 * L, local(i).y); if (w > 0) { turn(P[k], o, Z, w * ang); N[k].applyAxisAngle(Z, w * ang); } });
     };
-    hinge(GRIP.fdip, GRIP.dip); hinge(GRIP.fpip, GRIP.pip); hinge(GRIP.fmcp, GRIP.mcp);   // distal first: each pivot is read from the rest shape
+    // fingers only where the scan modelled them: the female scan's hands are ~30-point mittens that the hinges fold into shards
+    const fingers = hand.length > 200;
+    if (fingers) { hinge(GRIP.fdip, GRIP.dip); hinge(GRIP.fpip, GRIP.pip); hinge(GRIP.fmcp, GRIP.mcp); }   // distal first: each pivot is read from the rest shape
     // the thumb swings about its base until the tip points along the plate
     const base = new THREE.Vector3(0, -.15 * L, -.18 * L); let far = -1, d0 = null;
-    hand.forEach((i, k) => { if (T[i] > .9) { const r = local(i), dist = r.distanceTo(base); if (dist > far) { far = dist; d0 = r.clone().sub(base).normalize(); } } });
+    if (fingers) hand.forEach((i, k) => { if (T[i] > .9) { const r = local(i), dist = r.distanceTo(base); if (dist > far) { far = dist; d0 = r.clone().sub(base).normalize(); } } });
     if (d0) { const d1 = new THREE.Vector3(...GRIP.thumb).normalize(), axis = d0.clone().cross(d1).normalize(), ang = Math.acos(THREE.MathUtils.clamp(d0.dot(d1), -1, 1));
       hand.forEach((i, k) => { if (T[i] > 0) { turn(P[k], base, axis, T[i] * ang); N[k].applyAxisAngle(axis, T[i] * ang); } }); }
     // the wrist: the hand below it cocks toward the little finger about the joint
