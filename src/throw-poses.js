@@ -140,8 +140,11 @@ export function heroPose(time, rig = RIGS.lite) {
 // knee-loaded set-up and the clip's reach-back share their shape, and a short fade bobbed the athlete upright between them.
 export const STANCE_FADE = .4;
 export const stanceFade = phase => { const u = Math.min(1, Math.max(0, phase / STANCE_FADE)); return 1 - u * u * (3 - 2 * u); };
-export function readyPose(type, time, rig = RIGS.lite) {
-  const stance = STANCE[type.split('_')[0]] || STANCE.forehand, breath = Math.sin(time * 1.3), pose = { rootY: 0 };
+// The female scan's forearm skin shears into a flat fin past ~70° of forearm roll, so her backhand address folds the arm
+// with the upper arm out toward the target instead (disc level at the same chest height, solved the same way).
+export const STANCE_F = { backhand: { shR: [-1.59, .766, 3.115], elR: [2.062, .323, 0] } };
+export function readyPose(type, time, rig = RIGS.lite, over = null) {
+  const family = type.split('_')[0], stance = { ...(STANCE[family] || STANCE.forehand), ...over?.[family] }, breath = Math.sin(time * 1.3), pose = { rootY: 0 };
   for (const j of JOINTS) pose[j] = [...(stance[j] || IDLE[j])];
   const bank = type.endsWith('_io') ? .08 : type.endsWith('_oi') ? -.08 : 0;   // inside-out / outside-in: the shoulders already lean the way the clip banks
   pose.spine[2] += bank; pose.head[2] -= bank * .6;

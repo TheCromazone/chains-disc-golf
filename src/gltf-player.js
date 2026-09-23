@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { cloneModel, model } from './models.js';
 import { rimLight } from './materials.js';
 import { bodyMaterial, skinDirect } from './body-material.js';
-import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade } from './throw-poses.js';
+import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
 const SLOT = { hair: { roughness: .7, rim: .22 }, headwear: { roughness: .8 }, trim: { roughness: .78 }, frame: { roughness: .42, color: '#1a1c22' }, lens: { roughness: .15, color: '#14171c', metalness: .3, opacity: .86 } };
@@ -268,7 +268,7 @@ export function createGLTFCharacter(avatar) {
   function overlay() {
     const cw = coilW();
     if (cw > 0) {
-      let pose = readyPose(aimType, time, RIGS.glb), base = phase === null ? null : poseAt(keysFor(throwType.replace(/_left$/, '')), phase);
+      let pose = readyPose(aimType, time, RIGS.glb, female ? STANCE_F : null), base = phase === null ? null : poseAt(keysFor(throwType.replace(/_left$/, '')), phase);
       if (lefty) { pose = mirrorPose(pose); if (base) base = mirrorPose(base); }
       blendTo(pose, cw, base);
     }
@@ -334,12 +334,12 @@ export function createGLTFCharacter(avatar) {
       readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < STANCE_FADE ? readyW : Math.max(0, readyW - dt / .22);
       heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
       // the disc hand hooks round the rim while it holds one (a bystander's hands hang open) and lets go just after release;
-      // the free hand keeps half the curl (straight scanned fingers, and a third of the curl, read as a flat paddle). In the set-up the
+      // the free hand keeps half the curl (straight scanned fingers, and a third of the curl, read as a flat paddle; the female scan's mitten shards past a third). In the set-up the
       // modelled grip hand takes over from the tucked scan hand (a crossfade would show two hands); it hands
       // the disc back to the hooked scan hand in the first few percent of the swipe, before the seat drifts toward the release
       const grip = gripW() > .9, holding = phase !== null ? phase < .68 : carries >= 1 || grips >= 1, mi = skin.morphTargetInfluences;
       hookW = THREE.MathUtils.clamp(hookW + (holding ? 1 : -1) * dt * 8, 0, 1);
-      mi[lefty ? 1 : 0] = grip ? 1 : 0; mi[lefty ? 0 : 1] = 0; mi[lefty ? 3 : 2] = grip ? 0 : Math.max(.35, hookW); mi[lefty ? 2 : 3] = .5;
+      mi[lefty ? 1 : 0] = grip ? 1 : 0; mi[lefty ? 0 : 1] = 0; mi[lefty ? 3 : 2] = grip ? 0 : Math.max(.35, hookW); mi[lefty ? 2 : 3] = female ? .35 : .5;
       gripHands.elR.visible = grip && !lefty; gripHands.elL.visible = grip && lefty;
       overlay();
     },
