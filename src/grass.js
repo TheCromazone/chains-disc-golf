@@ -78,6 +78,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         vec2 bn=R*normal.xz;bladeNormal=normalize(gn+vec3(bn.x,0.,bn.y)*.12);   // a low sun would black out blades tilted away; thin blades pass light anyway
         vec3 c=gTurf(root,zf.rgb*zf.rgb,vec2(fair,ga.y),gDry(sp.w,br))*(.8+.4*fract(aRoot.z*91.7+aBlade.y*7.3));
         c=max(mix(vec3(dot(c,vec3(.3,.59,.11))),c,1.3),0.);   // live blades richer than the turf's average, which includes soil and thatch
+        c*=mix(vec3(.84,1.,1.1),vec3(1.1,1.04,.78),fract(aRoot.z*57.3));   // clumps range from blue-green to yellow-green
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.4,1.18,.62),step(.96,fract(aBlade.y*17.3+aRoot.z*5.1))*.6);   // one blade in 25 is dead straw
         float y=fract(aBlade.y*29.1+aRoot.z*3.3);y*=y;   // some tips yellow in the sun, most stay green
         vBlade=c*mix(.8,1.4,t)*mix(vec3(1.),vec3(1.14,1.07,.62),t*y);vTip=t;   // shaded at the root where neighbours crowd it, tips above the turf catch the sun
@@ -87,7 +88,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
         #if NUM_DIR_LIGHTS > 0
         { float back=pow(saturate(dot(-normalize(vViewPosition),directionalLights[0].direction)),4.);   // back-lit tips glow (thin-blade transmission)
-          reflectedLight.directDiffuse+=diffuseColor.rgb*directLight.color*back*vTip*.12; }
+          reflectedLight.directDiffuse+=diffuseColor.rgb*directLight.color*back*vTip*.28; }
         #endif`);
   };
   mat.customProgramCacheKey = () => 'chains-grass-' + lite;
