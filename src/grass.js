@@ -70,10 +70,12 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         float through=step(.9,fract(aRoot.z*7.7));   // one clump in ten pushes up through the litter, ragged
         float grow=1.-max(max(cov.x,cov.y),cov.z*(1.-through));
         for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);grow*=smoothstep(.05,.3,max(abs(q.x)-.8,abs(q.y)-1.6));}
+        vec2 spot=gSpot(root,gEdge(sp.x,ga.zw));grow*=1.-spot.x*.92;   // bare scuffs keep only a few blades; clover mats hold them low
         float keep=${lite ? '1.' : 'mix(.55,1.,fract(aRoot.z*23.9))'}*mix(1.,.5,through*cov.z);   // each clump drops its own subset of blades: no two share a silhouette
         float sc=k*step(mix(.06,.5,fract(aRoot.z*5.3)),grow)*step(fract(aBlade.y*13.1+aRoot.z*7.3),keep),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // each clump gives up at its own point of the thinning into path, gravel and litter: a ragged edge of whole tufts, not a fade
         float hs=mix(.9+cl*.8,.55+cl*.4,fair)*(.8+.4*fract(aRoot.z*13.7))*sc;   // x the 4.5-10 cm blades, in 0.3-1 m clumps: rough 3-17 cm, fairway 2-9 cm
-        hs*=1.+(1.-smoothstep(.5,.9,grow))*(.6+cl*1.4);   // the fringe a mower misses stands taller: tufts to 40 cm along every trail, apron and bed edge
+        hs*=1.+(1.-smoothstep(.5,.9,grow))*(.6+cl*1.4);
+        hs*=mix(1.1,.7,gThin(root))*(1.-spot.y*.55);   // thin patches stand lower as well as paler   // the fringe a mower misses stands taller: tufts to 40 cm along every trail, apron and bed edge
         float yaw=aRoot.z*6.2832,cs=cos(yaw),sn=sin(yaw);mat2 R=mat2(cs,sn,-sn,cs);
         vec3 bp=position*vec3(1.,hs,1.);bp.xz=R*(position.xz*(1.+aRoot.w)+aSide*max(1.,dCam/6.)*mix(.4,1.,sc));   // far blades widen to stay a pixel wide
         float t=aBlade.x,t2=t*hs,gust=.55+.45*sin(windTime*3.1+root.x*.31-root.y*.27);
@@ -82,7 +84,8 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         vec2 bn=R*normal.xz;bladeNormal=normalize(gn+vec3(bn.x,0.,bn.y)*.12);   // a low sun would black out blades tilted away; thin blades pass light anyway
         vec3 c=gTurf(root,zf.rgb*zf.rgb,vec2(fair,ga.y),gDry(sp.w,br))*(.8+.4*fract(aRoot.z*91.7+aBlade.y*7.3));
         c=max(mix(vec3(dot(c,vec3(.3,.59,.11))),c,1.15),0.);   // live blades richer than the turf's average, which includes soil and thatch
-        c*=mix(vec3(.9,1.,1.02),vec3(1.12,1.05,.76),fract(aRoot.z*57.3));   // clumps range from green to yellow-green
+        c*=mix(vec3(.9,1.,1.02),vec3(1.12,1.05,.76),fract(aRoot.z*57.3));
+        c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.02,.72),spot.y*.7);   // clumps range from green to yellow-green
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.4,1.18,.62),step(.96,fract(aBlade.y*17.3+aRoot.z*5.1))*.6);   // one blade in 25 is dead straw
         float y=fract(aBlade.y*29.1+aRoot.z*3.3);y*=y;   // some tips yellow in the sun, most stay green
         vBlade=c*mix(.8,1.4,t)*mix(vec3(1.),vec3(1.14,1.07,.62),t*y);vTip=t;   // shaded at the root where neighbours crowd it, tips above the turf catch the sun
