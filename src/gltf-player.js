@@ -68,8 +68,8 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // down into the hand, "no clear wrist")
 // cock (round 11): solved with the stance so the forearm can reach level toward the tee camera with the plate level and the
 // disc reaching back across the chest (the old cock held it level only at the end of a forearm dropping ~33°, which the tee
-// camera, above the shoulder, saw as an arm hanging to the hip)
-const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-.462, -.1, -.319], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
+// camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance.
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.258, -.121, -.527], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [30, 95, 55]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [28, 97, 55]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [30, 98, 55]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [36, 100, 55]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .023, -.048], [-.06, .025, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
@@ -177,6 +177,9 @@ function handMorphs(mesh, handOffset, lod) {
       const gp = new Float32Array(h.p.length); for (let i = 0; i < h.p.length; i += 3) { bend(_v.set(h.p[i], h.p[i + 1], h.p[i + 2]), q); gp[i] = _v.x * side + W.x - E.x; gp[i + 1] = _v.y + W.y - E.y; gp[i + 2] = _v.z + W.z - E.z; }
       const gi = side > 0 ? h.i : h.i.map((v, i) => i % 3 === 1 ? h.i[i + 1] : i % 3 === 2 ? h.i[i - 1] : v);
       const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(gp, 3)); geo.setIndex(gi); geo.computeVertexNormals();
+      // a vertex whose triangles all collapsed (a cap ring shrunk to its tip) gets a zero normal, normalize() in the shader
+      // turns it into NaN, and bloom spreads that one pixel into a glowing white square on the hand
+      const nm = geo.attributes.normal; for (let i = 0; i < nm.count; i++) if (!(Math.hypot(nm.getX(i), nm.getY(i), nm.getZ(i)) > 1e-6)) nm.setXYZ(i, 0, 1, 0);
       const ao = new Float32Array(h.ao.length * 3); h.ao.forEach((v, i) => ao.set([v, v, v], i * 3)); geo.setAttribute('color', new THREE.BufferAttribute(ao, 3));
       return geo;
     };
