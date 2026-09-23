@@ -953,11 +953,6 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // 100 m 43%, 150 m 64%; measured by fogging everything past a set distance: the framing pines and birches stand 25-40 m
     // out, the stand behind them 40-70 m). Low near on purpose: the air adds light linearly, so even 5% of it doubles a
     // shaded trunk. The trees take it whole here (AIR.x, the trees section), and the air is a warm near-neutral, not blue.
-    // w6-7 putt verdicts (0/2: "one flat milky yellow-green haze", "no layered value steps behind the basket"): measured in
-    // depth bands (art/qa/wfl), the bright cream air lifted the 40-100 m woods from luma ~60 to 115-145 while the reference
-    // sits at 55-65. Now one linear curve from 8 m (eye 1.5 m up: 25 m ~18%, 50 m ~39%, 80 m ~57%, 150 m ~81%, the critics'
-    // own numbers) in an air about half as bright and cool grey-blue, lit from above (the fog chunk: brighter up toward the
-    // canopy's sky, dimmer along the floor), so each row back steps paler and bluer without the frame going milky.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
       Object.assign(FOG.shape, { x: m(34, P.clear), y: m(2.25, P.density), z: m(30, P.knee) });
       Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm), g: warm.g * m(1, P.warm), b: warm.b * m(1, P.warm) }); AIR.x = k; }
@@ -982,7 +977,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
-const PUTT_AIR = { clear: 8, density: 3, knee: .001, haze: [.34, .4, .47], warm: .5 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
+const PUTT_AIR = { clear: 10, density: 2.5, knee: 35, haze: [1.05, .83, .63], warm: 1.18 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 } }, AIR = { x: 0, y: 0, z: 0, w: 0 };   // AIR.x: how far the eye is into the putt's air (update(): 1 within 15 m of the pin, 0 by 40 m), for the fog's blend, the trees' haze and the shade tint   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape }, fogAir: { value: AIR } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
@@ -1008,7 +1003,7 @@ float sunVis = 1.;
 	reflectedLight.indirectSpecular *= mix( .45, 1., sunVis );
 #endif
 #ifndef NO_SHADE_TINT
-reflectedLight.indirectDiffuse *= mix( mix( vec3( .9, .87, .8 ), vec3( .84, .93, 1.12 ), sunAir.x ), vec3( 1. ), sunVis );   // at the putt (AIR.x) cooler (w6-7 "shade about 3x darker than sun, tinted slightly blue": the +20% below read as a flatly lit floor, now about the tee's level). Earlier: ~20% more of it (w6-3: our shaded floor sat at 35-45% of the sunlit one and brown, the reference's lawn shade at 55-60% and near neutral): w6 "shaded dirt a heavy muddy brown, no sky fill" (the pin's floor is open to the sky round it). w3-4: the old teal tint (.74, .86, .92) on the blue sky fill turned shaded dirt a colourless grey-green (sRGB ~61, 62, 54); a faint warm bounce off the sunlit floor round it keeps it brown (the blue fill times this sits near neutral).   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
+reflectedLight.indirectDiffuse *= mix( mix( vec3( .9, .87, .8 ), vec3( 1.1, 1.18, 1.34 ), sunAir.x ), vec3( 1. ), sunVis );   // at the putt (AIR.x) cooler and ~20% more of it (w6-3: our shaded floor sat at 35-45% of the sunlit one and brown, the reference's lawn shade at 55-60% and near neutral): w6 "shaded dirt a heavy muddy brown, no sky fill" (the pin's floor is open to the sky round it). w3-4: the old teal tint (.74, .86, .92) on the blue sky fill turned shaded dirt a colourless grey-green (sRGB ~61, 62, 54); a faint warm bounce off the sunlit floor round it keeps it brown (the blue fill times this sits near neutral).   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
 #endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
@@ -1020,11 +1015,11 @@ reflectedLight.indirectDiffuse *= mix( mix( vec3( .9, .87, .8 ), vec3( .84, .93,
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
-	vec3 fogTint = ( fogHaze.g > 0. ? mix( fogHaze, fogWarm, pow( fogCos, 8. ) ) * mix( mix( 1., .85, smoothstep( 0., .5, vFogRay.y / fogDist ) ), mix( .75, 1.6, smoothstep( -.05, .3, vFogRay.y / fogDist ) ), fogAir.x ) : fogColor ) + fogGlow * ( pow( fogCos, 16. ) * .25 + pow( fogCos, 90. ) * 3. );   // cool grey haze, warming within ~30° of the disc; a touch dimmer looking up, so the air brightens toward the horizon and the ground line. At the putt (fogAir.x) the other way: under the canopy the air is lit from above, bright toward the crowns' sky gaps and dim along the floor (w6-7: the far floor "a flat tan wash"). Aerosols scatter mostly forward: a soft warm cast, then a tight glare cone round the disc
+	vec3 fogTint = ( fogHaze.g > 0. ? mix( fogHaze, fogWarm, pow( fogCos, 8. ) ) * mix( 1., .85, smoothstep( 0., .5, vFogRay.y / fogDist ) ) : fogColor ) + fogGlow * ( pow( fogCos, 16. ) * .25 + pow( fogCos, 90. ) * 3. );   // cool grey haze, warming within ~30° of the disc; a touch dimmer looking up, so the air brightens toward the horizon and the ground line. Aerosols scatter mostly forward: a soft warm cast, then a tight glare cone round the disc
 	#ifdef TONE_MAPPING
 		fogTint = toneMapping( fogTint );
 	#endif
-	vec3 fogSeen = mix( gl_FragColor.rgb, vec3( dot( gl_FragColor.rgb, vec3( .2126, .7152, .0722 ) ) ), mix( .8, .3, fogAir.x ) * fogFactor ), fogAdd = linearToOutputTexel( vec4( fogTint, 1. ) ).rgb;   // what the haze veils also loses its colour first: far greens go grey-green row by row, not a saturated olive under a tinted wash (less at the putt: the reference's far woods keep a faint green, but w6-7 "yellow-green haze")
+	vec3 fogSeen = mix( gl_FragColor.rgb, vec3( dot( gl_FragColor.rgb, vec3( .2126, .7152, .0722 ) ) ), mix( .8, .15, fogAir.x ) * fogFactor ), fogAdd = linearToOutputTexel( vec4( fogTint, 1. ) ).rgb;   // what the haze veils also loses its colour first: far greens go grey-green row by row, not a saturated olive under a tinted wash (half as much at the putt: the reference's far woods keep a faint green)
 	#ifdef TONE_MAPPING
 		gl_FragColor.rgb = mix( fogSeen, fogAdd, fogFactor );   // Lite draws straight to the screen, so this mix is already in display space
 	#else
