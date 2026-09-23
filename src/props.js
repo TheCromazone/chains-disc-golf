@@ -311,13 +311,15 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
     const T = pose(h.tee[0], h.teeY, h.tee[1], h.yaw);
     K.print(at(box(1.6, .1, 3.2), pose(0, .02, 0), T), 'mat');
     for (const s of [-1, 1]) { K.print(at(box(3.48, .16, .12), pose(s * .86, .01, 0, Math.PI / 2), T), 'wood'); K.print(at(box(1.6, .16, .12), pose(0, .01, s * 1.66), T), 'wood'); }
-    // Sign on two 4x4 posts, right of and ahead of the pad, turned to face the thrower.
-    const sg = onGround(h, 2.4, 2.6, -.4);
+    // Sign on two 4x4 posts beside the back half of the pad, facing the walk-in. The aim camera sits 2.3 m behind the
+    // pad on a 55° lens: anything level with the pad's front edge lands half-cut at the frame's side, so tee furniture
+    // stays behind that line and reads from the flyover instead.
+    const sg = onGround(h, 2.3, -.9, -.4);
     for (const x of [-.52, .52]) K.print(at(box(.09, 1.64, .09), pose(x, .82, 0), sg), 'wood');
     K.print(at(box(1.0, .7, .05), pose(0, 1.16, -.01), sg), 'wood');
     K.print(at(new THREE.PlaneGeometry(.92, .632), pose(0, 1.16, .019), sg), 'sign' + i);
     K.print(at(box(1.16, .045, .16), pose(0, 1.66, 0), sg), 'wood');
-    if (full || i === 0) { const bench = onGround(h, -2.6, 1.3, -Math.PI / 2); addCan(onGround(h, 3.2, 2.9)); addBench(bench); if (i === 0) addBag(pose(-.5, 0, 0).premultiply(bench)); }   // Lite furnishes only the clubhouse tee
+    if (full || i === 0) { const bench = onGround(h, -2.6, -.7, -Math.PI / 2); addCan(onGround(h, 3.1, .5)); addBench(bench); if (i === 0) addBag(pose(-.5, 0, 0).premultiply(bench)); }   // Lite furnishes only the clubhouse tee
     // Basket, same yaw as the hole so the flag flies broadside to the approach; a pair of feather flags stands
     // behind-left of the green, off the putt line and clear of the basket's silhouette from the approach.
     const ap = h.way[h.way.length - 2], adx = h.basket[0] - ap[0], adz = h.basket[1] - ap[1], al = Math.hypot(adx, adz), fx = adx / al, fz = adz / al, yawB = Math.atan2(-fx, -fz);   // the approach, past any dogleg
@@ -332,10 +334,16 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
   // reads from the pad: the event arch over the gallery walk (both tiers, ~200 triangles), feather flags receding
   // beyond it (nearer ones would stand in front of it), and on Full the registration canopy and gallery ropes down both
   // edges. Every lateral offset is measured from the corridor edge where the prop stands (Pine Hollow: ~9 m).
-  const h1 = holes[0], archYaw = .45, [ar, af] = [edge(h1, -1, 27.5, .9), 27.5], ac = [ar - 3.32 * Math.cos(archYaw), af - 3.32 * Math.sin(archYaw)];
-  const archBase = Math.min(...[-1, 1].map(s => { const [x, z] = frame(h1, ac[0] + s * 3.32 * Math.cos(archYaw), ac[1] + s * 3.32 * Math.sin(archYaw)); return height(x, z); }));
-  { const [x, z] = frame(h1, ac[0], ac[1]); if (clearOf(x, z, 2.5)) addArch(pose(x, archBase - .04, z, h1.yaw + archYaw)); }   // on a slope the high pillar sinks, neither floats
-  [[31.5, 1], [36.5, 0], [41.5, 2], [46.5, 1], [8, 2]].slice(0, full ? 5 : 3).forEach(([f, d]) => {
+  // The arch takes the first clear spot from ~40 m out: nearer, the aim camera's 55° lens cuts its outer pillar.
+  const h1 = holes[0], archYaw = .45; let archF = 0;
+  for (const af of [42, 38, 46, 34, 50]) {
+    const ac = [edge(h1, -1, af, .9) - 3.32 * Math.cos(archYaw), af - 3.32 * Math.sin(archYaw)], [x, z] = frame(h1, ac[0], ac[1]);
+    if (!clearOf(x, z, 2.5)) continue;
+    const base = Math.min(...[-1, 1].map(s => { const [px, pz] = frame(h1, ac[0] + s * 3.32 * Math.cos(archYaw), ac[1] + s * 3.32 * Math.sin(archYaw)); return height(px, pz); }));
+    addArch(pose(x, base - .04, z, h1.yaw + archYaw)); archF = af; break;   // on a slope the high pillar sinks, neither floats
+  }
+  const f0 = (archF || 38) + 4;
+  [[f0, 1], [f0 + 5, 0], [f0 + 10, 2], [f0 + 15, 1], [8, 2]].slice(0, full ? 5 : 3).forEach(([f, d]) => {
     for (const df of [0, 2, -2, 4]) { const u = edge(h1, -1, f + df, 1.3) - rnd() * .4, [x, z] = frame(h1, u, f + df); if (clearOf(x, z, 1.2)) return addFeather(onGround(h1, u, f + df, .45 + (rnd() - .5) * .3, .05), d); }
   });
   if (full) {
