@@ -1,19 +1,23 @@
-"""Course trees for Chains (Blender 5.2): birches, broadleaves, spruces, a Scots pine and bushes, built the way shipped games
-build them. A branch skeleton (tapering trunk with a root flare, primary limbs that rise under gravitropism and spread or droop
-at the tips, secondaries, twigs) carries leaf-spray cards in separate clumps at the twig ends, so sky and light show between
-clumps and the limbs show through the gaps. Mature proportions: birches ~17 m with the crown in the top 55%, broadleaves ~15 m,
-spruces ~20 m, the pine ~21 m with a bare trunk to 60%.
+"""Course trees for Chains (Blender 5.2): birches, broadleaves, spruces, Scots pines and bushes, built the way shipped games
+build them. A tapering trunk with a root flare and a few dead stubs; birch and broadleaf crowns gather their leaf-spray cards
+into lobes (big leafy masses with gaps between), each lobe fed by its own limb from the leader plus short branches inside it;
+spruces are whorls of frond cards; Scots pines carry needle pads (flattened clouds of fronds) on spreading branches. Mature
+proportions: birches ~17-19 m with the crown in the top 64%, broadleaves ~14-15 m, spruces ~18-20 m, pines ~19-21 m bare to ~40%.
+Leaves get the triangles: limbs are 4 segments, no twig under 1.3 m (the card's own drawn twig covers it); each GLB < 8k tris.
 Run: blender -b -P tools/build-trees.py [-- --preview art/qa/trees-preview] (needs tools/build-foliage.py's atlas first)
 
 Lighting data baked per vertex, read by src/course.js:
-- normals: every leaf vertex points away from its own clump centre blended with the crown axis (and a little up), so each clump
-  has a lit side and a shaded side and the crown still reads as one volume; wood keeps its radial tube normals.
+- normals: every leaf vertex points away from its lobe (or pad) centre, blended with its own clump and the crown axis (and a
+  little up), so each mass has a lit side and a shaded side and the crown still reads as one volume; wood keeps tube normals.
 - colour: sky visibility from 40 rays per vertex through the tree's own leaves and wood. A ray that hits a card samples the atlas
   alpha at the hit and passes through transparent texels, so a clump behind a sparse spray is only partly occluded. Interior
-  leaves fall to ~0.2, the sunlit rim stays ~1; clumps carry a slight hue and brightness jitter; birch trunks darken at the base.
-Writes assets/models/deciduous.glb (birch0, birch1, broad0, broad1), pine.glb (spruce0, spruce1, scots0), bush.glb (bush0,
-bush1): one mesh per variant with two materials, 'bark' or 'bark_birch' (tubes, UV u around, v along in bark tiles) and 'leaves'
-(cards mapped to the atlas cells of assets/textures/foliage/leaves.webp).
+  leaves fall to ~0.2, the sunlit rim stays ~1; clumps carry a slight hue and brightness jitter; birch trunks darken at the base,
+  pine stems go fox-orange up in the crown.
+Writes assets/models/deciduous.glb (birch0, birch1, broad0, broad1), pine.glb (spruce0, spruce1, scots0, scots1), bush.glb
+(bush0, bush1): one mesh per variant with two materials, 'bark' or 'bark_birch' (tubes, UV u around, v along in bark tiles) and
+'leaves' (cards mapped to the atlas cells of assets/textures/foliage/leaves.webp); the impostor atlas (see impostors()); and
+src/impostors.js with the card extents and each species' collider (trunk radius and height, crown centre and radius), measured
+off the built models so the physics records match what is drawn.
 """
 from pathlib import Path
 import sys, math, random, json
@@ -173,9 +177,11 @@ def finish(t, mats):
   o = bpy.data.objects.new(t.name, me); bpy.context.collection.objects.link(o)
   leaves = sum(1 for m in t.fmat if m == 1); log('TREE', t.name, 'wood tris', 2 * (len(t.fmat) - leaves), t.wood, 'cards', leaves, 'aoMin %.2f' % min(c[3] for c in col))
   # The physics record at scale 1: trunk radius at ~1 m and the height the disc can hit it to, and the crown as a sphere at the
-  # leaves' mean height with their RMS distance from that centre as radius (a leafy shell's radius, where the foliage mass is).
+  # leaves' mean height whose radius splits the difference between the crown's half-width (85th percentile of the leaves' reach
+  # from the axis) and its half-height (5th-95th percentile), so a disc meets leaves about where the drawn crown starts.
   lv = [p for p, k in zip(verts, t.kind) if k == 1]; fy = sum(p.z for p in lv) / len(lv)
-  fr = math.sqrt(sum(p.x * p.x + p.y * p.y + (p.z - fy) ** 2 for p in lv) / len(lv))
+  reach = sorted(math.hypot(p.x, p.y) for p in lv); zs = sorted(p.z for p in lv); q = lambda a, f: a[min(len(a) - 1, int(f * len(a)))]
+  fr = (q(reach, .85) + (q(zs, .95) - q(zs, .05)) / 2) / 2
   DIMS[t.name] = [round(t.r_base, 3), round(t.trunk_h, 2), round(fy, 2), round(fr, 2)]; log('DIMS', t.name, DIMS[t.name])
   return o
 
@@ -340,17 +346,21 @@ def spruce(rng, name, H=20., R0=3.4, zb=.1):
   for k in range(3): t.card(Vector((0, 0, H * .9)), Z + unit(rng) * .15, unit(rng), 1.6, CELL['pine'], Vector((0, 0, H * .85)))
   return t
 
-def pad(t, c, r, n):
-  """A needle pad: n frond cards radiating from just inside c in every direction round the horizontal (tilted a little up or
-  down), half standing on edge and half lying open, so from the side the pad is a rounded, flattened cloud about 2r across with
-  a ragged edge, not a spray of flat slivers; its cards face out of a centre just below c, so it lights on top and falls dark
-  underneath, and the clump tint varies pad to pad."""
+def pad(t, c, r, n, ax=None):
+  """A needle pad: n frond cards radiating from two or three sub-centres strung along the branch (`ax`), in every direction
+  round the horizontal (tilted up more than down, so it is dome-topped and flat-bottomed), half standing on edge and half lying
+  open, the ones along the branch longest, sizes varied: from the side an irregular, elongated cloud about 2r across with a
+  ragged edge, not a repeated oval or a spray of flat slivers. Its cards face out of a centre just below c, so it lights on
+  top and falls dark underneath, and the clump tint varies pad to pad."""
   rng = t.rng; hue = rng.uniform(-1, 1); lit = rng.uniform(.86, 1.12); tint = (lit * (1 + .05 * hue), lit, lit * (1 - .07 * hue))
+  ax = Vector((ax.x, ax.y, 0)).normalized() if ax is not None and Vector((ax.x, ax.y, 0)).length > 1e-3 else unit(rng).cross(Z).normalized()
+  subs = [c + ax * r * rng.uniform(-.5, .5) + ax.cross(Z) * r * rng.uniform(-.25, .25) + Z * r * rng.uniform(-.1, .12) for _ in range(rng.randint(2, 3))]
   t.cur_lobe = c - Z * r * .35
   for k in range(n):
-    a = rng.uniform(0, TAU); out = Vector((math.cos(a), math.sin(a), rng.uniform(-.3, .45))).normalized()
+    a = rng.uniform(0, TAU); out = Vector((math.cos(a), math.sin(a), rng.uniform(-.2, .45))).normalized(); s = subs[k % len(subs)]
+    size = r * rng.uniform(.8, 1.35) * (1 + .4 * abs(out.dot(ax)))
     face = (out.cross(Z) * rng.choice((-1, 1)) + Z * rng.uniform(-.3, .3) + unit(rng) * .3) if k % 2 else (Z + unit(rng) * .55)
-    t.card(c - out * r * rng.uniform(.35, .6) + Z * r * rng.uniform(-.25, .15), out, face, r * rng.uniform(1.15, 1.4), CELL['pine'], c, tint)
+    t.card(s - out * size * rng.uniform(.3, .5) + Z * r * rng.uniform(-.2, .15), out, face, size, CELL['pine'], c, tint)
   t.cur_lobe = None
 
 def scots(rng, name, H=21., lo=.5, girth=.34, lean=.05):
@@ -370,9 +380,9 @@ def scots(rng, name, H=21., lo=.5, girth=.34, lean=.05):
     az += TAU * .382 + rng.uniform(-.5, .5); elev = rng.uniform(.12, .38) + .5 * f
     L = H * (.27 - .14 * f) * rng.uniform(.82, 1.12); d = Vector((math.cos(az) * math.cos(elev), math.sin(az) * math.cos(elev), math.sin(elev)))
     br = grow(rng, base, d, L, 3, rise=.1, flatten=.45, jitter=.1); t.tube(br, .1 - .04 * f, .02, 4)
-    p, dd = along(br, 1.); pad(t, p + Z * .3, rng.uniform(1.7, 2.2), rng.randint(16, 19))
+    p, dd = along(br, 1.); pad(t, p + Z * .3, rng.uniform(1.4, 2.4), rng.randint(15, 20), d)
     if L > 2.6:   # longer branches carry a second pad part-way out, so the tiers join into one crown
-      p, dd = along(br, rng.uniform(.42, .6)); pad(t, p + Z * .4, rng.uniform(1.4, 1.8), rng.randint(12, 15))
+      p, dd = along(br, rng.uniform(.42, .6)); pad(t, p + Z * .4, rng.uniform(1.1, 1.8), rng.randint(11, 15), d)
   p, dd = along(tp, 1.)
   pad(t, p + Z * .1, 1.9, 17); pad(t, p - Z * 1.6 + unit(rng) * .6, 1.7, 14)
   return t
@@ -404,9 +414,11 @@ def export(species, objs):
 
 def impostors(objs):
   """Far LOD and Lite trees: every variant rendered side-on (camera on -Y looking +Y, orthographic) into a 256 x 512 cell of
-  impostors.webp (albedo with the baked sky visibility, alpha) and impostors_n.webp (the crown normals in the view frame:
-  x right, y up, z toward the camera), so a billboard lights like the 3D tree: dark into the sun, rims lit, translucency.
-  Each cell frames the tree's own extent at 1:2 with the trunk at the centre; the extents land in the build report."""
+  impostors.webp (albedo, alpha; 4 cells across, as many rows as needed) and impostors_n.webp: the crown normals in the view
+  frame (x right, y up; z is rebuilt) with each leaf card's own facing mixed in, crown depth (sky visibility times how thin the
+  crown is along the view ray, from a pass that counts leaf layers) and a leaf mask. So a billboard lights like the 3D tree:
+  dark into the sun at its heart, glowing where the crown is thin, broken up card by card. Each cell frames the tree's own
+  extent at 1:2 with the trunk at the centre; the extents land in the build report and src/impostors.js."""
   sc = bpy.context.scene; sc.render.engine = 'CYCLES'
   prefs = bpy.context.preferences.addons['cycles'].preferences
   try:
@@ -499,7 +511,7 @@ def impostors(objs):
   (ROOT / 'src/impostors.js').write_text('// Generated by tools/build-trees.py: impostor card per variant, [width, height, bottom] in metres at scale 1, atlas cell\n'
     f'// (256 x 512 cells of assets/textures/foliage/impostors.webp, 4 across, {rows} rows, row 0 at the top).\nexport const IMPOSTOR = ' + json.dumps(dims, separators=(', ', ': ')) + f';\nexport const IMPOSTOR_ROWS = {rows};\n'
     '// Physics record per species at scale 1, averaged over its variants: trunk radius at ~1 m, the height the disc can hit the trunk\n'
-    '// to, crown centre height and crown radius (the leaves\' mean height and RMS distance from it).\nexport const TREE_DIMS = ' + json.dumps(tree_dims, separators=(', ', ': ')) + ';\n')
+    '// to, crown centre height (the leaves\' mean height) and crown radius (between the crown\'s half-width and half-height).\nexport const TREE_DIMS = ' + json.dumps(tree_dims, separators=(', ', ': ')) + ';\n')
 
 def area_x(a, w):
   """Exact box resample along x to width w (cumulative sums), for premultiplied data."""
