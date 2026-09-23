@@ -136,6 +136,13 @@ function paintFlag(g, w, h, n) {
   g.fillStyle = '#f7f6f1'; g.fillRect(0, 0, w, h); g.fillStyle = '#c9ccce'; g.fillRect(0, 0, 12, h); g.fillStyle = GOLD; g.fillRect(12, h - 12, w - 12, 12);
   g.fillStyle = NAVY; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `800 66px ${FONT}`; g.fillText(String(n), w * .56, h * .44);
 }
+// Printed fabric wrapped round a truss: the skin rolls over the corners, so the print darkens into its two long edges
+// (top and bottom of the beam, the sides of a leg) and the face reads as stretched cloth, not a flat decal.
+function wrapShade(g, w, h, acrossX) {
+  const grd = acrossX ? g.createLinearGradient(0, 0, w, 0) : g.createLinearGradient(0, 0, 0, h);
+  grd.addColorStop(0, 'rgba(4,8,18,.34)'); grd.addColorStop(.16, 'rgba(4,8,18,0)'); grd.addColorStop(.84, 'rgba(4,8,18,0)'); grd.addColorStop(1, 'rgba(4,8,18,.34)');
+  g.fillStyle = grd; g.fillRect(0, 0, w, h);
+}
 function paintAtlas(canvas, scale, ctx) {
   const g = canvas.getContext('2d'); g.setTransform(scale, 0, 0, scale, 0, 0); g.fillStyle = '#ffffff'; g.fillRect(0, 0, 2048, 2048); PX = scale;
   const draw = (name, fn) => { const [x, y, w, h] = REGION[name]; g.save(); g.translate(x, y); g.beginPath(); g.rect(0, 0, w, h); g.clip(); fn(g, w, h); g.restore();
@@ -165,6 +172,7 @@ function paintAtlas(canvas, scale, ctx) {
     g.fillStyle = GOLD; g.fillRect(0, h - 6, w, 6); g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(0, 0, w, 3); roundel(g, 56, h / 2 - 2, 36); roundel(g, w - 56, h / 2 - 2, 36);
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = GOLD; fitText(g, `${ctx.name.toUpperCase()}  ·  DISC GOLF CHAMPIONSHIP`, w / 2, 19, w - 230, 700, 21);
     g.fillStyle = '#ffffff'; fitText(g, 'CHAINS OPEN 2026', w / 2, 62, w - 230, 800, 70);
+    wrapShade(g, w, h, false);
   });
   // Legs: the event roundel over one partner each, set big down the leg so it reads from the tee. The art sits in the
   // top two thirds: a leg on higher ground (hole 1's cross slope) is shorter and loses only plain foot. Leg 0 is the
@@ -174,6 +182,7 @@ function paintAtlas(canvas, scale, ctx) {
     g.fillStyle = GOLD; g.fillRect(0, 0, w, 4); g.fillRect(8, 94, w - 16, 3); roundel(g, w / 2, 49, 37);
     g.save(); g.translate(w / 2, 108); g.rotate(Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle';
     g.fillStyle = '#ffffff'; fitText(g, big, 0, -8, j ? 196 : 250, 800, 74); g.fillStyle = GOLD; fitText(g, small, 0, 38, j ? 196 : 250, 700, 22); g.restore();
+    wrapShade(g, w, h, true);
   }));
   draw('archSide', (g, w, h) => {   // the legs' inner faces, the lighter return of a printed truss cover
     const grd = g.createLinearGradient(0, 0, w, 0); grd.addColorStop(0, '#34507e'); grd.addColorStop(1, '#2a4168'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
