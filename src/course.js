@@ -22,7 +22,7 @@ export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
     hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#689a3c', '#588a38', '#446f33', '#e3cf9a'], leafHue: 0.29,
-    sun: [24, 38, 12, 10, 5.6], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .011], hemi: ['#a5c6ee', '#e8d0a0'], water: '#2d6f95' },
+    sun: [24, 38, 12, 10, 5.6], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .007], hemi: ['#a5c6ee', '#e8d0a0'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
     hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#74a03e', '#65933a', '#4f7434', '#e6d29c'], leafHue: 0.265,
@@ -736,7 +736,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // as the key, so the light reads from the disc and the shadows agree on where it comes from.
   const deg = THREE.MathUtils.degToRad, sunDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[0]), deg(def.sun[1]));
   const discDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[2]), deg(def.sun[3])), sunColor = new THREE.Color(def.sunColor);
-  const haze = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.55, .64, .85));   // a clear sky blue well under the course swatch: distance cools to blue instead of going milky grey-green
+  const haze = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.66, .72, .82));   // a pale sky blue-grey under the course swatch: distance cools instead of going milky grey-green (.55/.64/.85 read teal over green crowns, .6/.68/.84 an icy far floor)
   Object.assign(FOG.sun, { x: discDir.x, y: discDir.y, z: discDir.z }); Object.assign(FOG.haze, { r: haze.r, g: haze.g, b: haze.b });
   const warm = new THREE.Color(def.fog[0]).multiply(new THREE.Color(.95, .86, .6)); Object.assign(FOG.warm, { r: warm.r, g: warm.g, b: warm.b });   // the haze's sun side: the swatch with its blue taken out, so the backlit woods fall back into a bright warm glow
   // The glare a shade warmer than the key (its light took the long way through the air), and ~40% of the key's strength:
@@ -864,18 +864,20 @@ float sunVis = 1.;
 #if defined( RE_IndirectSpecular )
 	reflectedLight.indirectSpecular *= mix( .45, 1., sunVis );
 #endif
-reflectedLight.indirectDiffuse *= mix( vec3( .74, .86, .92 ), vec3( 1. ), sunVis );   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it`,
+#ifndef NO_SHADE_TINT
+reflectedLight.indirectDiffuse *= mix( vec3( .74, .86, .92 ), vec3( 1. ), sunVis );   // the canopy that shades a patch hides the warm open sky and bright ground round it too: the fill left is the blue overhead through the leaves, filtered green, so shade reads cooler and deeper than the sun pools between it. A material can opt out with defines.NO_SHADE_TINT (skin: the cool fill read lavender-grey on it)
+#endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
   fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogWarm, fogGlow;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
   fog_fragment: `#ifdef USE_FOG
-	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. ), fogCos2 = fogCos * fogCos;
+	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. );
 	#ifdef FOG_EXP2
-		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 6., 0. ) * mix( .4, 1., smoothstep( 6., 70., fogDist ) ) );   // ~5% at 15 m, 16% at 30, 36% at 50, 56% at 80: every row back a step paler (a 10-80 m ease left 15-40 m crisp and dumped it all into one grey card past 50 m)
+		float fogRise = vFogRay.y / 14., fogFactor = 1. - exp( - fogDensity * max( fogDist - 6., 0. ) * mix( .4, 1., smoothstep( 6., 70., fogDist ) ) * ( fogRise > .01 ? ( 1. - exp( - fogRise ) ) / fogRise : 1. ) );   // the haze thins with height (14 m scale, integrated along the ray): a stand's crowns keep their shape over a hazier floor   // ~5% at 15 m, 16% at 30, 36% at 50, 56% at 80: every row back a step paler (a 10-80 m ease left 15-40 m crisp and dumped it all into one grey card past 50 m)
 	#else
 		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
 	#endif
-	vec3 fogTint = ( fogHaze.g > 0. ? mix( fogHaze, fogWarm, fogCos2 ) : fogColor ) + fogGlow * ( fogCos2 * fogCos2 * fogCos2 * .2 + pow( fogCos, 24. ) * 2.5 );   // toward the sun the air is sunlit, a warm pale cream (a clear blue there read as a lavender-grey fog card), away from it sky blue; aerosols scatter mostly forward: a broad warm cast, then a hard glare cone round the disc
+	vec3 fogTint = ( fogHaze.g > 0. ? mix( fogHaze, fogWarm, pow( fogCos, 12. ) ) : fogColor ) + fogGlow * ( pow( fogCos, 16. ) * .25 + pow( fogCos, 90. ) * 3. );   // sky blue, warming only within ~25° of the disc (cos^12: the old cos^2 lobe covered the whole putt, which looks into the sun, with one cream wall); aerosols scatter mostly forward: a soft warm cast, then a tight glare cone round the disc
 	#ifdef TONE_MAPPING
 		fogTint = toneMapping( fogTint );
 	#endif
@@ -953,9 +955,9 @@ function skyDome(def, lite) {
       float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<OCT;i++){s+=a*noise(p);p=p*2.07+vec2(19.,7.);a*=.5;}return s;}
       void main(){
         vec3 d=normalize(vDir);float h=max(d.y,0.),s=max(dot(d,sunDir),0.),s2=s*s;
-        vec3 scatter=glow*(s2*s2*s2*.2+pow(s,24.)*2.5);                                      // the fog chunk's lobe
-        vec3 col=mix(mix(haze,warm,s2),mix(blue,zenith,smoothstep(.03,.45,h)),smoothstep(0.,.12,h))+scatter*mix(1.,.25,smoothstep(0.,.2,h));
-        col+=sunColor*(pow(s,8.)*.1+pow(s,90.)*.8)*smoothstep(-.02,.04,d.y);                  // aureole: open sky round the disc outshines the hazed ground, so the treeline rims
+        vec3 scatter=glow*(pow(s,16.)*.25+pow(s,90.)*3.);                                    // the fog chunk's lobe
+        vec3 col=mix(mix(haze,warm,pow(s,12.)),mix(blue,zenith,smoothstep(.03,.45,h))*mix(mix(vec3(.62,.8,1.05),vec3(1.),pow(s,6.)),vec3(1.),ground),smoothstep(0.,.12,h))+scatter*mix(1.,.25,smoothstep(0.,.2,h));
+        col+=sunColor*(pow(s,8.)*.1+pow(s,90.)*.8)*smoothstep(-.02,.04,d.y);                  // aureole: open sky round the disc outshines the hazed ground, so the treeline rims. Seen sky (not the prefiltered fill, so shade and skin keep their tint) runs a deeper blue away from the disc: a canopy gap read as pale steel
         vec2 p=d.xz/(h+.2)*cloud.y+vec2(time*.004,time*.0015);                               // planar projection: clouds flatten toward the horizon
         float n=fbm(p),cov=smoothstep(cloud.x,cloud.x+.1,n)*smoothstep(.02,.14,h);           // a short ramp keeps cumulus edges crisp
         float core=smoothstep(cloud.x,cloud.x+.32,n);                                        // thick belly vs thin rim
