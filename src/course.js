@@ -13,27 +13,28 @@ import { dressCourse } from './props.js';
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
 // Course definitions. Everything visual and structural about a course comes from here so the same
-// builder produces three different places. grass = [fairway, rough, deep rough, sand]; sun = [elevation, azimuth], low
-// (18-21°) and down the fairway of hole 1 (every course's hole 1 runs toward +z, azimuth 0) so the tee shot is back-lit
-// and trees rake long shadows; sky = [cloud coverage threshold, cloud scale, zenith colour]; fog = [horizon haze colour,
-// FogExp2 density: trees 60-80 m back keep about half their contrast]; hemi = [sky fill, ground fill].
+// builder produces three different places. grass = [fairway, rough, deep rough, sand]; sun = [key elevation, key azimuth,
+// disc elevation, disc azimuth, key intensity]: a high key (24-42°) and a low visible disc (~11°), both left of hole 1's
+// fairway (every course's hole 1 runs toward +z, azimuth 0; positive azimuth is screen-left from the tee, away from the
+// athlete), see the sky section; sky = [cloud coverage threshold, cloud scale, zenith colour, low-sky blue];
+// fog = [haze colour, exponential density per metre beyond 12 m]; hemi = [sky fill, ground bounce].
 export const COURSES = [
   { id: 'pine', name: 'Pine Hollow', tag: 'Wooded · tight fairways', blurb: 'Nine holes cut through pines and oaks. Guardian trees, two doglegs, water on 3, 6 and 9.', seed: 7,
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
     hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#75bd48', '#3f9842', '#29774a', '#f5dfa4'], leafHue: 0.29,
-    sun: [19, 22], sky: [.5, 1.3, '#7aa6d2'], sunColor: '#ffd3a0', fog: ['#e4e6df', 0.0100], hemi: ['#b8cde6', '#33492a'], water: '#2d6f95' },
+    sun: [36, 30, 11.5, 13, 5], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#fff0d8', fog: ['#bdd3e8', .0045], hemi: ['#a5c6ee', '#5d6b39'], water: '#2d6f95' },
   { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
     hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#8bc352', '#55a344', '#397e48', '#f4dd9e'], leafHue: 0.265,
-    sun: [18, 340], sky: [.47, 1.1, '#95a9c1'], sunColor: '#ffc98a', fog: ['#f0e3ca', 0.0088], hemi: ['#c8d3e8', '#4d4a2a'], water: '#4a7f8f' },
+    sun: [24, 42, 10, 22, 3.8], sky: [.48, 1.1, '#4a82cc', '#b4cbe4'], sunColor: '#ffdcae', fog: ['#d3d9df', .0042], hemi: ['#b2c7e6', '#6e6a3a'], water: '#4a7f8f' },
   { id: 'lake', name: 'Lakeshore Links', tag: 'Water on five holes', blurb: 'Morning light off the lake. Carries, wraps and island greens; every pond is out of bounds.', seed: 41,
     len: [92, 118, 80, 134, 100, 74, 126, 96, 110], dog: { 2: 1, 5: -1, 7: 1 }, ponds: { 0: 'right', 2: 'front', 4: 'carry', 6: 'right', 8: 'front' },
     hills: 0.8, trees: 0.7, pine: 0.35, fairwayW: 1.2, wind: 1.2, grass: ['#7dc65a', '#419f50', '#287a51', '#ffe3ac'], leafHue: 0.3,
-    sun: [21, 30], sky: [.55, 1.4, '#78a7d6'], sunColor: '#ffdcae', fog: ['#e6ece9', 0.0096], hemi: ['#c3daf0', '#2f4f33'], water: '#2a7fa8' },
+    sun: [31, 40, 11, 26, 4.4], sky: [.56, 1.35, '#3b80d6', '#a6cbee'], sunColor: '#fff2e0', fog: ['#c2d8ea', .0052], hemi: ['#a9caf0', '#4f6a42'], water: '#2a7fa8' },
   { id: 'bluff', name: 'Gull Point Bluffs', tag: 'Coastal · exposed · gusty', blurb: 'Headland links above the surf. Nothing stops the wind up here: read the socks, throw low into it and ride it home.', seed: 59,
     len: [98, 124, 88, 142, 110, 80, 156, 96, 118], dog: { 1: 1, 4: -1, 7: 1 }, ponds: { 2: 'right', 5: 'carry', 8: 'front' },
     hills: 2.1, trees: 0.22, pine: 0.7, fairwayW: 1.4, wind: 2.8, grass: ['#a9c65a', '#7fa848', '#5d8a4a', '#e9d9a6'], leafHue: 0.25,
-    sun: [20, 345], sky: [.44, 1.2, '#86abcb'], sunColor: '#ffd6a6', fog: ['#e5eaec', 0.0092], hemi: ['#c2d6e8', '#4e5a3c'], water: '#3f8fb0' },
+    sun: [40, 44, 12, 24, 3.6], sky: [.45, 1.2, '#3576d0', '#a2c6ea'], sunColor: '#fff4e4', fog: ['#c6d8e6', .004], hemi: ['#a8c8ee', '#6a7446'], water: '#3f8fb0' },
 ];
 export const courseById = id => COURSES.find(c => c.id === id) || COURSES[0];
 export const courseLayout = def => layoutHoles(makeRng(def.seed + 1), def);   // pure: used for the menu mini-maps
@@ -548,25 +549,33 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
 
   // --- sky, lights, fog ---
-  const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1]));
-  const sky = skyDome(def, sunDir, quality === 'low'); scene.add(sky);   // its horizon band is the fog colour; the sun disc sits where the key light is
-  // Image-based ambient: the course HDRI on Full, the dome prefiltered on Lite (its sun disc puts a real highlight on
-  // discs and chains). The HDRI itself no longer shows: its baked sun sat at the old elevations and its horizon clipped.
-  let envRT = null;
-  if (hdri) scene.environment = hdri.target.texture;
-  else { const pmrem = new THREE.PMREMGenerator(renderer); const envScene = new THREE.Scene(); envScene.add(sky); envRT = pmrem.fromScene(envScene, .04); envScene.remove(sky); scene.add(sky); pmrem.dispose(); scene.environment = envRT.texture; }
-  scene.environmentIntensity = .25; scene.background = null;
-  // Aerial perspective: exponential haze in the bright warm horizon colour, dense enough (FogExp2 squares the depth)
-  // that trees 60-80 m back keep about half their contrast and the tree line at 150 m is a silhouette in the sky.
-  scene.fog = new THREE.FogExp2(def.fog[0], def.fog[1]);
-  // One low warm key down hole 1's fairway: the tee shot is back-lit, its halo above the basket, shadows raking toward the camera.
-  const sun = new THREE.DirectionalLight(def.sunColor, 3); sun.castShadow = true;
+  // Two suns on purpose. The key light stands high (def.sun[0], 24-42°) so open turf takes most of its strength and
+  // shadows stay short; the visible disc, its aureole, the haze's forward scatter and Full's light shafts hang low
+  // (def.sun[2], ~11°) just inside the top of hole 1's tee frame (7° down, 45° lens), on the same side of the fairway
+  // as the key, so the light reads from the disc and the shadows agree on where it comes from.
+  const deg = THREE.MathUtils.degToRad, sunDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[0]), deg(def.sun[1]));
+  const discDir = new THREE.Vector3().setFromSphericalCoords(1, deg(90 - def.sun[2]), deg(def.sun[3])), sunColor = new THREE.Color(def.sunColor);
+  const haze = new THREE.Color(def.fog[0]);
+  Object.assign(FOG.sun, { x: discDir.x, y: discDir.y, z: discDir.z }); Object.assign(FOG.haze, { r: haze.r, g: haze.g, b: haze.b });
+  Object.assign(FOG.glow, { r: sunColor.r * .92, g: sunColor.g * .85, b: sunColor.b * .73 });   // the glare a shade warmer than the key: its light took the long way through the air
+  scene.userData.sun = { dir: discDir, color: sunColor };   // effects.js aims the light shafts at the disc
+  const sky = skyDome(def, quality === 'low'); scene.add(sky);
+  // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
+  // green-brown bounce from below (the dome's `ground` switch) and the sun's aureole glints in discs, chains and water.
+  // The cube camera's far plane has to reach the 1100 m dome.
+  const pmrem = new THREE.PMREMGenerator(renderer), envScene = new THREE.Scene(); sky.material.uniforms.ground.value = 1; envScene.add(sky);
+  const envRT = pmrem.fromScene(envScene, .04, 1, 2000); envScene.remove(sky); sky.material.uniforms.ground.value = 0; scene.add(sky); pmrem.dispose();
+  scene.environment = envRT.texture; scene.environmentIntensity = .5; scene.background = null;
+  // Aerial perspective: see the fog chunk above skyDome(). def.fog[1] is an exponential density per metre of eye distance.
+  scene.fog = new THREE.FogExp2(haze, def.fog[1]);
+  // One high warm key from the disc's side of hole 1: the tee shot is side-back-lit and the athlete and trunks keep a lit flank.
+  const sun = new THREE.DirectionalLight(sunColor, def.sun[4]); sun.castShadow = true;
   const sm = quality === 'low' ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
   // 120 m box following the focus in update(): wide enough that trees off-frame toward the sun still rake shadows across the frame.
   const extent = 60, sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -extent; sc2.right = sc2.top = extent; sc2.near = 1; sc2.far = 400;
-  sun.shadow.bias = -0.0004; sun.shadow.normalBias = .02;   // PCFSoft ignores shadow.radius, so the bias no longer tracks a filter width
+  sun.shadow.radius = quality === 'low' ? 2 : 4; sun.shadow.bias = -0.0004; sun.shadow.normalBias = .04;   // the Vogel taps reach `radius` texels (6 cm on Full, 12 on Lite): a ~25 cm leafy penumbra; the normal bias covers that slope
   scene.add(sun); scene.add(sun.target);
-  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], .4); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight(def.hemi[0], def.hemi[1], .3); scene.add(hemi);   // blue sky over a green bounce: shade keeps its colour
 
   // Feathered canopies pool shade around nearby trunks; distance fades them into the same haze.
   // This merged ground-conforming mesh costs one draw, with no shadow map or image request.
@@ -621,31 +630,75 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose };
 }
 
-// Sky dome for both tiers: horizon haze (the fog colour) up to a soft blue zenith, a warm lobe and a sun disc with its
-// halo where the DirectionalLight actually is, and cumulus from value noise on a planar projection so the clouds
-// flatten and melt into the haze at the horizon. Lite runs two noise octaves, Full four. The 8x disc is tone mapped
-// here on Lite; on Full the OutputPass does that later, so the disc reaches the bloom pass and comes back as a halo.
-function skyDome(def, sunDir, lite) {
-  const [coverage, scale, zenith] = def.sky;
+// Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 12 m (not
+// FogExp2's squared view depth, which whited out 150 m), toward a pale blue haze plus a warm forward-scatter lobe
+// round the sun's disc, so the tree line glows where the sun hangs and stays a clean blue behind the golfer. The
+// haze is our own linear uniform (three hands fogColor to direct-to-screen Lite draws already sRGB-encoded) and the
+// mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
+// FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
+// course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
+const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 } };
+for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogGlow: { value: FOG.glow } });
+Object.assign(THREE.ShaderChunk, {
+  fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
+  fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
+  fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogGlow;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
+  fog_fragment: `#ifdef USE_FOG
+	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. ), fogCos2 = fogCos * fogCos;
+	#ifdef FOG_EXP2
+		float fogFactor = 1. - exp( - fogDensity * max( fogDist - 12., 0. ) );
+	#else
+		float fogFactor = smoothstep( fogNear, fogFar, fogDist );
+	#endif
+	vec3 fogTint = ( fogHaze.g > 0. ? fogHaze : fogColor ) + fogGlow * ( fogCos2 * fogCos2 * fogCos2 * .2 + pow( fogCos, 24. ) * 2.5 );   // aerosols scatter mostly forward: a broad warm cast, then a hard glare cone round the disc
+	#ifdef TONE_MAPPING
+		fogTint = toneMapping( fogTint );
+	#endif
+	gl_FragColor.rgb = mix( gl_FragColor.rgb, linearToOutputTexel( vec4( fogTint, 1. ) ).rgb, fogFactor );
+#endif`,
+  // Sun shadows: the stock PCF kernel spaced at `radius` texels leaves blocky rings under leafy canopies. 16 taps on a
+  // Vogel disk turned per pixel (white noise: IGN's diagonals show without TAA) give the same cost a smooth penumbra, grain instead of steps.
+  shadowmap_pars_fragment: THREE.ShaderChunk.shadowmap_pars_fragment.replace(/#if defined\( SHADOWMAP_TYPE_PCF \)\n[\s\S]*?(?=#elif defined\( SHADOWMAP_TYPE_PCF_SOFT \))/, `#if defined( SHADOWMAP_TYPE_PCF )
+			const vec2 vogel[ 16 ] = vec2[ 16 ]( ${Array.from({ length: 16 }, (_, i) => { const r = Math.sqrt((i + .5) / 16), a = i * 2.39996323; return `vec2( ${(r * Math.cos(a)).toFixed(4)}, ${(r * Math.sin(a)).toFixed(4)} )`; }).join(', ')} );
+			float spin = 6.2831853 * fract( sin( dot( gl_FragCoord.xy, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+			vec2 turn = vec2( cos( spin ), sin( spin ) ) * shadowRadius / shadowMapSize.x;
+			shadow = 0.;
+			for ( int i = 0; i < 16; i ++ ) shadow += texture2DCompare( shadowMap, shadowCoord.xy + vec2( vogel[ i ].x * turn.x - vogel[ i ].y * turn.y, vogel[ i ].x * turn.y + vogel[ i ].y * turn.x ), shadowCoord.z );
+			shadow *= .0625;
+		`),
+});
+
+// Sky dome for both tiers, in the scene's linear HDR. Near the horizon it is the fog's colour along the ray (haze plus
+// the scatter lobe), so hazed tree lines and hills melt into it; above ~7° a pale-to-deep blue gradient with the sun's
+// aureole thinning upward. Cumulus: value noise on a planar projection, bright sun-facing tops over blue-grey bellies,
+// thin edges silvered near the sun. Lite runs two noise octaves, Full four. The 20x disc is tone mapped here on Lite;
+// on Full the OutputPass does that after the bloom and light shafts have spread it. `ground` swaps the lower
+// hemisphere for a green bounce only while the dome is prefiltered into the environment map.
+function skyDome(def, lite) {
+  const [coverage, scale, zenith, blue] = def.sky;
   return new THREE.Mesh(new THREE.SphereGeometry(1100, 32, 16), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, defines: { OCT: lite ? 2 : 4 },
-    uniforms: { horizon: { value: new THREE.Color(def.fog[0]) }, zenith: { value: new THREE.Color(zenith) }, sunColor: { value: new THREE.Color(def.sunColor) }, sunDir: { value: sunDir }, cloud: { value: new THREE.Vector2(coverage, scale) }, time: { value: 0 } },
+    uniforms: { haze: { value: FOG.haze }, glow: { value: FOG.glow }, sunDir: { value: FOG.sun }, blue: { value: new THREE.Color(blue) }, zenith: { value: new THREE.Color(zenith) }, sunColor: { value: new THREE.Color(def.sunColor) },
+      bounce: { value: new THREE.Color(def.hemi[1]) }, cloud: { value: new THREE.Vector2(coverage, scale) }, time: { value: 0 }, ground: { value: 0 } },
     vertexShader: 'varying vec3 vDir;void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: `uniform vec3 horizon,zenith,sunColor,sunDir;uniform vec2 cloud;uniform float time;varying vec3 vDir;
+    fragmentShader: `uniform vec3 haze,glow,sunDir,blue,zenith,sunColor,bounce;uniform vec2 cloud;uniform float time,ground;varying vec3 vDir;
       float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
       float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<OCT;i++){s+=a*noise(p);p=p*2.07+vec2(19.,7.);a*=.5;}return s;}
       void main(){
-        vec3 d=normalize(vDir);float h=max(d.y,0.),s=max(dot(d,sunDir),0.);
-        vec3 col=mix(horizon,zenith,smoothstep(0.,.6,h));                                   // haze at the horizon up to blue
-        col=mix(col,sunColor*1.1,pow(s,3.)*(1.-smoothstep(0.,.45,h))*.4);                   // warm lobe on the sun's side
-        col+=sunColor*(pow(s,6.)*.1+pow(s,40.)*.35+pow(s,300.)*1.5);                        // haze halo
-        vec2 p=d.xz/(h+.25)*cloud.y+vec2(time*.004,time*.0015);                             // planar projection: clouds flatten toward the horizon
-        float n=fbm(p),cov=smoothstep(cloud.x,cloud.x+.2,n)*smoothstep(.03,.2,h);
-        float lit=clamp((n-fbm(p+normalize(sunDir.xz+vec2(1e-4))*.12))*7.+.55,0.,1.);       // thinner toward the sun = the lit face
-        vec3 cloudCol=mix(mix(horizon,zenith,.4)*.9,mix(vec3(1.),sunColor,.3)*1.12,lit)+sunColor*pow(s,12.)*.25;
-        col=mix(col,cloudCol,cov);
-        col+=sunColor*smoothstep(.9994,.9998,s)*8.*(1.-cov*.9);                             // the disc, 8x so bloom carries it
+        vec3 d=normalize(vDir);float h=max(d.y,0.),s=max(dot(d,sunDir),0.),s2=s*s;
+        vec3 scatter=glow*(s2*s2*s2*.2+pow(s,24.)*2.5);                                      // the fog chunk's lobe
+        vec3 col=mix(haze,mix(blue,zenith,smoothstep(.03,.45,h)),smoothstep(0.,.12,h))+scatter*mix(1.,.4,smoothstep(0.,.35,h));
+        col+=sunColor*(pow(s,8.)*.2+pow(s,90.)*.8)*smoothstep(-.02,.04,d.y);                  // aureole: open sky round the disc outshines the hazed ground, so the treeline rims
+        vec2 p=d.xz/(h+.2)*cloud.y+vec2(time*.004,time*.0015);                               // planar projection: clouds flatten toward the horizon
+        float n=fbm(p),cov=smoothstep(cloud.x,cloud.x+.1,n)*smoothstep(.02,.14,h);           // a short ramp keeps cumulus edges crisp
+        float core=smoothstep(cloud.x,cloud.x+.32,n);                                        // thick belly vs thin rim
+        float lit=clamp((n-fbm(p+normalize(sunDir.xz+vec2(1e-4))*.16))*6.+.55,0.,1.);        // density falling toward the sun = the lit face
+        vec3 cc=mix(mix(zenith,vec3(.52,.56,.63),.65),mix(vec3(1.),sunColor,.3)*1.5,clamp(lit*(1.-core*.45)+(1.-core)*.3,0.,1.));
+        cc+=sunColor*pow(s,10.)*(1.-core)*2.5;                                              // silver lining in the aureole
+        col=mix(col,mix(cc,col,smoothstep(.14,.02,h)*.6),cov);                               // far cumulus melts into the haze
+        col+=sunColor*smoothstep(.9994,.9998,s)*20.*(1.-cov*.85);                            // the disc
+        col=mix(col,bounce*1.4,ground*smoothstep(0.,-.1,d.y));
         gl_FragColor=vec4(col,1.);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
