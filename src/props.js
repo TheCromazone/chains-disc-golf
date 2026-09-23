@@ -1,11 +1,13 @@
 // Set dressing that makes the course read as a cared-for tournament venue: timber-framed turf tee mats, printed tee
 // signs with the hole map, galvanised baskets with drooping chains, a branded band and a number flag, benches, bins,
-// feather flags, and on hole 1 an event arch, a registration canopy and gallery ropes. Every static prop on the course
-// merges into two meshes: 'print' (every painted, printed or wooden surface, one canvas atlas, vertex tint for solid
-// colours) and 'steel' (bare metal, vertex tint). That is two draws plus their shadow draws on either tier however many
-// props stand, where the old per-hole meshes cost ~30. Physics-neutral: the disc only collides with trees and the
-// basket, so props keep out of the flight corridor (the tree-free half-width in front of each tee) and off the putt
-// line; the basket's visual parts keep physics' heights (tray .55-.72 m, chains .72-1.34, band 1.34-1.46).
+// feather flags, and on hole 1 an event arch over the fairway, a roped gallery chute with sponsor boards, a staff cart
+// and a registration canopy. Every static prop on the course merges into four meshes: 'print' (every painted, printed
+// or wooden surface, one canvas atlas, vertex tint for solid colours), 'steel' (bare metal, vertex tint), 'arch' (the
+// arch's printed skin on the same atlas, single-sided so a chase camera flying through its beam sees through it rather
+// than a screen of navy) and the soft contact shade under the props' feet. Four draws plus three shadow draws on either
+// tier however many props stand. Only the arch is in play (its legs and beam go to the flight model as capsules); every
+// other prop keeps out of the flight corridor (the tree-free half-width in front of each tee) and off the putt line,
+// and the basket's visual parts keep physics' heights (tray .55-.72 m, chains .72-1.34, band 1.34-1.46).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toonMaterial, windTime, windVec } from './materials.js';
@@ -19,8 +21,9 @@ const rngOf = seed => { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s 
 const REGION = { mat: [8, 8, 512, 1024], wood: [8, 1048, 512, 128], white: [8, 1768, 16, 16], concrete: [40, 1768, 64, 64] };
 for (let i = 0; i < 9; i++) REGION['sign' + i] = [536 + (i % 3) * 496, 8 + Math.floor(i / 3) * 346, 480, 330];
 for (let i = 0; i < 3; i++) REGION['feather' + i] = [536 + i * 176, 1048, 160, 640];
-REGION.bag = [536, 1704, 256, 320]; REGION.band = [1072, 1048, 960, 76]; REGION.valance = [1072, 1352, 960, 96]; REGION.archBeam = [1072, 1464, 960, 118]; REGION.archLeg = [1072, 1600, 96, 440];
+REGION.bag = [536, 1704, 256, 320]; REGION.band = [1072, 1048, 960, 76]; REGION.valance = [1072, 1352, 960, 96]; REGION.archBeam = [1072, 1464, 960, 104]; REGION.archLeg0 = [1072, 1600, 120, 440]; REGION.archLeg1 = [1208, 1600, 120, 440]; REGION.archSide = [1344, 1600, 56, 440];
 for (let i = 0; i < 9; i++) REGION['flag' + i] = [1072 + (i % 6) * 144, 1140 + Math.floor(i / 6) * 104, 128, 88];
+for (let i = 0; i < 4; i++) REGION['board' + i] = [1416 + (i % 2) * 312, 1600 + Math.floor(i / 2) * 120, 296, 84];
 const uvRect = name => { const [x, y, w, h] = REGION[name]; return [x / 2048, 1 - (y + h) / 2048, (x + w) / 2048, 1 - y / 2048]; };   // CanvasTexture flips Y
 
 // Per-pixel painters shade a scratch canvas at the atlas's own scale (Lite evaluates a quarter of the texels) in
@@ -117,6 +120,12 @@ function paintFeather(g, w, h, i, name) {
   if (i === 1) { g.fillStyle = fg; g.beginPath(); g.moveTo(w * .3, 60); g.quadraticCurveTo(w * .75, 20, w * .9, 70); g.quadraticCurveTo(w * .6, 55, w * .3, 60); g.fill(); }   // wing mark
   if (i === 2) { g.strokeStyle = fg; g.lineWidth = 6; g.beginPath(); g.arc(w * .58, 70, 34, 0, 7); g.stroke(); g.font = `800 34px ${FONT}`; g.fillStyle = fg; g.textAlign = 'center'; g.fillText('BB', w * .58, 72); }
 }
+// Low sponsor A-boards on the gallery rope: the event, the two invented sponsors and the host club.
+function paintBoard(g, w, h, i, name) {
+  const [bg, fg, accent, big, small] = [[NAVY, '#ffffff', GOLD, 'CHAINS OPEN 2026', name.toUpperCase() + '  ·  DISC GOLF CHAMPIONSHIP'], ['#f6f4ee', '#d4471b', '#1c2430', 'LOFTWING', 'DISCS  ·  FLY FURTHER'], ['#1f5a3b', '#f3ead2', GOLD, 'BIRDIE BREW', 'COFFEE ROASTERS'], [PARK, '#ffffff', GOLD, name.toUpperCase(), 'DISC GOLF CLUB  ·  HOST']][i];
+  g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = accent; g.fillRect(0, h - 8, w, 8);
+  g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = fg; fitText(g, big, w / 2, h * .4, w - 28, 800, Math.round(h * .58)); g.fillStyle = i === 1 ? '#1c2430' : accent; fitText(g, small, w / 2, h * .77, w - 44, 700, Math.round(h * .19));
+}
 // Band: the yellow top band, branded three times around so every side reads.
 function paintBand(g, w, h, name) {
   g.fillStyle = GOLD; g.fillRect(0, 0, w, h); g.fillStyle = NAVY; g.fillRect(0, 0, w, 5); g.fillRect(0, h - 5, w, 5);
@@ -152,23 +161,31 @@ function paintAtlas(canvas, scale, ctx) {
     g.strokeStyle = '#ffffff'; g.lineWidth = r * .035; for (let i = 0; i < 7; i++) { g.beginPath(); g.moveTo(cx - r * .42 + i * r * .14, cy - r * .32); g.quadraticCurveTo(cx - r * .3 + i * r * .1, cy - r * .05, cx + (i - 3) * r * .02, cy + r * .1); g.stroke(); }
   };
   draw('archBeam', (g, w, h) => {
-    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#1d2f4d'); grd.addColorStop(1, '#111c31'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
-    g.fillStyle = GOLD; g.fillRect(0, h - 7, w, 7); roundel(g, 62, h / 2, 40); roundel(g, w - 62, h / 2, 40);
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = GOLD; fitText(g, `${ctx.name.toUpperCase()}  ·  DISC GOLF CHAMPIONSHIP`, w / 2, 24, w - 260, 700, 24);
-    g.fillStyle = '#ffffff'; fitText(g, 'CHAINS OPEN 2026', w / 2, 72, w - 260, 800, 76);
+    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#22385e'); grd.addColorStop(1, '#14223c'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    g.fillStyle = GOLD; g.fillRect(0, h - 6, w, 6); g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(0, 0, w, 3); roundel(g, 56, h / 2 - 2, 36); roundel(g, w - 56, h / 2 - 2, 36);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = GOLD; fitText(g, `${ctx.name.toUpperCase()}  ·  DISC GOLF CHAMPIONSHIP`, w / 2, 19, w - 230, 700, 21);
+    g.fillStyle = '#ffffff'; fitText(g, 'CHAINS OPEN 2026', w / 2, 62, w - 230, 800, 70);
   });
-  draw('archLeg', (g, w, h) => {
-    g.fillStyle = '#16233d'; g.fillRect(0, 0, w, h); g.fillStyle = GOLD; g.fillRect(0, 0, w, 5); roundel(g, w / 2, 58, 34);
-    g.save(); g.translate(w / 2 + 4, h - 16); g.rotate(-Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle';
-    g.fillStyle = '#ffffff'; fitText(g, 'LOFTWING', 0, -14, h * .5, 800, 46); g.fillStyle = GOLD; fitText(g, 'BIRDIE BREW', h * .52, -14, h * .3, 700, 30); g.restore();
+  // Legs: the event roundel over one partner each, set big up the leg so it reads from the tee.
+  [['LOFTWING', 'DISCS · FLY FURTHER'], ['BIRDIE BREW', 'COFFEE ROASTERS']].forEach(([big, small], j) => draw('archLeg' + j, (g, w, h) => {
+    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#20355a'); grd.addColorStop(1, '#16243f'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    g.fillStyle = GOLD; g.fillRect(0, 0, w, 4); g.fillRect(8, 108, w - 16, 3); roundel(g, w / 2, 56, 40);
+    g.save(); g.translate(w / 2, 126); g.rotate(Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle';   // reads down from the roundel, so a leg standing on higher ground loses only empty foot
+    g.fillStyle = '#ffffff'; fitText(g, big, 0, -8, 250, 800, 74); g.fillStyle = GOLD; fitText(g, small, 0, 38, 250, 700, 22); g.restore();
+  }));
+  draw('archSide', (g, w, h) => {   // the legs' inner faces, the lighter return of a printed truss cover
+    const grd = g.createLinearGradient(0, 0, w, 0); grd.addColorStop(0, '#34507e'); grd.addColorStop(1, '#2a4168'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    g.fillStyle = GOLD; g.fillRect(w - 12, 0, 4, h);
+    g.save(); g.translate(w / 2, 16); g.rotate(Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#ffffff'; fitText(g, 'CHAINS OPEN 2026', 0, 4, h * .66, 800, 24); g.restore();
   });
+  for (let i = 0; i < 4; i++) draw('board' + i, (g, w, h) => paintBoard(g, w, h, i, ctx.name));
   draw('valance', (g, w, h) => { g.fillStyle = NAVY; g.fillRect(0, 0, w, h); g.fillStyle = GOLD; g.fillRect(0, h - 10, w, 10); g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'CHAINS OPEN 2026  ·  REGISTRATION', w / 2, h * .45, w - 60, 800, 60); });
   for (let i = 0; i < 9; i++) draw('flag' + i, (g, w, h) => paintFlag(g, w, h, i + 1));
 }
 
 // ---------- geometry kit ----------
 function kit() {
-  const lists = { print: [], steel: [] }, col = new THREE.Color();
+  const lists = { print: [], steel: [], arch: [] }, col = new THREE.Color();
   // Remaps a placed part's 0..1 UVs into an atlas region, tints it (linear vertex colour) and queues it for one merge.
   const put = (list, g, region = 'white', color = '#ffffff') => {
     const uv = g.attributes.uv, [u0, v0, u1, v1] = uvRect(region);
@@ -184,7 +201,23 @@ function kit() {
   };
   // Cloth: a second sheet with reversed winding, so the back-face-only shadow pass always has a face to draw.
   const sheet = g => { const b = g.clone(), ix = b.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } lists.print.push(b); };
-  return { print: (g, region, color) => put('print', g, region, color), cloth: (g, region) => sheet(put('print', g, region)), steel: (g, color = '#c8cdd0') => put('steel', g, 'white', color), lists };
+  return { print: (g, region, color) => put('print', g, region, color), cloth: (g, region) => sheet(put('print', g, region)), steel: (g, color = '#c8cdd0') => put('steel', g, 'white', color), arch: (g, region, color) => put('arch', g, region, color), lists };
+}
+// Soft contact shade where props meet the turf, the occlusion the sun's shadow map is too coarse to draw: one
+// ground-hugging 5x5 grid per foot, dark in a rounded-rect core (`core` of the half-extents) and fading to nothing at
+// the edge, faded out with distance like course.js's canopy pools. blobs: [x, z, yaw, half x, half z, core, strength].
+function contactShade(blobs, height) {
+  const pos = [], blob = [], idx = [], N = 4;
+  for (const [x, z, yaw, hx, hz, core, k] of blobs) {
+    const c = Math.cos(yaw), s = Math.sin(yaw), base = pos.length / 3;
+    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) { const a = i / N * 2 - 1, b = j / N * 2 - 1, wx = x + a * hx * c + b * hz * s, wz = z - a * hx * s + b * hz * c; pos.push(wx, height(wx, wz) + .04, wz); blob.push(a, b, core, k); }
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const p = base + j * (N + 1) + i; idx.push(p, p + N + 1, p + 1, p + 1, p + N + 1, p + N + 2); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('blob', new THREE.Float32BufferAttribute(blob, 4)); g.setIndex(idx);
+  const m = new THREE.Mesh(g, new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    vertexShader: 'attribute vec4 blob;varying vec4 vB;varying float vD;void main(){vB=blob;vec4 mv=modelViewMatrix*vec4(position,1.);vD=-mv.z;gl_Position=projectionMatrix*mv;}',
+    fragmentShader: 'varying vec4 vB;varying float vD;void main(){vec2 q=max(abs(vB.xy)-vB.z,0.)/(1.-vB.z);float a=vB.w*(1.-smoothstep(0.,1.,length(q)))*(1.-smoothstep(45.,130.,vD));gl_FragColor=vec4(.018,.024,.012,a);}' }));
+  m.renderOrder = 1; return m;
 }
 const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _e = new THREE.Euler();
 const pose = (x, y, z, yaw = 0, pitch = 0, roll = 0, sx = 1, sy = sx, sz = sx) => new THREE.Matrix4().compose(_p.set(x, y, z), _q.setFromEuler(_e.set(pitch, yaw, roll, 'YXZ')), _s.set(sx, sy, sz));
@@ -259,22 +292,27 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
   // u of a spot pad metres outside the flight corridor on one side (-1 left), the half-width sampled where it stands
   const edge = (h, side, f, pad) => { let u = side * (corridor(...frame(h, side * 9, f)) + pad); u = side * (corridor(...frame(h, u, f)) + pad); return u; };
   const onGround = (h, u, f, rot = 0, sink = .03) => { const [x, z] = frame(h, u, f); return pose(x, height(x, z) - sink, z, h.yaw + rot); };
+  // contact shade under a prop placed by `world`: half-extents in its own frame, offset (ox, oz) from its origin
+  const blobs = [], shadeUnder = (world, hx, hz, core, k, ox = 0, oz = 0) => { const e = world.elements; blobs.push([e[12] + e[0] * ox + e[8] * oz, e[14] + e[2] * ox + e[10] * oz, Math.atan2(e[8], e[10]), hx, hz, core, k]); };
   const feather = featherGeometry(full);
   const addFeather = (world, design) => {
     K.cloth(feather.cloth.clone().applyMatrix4(world), 'feather' + design);
     K.steel(tube(feather.pole, .012, full ? 12 : 4, 4).applyMatrix4(world), '#d9dcdc');
     K.steel(box(.7, .025, .05).applyMatrix4(world), '#3a3d40'); K.steel(box(.05, .025, .7).applyMatrix4(world), '#3a3d40');
+    shadeUnder(world, .5, .5, 0, .42);
   };
   const paint = (g, color) => K.print(g, 'white', color);   // powder-coated steel, plastic, canvas: dielectric, solid colour
   const addBench = world => {
     for (let i = 0; i < 3; i++) K.print(at(box(1.7, .04, .11), pose(0, .44, -.13 + i * .13), world), 'wood');
     for (let i = 0; i < 2; i++) K.print(at(box(1.7, .1, .035), pose(0, .6 + i * .15, .2 + i * .03, 0, -.2), world), 'wood');
-    for (const x of [-.65, .65]) { paint(at(box(.05, .42, .05), pose(x, .21, -.12), world), '#26292b'); paint(at(box(.05, .82, .05), pose(x, .41, .17, 0, -.1), world), '#26292b'); paint(at(box(.05, .04, .42), pose(x, .4, .03), world), '#26292b'); }
+    for (const x of [-.65, .65]) { paint(at(box(.05, .42, .05), pose(x, .21, -.12), world), '#26292b'); paint(at(box(.05, .82, .05), pose(x, .41, .17, 0, -.1), world), '#26292b'); paint(at(box(.05, .04, .42), pose(x, .4, .03), world), '#26292b'); shadeUnder(world, .2, .38, .2, .5, x, .03); }
+    shadeUnder(world, 1.05, .45, .55, .28, 0, .02);   // the seat's own occlusion, softer, between the legs
   };
   const addCan = world => {   // park bin: green powder-coated drum, black lid, two rolled ribs
     paint(at(cyl(.27, .25, .82, full ? 16 : 8, true), pose(0, .41, 0), world), '#35573f');
     paint(at(cyl(.3, .29, .07, full ? 16 : 8), pose(0, .85, 0), world), '#1f2422');
     if (full) for (const y of [.22, .6]) paint(at(ring(.272, .012, 24, 3), pose(0, y, 0), world), '#35573f');
+    shadeUnder(world, .46, .46, .15, .5);
   };
   // A player's disc golf backpack left on the bench: a padded purple body with rounded edges, black zip pocket and
   // base, a putter pouch, and the rims of a stack of coloured discs over the top. Built in the bench's frame (seat .46).
@@ -292,16 +330,56 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
     for (let k = 0; k < 4; k++) K.print(at(new THREE.PlaneGeometry(3, .3), pose(Math.sin(k * Math.PI / 2) * 1.5, 1.97, Math.cos(k * Math.PI / 2) * 1.5, k * Math.PI / 2), world), 'valance');
     paint(at(box(1.8, .74, .72), pose(0, .37, -.6), world), '#f1f1ee');
     paint(at(box(1.82, .03, .74), pose(0, .755, -.6), world), '#f7f7f4');
+    for (const [x, z] of [[-1.47, -1.47], [1.47, -1.47], [-1.47, 1.47], [1.47, 1.47]]) shadeUnder(world, .16, .16, 0, .45, x, z);
+    shadeUnder(world, 1.05, .5, .6, .42, 0, -.6);
   };
-  // Event arch over the gallery walk: two printed pillars and a beam, 6 m clear span, 4 m clear height.
-  const addArch = world => {
-    for (const x of [-3.32, 3.32]) {
-      paint(at(box(.64, 4, .5), pose(x, 2, 0), world), '#16233d');
-      for (const s of [1, -1]) K.print(at(new THREE.PlaneGeometry(.58, 3.3), pose(x, 1.95, s * .252, s < 0 ? Math.PI : 0), world), 'archLeg');
-      paint(at(box(.9, .07, .8), pose(x, .035, 0), world), '#2b2f33');
-    }
-    paint(at(box(7.28, 1.12, .5), pose(0, 4.56, 0), world), '#16233d');
-    for (const s of [1, -1]) K.print(at(new THREE.PlaneGeometry(7.2, 1.06), pose(0, 4.56, s * .252, s < 0 ? Math.PI : 0), world), 'archBeam');
+  // Event arch: a truss gate skinned in printed fabric, straddling the fairway in the frame (+x = right of the play
+  // line, +z = toward the tee, y = world height). Legs ARCH.leg wide and ARCH.deep deep, each standing on its own
+  // ground (feet[]) up to the level beam's underside yb; brushed aluminium corner extrusions, plates and ballast at the
+  // feet. The leg art hangs from the beam at its painted aspect and a leg on higher ground shows less of its foot.
+  const ARCH = { span: 11.2, leg: 1.6, deep: .9, beam: 1.5 }, legX = ARCH.span / 2 + ARCH.leg / 2;
+  const addArch = (world, yb, feet) => {
+    const { leg, deep, beam } = ARCH, face = deep / 2 + .004, skin = (g, region, color) => K.arch(g.applyMatrix4(world), region, color), AL = '#c3c8cc';
+    const panel = (w, region, top, bottom) => {   // art of `region` at its own aspect, hung from `top`, cropped at `bottom`
+      const [, , rw, rh] = REGION[region], full = w * rh / rw, h = Math.min(full, top - bottom), g = new THREE.PlaneGeometry(w, h), uv = g.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - (1 - uv.getY(i)) * h / full);
+      return g.translate(0, top - h / 2, 0);
+    };
+    [-1, 1].forEach((s, j) => {
+      const x = s * legX, y0 = feet[j], hgt = yb - y0;
+      skin(box(leg, hgt, deep).translate(x, y0 + hgt / 2, 0), 'white', '#1a2a48');
+      for (const z of [1, -1]) skin(panel(leg - .08, 'archLeg0', yb - .08, y0 + .3).rotateY(z < 0 ? Math.PI : 0).translate(x, 0, z * face), 'archLeg' + (s * z > 0 ? 1 : 0));   // left leg as seen from either side: LOFTWING
+      skin(panel(deep - .06, 'archSide', yb - .08, y0 + .3).rotateY(-s * Math.PI / 2).translate(x - s * (leg / 2 + .004), 0, 0), 'archSide');   // inner face, toward the opening
+      for (const [ex, ez] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) K.steel(box(.05, hgt, .05).translate(x + ex * (leg / 2 - .02), y0 + hgt / 2, ez * (deep / 2 - .02)).applyMatrix4(world), AL);
+      K.steel(box(leg + .5, .05, deep + .5).translate(x, y0 + .025, 0).applyMatrix4(world), '#2b2f33');
+      for (const z of [1, -1]) paint(box(leg + .16, .3, .3).translate(x, y0 + .2, z * (deep / 2 + .19)).applyMatrix4(world), '#1c1f22');   // ballast
+      shadeUnder(world, leg / 2 + .55, deep / 2 + .7, .5, .55, x, 0);
+    });
+    skin(box(2 * legX + leg, beam, deep).translate(0, yb + beam / 2, 0), 'white', '#1a2a48');
+    for (const z of [1, -1]) skin(new THREE.PlaneGeometry(2 * legX + leg - .08, beam - .08).rotateY(z < 0 ? Math.PI : 0).translate(0, yb + beam / 2, z * face), 'archBeam');
+    for (const [ey, ez] of [[0, -1], [0, 1], [1, -1], [1, 1]]) K.steel(box(2 * legX + leg + .01, .05, .05).translate(0, yb + ey * beam + (ey ? -.02 : .02), ez * (deep / 2 - .02)).applyMatrix4(world), AL);
+  };
+  // Low sponsor A-board: two printed panels leaning together on a steel frame, 2 x .56 m.
+  const addBoard = (world, design) => {
+    for (const z of [1, -1]) K.print(at(new THREE.PlaneGeometry(2, .56), pose(0, .41, z * .11, z < 0 ? Math.PI : 0, -.3), world), 'board' + design);   // each leans back toward the other
+    for (const x of [-.98, .98]) for (const z of [1, -1]) K.steel(at(box(.03, .74, .03), pose(x, .35, z * .12, 0, -z * .3), world), '#2e3134');
+    shadeUnder(world, 1.2, .42, .6, .42);
+  };
+  // Tournament staff cart parked off the chute: white two-seat tub, navy canopy on struts, cargo bed. Nose toward +z.
+  // The gel-coat body and canopy go in the steel batch for its tighter highlight: painted plastic, not matte print.
+  const addCart = world => {
+    const W = '#eceeed', D = '#1b1d20', gloss = (g, c) => K.steel(at(g, pose(0, 0, 0), world), c);
+    gloss(roundBox(1.18, .36, 2.3, .09, 2).translate(0, .5, 0), W);
+    gloss(roundBox(1.12, .48, .52, .12, 2).translate(0, .82, .88), W);   // front cowl
+    for (const x of [-.36, .36]) paint(at(cyl(.055, .055, .03, 10).rotateX(Math.PI / 2), pose(x, .9, 1.15), world), '#fffbe6');   // headlamps
+    paint(at(roundBox(1.08, .14, .56, .05, 1), pose(0, .9, .06), world), D);
+    paint(at(roundBox(1.08, .5, .1, .04, 1), pose(0, 1.18, -.24), world), D);
+    paint(at(box(1.12, .3, .66), pose(0, .82, -.74), world), '#3a3f44');   // cargo bed
+    paint(at(cyl(.17, .17, .03, 12).rotateX(-1.1), pose(-.25, 1.12, .52), world), D);   // steering wheel
+    gloss(roundBox(1.26, .07, 1.62, .03, 1).translate(0, 2, .06), NAVY);
+    for (const [x, z, p] of [[-.54, .7, .12], [.54, .7, .12], [-.54, -.52, 0], [.54, -.52, 0]]) K.steel(at(cyl(.02, .02, 1.3, 6), pose(x, 1.33, z, 0, p), world), '#c4c9cc');
+    for (const [x, z] of [[-.56, .8], [.56, .8], [-.56, -.78], [.56, -.78]]) { paint(at(cyl(.23, .23, .2, full ? 14 : 8).rotateZ(Math.PI / 2), pose(x, .23, z), world), D); K.steel(at(cyl(.12, .12, .21, 8).rotateZ(Math.PI / 2), pose(x, .23, z), world), '#9aa0a4'); }
+    shadeUnder(world, .82, 1.42, .55, .6);
   };
   const clearOf = (x, z, r) => !trees.some(t => (t.x - x) ** 2 + (t.z - z) ** 2 < (r + t.r * 2) ** 2) && !holes.some(h => h.ponds.some(p => ((x - p.x) / (p.rx * 1.3 + r)) ** 2 + ((z - p.z) / (p.rz * 1.3 + r)) ** 2 < 1));
 
@@ -315,7 +393,7 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
     // pad on a 55° lens: anything level with the pad's front edge lands half-cut at the frame's side, so tee furniture
     // stays behind that line and reads from the flyover instead.
     const sg = onGround(h, 2.3, -.9, -.4);
-    for (const x of [-.52, .52]) K.print(at(box(.09, 1.64, .09), pose(x, .82, 0), sg), 'wood');
+    for (const x of [-.52, .52]) { K.print(at(box(.09, 1.64, .09), pose(x, .82, 0), sg), 'wood'); shadeUnder(sg, .2, .2, 0, .45, x, 0); }
     K.print(at(box(1.0, .7, .05), pose(0, 1.16, -.01), sg), 'wood');
     K.print(at(new THREE.PlaneGeometry(.92, .632), pose(0, 1.16, .019), sg), 'sign' + i);
     K.print(at(box(1.16, .045, .16), pose(0, 1.66, 0), sg), 'wood');
@@ -330,34 +408,44 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
     // Every other tee: two sponsor flags down the left edge of the corridor (Full).
     if (full && i) for (const f of [14, 22]) { const [x, z] = frame(h, edge(h, -1, f, 1.6) - rnd(), f); if (clearOf(x, z, .8)) addFeather(pose(x, height(x, z) - .05, z, h.yaw + .45 + (rnd() - .5) * .3), (i + f) % 3); }
   });
-  // Tournament village on hole 1, the clubhouse tee, down the left of the corridor and turned back toward the tee so it
-  // reads from the pad: the event arch over the gallery walk (both tiers, ~200 triangles), feather flags receding
-  // beyond it (nearer ones would stand in front of it), and on Full the registration canopy and gallery ropes down both
-  // edges. Every lateral offset is measured from the corridor edge where the prop stands (Pine Hollow: ~9 m).
-  // The arch takes the first clear spot from ~40 m out: nearer, the aim camera's 55° lens cuts its outer pillar.
-  const h1 = holes[0], archYaw = .45; let archF = 0;
-  for (const af of [42, 38, 46, 34, 50]) {
-    const ac = [edge(h1, -1, af, .9) - 3.32 * Math.cos(archYaw), af - 3.32 * Math.sin(archYaw)], [x, z] = frame(h1, ac[0], ac[1]);
-    if (!clearOf(x, z, 2.5)) continue;
-    const base = Math.min(...[-1, 1].map(s => { const [px, pz] = frame(h1, ac[0] + s * 3.32 * Math.cos(archYaw), ac[1] + s * 3.32 * Math.sin(archYaw)); return height(px, pz); }));
-    addArch(pose(x, base - .04, z, h1.yaw + archYaw)); archF = af; break;   // on a slope the high pillar sinks, neither floats
-  }
-  const f0 = (archF || 38) + 4;
-  [[f0, 1], [f0 + 5, 0], [f0 + 10, 2], [f0 + 15, 1], [8, 2]].slice(0, full ? 5 : 3).forEach(([f, d]) => {
-    for (const df of [0, 2, -2, 4]) { const u = edge(h1, -1, f + df, 1.3) - rnd() * .4, [x, z] = frame(h1, u, f + df); if (clearOf(x, z, 1.2)) return addFeather(onGround(h1, u, f + df, .45 + (rnd() - .5) * .3, .05), d); }
-  });
-  if (full) {
-    { const u = edge(h1, -1, 11.5, 5.3), [x, z] = frame(h1, u, 11.5); if (clearOf(x, z, 2.2)) addTent(onGround(h1, u, 11.5, .6, .02)); }   // just outside the pad camera's left edge, so it never shows as a sliver
-    for (const [side, f0, f1] of [[-1, 3, 40], [1, 4, 32]]) {   // white rope sagging between painted stakes every 3.5 m
-      let prev = null;
-      for (let f = f0; f <= f1; f += 3.5) {
-        const [x, z] = frame(h1, edge(h1, side, f, .3), f), y = height(x, z), top = new THREE.Vector3(x, y + .86, z);
-        paint(box(.045, .95, .045).translate(x, y + .445, z), '#f1efe8'); paint(box(.06, .05, .06).translate(x, y + .93, z), GOLD);
-        if (prev) { const mid = prev.clone().lerp(top, .5); mid.y -= .09; K.print(tube([prev, mid, top], .007, 6, 3), 'white', '#efe9dc'); }
-        prev = top;
-      }
+  // Tournament village on hole 1, the clubhouse tee (both tiers). The event arch straddles the fairway ~33 m out on the
+  // play line (its centre 0.5 m right of it), where the tee camera and the throw both look, near enough that the haze
+  // leaves it crisp and far enough that the tee lens holds it whole between the HUD's score panel and the athlete's
+  // head, on a 16:9 screen and a 2.2:1 phone alike: 11.2 m clear span, beam underside 6.2 m over the play line (a
+  // full-power drive passes ~4 m up there; a lofted, overhand or blade throw clips it) and never below the eye's line to
+  // the top of the pin marker, so the marker hangs in the opening. Its legs and beam go to the flight model as capsules.
+  // Gallery ropes on white stakes run from the pad to its legs with a sponsor A-board on each rope turned to the tee; a
+  // staff cart and a feather flag stand off its left leg, more flags recede beyond, and the registration canopy sits
+  // just outside the pad camera's left edge (Full), so it never shows as a sliver.
+  const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], archU = .5;
+  let archF = 33;
+  for (const af of [33, 31, 35, 29, 37]) if ([-1, 1].every(s => clearOf(...frame(h1, archU + s * legX, af), 1.5))) { archF = af; break; }
+  // each leg's foot: the lowest ground under its plate, so on a cross slope the uphill edge sinks and nothing floats
+  const feet = [-1, 1].map(s => frame(h1, archU + s * legX, archF)), footY = [-1, 1].map(s => Math.min(...[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([a, b]) => height(...frame(h1, archU + s * legX + a * (ARCH.leg / 2 + .25), archF + b * (ARCH.deep / 2 + .25))))) - .04);
+  const eye = h1.teeY + 1.42, pin = h1.basketY + 2.7 + 1.225 * Math.min(7, .065 * (L1 + 2.3));   // aim camera's eye 2.3 m behind the pad; marker top (course.js: 2.7 + .6 size up, 1.25 size tall, size .065/m)
+  const yb = Math.max(height(...frame(h1, 0, archF)) + 6.2, eye + (pin - eye) * (archF + 2.3) / (L1 + 2.3) + .35, ...footY.map(y => y + 4.2));
+  const [ax, az] = frame(h1, archU, archF); addArch(pose(ax, 0, az, h1.yaw), yb, footY);
+  const top = yb + ARCH.beam / 2;
+  feet.forEach(([x, z], j) => capsules.push({ a: [x, footY[j], z], b: [x, top, z], r: .7, tag: 'arch' }));
+  capsules.push({ a: [feet[0][0], top, feet[0][1]], b: [feet[1][0], top, feet[1][1]], r: ARCH.beam / 2, tag: 'arch' });
+  // Chute: rope sagging between stakes from ahead of the pad's front corners to the arch's legs (inside the walking
+  // trail on the open side), sponsor boards on the rope line.
+  for (const s of [-1, 1]) {
+    const u0 = s * 2.5, f0 = 4.5, u1 = archU + s * (legX - .15), f1 = archF - ARCH.deep / 2 - .3, n = Math.max(3, Math.round((f1 - f0) / 3.4)), line = t => [u0 + (u1 - u0) * t, f0 + (f1 - f0) * t];
+    let prev = null;
+    for (let k = 0; k <= n; k++) {
+      const [u, f] = line(k / n), [x, z] = frame(h1, u, f), y = height(x, z), post = new THREE.Vector3(x, y + .86, z);
+      paint(box(.045, .95, .045).translate(x, y + .445, z), '#f1efe8'); paint(box(.06, .05, .06).translate(x, y + .93, z), GOLD); shadeUnder(pose(x, y, z), .1, .1, 0, .4);
+      if (prev) { const mid = prev.clone().lerp(post, .5); mid.y -= .09; K.print(tube([prev, mid, post], .007, 6, 3), 'white', '#efe9dc'); }
+      prev = post;
     }
+    const [u, f] = line(.45), bu = u + s * .35; addBoard(onGround(h1, bu, f, Math.atan2(-.75 - bu, f + 2.3), .02), s > 0 ? 1 : 0);   // turned to face the tee camera
   }
+  for (const [u, f] of [[-8.3, archF - 9], [-8.6, archF - 6], [-10.2, archF - 4], [-9.8, archF - 7]]) { const [x, z] = frame(h1, u, f); if (!clearOf(x, z, 1.9)) continue; addCart(onGround(h1, u, f, Math.atan2(-.75 - u, f + 2.3) + .9, .02)); break; }
+  [[archU - legX - 2, archF + 1.5, 2],[edge(h1, -1, archF + 8, 1.3), archF + 8, 1], [edge(h1, -1, archF + 13, 1.3), archF + 13, 0], [edge(h1, -1, archF + 18, 1.3), archF + 18, 2], [edge(h1, -1, 8, 1.3), 8, 1]].slice(0, full ? 5 : 3).forEach(([u0, f, d]) => {
+    for (const df of [0, 2, -2, 4]) { const u = u0 - rnd() * .4, [x, z] = frame(h1, u, f + df); if (clearOf(x, z, 1.2)) return addFeather(onGround(h1, u, f + df, .45 + (rnd() - .5) * .3, .05), d); }
+  });
+  if (full) { const u = edge(h1, -1, 11.5, 5.3), [x, z] = frame(h1, u, 11.5); if (clearOf(x, z, 2.2)) addTent(onGround(h1, u, 11.5, .6, .02)); }
 
   const atlas = document.createElement('canvas'), scale = full ? 1 : .5; atlas.width = atlas.height = 2048 * scale;
   const ctx = { holes, trees, name: def.name, fairwayW: def.fairwayW };
@@ -378,7 +466,13 @@ export function dressCourse({ holes, height, trees, corridor, def, quality }) {
   // Galvanised steel is a matte zinc skin: mostly diffuse so a back-lit basket stays silver-white under the dim ambient,
   // with enough metal and a tight enough lobe that chains still glint.
   const steel = new THREE.Mesh(mergeGeometries(K.lists.steel), toonMaterial({ vertexColors: true, metalness: .35, roughness: .38 }));
-  print.castShadow = print.receiveShadow = steel.receiveShadow = true; steel.castShadow = full;
-  for (const g of [...K.lists.print, ...K.lists.steel]) g.dispose();
-  return [print, steel];
+  // The arch's skin: dye-sublimated polyester, a soft satin sheen. Single-sided (see the top). Stretched thin over the
+  // truss it passes some of the daylight behind it, so a face turned from the sun still glows with its own print
+  // (a fraction of its albedo): the whites stay white and the navy stays navy instead of both sinking to slate.
+  const arch = new THREE.Mesh(mergeGeometries(K.lists.arch), toonMaterial({ map, vertexColors: true, roughness: .62 }));
+  arch.material.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * .22;'); };
+  arch.material.customProgramCacheKey = () => 'chains-props-arch';
+  print.castShadow = print.receiveShadow = steel.receiveShadow = arch.castShadow = arch.receiveShadow = true; steel.castShadow = full;
+  for (const g of [...K.lists.print, ...K.lists.steel, ...K.lists.arch]) g.dispose();
+  return { meshes: [print, steel, arch, contactShade(blobs, height)], capsules };
 }

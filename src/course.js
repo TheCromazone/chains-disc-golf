@@ -502,7 +502,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // props.js merges every tee mat, sign, basket and the tournament dressing into two meshes for the whole course. The
   // mat keeps the old pad's box, so its top face still sits under the athlete's soles; baskets keep physics' heights.
   // corridor = the tree loop's clearing half-width, so dressing stands just outside the flight corridor on any course.
-  group.add(...dressCourse({ holes, height, trees, def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW }));
+  // The one prop in play, hole 1's event arch, hands its legs and beam to the flight model as capsules.
+  const dressing = dressCourse({ holes, height, trees, def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW });
+  group.add(...dressing.meshes);
   const baskets = holes.map(h => new THREE.Group().translateX(h.basket[0]).translateY(h.basketY).translateZ(h.basket[1])), destinationMarkers = [];   // positions only: the geometry is merged
   for (const h of holes) {
     // A graphic flag remains readable from the tee without enlarging the physical basket.
@@ -598,7 +600,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
   // 0 on the fairway, 1 in the rough: the flight model uses it for skip, roll and slide friction.
   const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
-  const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough };
+  const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough, capsules: dressing.capsules };
   const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; destinationMarkers.forEach((m,j)=>m.visible=j===i); };
   const update = (dt, t, focus, view) => {
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}

@@ -113,6 +113,7 @@ export function step(s, w, dt = DT) {
     s.p = [s.p[0] + s.v[0] * dt, s.p[1] + s.v[1] * dt, s.p[2] + s.v[2] * dt];
     s.maxH = Math.max(s.maxH, s.p[1]);
     hitTrees(s, w, dt);
+    hitCapsules(s, w);
     hitBasket(s, w);
     if (s.mode !== 'fly') return;
     groundContact(s, w);
@@ -133,6 +134,7 @@ export function step(s, w, dt = DT) {
     s.n = rotAxis(scale(rightOf, side), vh, -side * s.lean * 0.9);
     s.spinRate = ns / R_DISC;
     hitTrees(s, w, dt);
+    hitCapsules(s, w);
     if (s.lean > 1.05 || ns < 1.2) { s.mode = 'ground'; s.v = scale(s.v, 0.5); s.events.push('flop'); s.wobble = 0.55; s.wobbleA = Math.atan2(s.n[2], s.n[0]); }
   } else if (s.mode === 'ground') {
     const gy = w.height(s.p[0], s.p[2]), N = w.normal(s.p[0], s.p[2]);
@@ -217,6 +219,25 @@ function hitTrees(s, w, dt) {
         s.events.push('branch');
       }
     }
+  }
+}
+
+// Built props the disc can hit (the event arch's legs and beam): w.capsules = [{ a, b, r, tag }], a segment swollen by
+// r. Printed fabric over a truss is a dead thud: the disc is set back on the skin, rebounds with a fifth of the speed it
+// hit with and keeps half its glancing speed, and the event is the prop's tag ('arch': main.js toasts "Off the arch").
+function hitCapsules(s, w) {
+  const list = w.capsules; if (!list) return;
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i], ab = [c.b[0] - c.a[0], c.b[1] - c.a[1], c.b[2] - c.a[2]], ap = [s.p[0] - c.a[0], s.p[1] - c.a[1], s.p[2] - c.a[2]];
+    const t = clamp(dot(ap, ab) / dot(ab, ab), 0, 1), d = [ap[0] - ab[0] * t, ap[1] - ab[1] * t, ap[2] - ab[2] * t], dl = len(d), R = c.r + R_DISC;
+    if (dl >= R) continue;
+    const n = dl > 1e-6 ? scale(d, 1 / dl) : [0, 1, 0], vn = dot(s.v, n);
+    s.p = [s.p[0] + n[0] * (R - dl), s.p[1] + n[1] * (R - dl), s.p[2] + n[2] * (R - dl)];
+    if (vn >= 0) continue;
+    s.v = [(s.v[0] - vn * n[0]) * 0.5 - vn * 0.2 * n[0], (s.v[1] - vn * n[1]) * 0.5 - vn * 0.2 * n[1], (s.v[2] - vn * n[2]) * 0.5 - vn * 0.2 * n[2]];
+    s.spinRate *= 0.5;
+    s.n = norm([s.n[0] + n[0] * 0.6, s.n[1] + n[1] * 0.6 + 0.2, s.n[2] + n[2] * 0.6]);
+    s.events.push(c.tag);
   }
 }
 
