@@ -448,7 +448,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // (a matte blade against the low sun otherwise reads as grey sheen); alpha grows with the mip level (capped, so a card seen
   // edge-on does not fill in) so distant crowns keep their coverage. An impostor overwrites bakedAO and leafMask from its maps.
   const canopy = (mat, leaf = true) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
-    s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `float bakedAO = 1., leafMask = 1.;
+    s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `float bakedAO = 1., leafMask = 1., rimGlow = 1.;
       #if defined( USE_COLOR_ALPHA )
       diffuseColor.rgb *= vColor.rgb; bakedAO = vColor.a;
       #elif defined( USE_COLOR )
@@ -459,7 +459,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       reflectedLight.indirectDiffuse *= 1. + .5 * leafMask;   // a thin blade takes sky light on both faces
       #if NUM_DIR_LIGHTS > 0
       { vec3 L = directionalLights[0].direction, sun = directionalLights[0].color; float into = pow(saturate(dot(-normalize(vViewPosition), L)), 2.);
-        float thru = saturate(.3 - dot(normal, L)) * (.2 + .8 * into) * leafMask * mix(.4, 1., bakedAO);
+        float thru = saturate(.3 - dot(normal, L)) * (.2 + 1.3 * into) * leafMask * mix(.4, 1., bakedAO) * rimGlow;
         // light reaches a back-lit leaf through several leaves, not only through gaps: soften its shadow to 35% for this term
         float lit = mix(.35, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
         reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * thru * vec3(.8, .95, .36);
@@ -503,8 +503,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       .replace('#include <worldpos_vertex>', 'vec4 worldPosition = modelMatrix * vec4(transformed, 1.);')
       .replace('#include <uv_vertex>', '#include <uv_vertex>\nvMapUv = vec2((mod(impCell, 4.) + uv.x) * .25, 1. - (floor(impCell / 4.) + 1. - uv.y) * .5);'); };
   const impMat = impMap && impNormal && canopy(Object.assign(toonMaterial({ map: impMap, alphaTest: .5, side: THREE.DoubleSide, roughness: .85 }), { onBeforeCompile: s => { billboard(s); s.uniforms.impNormal = { value: impNormal };
-    s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip;
-      normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * sqrt(saturate(1. - dot(t, t))), 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); }`); }, customProgramCacheKey: () => 'chains-impostor' }));
+    // an impostor receives no shadow, so only its thin rim transmits fully; the crown's core facing the camera sits in its own shade
+    s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
+      normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * tz, 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); rimGlow = mix(.3, 1., smoothstep(.15, .75, 1. - tz)); }`); }, customProgramCacheKey: () => 'chains-impostor' }));
   const impDepth = impMat && Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: billboard, customProgramCacheKey: () => 'chains-impostor-depth' });
   const impostors = (spots, shadow = true) => {
     if (!impMat || !spots.length) return false;
