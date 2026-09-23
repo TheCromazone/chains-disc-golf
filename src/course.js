@@ -519,13 +519,14 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       #include <lights_physical_fragment>`);
     // Haze on foliage: the scene's fog, eased to 35% on crowns within 40 m (a near crown keeps its dark core and lit rim; at 80%
     // the glare side of the tee went one flat grey-lime veil) and rising to all of it by 120 m, so a stand reads in layers, each
-    // row back paler than the one before, and to about 80% again where the view runs toward the sun's disc.
+    // row back paler than the one before, and to about 60% again where the view runs toward the sun's disc, so crowns against
+    // the glare stand as dark, rim-lit silhouettes instead of pale puffs.
     s.uniforms.treeDisc = treeDisc;
     s.fragmentShader = 'uniform vec3 treeDisc;\n' + s.fragmentShader;
     s.fragmentShader = s.fragmentShader.replace('#include <fog_fragment>', `vec3 treeClear = gl_FragColor.rgb;
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 16.);
-        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.35, 1., smoothstep(40., 120., length(vViewPosition))) * (1. - .22 * glare)); }`);
+        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.35, 1., smoothstep(40., 120., length(vViewPosition))) * (1. - .4 * glare)); }`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
       #include <alphatest_fragment>`); };

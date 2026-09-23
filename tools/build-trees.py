@@ -393,12 +393,12 @@ def scots(rng, name, H=21., lo=.5, girth=.34, lean=.05, sweep=0., top=.08):
     f = (i + rng.uniform(.1, .9)) / n; z = H * (lo + (.86 - lo) * f); base, _ = along(tp, min(1, (z + .3) / (H * .9 + .3)))
     az += TAU * .382 + rng.uniform(-.5, .5); elev = rng.uniform(.12, .38) + .5 * f
     L = H * (.27 - .14 * f) * rng.uniform(.82, 1.12); d = Vector((math.cos(az) * math.cos(elev), math.sin(az) * math.cos(elev), math.sin(elev)))
-    br = grow(rng, base, d, L, 3, rise=.1, flatten=.45, jitter=.1); t.tube(br, .1 - .04 * f, .02, 4)
-    p, dd = along(br, 1.); pad(t, p + Z * .3, rng.uniform(1.4, 2.3), rng.randint(14, 18), d)
+    br = grow(rng, base, d, L, 3, rise=.1, flatten=.45, jitter=.1); t.tube(br, .14 - .05 * f, .03, 5)   # thick enough to show at 60 m holding its pad up
+    p, dd = along(br, 1.); pad(t, p + Z * .3, rng.uniform(1.4, 2.3), rng.randint(15, 19), d)
     if L > 3.1:   # the longest branches carry a second pad part-way out, so the low tiers join into one crown
-      p, dd = along(br, rng.uniform(.42, .6)); pad(t, p + Z * .4, rng.uniform(1.1, 1.8), rng.randint(11, 15), d)
+      p, dd = along(br, rng.uniform(.42, .6)); pad(t, p + Z * .4, rng.uniform(1.1, 1.8), rng.randint(12, 16), d)
   p, dd = along(tp, 1.)
-  pad(t, p + Z * .1, 1.9, 17); pad(t, p - Z * 1.6 + unit(rng) * .6, 1.7, 14)
+  pad(t, p + Z * .1, 1.9, 18); pad(t, p - Z * 1.6 + unit(rng) * .6, 1.7, 15)
   return t
 
 def bush(rng, name, R=1.3, Hb=1.5):

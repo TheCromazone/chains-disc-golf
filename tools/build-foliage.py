@@ -169,10 +169,12 @@ def tufts(rng):
       sp.tube(sh2, S * .0035, S * .002, twig, 4); shoots.append(sh2)
     t += rng.uniform(.14, .22); side = -side
   for sh in shoots:
-    p, d = along(sh, 1.); L = S * rng.uniform(.15, .22) * (1.2 if sh is main else 1.)
+    p, d = along(sh, 1.); L = S * rng.uniform(.16, .23) * (1.2 if sh is main else 1.)
     quads.append((p - d * L * .4, rot2(d, rng.uniform(-.15, .15)), L, rng.uniform(-.8, .8)))
-    if rng.random() < .5:
+    if rng.random() < .6:
       p2, d2 = along(sh, rng.uniform(.55, .75)); quads.append((p2 - d2 * S * .03, rot2(d2, rng.choice((-1, 1)) * rng.uniform(.3, .7)), L * .7, rng.uniform(-.8, .8)))
+  for k in range(rng.randint(3, 4)):   # needles along the upper main axis too: the branch end has a dense heart and ragged tips
+    p, d = along(main, rng.uniform(.35, .85)); quads.append((p, rot2(d, rng.choice((-1, 1)) * rng.uniform(.35, .8)), S * rng.uniform(.14, .2), rng.uniform(-.8, .8)))
   return sp, quads
 
 def sprig_object(quads, S):
