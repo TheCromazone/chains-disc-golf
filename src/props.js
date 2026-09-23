@@ -591,7 +591,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // head, on a 16:9 screen and a 2.2:1 phone alike: 11.2 m clear span, beam underside 6 m over the play line (a
   // full-power drive passes ~4 m up there; a lofted, overhand or blade throw clips it) and never below the eye's line to
   // the top of the pin marker, so the marker hangs in the opening. Its legs and beam go to the flight model as capsules.
-  // Gold rope on white posts runs from the pad to its legs with an event sign on each line turned to the tee; the
+  // Yellow rope on white stakes runs from the pad to its legs with an event sign on each line turned to the tee; the
   // crew's UTV parks off the left line, a feather flag stands between it and the left leg, the registration canopy
   // sits just outside the pad camera's left edge (Full), so it never shows as a sliver, and white canopies stand beyond.
   const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], archU = .5;
@@ -605,19 +605,19 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const top = yb + ARCH.beam / 2;
   feet.forEach(([x, z], j) => capsules.push({ a: [x, footY[j], z], b: [x, top, z], r: .7, tag: 'arch' }));
   capsules.push({ a: [feet[0][0], top, feet[0][1]], b: [feet[1][0], top, feet[1][1]], r: ARCH.beam / 2, tag: 'arch' });
-  // Chute: gold rope sagging between white delineator posts from ahead of the pad's front corners to the arch's legs
+  // Chute: yellow rope sagging between white stakes from ahead of the pad's front corners to the arch's legs
   // (inside the walking trail on the open side), an event sign on each rope line.
   for (const s of [-1, 1]) {
     const u0 = s * 2.5, f0 = 5, u1 = archU + s * (legX - .15), f1 = archF - ARCH.deep / 2 - .3, n = Math.max(3, Math.round((f1 - f0) / 3.4)), line = t => [u0 + (u1 - u0) * t, f0 + (f1 - f0) * t];
     let prev = null;
     for (let k = 0; k <= n; k++) {
       const [u, f] = line(k / n), [x, z] = frame(h1, u, f), y = height(x, z), post = new THREE.Vector3(x, y + .84, z);
-      K.print(cyl(.034, .036, .92, full ? 10 : 6).translate(x, y + .5, z), 'white', '#efece4', -.04); paint(cyl(.042, .042, .05, full ? 10 : 6).translate(x, y + .96, z), GOLD);   // white delineator post, gold cap, the mud of every wet round on it
-      paint(cyl(.1, .16, .09, 4).rotateY(Math.PI / 4).translate(x, y + .03, z), '#1d1e20'); shadeUnder(pose(x, y, z), .3, .3, .2, .7);   // weighted rubber base
-      if (prev) K.print(tube([0, .25, .5, .75, 1].map(t => prev.clone().lerp(post, t).setY(prev.y + (post.y - prev.y) * t - .12 * 4 * t * (1 - t))), .016, 8, full ? 5 : 3), 'white', '#d4ad45');   // sagging gold rope
+      K.print(box(.055, 1.1, .055).translate(x, y + .4, z), 'white', '#eeeae0', -.04); paint(box(.06, .1, .06).translate(x, y + .91, z), GOLD);   // painted timber stake driven 15 cm into the turf, a gold-dipped top, the mud of every wet round on it
+      shadeUnder(pose(x, y, z), .22, .22, .1, .6);
+      if (prev) K.print(tube([0, .25, .5, .75, 1].map(t => prev.clone().lerp(post, t).setY(prev.y + (post.y - prev.y) * t - .14 * 4 * t * (1 - t))), .013, 8, full ? 5 : 3), 'white', '#e4c53a');   // yellow polypropylene rope tied at each stake, sagging
       prev = post;
     }
-    // turned to face the tee camera; the left one inside the rope so the nearer posts fall outside it on screen, the
+    // turned to face the tee camera; the left one inside the rope so the nearer stakes fall outside it on screen, the
     // right one outside it, wholly behind the athlete rather than peeking past his arm (it reads from the flyover)
     const [u, f] = line(.5), bu = u + (s < 0 ? .8 : .35); addSign(onGround(h1, bu, f, Math.atan2(-.75 - bu, f + 2.3), .02), s > 0 ? 1 : 0);
   }
@@ -635,7 +635,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   if (full) { const u = edge(h1, -1, 11.5, 5.3), [x, z] = frame(h1, u, 11.5); if (clearOf(x, z, 2.2)) addTent(onGround(h1, u, 11.5, .6, .02)); }
   // Players' village beyond the arch on the left: white canopies half lost in the haze, the first two spots clear of trees.
   let village = 0;
-  for (const [u, f] of [[-15, 55], [-19.5, 57], [-20.5, 52], [-17, 47], [-22, 60], [-13, 50]]) {
+  for (const [u, f] of [[-15, 55], [-14.5, 44.5], [-22, 52], [-12, 60], [-20.5, 52], [-17, 47]]) {
     if (village >= 2) break; const [x, z] = frame(h1, u, f);
     if (clearOf(x, z, 2.4)) { addTent(onGround(h1, u, f, .5 + village * .35, .02), true); village++; }
   }
