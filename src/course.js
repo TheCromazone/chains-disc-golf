@@ -518,15 +518,15 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .3, diffuseColor.rgb, crownDepth * crownDepth); }
       #include <lights_physical_fragment>`);
     // Haze on foliage: the scene's fog, eased to 35% on crowns within 40 m (a near crown keeps its dark core and lit rim; at 80%
-    // the glare side of the tee went one flat grey-lime veil) and rising to all of it by 120 m, so a stand reads in layers, each
-    // row back paler than the one before, and to about 60% again where the view runs toward the sun's disc, so crowns against
-    // the glare stand as dark, rim-lit silhouettes instead of pale puffs.
+    // the glare side of the tee went one flat grey-lime veil) and rising to all of it by 150 m, so a stand reads in layers, each
+    // row back paler than the one before, and to about a third again where the view runs toward the sun's disc, so crowns
+    // against the glare stand as dark, rim-lit silhouettes instead of pale grey-olive puffs.
     s.uniforms.treeDisc = treeDisc;
     s.fragmentShader = 'uniform vec3 treeDisc;\n' + s.fragmentShader;
     s.fragmentShader = s.fragmentShader.replace('#include <fog_fragment>', `vec3 treeClear = gl_FragColor.rgb;
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 16.);
-        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.35, 1., smoothstep(40., 120., length(vViewPosition))) * (1. - .4 * glare)); }`);
+        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, mix(.35, 1., smoothstep(40., 150., length(vViewPosition))) * (1. - .65 * glare)); }`);
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
       .replace('#include <alphatest_fragment>', `{ vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)), 0., 2.) * .3; }
       #include <alphatest_fragment>`); };
@@ -575,14 +575,15 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       .replace('#include <uv_vertex>', `#include <uv_vertex>\nvMapUv = vec2((mod(impCell, 4.) + uv.x) * .25, 1. - (floor(impCell / 4.) + 1. - uv.y) / ${IMPOSTOR_ROWS}.);`); };
   const impMat = impMap && impNormal && canopy(Object.assign(toonMaterial({ map: impMap, alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: .85 }), { onBeforeCompile: s => { billboard(s); s.uniforms.impNormal = { value: impNormal };
     // An impostor receives no shadow. Its blue channel is crown depth (sky visibility times how thin the crown is along the view
-    // ray): back-lit, sunlight reaches the camera-facing leaves only through thin foliage, so direct light falls with depth
-    // squared and only the thin rim transmits, while a crown lit from behind the camera keeps its lit face.
+    // ray): back-lit, sunlight reaches the camera-facing leaves only through thin foliage, so direct light falls steeply with
+    // depth (between linear and squared: at squared a side-lit spruce stand went flat black-green, its sunlit tips gone) and
+    // only the thin rim transmits, while a crown lit from behind the camera keeps its lit face.
     s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
       normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * tz, 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); anyFace = 1.;   // the billboard's normals are a crown average: thinness, not facing, gates what it transmits
       sunThin = smoothstep(.4, .9, n.z); crownDepth = mix(.7, 1., smoothstep(.2, .7, n.z));   // the 3D crown's two depths, from the baked one
       diffuseColor.rgb = mix(diffuseColor.rgb / max(vColor, vec3(1e-3)) * vImpBark, diffuseColor.rgb, leafMask);   // the instance colour is the crown's tint: the stem takes its bark tint instead, as the 3D tree's does
       #if NUM_DIR_LIGHTS > 0
-      sunOcc = mix(1., n.z * n.z, smoothstep(-.2, .6, dot(-normalize(vViewPosition), directionalLights[0].direction)) * leafMask);
+      sunOcc = mix(1., n.z * mix(n.z, 1., .5), smoothstep(-.2, .6, dot(-normalize(vViewPosition), directionalLights[0].direction)) * leafMask);
       #endif
       }`); }, customProgramCacheKey: () => 'chains-impostor' }));
   const impDepth = impMat && Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: billboard, customProgramCacheKey: () => 'chains-impostor-depth' });
