@@ -552,7 +552,7 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // widening past it rather than cropping under P.vmin tall (29° on a short phone, whose swipe ring takes the frame's lower
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 3.1, side: 1.35, lo: .9, hi: 2.3, eye: .6, band: .1, base: -.72, x: .03, nudge: [-.05, .15], hfov: 42, vmin: 10 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.3, side: 1.3, lo: .9, hi: 2.6, eye: .58, band: .1, base: -.72, x: 0, nudge: [-.05, .15], hfov: 49, vmin: 10 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
 AIM.puttS = { ...AIM.putt, back: 2.3, side: 1.2, hi: 1.9, hfov: 50, eye: .6, band: -.02, base: -.64, x: .24 };   // a short phone: the swipe pill and ring fill the lower third's middle, so the pin stands further left (38%) with its base plate beside them
 function aimFrame(lie, d, putt, pos, look) {
