@@ -231,10 +231,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       // Dry patches follow dryNoise; trodden ground around the basket collects litter and wears to earth at the pole.
       const dry = dryNoise(x, z), bd = Math.hypot(x - h.basket[0], z - h.basket[1]);
       splats[i * 4 + 3] = Math.max(smooth(.47 + fair * .07, .75, dry) * .85, soilMask * .9, (1 - smooth(4, 9, bd)) * .55);   // the unwatered rough dries out more than the fairway
-      splats[i * 4 + 2] = (1 - smooth(3.2, 5.6, bd + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 2.2)) * .95;   // the putting circle is trodden to mulch
+      splats[i * 4 + 2] = (1 - smooth(2.8, 5.4, bd + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 2.2 + (noise(x / 4.5 + 31, z / 4.5 + 31) - .5) * 3.4)) * .95;   // the putting circle is trodden to mulch, its outline lobed and frayed
       // Tee: the gravel apron, a scuff at the sign post, and the driest patches within ~12 m worn through to earth.
       const tx = x - h.tee[0], tz = z - h.tee[1], cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy, wear = padWear(x, z);
-      splats[i * 4] = Math.max(wear, soilMask * .45, (1 - smooth(.4, 1.3, Math.hypot(u - 2.4, v + 2.6))) * .7, smooth(.62, .8, dry) * .5 * (1 - smooth(5, 14, Math.hypot(tx, tz))), (1 - smooth(.3, .8, bd)) * .8);
+      splats[i * 4] = Math.max(wear, soilMask * .45, (1 - smooth(.4, 1.3, Math.hypot(u - 2.4, v + 2.6))) * .7, smooth(.62, .8, dry) * .5 * (1 - smooth(5, 14, Math.hypot(tx, tz))));
       tmp.multiplyScalar(1 - smooth(.2, .9, wear) * .12);   // trodden turf at the apron's edge
     }
     for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 2.2) tmp.lerp(cSand, smooth(2.2, 1.1, e) * 0.7); splats[i * 4 + 1] = Math.max(splats[i * 4 + 1], smooth(2.2, 1.25, e)); }
@@ -314,10 +314,10 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // earth shows at the trunk base. Colour and splat weights only: no height change.
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i); let shade = 0, duff = 0, bare = 0;
-    for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.7, t.fr * .5, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
+    for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.4, t.fr * .4, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
     const k = 1 - Math.min(1, shade) * .2; colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
     splats[i * 4 + 2] = Math.max(splats[i * 4 + 2], Math.min(1, duff) * .9); splats[i * 4] = Math.max(splats[i * 4], Math.min(1, bare) * .7);
-    splats[i * 4 + 3] = Math.max(splats[i * 4 + 3], Math.min(1, shade) * .65);
+    splats[i * 4 + 3] = Math.max(splats[i * 4 + 3], Math.min(1, shade) * .4);
   }
 
   const bark = texture('bark', { repeat: [1, 3] });
