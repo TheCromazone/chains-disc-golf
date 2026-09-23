@@ -42,9 +42,9 @@ const QUAD_VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatri
 const _sun = new THREE.Vector3(), _fwd = new THREE.Vector3();
 class LightShafts extends Pass {
   constructor(scene, camera) {
-    super(); this.needsSwap = false; this.scene = scene; this.camera = camera; this.strength = 2.5;
+    super(); this.needsSwap = false; this.scene = scene; this.camera = camera; this.strength = 2.5; this.glare = .8;
     this.a = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false }); this.b = this.a.clone();
-    const u = this.u = { tDepth: { value: null }, tColor: { value: null }, tMask: { value: null }, uSun: { value: new THREE.Vector2() }, uAspect: { value: 1 }, uTint: { value: new THREE.Color() } };
+    const u = this.u = { tDepth: { value: null }, tColor: { value: null }, tMask: { value: null }, uSun: { value: new THREE.Vector2() }, uAspect: { value: 1 }, uTint: { value: new THREE.Color() }, uGlow: { value: new THREE.Color() } };
     const quad = (fragmentShader, extra = {}) => new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: u, vertexShader: QUAD_VS, fragmentShader, depthTest: false, depthWrite: false, ...extra }));
     this.mask = quad(`uniform sampler2D tDepth,tColor;uniform vec2 uSun;uniform float uAspect;varying vec2 vUv;
       void main(){ vec2 d=(vUv-uSun)*vec2(uAspect,1.); float sky=step(.99999,texture2D(tDepth,vUv).x),f=exp(-dot(d,d)*12.);
@@ -59,7 +59,14 @@ class LightShafts extends Pass {
     // Second, short march along the same rays: smears the jitter grain of the long one into clean streaks.
     this.smooth = quad(`uniform sampler2D tMask;uniform vec2 uSun;varying vec2 vUv;
       void main(){ vec2 dt=(uSun-vUv)/256.; float s=0.; for(int i=0;i<16;i++) s+=texture2D(tMask,vUv+dt*(float(i)-4.)).r; gl_FragColor=vec4(vec3(s/16.),1.); }`);
-    this.add = quad('uniform sampler2D tMask;uniform vec3 uTint;varying vec2 vUv;void main(){gl_FragColor=vec4(texture2D(tMask,vUv).r*uTint,1.);}', { blending: THREE.AdditiveBlending, transparent: true });
+    // Veiling glare: a sun just behind the leaves still floods the lens round it, whatever the gaps. A broad warm bloom
+    // centred on the disc plus a tight core, so the frame shows where the sun sits (the tee's upper left) and the
+    // canopy there hazes over, without the shafts' need for open sky. Only for a hidden disc: in open sky (the flyover) the
+    // bloom already spreads it, and the veil on top washed half the frame milky.
+    this.add = quad(`uniform sampler2D tMask,tDepth;uniform vec3 uTint,uGlow;uniform vec2 uSun;uniform float uAspect;varying vec2 vUv;
+      void main(){ vec2 d=(vUv-uSun)*vec2(uAspect,1.); float r2=dot(d,d),open=0.;
+        for(int i=0;i<12;i++){ float a=float(i)*2.3998,r=.004+.0025*float(i); open+=step(.99999,texture2D(tDepth,uSun+vec2(cos(a)/uAspect,sin(a))*r).x); }
+        gl_FragColor=vec4(texture2D(tMask,vUv).r*uTint+uGlow*(1.-open/12.)*(exp(-r2*7.)*.55+exp(-r2*60.)*.45),1.); }`, { blending: THREE.AdditiveBlending, transparent: true });
   }
   setSize(w, h) { this.a.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2)); this.b.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2)); this.u.uAspect.value = w / h; }
   render(renderer, writeBuffer, readBuffer) {
@@ -73,7 +80,7 @@ class LightShafts extends Pass {
     renderer.setRenderTarget(this.a); this.mask.render(renderer);
     u.tMask.value = this.a.texture; renderer.setRenderTarget(this.b); this.blur.render(renderer);
     u.tMask.value = this.b.texture; renderer.setRenderTarget(this.a); this.smooth.render(renderer);
-    u.tMask.value = this.a.texture; u.uTint.value.copy(sun.color).multiplyScalar(this.strength * fade);
+    u.tMask.value = this.a.texture; u.uTint.value.copy(sun.color).multiplyScalar(this.strength * fade); u.uGlow.value.copy(sun.color).multiplyScalar(this.glare * fade);
     renderer.setRenderTarget(readBuffer); this.add.render(renderer);
     renderer.autoClear = auto;
   }
