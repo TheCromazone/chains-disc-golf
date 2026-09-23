@@ -13,6 +13,23 @@ const opts = { clamp: true, flipY: false };
 // Region means of the cleaned bakes where the rig extras predate the clean-up (tools/pack-body-textures.py --clean): the
 // scan's own hair only became a region there, and the near-black shorts and shoes lost their bake noise.
 const MEAN_FIX = { body_: { 2: .0045, 3: .011, 5: .0105 }, body_f_: { 2: .0053, 3: .0062, 5: .011 } };
+// Club mark and number, screen-printed: drawn once in the HUD's condensed face (alpha only, the accent colour is applied in
+// the shader) and projected along z in bind-pose space, so the print stretches and folds with the cloth. Planes riding the
+// spine bone sank into the skin or hung off it by centimetres as the torso twisted. Boxes: centre height, width, height in
+// metres and the share of the canvas used from the top. His chest takes the crest and number; on hers the bust would
+// swallow a number, so the CHAINS line alone rides the upper chest. The back carries a player-number-sized print.
+const PRINT = { body_: { front: [.03, .16, .16, 1], back: [0, .24, .24, 1] }, body_f_: { front: [.115, .15, .036, .24], back: [0, .2, .2, 1] } };
+function printTexture(number) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const ink = c.getContext('2d'), face = '"Barlow Condensed", "Arial Narrow", Impact, sans-serif', t = new THREE.CanvasTexture(c);
+  const draw = () => {
+    ink.clearRect(0, 0, 256, 256); ink.fillStyle = '#fff'; ink.textAlign = 'center';
+    ink.font = `800 36px ${face}`; ink.letterSpacing = '5px'; ink.fillText('CHAINS', 130, 52);
+    ink.font = `800 176px ${face}`; ink.letterSpacing = '0px'; ink.fillText(String(number), 128, 222); t.needsUpdate = true;
+  };
+  draw(); document.fonts?.load('800 100px "Barlow Condensed"').then(draw, () => {});   // the face loads lazily: redraw once it lands
+  return t;
+}
 
 export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   const suffix = lod ? '_lod' : '';   // the LOD body has its own bake: its UV layout differs
@@ -27,14 +44,21 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     uDetail: { value: new Float32Array(DETAIL) }, uBeard: { value: new THREE.Vector3() }, uHair: { value: new THREE.Color() },
     uSkinMean: { value: new THREE.Color().setRGB(...(spec.skinMean || [.35, .22, .16]), THREE.LinearSRGBColorSpace) },   // the scan's own skin colour (linear)
     uKnit: { value: texture('jersey_pattern', { srgb: false }) },   // athletic mesh knit (mean .49): the cloth reads as fabric up close and mips to nothing far away
+    uPrint: { value: printTexture(avatar.number) },
   };
+  const chestY = spec.chestY || 1.3, box = (PRINT[prefix] || PRINT.body_);
+  u.uPrintF = { value: new THREE.Vector4(chestY + box.front[0], ...box.front.slice(1)) }; u.uPrintB = { value: new THREE.Vector4(chestY + box.back[0], ...box.back.slice(1)) };
   const knitAmp = u.uKnit.value ? 1.2 : 0;
   material.onBeforeCompile = s => {
     Object.assign(s.uniforms, u);
     // per-region roughness: skin keeps a soft sheen, hair and cloth stay matte (a glossy jersey or scalp reads as plastic).
     // Skin also scatters: direct light wraps a little past the terminator with a warm tint, the cheap stand-in for
     // subsurface that keeps a face from looking like painted vinyl.
-    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean;\nfloat chainsSkin = 0.;\n' + s.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= 1. + chainsKnit;   // after the jersey style, so its panels are knitted too').replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
+    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec4 uPrintF, uPrintB;\nfloat chainsSkin = 0.;\n' + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      { vec3 j = vJerseyPos; bool back = j.z > 0.; vec4 b = back ? uPrintB : uPrintF;   // after the jersey style, so the print sits on its panels; seen from its own side, the print reads left to right
+        vec2 q = vec2((back ? j.x : -j.x) / b.y + .5, (j.y - b.x) / b.z + .5);
+        if (q.x > 0. && q.x < 1. && q.y > 0. && q.y < 1.) diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * chainsJersey); }
+      diffuseColor.rgb *= 1. + chainsKnit;   // the knit runs under the print too`).replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       void RE_Direct_Chains(const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
         RE_Direct_Physical(directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight);
         float nl = dot(geometryNormal, directLight.direction), wrap = saturate((nl + .5) / 1.5) - saturate(nl);
@@ -67,5 +91,5 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     material.userData.jerseyAccent?.value.set(a.accent);
   };
   setPalette(avatar);
-  return { material, setPalette };
+  return { material, setPalette, dispose: () => u.uPrint.value.dispose() };
 }

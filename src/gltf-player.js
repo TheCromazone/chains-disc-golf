@@ -73,18 +73,7 @@ export function createGLTFCharacter(avatar) {
   });
   if (!joints.elR || !joints.root || !body) return null;
   actor.updateMatrixWorld(true);
-  const headC = spec.headCentre;
-  // chest and back prints: club mark and number, placed on the measured torso
-  const printCanvas = document.createElement('canvas'); printCanvas.width = 256; printCanvas.height = 256;
-  const ink = printCanvas.getContext('2d'); ink.fillStyle = avatar.accent; ink.textAlign = 'center';
-  ink.font = 'bold 30px system-ui'; ink.fillText('CHAINS', 128, 60);
-  ink.font = 'bold 116px system-ui'; ink.fillText(String(avatar.number), 128, 184);
-  const print = new THREE.CanvasTexture(printCanvas); print.colorSpace = THREE.SRGBColorSpace;
-  const printGeo = new THREE.PlaneGeometry(.2, .2);
-  // lit like the cloth it is printed on: an unlit print glowed white in the shade and read as a sticker
-  const printMat = new THREE.MeshStandardMaterial({ map: print, roughness: .85, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }); owned.add(printMat);
-  const chestY = (spec.chestY || 1.30) - joints.spine.getWorldPosition(_v).y, chestZ = spec.chestZ || [.13, .13];
-  for (const side of [-1, 1]) { const badge = new THREE.Mesh(printGeo, printMat); badge.position.set(0, chestY, side * ((side < 0 ? chestZ[0] : chestZ[1]) + .004)); badge.rotation.y = side < 0 ? Math.PI : 0; badge.rotation.x = side < 0 ? -.1 : .1; joints.spine.add(badge); }
+  const headC = spec.headCentre;   // the chest and back prints are part of the body material (body-material.js PRINT)
   // Disc socket: a roll-free wrist frame under the group rather than a child of the forearm bone. The clips roll the arm
   // through the pull (palm up at the reach-back, palm down at release), so a bone-mounted disc wobbles and ends up on the
   // open palm; this frame takes the forearm's heading and pitch only, so the plate stays level from the coiled stance to
@@ -196,7 +185,7 @@ export function createGLTFCharacter(avatar) {
       overlay();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
-    dispose() { mixer.stopAllAction(); mixer.uncacheRoot(actor); print.dispose(); printGeo.dispose(); for (const m of owned) m.dispose(); actor.traverse(o => { if (o.isSkinnedMesh) o.skeleton.dispose(); }); }
+    dispose() { mixer.stopAllAction(); mixer.uncacheRoot(actor); body.dispose(); for (const m of owned) m.dispose(); actor.traverse(o => { if (o.isSkinnedMesh) o.skeleton.dispose(); }); }
   };
   api.update(0); return api;
 }
