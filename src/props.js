@@ -459,14 +459,20 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
       for (const y of [.03, .32]) for (const u of [-hx, hx]) lace(tv(u, y, -hz), tv(u, y, hz));
       for (const z of [-hz, hz]) for (let k = 0; k < 5; k++) lace(tv(-hx + 2 * hx * k / 5, k % 2 ? .32 : .03, z), tv(-hx + 2 * hx * (k + 1) / 5, k % 2 ? .03 : .32, z));
       for (const u of [-hx, hx]) for (let k = 0; k < 3; k++) lace(tv(u, k % 2 ? .32 : .03, -hz + 2 * hz * k / 3), tv(u, k % 2 ? .03 : .32, -hz + 2 * hz * (k + 1) / 3));
-      const pl = box(leg + .36, 1, deep + .9, 3, 1, 3).translate(x, .5, 0).applyMatrix4(world), pp = pl.attributes.position, top2 = rise[j] > .3 ? rise[j] * .5 + .12 : 0;
-      for (let i = 0; i < pp.count; i++) pp.setY(i, pp.getY(i) > .5 ? y0 - top2 : height(pp.getX(i), pp.getZ(i)) - .08);
-      pl.computeVertexNormals(); paint(pl, '#a29e96');   // cast-concrete ballast
-      if (top2) paint(box(leg + .28, top2, deep + .82).translate(x, y0 - top2 / 2, 0).applyMatrix4(world), '#98948c');   // the second course, set in 4 cm from the first
+      // ballast: chamfered cast-concrete blocks, two to a course with the joints crossed between courses; the bottom
+      // course is cut to the ground (dug in uphill), and a leg on the low side gets a second course (rise)
+      const bw = leg + .3, bd = deep + .7, top2 = rise[j] > .3 ? rise[j] * .5 + .12 : 0;
+      const block = (cx, cz, w, d, ya, yb, cut, tone) => {
+        const g = roundBox(w, yb - ya, d, .04, 2).translate(x + cx, (ya + yb) / 2, cz).applyMatrix4(world), p = g.attributes.position;
+        if (cut) for (let i = 0; i < p.count; i++) if (p.getY(i) < (ya + yb) / 2) p.setY(i, height(p.getX(i), p.getZ(i)) - .1);
+        K.print(g, 'concrete', tone);
+      };
+      const low = Math.min(...[-1, 1].flatMap(a => [-1, 1].map(b => { const e = world.elements, px = x + a * bw / 2, pz = b * bd / 2; return height(e[0] * px + e[8] * pz + e[12], e[2] * px + e[10] * pz + e[14]); })));
+      for (const k of [-1, 1]) block(k * bw / 4, 0, bw / 2 - .02, bd, low - .1, y0 - top2, true, k > 0 ? '#d6d2c9' : '#cfcbc2');
+      if (top2) for (const k of [-1, 1]) block(0, k * bd / 4, bw - .06, bd / 2 - .02, y0 - top2, y0, false, k > 0 ? '#d3cfc6' : '#dbd7ce');
       K.steel(box(leg + .12, .04, deep + .12).translate(x, y0 + .02, 0).applyMatrix4(world), '#5d6368');   // the truss's base plate
-      for (const z of [1, -1]) for (const dx of [-.42, .42]) paint(roundBox(.66, .19, .36, .08, 2).rotateY(dx * .25).translate(x + dx, y0 + .095, z * (deep / 2 + .23)).applyMatrix4(world), '#8c7b55');   // khaki sandbags on the plinth
-      paint(roundBox(.66, .19, .36, .08, 2).rotateY(Math.PI / 2 + .1).translate(x + s * (leg / 2 + .22), y0 + .095, 0).applyMatrix4(world), '#83734f');
-      shadeUnder(world, leg / 2 + .6, deep / 2 + .75, .55, .68, x, 0);
+      for (const z of [1, -1]) for (const dx of [-.42, .42]) paint(roundBox(.66, .19, .36, .08, 2).rotateY(dx * .25).translate(x + dx, y0 + .095, z * (deep / 2 + .19)).applyMatrix4(world), '#8c7b55');   // khaki sandbags on the ballast
+      shadeUnder(world, bw / 2 + .55, bd / 2 + .55, .6, .8, x, 0);
     });
     skin(roundBox(2 * legX + leg, beam, deep, .07, full ? 3 : 1).translate(0, yb + beam / 2, 0), 'white', '#1a2a48');
     for (const z of [1, -1]) skin(pillow(new THREE.PlaneGeometry(2 * legX + leg - .08, beam - .08, 1, full ? 4 : 2), 0, beam - .08, false).rotateY(z < 0 ? Math.PI : 0).translate(0, yb + beam / 2, z * face), 'archBeam');   // no extrusions on the beam: a chase camera passing through it would meet them as bars across the screen
@@ -560,28 +566,33 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     for (let i = 0; i < p.count; i++) p.setY(i, height(p.getX(i), p.getZ(i)) + (p.getY(i) > 0 ? .05 : -.07));
     g.computeVertexNormals(); K.print(g, 'wood', '#d8d2c8', .1);
   };
-  // The tee's crushed-stone bed (see the tee loop): one ground-hugging grid per tee in the ground's own gravel photo
-  // (course.js's paths), a shade cooler and fresher, in world-scaled UVs. It darkens where it butts against the mat's
-  // frame and the edging timbers (the occlusion the shadow map cannot resolve). One draw for every tee.
+  // Crushed stone laid on the ground, one draw for all of it: the bed round every tee mat (see the tee loop) and loose
+  // pads where the crew set down heavy kit (the arch's ballast). One ground-hugging grid per patch in the ground's own
+  // gravel photo (course.js's paths), a shade cooler and fresher, in world-scaled UVs. A bed darkens where it butts
+  // against the mat's frame and its edging timbers (the occlusion the shadow map cannot resolve); a loose pad has no
+  // edging, so its outline frays into the turf instead. patches: [hole, u0, u1, f0, f1, cells across, cells along, fray].
+  const gravel = holes.map(h => [h, -BED.u, BED.u, BED.f0, BED.f1, 6, 12, 0]);
   const gravelBed = () => {
-    const pos = [], uv = [], loc = [], idx = [], NU = 6, NF = 12;
-    for (const h of holes) {
+    const pos = [], uv = [], loc = [], ext = [], idx = [];
+    for (const [h, u0, u1, f0, f1, NU, NF, fray] of gravel) {
       const base = pos.length / 3;
       for (let j = 0; j <= NF; j++) for (let i = 0; i <= NU; i++) {
-        const u = BED.u * (2 * i / NU - 1), f = BED.f0 + (BED.f1 - BED.f0) * j / NF, [x, z] = frame(h, u, f);
-        pos.push(x, height(x, z) + .025, z); uv.push(x / 1.3, z / 1.3); loc.push(u, f);
+        const u = u0 + (u1 - u0) * i / NU, f = f0 + (f1 - f0) * j / NF, [x, z] = frame(h, u, f);
+        pos.push(x, height(x, z) + .025, z); uv.push(x / 1.3, z / 1.3); loc.push(u, f, fray); ext.push(u0, u1, f0, f1);
       }
       for (let j = 0; j < NF; j++) for (let i = 0; i < NU; i++) { const a = base + j * (NU + 1) + i, b = a + NU + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
     }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('bed', new THREE.Float32BufferAttribute(loc, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('bed', new THREE.Float32BufferAttribute(loc, 3)); g.setAttribute('ext', new THREE.Float32BufferAttribute(ext, 4)); g.setIndex(idx); g.computeVertexNormals();
     const m = toonMaterial({ map: texture('gravel'), color: new THREE.Color(1.16, 1.16, 1.17), roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     m.onBeforeCompile = s => {
-      s.vertexShader = 'attribute vec2 bed;varying vec2 vBed;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvBed=bed;');
-      s.fragmentShader = 'varying vec2 vBed;\n' + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-        float edge=min(${BED.u.toFixed(2)}-abs(vBed.x),min(vBed.y-(${BED.f0.toFixed(2)}),${BED.f1.toFixed(2)}-vBed.y)),mat=max(abs(vBed.x)-.92,max(vBed.y-3.52,-1.72-vBed.y));
-        vec2 q=vBed*vec2(1.9,1.3);vec2 i=floor(q),w=fract(q);w=w*w*(3.-2.*w);vec4 hh=fract(sin(vec4(dot(i,vec2(127.1,311.7)),dot(i+vec2(1,0),vec2(127.1,311.7)),dot(i+vec2(0,1),vec2(127.1,311.7)),dot(i+1.,vec2(127.1,311.7))))*43758.5);
+      s.vertexShader = 'attribute vec3 bed;attribute vec4 ext;varying vec3 vBed;varying vec4 vExt;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvBed=bed;vExt=ext;');
+      s.fragmentShader = 'varying vec3 vBed;varying vec4 vExt;\n' + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        vec2 q=vBed.xy*vec2(1.9,1.3);vec2 i=floor(q),w=fract(q);w=w*w*(3.-2.*w);vec4 hh=fract(sin(vec4(dot(i,vec2(127.1,311.7)),dot(i+vec2(1,0),vec2(127.1,311.7)),dot(i+vec2(0,1),vec2(127.1,311.7)),dot(i+1.,vec2(127.1,311.7))))*43758.5);
         float n=mix(mix(hh.x,hh.y,w.x),mix(hh.z,hh.w,w.x),w.y);   // raked and trodden patches half a metre across
-        diffuseColor.rgb*=(.84+.3*n)*mix(.5,1.,smoothstep(0.,.14,edge))*mix(.55,1.,smoothstep(0.,.12,mat));`);
+        float edge=min(min(vBed.x-vExt.x,vExt.y-vBed.x),min(vBed.y-vExt.z,vExt.w-vBed.y)),mat=max(abs(vBed.x)-.92,max(vBed.y-3.52,-1.72-vBed.y));
+        if(vBed.z>0.&&edge<vBed.z*(.25+.75*n))discard;   // a loose pad frays into the turf
+        diffuseColor.rgb*=(.84+.3*n)*mix(mix(.5,1.,smoothstep(0.,.14,edge)),1.,step(.001,vBed.z))*mix(.55,1.,smoothstep(0.,.12,mat));`);
     };
     m.customProgramCacheKey = () => 'chains-props-bed';
     const mesh = new THREE.Mesh(g, m); mesh.receiveShadow = true; return mesh;
@@ -636,13 +647,14 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const eye = h1.teeY + 1.42, pin = h1.basketY + 2.7 + 1.225 * Math.min(7, .065 * (L1 + 2.3));   // aim camera's eye 2.3 m behind the pad; marker top (course.js: 2.7 + .6 size up, 1.25 size tall, size .065/m)
   const yb = Math.max(height(...frame(h1, 0, archF)) + 6, eye + (pin - eye) * (archF + 2.3) / (L1 + 2.3) + .35, ...footY.map(y => y + 4.2));
   const [ax, az] = frame(h1, archU, archF); addArch(pose(ax, 0, az, h1.yaw), yb, footY, rise);
+  for (const sx of [-1, 1]) { const cu = archU + sx * legX, hw = (ARCH.leg + .3) / 2 + .8, hd = (ARCH.deep + .7) / 2 + .8; gravel.push([h1, cu - hw, cu + hw, archF - hd, archF + hd, 4, 4, .7]); }   // stone laid under the ballast, trodden out round it
   const top = yb + ARCH.beam / 2;
   feet.forEach(([x, z], j) => capsules.push({ a: [x, ground[j], z], b: [x, top, z], r: .7, tag: 'arch' }));   // from the ground: the ballast is solid too
   capsules.push({ a: [feet[0][0], top, feet[0][1]], b: [feet[1][0], top, feet[1][1]], r: ARCH.beam / 2, tag: 'arch' });
   // Chute: yellow rope sagging between white stakes from ahead of the pad's front corners to the arch's legs
   // (inside the walking trail on the open side), an event sign on each rope line.
   for (const s of [-1, 1]) {
-    const u0 = s * 2.5, f0 = 5, u1 = archU + s * (legX - .15), f1 = archF - ARCH.deep / 2 - .3, n = Math.max(3, Math.round((f1 - f0) / 3.4)), line = t => [u0 + (u1 - u0) * t, f0 + (f1 - f0) * t];
+    const u0 = s * 2.5, f0 = 5, u1 = archU + s * (legX - .15), f1 = archF - (ARCH.deep + .7) / 2 - .3, n = Math.max(3, Math.round((f1 - f0) / 3.4)), line = t => [u0 + (u1 - u0) * t, f0 + (f1 - f0) * t];
     let prev = null;
     for (let k = 0; k <= n; k++) {
       const [u, f] = line(k / n), [x, z] = frame(h1, u, f), y = height(x, z), post = new THREE.Vector3(x, y + .84, z);
