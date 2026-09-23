@@ -523,33 +523,39 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // line ~60% down, like the reference's lower chest-high camera, with the dirt in front of the basket down to the bottom quarter.
 // That rig still cut him at mid-thigh, a small figure beside the basket, with a bench sliced by the left edge: 2.15 m back
 // (P.x pans the pin 3% left of centre) he stands cut at the hip like the reference, eyes 19%, cage centre ~45%, and the
-// frame's left edge clears the green-side bench.
+// frame's left edge clears the green-side bench. But from ~1.7 m up (band just over the midline) it still looked down on a
+// downhill green: the far ground line cut the frame in half, the cage stood against the dark crown behind it and the two
+// banners crowded its left side. Now the camera sits ~1.5 m up, chest height and level (band 54%, base plate 84%, the far
+// ground line ~65% down as in the reference, the canopy's haze opening the top half); P.x pans the pin to 39%, so its base
+// plate stands clear left of the swipe pill, the banners drop to the left edge's framing and the bench leaves frame; and 1.2 m
+// to his side (27°) the pin's parallax opens ~100 px (at 640) between it and the banners, his back still on the right third.
 // The camera stays level and slides its lens
 // instead (cam.shift, applyViewOffset), so a green below the lie drops into frame without tipping the trunks inward (pitched
 // down onto the tray, it read as looking into a pit). It takes the height (lo-hi) that sets the athlete's eyes at P.eye and the
-// basket band at P.band (half-frame units above centre: 20% and 47% from the top, the reference's own marks: cage centre on
-// the midline, base plate ~75% down), so uphill, flat and downhill greens frame alike. On the course's downhill putts (every
-// green sits ~1 m under a 6.5 m lie) that puts the lens ~1.7 m up, just over his eyes. A short phone keeps the 2.3 m rig with
-// the band at 40% (puttS): its 29° lens is set by the swipe ring, not hfov, so the longer throw would only shrink him.
+// basket band at P.band (half-frame units above centre: 19% and 54% from the top), so uphill, flat and downhill greens frame
+// alike; a short putt's bigger basket lifts the band until its base plate stays over P.base (86%, a phone's 82%). On the
+// course's downhill putts (every green sits ~1 m under a 6.5 m lie) that puts the lens ~1.5 m up. A short phone (puttS) holds
+// the pin at 38% and the band at the midline: its 29° lens is set by the swipe ring, not hfov.
 // Out of the lo-hi range the band wins until the eyes would pass P.eye. A lateral nudge of up to P.nudge clears trunks from
 // behind the basket (puttDodge). Portrait keeps its lift rule. Wide screens hold the horizontal lens (hfov), a 2:1 phone
 // widening past it rather than cropping under P.vmin tall (29° on a short phone, whose swipe ring takes the frame's lower
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.15, side: .95, lo: .9, hi: 1.9, eye: .62, band: .1, x: .06, nudge: [-.05, .15], hfov: 50, vmin: 10 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 2.3, side: 1.2, lo: .9, hi: 1.9, eye: .62, band: -.08, base: -.72, x: .22, nudge: [-.05, .15], hfov: 50, vmin: 10 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
-AIM.puttS = { ...AIM.putt, back: 2.1, side: .95, eye: .55, band: .2 };   // a short phone's 29° lens: the band sits higher, so the basket's base plate clears the swipe ring's pill
+AIM.puttS = { ...AIM.putt, eye: .6, band: -.02, base: -.64, x: .24 };   // a short phone: the swipe pill and ring fill the lower third's middle, so the pin stands further left (38%) with its base plate beside them
 function aimFrame(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = portrait ? AIM.tall[putt ? 'putt' : 'drive'] : putt ? innerHeight > 520 ? AIM.putt : AIM.puttS : AIM.drive;
   const vt = portrait ? Math.tan(P.fov * DEG / 2) : Math.max(Math.tan((innerHeight > 520 && P.vmin || 14.5) * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least on a short phone, so it keeps headroom
   const side = P.side + (putt && P.nudge ? puttDodge(lie, P) : 0), rho = Math.hypot(P.back, side);
   pos.set(lie.x - d[0] * P.back - r[0] * side, lie.y, lie.z - d[1] * P.back - r[1] * side);
   const bd = Math.hypot(h.basket[0] - pos.x, h.basket[1] - pos.z), bh = h.basketY - lie.y + 1.4, eye = putt && Math.atan(P.eye * vt), band = putt && Math.atan(P.band * vt);   // bh: band centre over the lie
+  const B = putt && P.lo ? Math.max(P.band, P.base + 1.4 / bd / vt) : P.band;   // a short putt's basket looms: lift the band until its base plate (1.4 m under it) stays over P.base
   const eh = (curP()?.char.headY || 1.72) - .09;   // eyes in the putting stance, which sinks them ~9 cm
   let up = P.up + (putt && P.lift ? Math.max(-.5, Math.min(.5, P.lift * (lie.y - h.basketY))) : 0);
-  if (putt && P.lo) for (let lo = P.lo, hi = P.hi, i = 0; i < 12; i++) { up = (lo + hi) / 2; if ((eh - up) / rho - (bh - up) / bd > (P.eye - P.band) * vt) lo = up; else hi = up; }   // level lens: the eyes-to-band gap on screen falls as the camera rises
+  if (putt && P.lo) for (let lo = P.lo, hi = P.hi, i = 0; i < 12; i++) { up = (lo + hi) / 2; if ((eh - up) / rho - (bh - up) / bd > (P.eye - B) * vt) lo = up; else hi = up; }   // level lens: the eyes-to-band gap on screen falls as the camera rises
   pos.y += up;
-  if (putt && P.lo) cam.tShift = Math.max(-.3, Math.min(1, Math.min(P.band - (bh - up) / bd / vt, P.eye - (eh - up) / rho / vt)));   // slide the lens, don't tip it: the green drops into frame and the trunks stay upright
+  if (putt && P.lo) cam.tShift = Math.max(-.3, Math.min(1, Math.min(B - (bh - up) / bd / vt, P.eye - (eh - up) / rho / vt)));   // slide the lens, don't tip it: the green drops into frame and the trunks stay upright
   const pitch = (putt ? P.lo ? 0 : Math.max(-4, Math.min(14, Math.min(band - Math.atan2(bh - up, bd), eye - Math.atan2(eh - up, rho)) / DEG)) : P.pitch) - G.aim.pitch;   // drag up = look up
   const yaw = putt ? Math.atan2(side, bd) + Math.atan((P.x || 0) * vt * camera.aspect) : P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
