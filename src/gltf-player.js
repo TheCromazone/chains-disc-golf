@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { cloneModel, model } from './models.js';
 import { rimLight } from './materials.js';
-import { bodyMaterial, skinDirect, skinShade } from './body-material.js';
+import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL } from './body-material.js';
 import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
@@ -85,8 +85,9 @@ function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o
 // closed with a rounded cap at the end. Pushes positions and indices (outward winding) into `out`.
 function loft(out, rings, seg, capLen) {
   const base = out.p.length / 3;
-  const ring = (c, u, v, a, b) => { for (let j = 0; j < seg; j++) { const t = j / seg * Math.PI * 2, cs = Math.cos(t) * a, sn = Math.sin(t) * b; out.p.push(c.x + u.x * cs + v.x * sn, c.y + u.y * cs + v.y * sn, c.z + u.z * cs + v.z * sn); } };
-  for (const r of rings) ring(r.c, r.u, r.v, r.a, r.b);
+  // bump (optional, per ring): t -> [radius share, ridge 0..1] pushes the ring out (tendons, knuckles) and records how far down in a valley the texel sits, for occlusion
+  const ring = (c, u, v, a, b, bump) => { for (let j = 0; j < seg; j++) { const t = j / seg * Math.PI * 2, [m, h] = bump ? bump(t) : [0, 0], cs = Math.cos(t) * a * (1 + m), sn = Math.sin(t) * b * (1 + m); out.h?.push(h); out.p.push(c.x + u.x * cs + v.x * sn, c.y + u.y * cs + v.y * sn, c.z + u.z * cs + v.z * sn); } };
+  for (const r of rings) ring(r.c, r.u, r.v, r.a, r.b, r.bump);
   const last = rings[rings.length - 1], t = last.u.clone().cross(last.v).normalize(), caps = 3;
   for (let k = 1; k <= caps; k++) { const phi = k / (caps + 1) * Math.PI / 2; ring(last.c.clone().addScaledVector(t, capLen * Math.sin(phi)), last.u, last.v, last.a * Math.cos(phi), last.b * Math.cos(phi)); }
   const n = rings.length + caps; out.p.push(...last.c.clone().addScaledVector(t, capLen).toArray());
@@ -103,11 +104,20 @@ function tube(out, pts, radii, seg, steps) {   // a finger: centripetal Catmull-
 // The grip hand in hand-local metres (before the wrist flex), for a hand of drop L and a measured wrist (half sizes a along z,
 // b along x, centre cx, cz). Returns positions, indices, a per-vertex occlusion (dark between the digits) and the seat.
 function gripHand(L, wrist, lod, rest = false) {
-  const k = L / .19, seg = lod ? 7 : 10, steps = lod ? 7 : 12, out = { p: [], i: [] }, axes = [];
+  // the free hand hung at the tee "oversized, a spade" next to the forearm: its digits run a little shorter than the grip's
+  const k = L / .19 * (rest ? .9 : 1), seg = lod ? 7 : 10, steps = lod ? 7 : 16, out = { p: [], i: [] }, axes = [];
   const V = (x, y, z) => new THREE.Vector3(x * k, y * k, z * k);
   // palm: from inside the forearm, through the scan's own wrist, out to the knuckle ridge
   const U = new THREE.Vector3(0, 0, 1), X = new THREE.Vector3(-1, 0, 0), palm = [[.02, wrist.a * .9 / k, wrist.b * .9 / k], [0, wrist.a * .98 / k, wrist.b * .98 / k], [-.025, .033, .019], [-.055, .039, .0165], [-.08, .043, .0155], [-.096, .0435, .015]];
-  loft(out, palm.map(([y, a, b], j) => ({ c: new THREE.Vector3(wrist.cx * (1 - smooth(0, -.04 * k, y * k)), y * k, wrist.cz * (1 - smooth(0, -.04 * k, y * k)) - .004 * k * smooth(0, -.04 * k, y * k)), u: U, v: X, a: a * k * (j < 2 ? taperAt(y * k) : 1), b: b * k * (j < 2 ? taperAt(y * k) : 1) })), seg + 4, .014 * k);   // the wrist rings follow the tapered forearm
+  // the back of the hand: four extensor tendons fanning from the wrist to raised knuckles, the valleys between them shaded
+  // (a smooth ellipse there read as "a flat spade-shaped paddle"). The palm faces -x, so its back is sin(t) < 0; z = cos(t) a
+  out.h = []; const backOfHand = (t, y, a, b) => {
+    const dors = smooth(.1, .7, -Math.sin(t)) * smooth(-.012, -.045, y), z = Math.cos(t) * a, spread = .5 + .5 * smooth(-.02, -.09, y);
+    let ridge = 0; for (const [kn] of GRIP.fingers) ridge = Math.max(ridge, Math.exp(-(((z - kn[2] * spread) / .0045) ** 2)));
+    return [dors * ridge * (.0014 + .0022 * smooth(-.07, -.092, y)) / b, dors * (1 - ridge)];
+  };
+  loft(out, palm.map(([y, a, b], j) => ({ c: new THREE.Vector3(wrist.cx * (1 - smooth(0, -.04 * k, y * k)), y * k, wrist.cz * (1 - smooth(0, -.04 * k, y * k)) - .004 * k * smooth(0, -.04 * k, y * k)), u: U, v: X, a: a * k * (j < 2 ? taperAt(y * k) : 1), b: b * k * (j < 2 ? taperAt(y * k) : 1), bump: t => backOfHand(t, y, a, b) })), lod ? seg + 4 : 30, .014 * k);   // the wrist rings follow the tapered forearm
+  const valley = out.h; out.h = null;
   const partEnd = [out.p.length / 3];
   // the rim touches the palm at C; the disc's far side rises `tilt` (radians) from square to the hand, toward the forearm,
   // so the hand can lean off vertical with a level disc; the fingers past the knuckle and the thumb's tip turn with the rim
@@ -117,16 +127,32 @@ function gripHand(L, wrist, lod, rest = false) {
     const mcp = V(...kn), pts = [mcp.clone().add(V(0, .018, 0)), mcp]; let ang = 0, at = mcp.clone();
     for (let j = 0; j < 3; j++) { ang += curl[j] * Math.PI / 180; at = at.clone().add(new THREE.Vector3(-Math.sin(ang), -Math.cos(ang), 0).multiplyScalar(len[j] * k - (j === 2 ? r[3] * k : 0))); pts.push(at); }
     for (const p of pts.slice(2)) turn(p, C, Zt, -t);
-    tube(out, pts, [r[0], ...r].map(x => x * k), seg, steps); axes.push({ pts, r: r[1] * k }); partEnd.push(out.p.length / 3);
+    tube(out, pts, [r[0], ...r].map(x => x * k * .88), seg, steps); axes.push({ pts, r: r[1] * k * .88 }); partEnd.push(out.p.length / 3);   // slimmer than measured, so a dark gap shows between each pair ("fused, no finger separation")
   }
   const tp = (rest ? REST.thumb : GRIP.thumb).map(([x, y, z], j) => j < 3 || rest ? V(x, y, z) : turn(new THREE.Vector3(x * k, rimY + y * k, z * k), C, Zt, -t));
-  tube(out, tp, GRIP.thumbR.map(x => x * k), seg, steps); axes.push({ pts: tp, r: GRIP.thumbR[2] * k }); partEnd.push(out.p.length / 3);
+  tube(out, tp, GRIP.thumbR.map(x => x * k * .9), seg, steps); axes.push({ pts: tp, r: GRIP.thumbR[2] * k * .9 }); partEnd.push(out.p.length / 3);
   // occlusion: a digit's surface darkens where another digit's surface is within a centimetre (the gaps that separate them)
   const ao = new Float32Array(out.p.length / 3).fill(1), q = new THREE.Vector3(), segDist = (p, a, b) => { const ab = b.clone().sub(a), t = THREE.MathUtils.clamp(q.copy(p).sub(a).dot(ab) / ab.lengthSq(), 0, 1); return p.distanceTo(a.clone().addScaledVector(ab, t)); };
   for (let part = 1; part < partEnd.length; part++) for (let i = partEnd[part - 1]; i < partEnd[part]; i++) {
     const p = new THREE.Vector3(out.p[i * 3], out.p[i * 3 + 1], out.p[i * 3 + 2]); let clear = 1;
     axes.forEach((ax, j) => { if (j === part - 1) return; for (let s = 1; s < ax.pts.length; s++) clear = Math.min(clear, segDist(p, ax.pts[s - 1], ax.pts[s]) - ax.r); });
-    ao[i] = .5 + .5 * smooth(0, .011 * k, clear);
+    ao[i] = .3 + .7 * smooth(0, .014 * k, clear);   // at .5 the gaps vanished at 640 px and critics saw "one fused block"
+  }
+  valley.forEach((v, i) => { ao[i] *= 1 - .4 * v; });
+  // knuckle creases and nails on the four fingers: a vertex's arc length along its finger's joint polyline says how near a
+  // joint it sits (creases darken, and redden via the shader's AO tint); past the last joint, the side away from the curl
+  // takes a paler nail. Critics: "no knuckles, nails or creases", "a smooth rubber mitten"
+  for (let f = 0; f < 4; f++) {
+    const P = axes[f].pts, cum = [0]; for (let s = 1; s < P.length; s++) cum.push(cum[s - 1] + P[s].distanceTo(P[s - 1]));
+    const T = P[P.length - 1].clone().sub(P[P.length - 2]).normalize(), D = new THREE.Vector3(-T.y, T.x, 0).normalize();
+    for (let i = partEnd[f]; i < partEnd[f + 1]; i++) {
+      const p = new THREE.Vector3(out.p[i * 3], out.p[i * 3 + 1], out.p[i * 3 + 2]); let best = 1e9, arc = 0, foot = null;
+      for (let s = 1; s < P.length; s++) { const ab = P[s].clone().sub(P[s - 1]), t = THREE.MathUtils.clamp(q.copy(p).sub(P[s - 1]).dot(ab) / ab.lengthSq(), 0, 1), c = P[s - 1].clone().addScaledVector(ab, t), d = p.distanceTo(c); if (d < best) { best = d; arc = cum[s - 1] + t * ab.length(); foot = c; } }
+      let crease = 0; for (const j of [2, 3]) crease = Math.max(crease, Math.exp(-(((arc - cum[j]) / (.0032 * k)) ** 2)));
+      crease = Math.max(crease, .6 * Math.exp(-(((arc - cum[1]) / (.004 * k)) ** 2)));
+      ao[i] *= 1 - .32 * crease;
+      if (arc > cum[3] + .35 * (cum[4] - cum[3]) && p.clone().sub(foot).normalize().dot(D) > .35) ao[i] = Math.max(ao[i], 1.16);   // nail: >1 so the shader's crease tint leaves it pale
+    }
   }
   const seat = C.clone().add(new THREE.Vector3(-Math.cos(t), Math.sin(t), 0).multiplyScalar(.105 - GRIP.press * k)).setZ(-.006 * k);
   return { p: out.p, i: out.i, ao, seat, seatN: new THREE.Vector3(Math.sin(t), Math.cos(t), 0) };
@@ -337,7 +363,15 @@ export function createGLTFCharacter(avatar) {
   // the modelled grip hands (handMorphs), children of the forearm bones, shown in the backhand set-up in place of the tucked
   // scan hand; their skin takes the palette tone the way the body shader turns the scan's (a quarter of the chroma gone)
   const gripMat = new THREE.MeshStandardMaterial({ roughness: .74, vertexColors: true }); owned.add(gripMat);
-  gripMat.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= mix(vec3(1.), vec3(1.02, .78, .78), saturate(1.15 - vColor.g));')   // its AO creases (knuckles, between the fingers) go red like the body's
+  // The scan's skin carries pores, mottling and a broken sheen; the modelled hands had none and read as "smooth rubber gloves,
+  // lighter and more matte than the forearm": the body's pores, 3 cm / 1 cm blotches and roughness breakup in hand-local metres
+  gripMat.onBeforeCompile = s => { s.vertexShader = 'varying vec3 vHandPos;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vHandPos = position;');
+    s.fragmentShader = 'varying vec3 vHandPos; float chainsMot = .5;\n' + NOISE_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      chainsMot = chainsNoise(vHandPos * 33.) * .65 + chainsNoise(vHandPos * 95.) * .35;
+      diffuseColor.rgb *= mix(vec3(1.), vec3(1.02, .72, .72), saturate(1.15 - vColor.g)) * (1. + (chainsMot - .5) * vec3(.34, .06, .0));`)   // its AO creases (knuckles, between the fingers) go red like the body's
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = clamp(roughnessFactor + (chainsMot - .5) * .3 + .12 * saturate(1. - vColor.g), .5, .95);')
+      .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= .45;')   // as the body's skin: well under a plastic's 4 %
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + PORES_GLSL('vHandPos', '1.'))
     .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.')); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove
   gripMat.customProgramCacheKey = () => 'chains-grip'; rimLight(gripMat, { strength: .1 });
