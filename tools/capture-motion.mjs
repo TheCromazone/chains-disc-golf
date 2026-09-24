@@ -4,10 +4,12 @@
 // the screenshot run, and two runs draw the same frames. Zero npm dependencies (Node's WebSocket speaks CDP to a private headless
 // Chrome); ffmpeg encodes the clips and Python + Pillow lays out the contact sheets.
 //   node tools/capture-motion.mjs --out art/qa/motion [--port 8212] [--clips flyover,drive,putt,idle] [--fps 30] [--size 1280x720]
-//                                 [--dpr 1] [--quality high|low] [--mobile] [--seed 4] [--difficulty hard]
-// Per clip: <clip>/frames/NNNN.jpg, <clip>.mp4, <clip>-sheet.jpg (8 frames, 4x2) and <clip>.json: the event timeline (intro-start,
-// intro-end, windup, release = doThrow, launch = the disc leaves the hand, the physics' own tree/land/skip/roll/chains/drop..., rest)
-// at frame index and virtual ms, the biggest per-frame camera jumps (cuts and snaps) and a per-frame camera/disc track.
+//                                 [--dpr 1] [--quality high|low] [--mobile] [--seed 4] [--difficulty hard] [--throw backhand|bot|<THROWS key>]
+// --throw forces the drive's throw type (bot = the planner's own pick); the putt stays a putt.
+// Per clip: <clip>/frames/NNNN.jpg, <clip>.mp4, <clip>-sheet.jpg (8 frames, 4x2) and <clip>.json: the throw (type, disc, power,
+// hyzer, yaw offset), the event timeline (intro-start, intro-end, windup, release = doThrow, launch = the disc leaves the hand, the
+// physics' own tree/land/skip/roll/chains/drop..., rest) at frame index and virtual ms, the biggest per-frame camera jumps (cuts
+// and snaps) and a per-frame camera/disc track.
 // motion.json: console errors by stage, real ms per step, GPU. The timeline never changes with --clips (menu 3 s, Solo, hole 1's
 // intro, tee address 3 s, the hero's drive thrown as a bot, a 6.5 m putt): stretches nobody asked for are stepped without
 // screenshots, so a clip's frames never depend on which others were recorded.
@@ -22,7 +24,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/motion' }, port: { type: 'string', default: '8212' }, size: { type: 'string', default: '1280x720' },
   dpr: { type: 'string', default: '1' }, quality: { type: 'string' }, mobile: { type: 'boolean', default: false }, fps: { type: 'string', default: '30' },
-  clips: { type: 'string', default: 'flyover,drive,putt,idle' }, seed: { type: 'string', default: '4' }, difficulty: { type: 'string', default: 'hard' },   // Full, pine hole 1: a clean drive (lands and skips, no tree) and a made putt
+  clips: { type: 'string', default: 'flyover,drive,putt,idle' }, seed: { type: 'string', default: '4' }, difficulty: { type: 'string', default: 'hard' }, throw: { type: 'string', default: 'backhand' },   // the reference drive is a backhand
   chrome: { type: 'string', default: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -131,6 +133,7 @@ async function seg(clip, { cap, done = () => false, label }) {   // step video f
     const a = performance.now(), s = await js(`__motion.step(${dt}, ${ticks})`), names = changes(s);
     for (const k of names) seen[k] ??= s.t;
     if (rec) {
+      if (s.thr) rec.throw ??= s.thr;   // the flight's own launch params: what was really thrown
       const { data } = await send('Page.captureScreenshot', { format: 'jpeg', quality: 90 });
       writeFileSync(join(rec.dir, pad(rec.n) + '.jpg'), Buffer.from(data, 'base64'));
       for (const name of names) rec.events.push({ name, frame: rec.n, ms: +(rec.n * dt).toFixed(1), vt: +s.t.toFixed(1) });
@@ -152,7 +155,7 @@ for i, cell in enumerate(cells):
     b = d.textbbox((x + 7, y + 5), label, font=font); d.rectangle((b[0] - 4, b[1] - 3, b[2] + 4, b[3] + 3), fill=(0, 0, 0)); d.text((x + 7, y + 5), label, fill=(255, 255, 255), font=font)
 sheet.save(out, quality=90)`;
 
-const stats = { size: o.size, dpr: +o.dpr, mobile: o.mobile, fps, ticks, seed: +o.seed, difficulty: o.difficulty, clips: {} };
+const stats = { size: o.size, dpr: +o.dpr, mobile: o.mobile, fps, ticks, seed: +o.seed, difficulty: o.difficulty, throw: o.throw, clips: {} };
 try {
   await send('Runtime.enable'); await send('Page.enable');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `(${clock})(${+o.seed})` });
@@ -169,17 +172,40 @@ try {
   stats.quality = await js('__chains.G.settings.quality');
   stats.gpu = await js(`(() => { const g = __chains.renderer.getContext(), e = g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; })()`);
   await js(`__motion.probe = () => { const c = __chains, G = c.G, f = G.flight, q = v => Math.round(v * 100) / 100;
-    return { t: performance.now(), phase: G.phase, ev: f ? f.events.slice(0, f.ei).map(e => e[1]) : null, disc: f?.pos ? f.pos.map(q) : null, cam: c.camera.position.toArray().map(q) }; }`);
+    return { t: performance.now(), phase: G.phase, ev: f ? f.events.slice(0, f.ei).map(e => e[1]) : null, disc: f?.pos ? f.pos.map(q) : null, cam: c.camera.position.toArray().map(q),
+      thr: f && { throwType: f.params.throwType, discId: f.params.discId, power: q(f.params.power), hyzer: q(f.params.hyzer), yawOffset: q(f.params.yawOffset),
+        thrown: q(f.result.thrown), toPin: q(f.result.dist), holed: f.result.holed, ob: f.result.ob, lieRough: q(c.world.rough(f.result.lie[0], f.result.lie[2])) } }; }`);   // lieRough: world.rough at the lie, 0 on the fairway, 1 five metres past its edge
 
   await seg('idle', { cap: 3000, label: 'menu' });   // the clubhouse hero
   if (upto >= 1) { await js(`document.getElementById('btnSolo').click()`); await seg('flyover', { cap: 8000, done: (s, e) => e['intro-start'] != null && s.phase !== 'intro' }); }
   if (upto >= 2) await seg('idle', { cap: 3000, label: 'tee' });   // the human's tee address before anything starts
   if (upto >= 3) {   // the hero throws his own tee shot as a bot, his think held 0.8 s longer so the clip opens 1.5 s before the wind-up
-    await js(`(() => { const c = __chains, p = c.G.players[0]; p.isBot = true; p.difficulty = ${JSON.stringify(o.difficulty)}; const m = __motion.mark(); c.setupTurn(0); __motion.delay(800, m); })()`);
+    // --throw: G.throwType becomes a fixed accessor, so the bot's plan can't swap it and the wind-up, HUD and launchNow's physics all
+    // read the forced type; the moment botTurn hands over its wind-up tween, the release is re-aimed with bot.js's own search (its
+    // candidate grid, score and execution noise) run for that throw alone, so the flight is planned for the throw it really is.
+    await js(`(async () => { const c = __chains, G = c.G, p = G.players[0], P = await import('/src/physics.js'), T = ${JSON.stringify(o.throw === 'bot' ? null : o.throw)};
+      p.isBot = true; p.difficulty = ${JSON.stringify(o.difficulty)};
+      if (T) {
+        if (!P.THROWS[T]) throw new Error('--throw must be bot or one of ' + Object.keys(P.THROWS).join(','));
+        const replan = () => { const w = c.world, b = w.basket, L = p.lie, dx = b.x - L[0], dz = b.z - L[2], dist = Math.hypot(dx, dz), dir = [dx / dist, dz / dist], disc = P.discById(G.discId), lefty = p.appearance?.hand === 'left';
+          const powers = dist > 82 ? [.8, .9, 1] : dist > 50 ? [.62, .75, .88, 1] : dist > 26 ? [.45, .58, .72, .86] : [.3, .36, .42, .48, .55, .63]; let best = null, low = Infinity;
+          for (const yawOffset of [-28, -18, -9, 0, 9, 18, 28]) for (const power of powers) for (const hyzer of [0, 14]) {
+            const r = P.simulate({ pos: [L[0], L[1] + 1.15, L[2]], dir, lefty, throwType: T, disc, power, yawOffset, hyzer }, w, { maxT: 12 }).result, s = r.dist + (r.ob ? 45 : 0) - (r.holed ? 1000 : 0);
+            if (s < low) { low = s; best = { power, yawOffset, hyzer }; } }
+          const [ny, np, nh] = { easy: [7, .13, 8], medium: [3.5, .07, 4], hard: [1.4, .03, 1.5] }[p.difficulty] || [3.5, .07, 4], g = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;   // bot.js NOISE and gauss
+          return { power: Math.min(1, Math.max(.12, best.power + g() * np)), yawOffset: best.yawOffset + g() * ny, hyzer: best.hyzer + g() * nh, launchOffset: 0 }; };
+        let tw = G.tween, plan = null;
+        Object.defineProperty(G, 'throwType', { configurable: true, enumerable: true, get: () => T, set() {} });
+        Object.defineProperty(G, 'tween', { configurable: true, enumerable: true, get: () => tw, set(v) {
+          if (v?.done && !plan) { plan = replan(); v.done = () => c.doThrow(G.cur, plan); document.getElementById('waiting').textContent = p.name + ' · ' + P.THROWS[T].name + ', ' + P.discById(G.discId).type.toLowerCase(); }   // botTurn's label named its own pick
+          tw = v; } });
+      }
+      const m = __motion.mark(); c.setupTurn(0); __motion.delay(800, m); })()`);
     await seg('drive', { cap: 12000, done: (s, e) => s.t >= first(e, GROUND) + 1000 });
   }
   if (upto >= 4) {   // capture.mjs's putt, 6.5 m short on the tee side, thrown by the bot: 3 s unrecorded while the camera flies in and the drive's result toast clears, then 1 s before the stroke
     await js(`(() => { const c = __chains, G = c.G, p = G.players[0], h = c.holes[G.holeIdx], b = h.basket, dx = h.tee[0] - b[0], dz = h.tee[1] - b[1], L = Math.hypot(dx, dz);
+      delete G.throwType; delete G.tween; G.throwType = 'backhand';   // back to plain fields (setupTurn picks the putt)
       G.flight = G.pending = G.tween = null; const x = b[0] + dx / L * 6.5, z = b[1] + dz / L * 6.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 2; const m = __motion.mark(); c.setupTurn(0); __motion.delay(3300, m); })()`);
     await seg('putt-settle', { cap: 3000 });
     await seg('putt', { cap: 10000, done: (s, e) => s.t >= first(e, [...GROUND, ...BASKET]) + 1500 });
@@ -189,14 +215,14 @@ try {
     const at = i => `${(i * dt / 1000).toFixed(2)} s`, dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     const joins = new Set(r.events.filter(e => e.vt === undefined).map(e => e.frame));   // idle's menu -> tee splice is the tool's cut, not the game's
     const jumps = r.track.slice(1).map((t, i) => [t[0], +dist(t[2], r.track[i][2]).toFixed(2)]).filter(j => !joins.has(j[0])).sort((a, b) => b[1] - a[1]).slice(0, 5);   // [frame, metres]: a cut or a snap stands out from the smooth moves
-    const meta = { clip, fps, frames: r.n, seconds: +(r.n * dt / 1000).toFixed(2), size: o.size, dpr: +o.dpr, quality: stats.quality, seed: +o.seed, realMsPerFrame: { mean: mean(r.real), max: +Math.max(...r.real).toFixed(1) }, events: r.events, camJumps: jumps, track: 0 };
+    const meta = { clip, fps, frames: r.n, seconds: +(r.n * dt / 1000).toFixed(2), size: o.size, dpr: +o.dpr, quality: stats.quality, seed: +o.seed, difficulty: o.difficulty, throw: r.throw ?? null, realMsPerFrame: { mean: mean(r.real), max: +Math.max(...r.real).toFixed(1) }, events: r.events, camJumps: jumps, track: 0 };
     writeFileSync(join(out, clip + '.json'), JSON.stringify(meta, null, 2).replace('"track": 0', `"track": [\n${r.track.map(t => '    ' + JSON.stringify(t)).join(',\n')}\n  ]`));   // [frame, phase, camera xyz, disc xyz | null]
     const ff = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(fps), '-start_number', '0', '-i', join(r.dir, '%04d.jpg'), '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', join(out, clip + '.mp4')], { encoding: 'utf8' });
     if (ff.status !== 0) errors.push({ stage, text: `ffmpeg ${clip}: ${ff.error || ff.stderr}` });
     const py = spawnSync('python', ['-c', SHEET, join(out, clip + '-sheet.jpg'), ...Array.from({ length: 8 }, (_, i) => Math.round(i * (r.n - 1) / 7)).map(i => `${join(r.dir, pad(i) + '.jpg')}|${at(i)}  #${i}`)], { encoding: 'utf8' });
     if (py.status !== 0) errors.push({ stage, text: `sheet ${clip}: ${py.error || py.stderr}` });
     stats.clips[clip] = { frames: r.n, seconds: meta.seconds, realMsPerFrame: meta.realMsPerFrame, events: r.events.map(e => `${e.name}@${e.frame}`).join(' ') };
-    console.log(`${clip}: ${r.n} frames (${meta.seconds} s)  ${stats.clips[clip].events}  ${meta.realMsPerFrame.mean} ms/frame  ${join(out, clip + '.mp4')}`);
+    console.log(`${clip}: ${r.n} frames (${meta.seconds} s)  ${r.throw ? r.throw.throwType + '/' + r.throw.discId + '  ' : ''}${stats.clips[clip].events}  ${meta.realMsPerFrame.mean} ms/frame  ${join(out, clip + '.mp4')}`);
   }
   stats.unrecordedMsPerStep = mean(unrecorded); stats.errors = errors;
   writeFileSync(join(out, 'motion.json'), JSON.stringify(stats, null, 2));
