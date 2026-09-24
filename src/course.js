@@ -302,10 +302,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // tiles; hashed from position, so the rng stream (and the layout) stays put. The record scales with the drawn tree.
   const VARIANTS = {}; for (const v in IMPOSTOR) VARIANTS[v.replace(/\d+$/, '')] = (VARIANTS[v.replace(/\d+$/, '')] || 0) + 1;   // how many each species has
   // wide: a quiet (shadowless) stand tree varies twice as much, no taller or stouter than the most (w6: the pines behind the
-  // arch read as cloned straight poles of one girth; w11: "near-identical parallel verticals", so a quiet tree leans up to ~11
-  // deg); shadow casters keep the narrow range, so the light on the floor (and the putt's parallel trunk bars) stays put
+  // arch read as cloned straight poles of one girth); shadow casters keep the narrow range, so the light on the floor stays put
   const plant = (x, z, s, rot, kind, pine, wide = 0) => {
-    const y = height(x, z), D = DIMS[kind], sy = 1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16), g = 1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36), lean = wide ? .38 : .12;
+    const y = height(x, z), D = DIMS[kind], sy = 1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16), g = 1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36), lean = wide ? .22 : .12;
     (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.min(VARIANTS[kind] - 1, Math.floor(noise(x * .37 + 13, z * .37 + 5) * VARIANTS[kind])), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * lean, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * lean, sy, g });
     const t = { x, y, z, r: D[0] * s * g, h: D[1] * s * sy, fy: D[2] * s * sy, fr: D[3] * s * (g + sy) / 2 }; trees.push(t); return t;
   };
@@ -657,7 +656,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // against the glare stand as dark, rim-lit silhouettes instead of pale grey-olive puffs. Trunks and stems take 80% from 15 m:
     // bark 15-40 m out has to fall back into the haze row by row, and it has no lit rim to lose.
     s.uniforms.treeDisc = treeDisc; s.uniforms.treeAir = treeAir;
-    s.fragmentShader = '#define AIR_CROWN .32\nuniform vec3 treeDisc;uniform float treeAir;\n' + s.fragmentShader;
+    s.fragmentShader = 'uniform vec3 treeDisc;uniform float treeAir;\n' + s.fragmentShader;
     // Bark in the canopy's shadow also loses a third of its sky (w3-4: "white trunks lit evenly from crown to ground, no
     // patches of sun and shade"): at the putt we see their back-lit faces, which the sun's term never reaches, so without this
     // the leaf shadow crossing a stem changed nothing on it. sunVis: the sun's shadow here, from lights_fragment_begin.
@@ -665,11 +664,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       vec3 treeClear = gl_FragColor.rgb;
       #include <fog_fragment>
       { float glare = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.) * (1. - .8 * treeAir);
-        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare${leaf ? '' : ' * (1. - smoothstep(25., 70., length(vViewPosition)))'}));${leaf ? `
-        #ifdef USE_FOG
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(fogTint, 1.)).rgb, AIR_CROWN * smoothstep(30., 95., length(vViewPosition)) * (1. - treeAir) * (1. - .65 * glare));   // w11 verdicts ("the distant trees as saturated and sharp as the near ones"; "fade toward the sky colour with distance"): crowns past 30 m take up to AIR_CROWN more of the air than the floor's haze gives them, ~50% at 80 m in all, so each row back is paler; eased toward the glare, where they stay dark silhouettes, and off round the pin (the putt's air is its own)
-        #endif
-      ` : ''} }`);   // a trunk's exemption ends by 70 m: far trunks against the glare took half the floor's haze and stood dark in front of it like cut-outs
+        gl_FragColor.rgb = mix(treeClear, gl_FragColor.rgb, ${leaf ? 'mix(.35, 1., smoothstep(8., 30., length(vViewPosition)))' : 'mix(.8, 1., smoothstep(15., 60., length(vViewPosition)))'} * (1. - .65 * glare${leaf ? '' : ' * (1. - smoothstep(25., 70., length(vViewPosition)))'})); }`);   // a trunk's exemption ends by 70 m: far trunks against the glare took half the floor's haze and stood dark in front of it like cut-outs
     // Leaves stop short of the bloom threshold (2, linear): a crown against the sun blazed past it and the bloom spread every
     // back-lit card into one even yellow haze with no dark core. Clamped by luminance, so the hue holds.
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `outgoingLight = mix(vec3(dot(outgoingLight, vec3(.2126, .7152, .0722))), outgoingLight, .78);   // w6 verdicts: every crown one oversaturated lime; a real crown's light and shade are greyer than its albedo
@@ -701,7 +696,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // ~1-1.5 m across cut through the outer third of the crown, fixed to the crown (crown-space noise), so the shell breaks
       // into separate clumps with the dark interior showing between them and sky through the rim
       { float nearK = 1. - smoothstep(20., 45., length(vViewPosition));   // w6-2: the framing crown seen from below stayed one dark solid underside (its leaves sit at half depth, under the cut): a near crown's pockets now run through its heart too, so sky shows through it
-        if (crownN * max(smoothstep(.45, .95, crownDepth), CROWN_CORE_CUT * nearK) > .47 - .14 * nearK) diffuseColor.a = 0.; }   // near crowns (the framing tree over the tee) open wider: w6 "solid lumpy blobs, almost no sky holes". Colour pass only: the shadow keeps its own cut
+        if (crownN * max(smoothstep(.45, .95, crownDepth), CROWN_CORE_CUT * nearK) > .47 - .09 * nearK) diffuseColor.a = 0.; }   // near crowns (the framing tree over the tee) open wider: w6 "solid lumpy blobs, almost no sky holes". Colour pass only: the shadow keeps its own cut
       diffuseColor.a = smoothstep(.25, .75, diffuseColor.a); if (diffuseColor.a < .01) discard;
       #else
       #include <alphatest_fragment>
@@ -725,11 +720,10 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
   // conifers sit darker than the broadleaves (a deep green, not grey-blue); stands drift yellower or bluer, lighter or darker by
-  // about 12%, and each tree differs from its neighbours by as much again, so no two crowns in a row read the same (w11: the
-  // hue swing olive to blue-green widened ~1.7x, as the canopy shader's desaturation had left every crown one green).
+  // about 12%, and each tree differs from its neighbours by as much again, so no two crowns in a row read the same.
   const KIND_TINT = { spruce: [.78, .9, .8], scots: [.84, .88, .76] };
   const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5 + (noise(s.x * .53 + 7, s.z * .53 + 3) - .5) * .8, k = KIND_TINT[s.kind] || [1, 1, 1];
-    return col.setRGB((1.14 + h * .3) * k[0], 1.02 * k[1], (.74 - h * .36) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.88 + noise(s.x * .61 + 11, s.z * .61 + 17) * .26)); };
+    return col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.88 + noise(s.x * .61 + 11, s.z * .61 + 17) * .26)); };
   // Bark differs tree to tree as well (a stem greyer or redder, lighter or darker by ~15%), so a stand is not one repeated pole.
   const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = (.85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3) * (s.kind === 'birch' ? .62 + noise(s.x * .29 + 9, s.z * .29 + 2) * .25 : 1); return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
   for (const b of bushes) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
