@@ -552,8 +552,9 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // widening past it rather than cropping under P.vmin tall (29° on a short phone, whose swipe ring takes the frame's lower
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
-const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 3.1, side: 1.35, lo: .9, hi: 2.3, eye: .6, band: .1, base: -.72, x: .03, nudge: [-.05, .15], hfov: 42, vmin: 10 },
+const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 3.1, side: 1.35, lo: .9, hi: 2.3, eye: .55, band: .16, base: -.72, x: .03, nudge: [-.05, .15], hfov: 42, vmin: 10 },
   tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
+// w7-3 camera verdicts (won 4/4, narrow): "his head almost touches the top edge", "the basket sits a little low over empty dirt": eyes .6 -> .55 (head top ~12%) and band .1 -> .16 (the lid ~42% down, as in the reference), so the rig rises a little and the basket stands higher over less dirt.
 AIM.puttS = { ...AIM.putt, back: 2.3, side: 1.2, hi: 1.9, hfov: 50, eye: .6, band: -.02, base: -.64, x: .24 };   // a short phone: the swipe pill and ring fill the lower third's middle, so the pin stands further left (38%) with its base plate beside them
 function aimFrame(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = portrait ? AIM.tall[putt ? 'putt' : 'drive'] : putt ? innerHeight > 520 ? AIM.putt : AIM.puttS : AIM.drive;
@@ -832,5 +833,5 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
 }, 60);
