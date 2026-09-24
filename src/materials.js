@@ -59,6 +59,7 @@ float gBreak(vec2 p){return gNoise(p*1.3+5.)-.5;}
 #define gThin(p) 0.
 #define gSpot(p,edge) vec2(0.)
 #define gEdge(g,trail) 0.
+#define gWorn(p) smoothstep(.5,.78,gNoise(p/7.+91.))
 #else
 #define gThin(p) (1.-smoothstep(.36,.62,gNoise(p/3.2+51.)*.45+gNoise(p/14.+83.)*.55))   /* 3 m and 15 m lumpy patches of thin, sun-dried turf between lush ones: value and height, not just hue */
 vec2 gSpot(vec2 p,float edge){   // sparse bare-soil scuffs (x) and clover/broadleaf weed mats (y), 0.5-1.2 m, one per 2.4 m cell at most; thicker along trail and apron edges
@@ -72,6 +73,7 @@ vec2 gCell(vec2 p){   // Voronoi: x = F2-F1 (0 on a border between two tufts), y
     if(d<d1){d2=d1;d1=d;id=gHash(i+g+71.3);}else d2=min(d2,d);}
   return vec2(sqrt(d2)-sqrt(d1),id);
 }
+#define gWorn(p) smoothstep(.47,.76,gNoise(p/7.+91.)*.7+gNoise(p/1.5+37.)*.3)   /* scattered worn, sun-scorched patches 2-8 m across, frayed at 1.5 m: straw through the green */
 #define gPatchy(p) (gNoise(p/5.3+71.)*.65+gNoise(p/1.7+13.)*.35)
 #define gOlive .62
 float gBreak(vec2 p){return gNoise(p*1.3+5.)*.6+gNoise(p*4.1+17.)*.4-.5;}   // fingers along every splat edge
@@ -89,6 +91,7 @@ vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-4
   c*=mix(vec3(.62,.8,.78),vec3(1.22,1.12,.72),smoothstep(.28,.72,gPatchy(p)));   // lush blue-green in the damp, sun-baked yellow-green on the crowns: a lawn is never one green at 640 px
   c*=1.+(smoothstep(-.03,.03,abs(fract(turf.y/7.)-.5)-.25)-.5)*mix(.14,.32,turf.x);   // 3.5 m mown stripes with a mower's crisp edge, fainter in the rough
   c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
+  float wn=gWorn(p);c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.4,1.15,.6),wn*.7)*(1.-wn*.16);   // worn patches go straw-olive and a touch darker (thin cover shows thatch)
   return mix(vec3(dot(c,vec3(.3,.59,.11))),c,gOlive)*vec3(1.05,1.,.9);   // summer olive, not lime: a fifth less saturation, a touch warmer
 }`;
 // Full also shades a contact band where each tee pad meets the ground (pads: [x, z, cos yaw, sin yaw], 1.6 x 3.2 m).
@@ -119,7 +122,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         float lv=clamp(log2(fw*14./.3),0.,6.),l0=floor(lv),lt=lv-l0,s0=.3*exp2(l0);   // tufts stay ~14 px wide at every distance (7 at the critics' 640 px): a fine octave hands over to one twice as coarse instead of fading to a smooth mean, so the far hill keeps its clumps
         vec2 k0=gCell(p/s0+l0*17.),k1=gCell(p/(s0*2.)+l0*17.+17.);
         float gp=mix(1.-smoothstep(0.,.07+fw*1.4/s0,k0.x),1.-smoothstep(0.,.07+fw*.7/s0,k1.x),lt),cl=mix(k0.y,k1.y,lt)*(1.-gp*.75);   // dark soil and shadow between tufts; each tuft its own vigour
-        c=mix(c*mix(.82,1.26,smoothstep(.3,.85,cl)),mix(c*.42,${vec3s([.15, .095, .05])},dry*.7),(1.-smoothstep(.12,.35,cl))*.8);   // light clumps over dark thatch, bare soil where it is dry: what a photo tile averaged to its mean cannot show at 20 m
+        c=mix(c*mix(.82,1.26,smoothstep(.3,.85,cl)),mix(c*.42,${vec3s([.15, .095, .05])},max(dry,gWorn(p)*.6)*.7),(1.-smoothstep(.12,.35,cl))*.8);   // light clumps over dark thatch, bare soil where it is dry: what a photo tile averaged to its mean cannot show at 20 m
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.25,1.12,.6),smoothstep(.75,1.,cl)*.3);   // the odd tuft gone to seed, olive-tan
         br+=(cl-.45)*1.1;   // every cover edge frays at clump scale: tufts into the gravel, bare fingers into the turf
         vec2 sp=gSpot(p,gEdge(vSplat.x,vTurf.zw));
@@ -142,7 +145,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         c*=1.-.45*(1.-smoothstep(0.,.25,pd));   // contact shade where the pad sits on the ground`}
         diffuseColor.rgb=c; }`);
   };
-  material.customProgramCacheKey = () => 'chains-ground-v9' + (lite ? '-lite' : '');
+  material.customProgramCacheKey = () => 'chains-ground-v10' + (lite ? '-lite' : '');
   return material;
 }
 
