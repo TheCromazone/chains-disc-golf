@@ -585,14 +585,17 @@ const dodge = { key: '', ds: 0 };
 // so the establishing shot has sky over the tree line and the fairway running from the pad to the target up the middle
 // (from 13 m up, looking ~30° down an uphill hole, the frame was all turf with the gantry and pin pinned under its top edge).
 const INTRO = { back: 20, side: 1.5, up: 7, ahead: 40, lift: 1.5 };   // far enough back that the group waiting by the pad stands whole in frame
-// The hole flyover (the Disc Golf Masters intro flies the hole from the tee to the basket; ours used to creep 4.7 s round the pad
-// and never showed the target). It opens on that establishing drone, easing forward and down toward the tee exactly as before,
-// so the frame at 1.7 s is unchanged; from there it carries on out over the fairway, climbing to ~10 m (clear over the event
-// arch's banner, never through it), down the hole's own line to a raised three-quarter view of the basket 11 m short of it,
-// holds, and the loop cuts to the tee's aim frame. One centripetal Catmull-Rom in space walked by arc length on one Hermite
-// in time whose start speed is the push-in's at 1.7 s, so the move neither lurches nor stops; span by length, under 8 s.
-const INTRO_T1 = 1.7, INTRO_HOLD = .8, introSpan = h => Math.min(5, Math.max(4, h.len / 17)), introDur = h => INTRO_T1 + introSpan(h) + INTRO_HOLD;
+// The hole flyover (the Disc Golf Masters intro flies the hole from the tee to the basket). It opens on that establishing
+// drone, easing forward and down toward the tee exactly as before, so the frame at 1.7 s is unchanged; from there one line
+// carries on out over the event arch's banner (never through it) and glides down the fairway (w12 critics: "plunges into the
+// woods at ground level with the heading wandering", "lands against the side of a tree", "never lands on the basket"): a gentle
+// descent from ~10 m over the arch to ~4 m over the turf, under the crowns, riding the ground's humps, the eyes locked on the basket from the
+// arch on so the heading never swings, each key shifted off the line only where a crown blocks the leg in (and then kept
+// near the last key's shift), to a basket-centred view 6.5 m short of it, held a beat; a white flash takes it back to the tee.
+// One centripetal Catmull-Rom in space walked by arc length on one Hermite in time whose start speed is the push-in's at 1.7 s.
+const INTRO_T1 = 1.7, INTRO_HOLD = 1.1, INTRO_FLASH = .16, introSpan = h => Math.min(4.6, Math.max(3.8, h.len / 19)), introDur = h => INTRO_T1 + introSpan(h) + INTRO_HOLD;
 const intro = { key: '' };
+const flashEl = document.body.appendChild(Object.assign(document.createElement('div'), { style: 'position:fixed;inset:0;z-index:19;background:#fff;opacity:0;pointer-events:none' })); let flashA = 0;
 function wayAt(h, a) {   // the hole's own line (tee, dogleg, basket) a metres from the tee: [x, z, ux, uz]
   const w = h.way; let i = 0;
   for (; i < w.length - 2; i++) { const L = Math.hypot(w[i + 1][0] - w[i][0], w[i + 1][1] - w[i][1]); if (a <= L) break; a -= L; }
@@ -614,30 +617,34 @@ function introPath(h, t, pos, look) {
     const v1 = 4 * INTRO_T1 / 4.7 ** 2 * P0.distanceTo(_v2);   // the push-in's speed at 1.7 s
     const Lw = h.way.reduce((s, q, i) => i ? s + Math.hypot(q[0] - h.way[i - 1][0], q[1] - h.way[i - 1][1]) : 0, 0);
     const gnd = (x, z) => Math.max(world.height(x, z), world.height(x + 5, z), world.height(x - 5, z), world.height(x, z + 5), world.height(x, z - 5));   // rides over humps, never into them
-    const over = (x, y, z) => (world.capsules || []).reduce((m, c) => Math.min(Math.hypot(c.a[0] - x, c.a[2] - z), Math.hypot(c.b[0] - x, c.b[2] - z)) < 14 ? Math.max(m, c.a[1] + c.r + 3.5, c.b[1] + c.r + 3.5) : m, y);   // 3.5 m over the arch's beam
-    const at = (a, up, from, to) => {   // over the line a m out, shifted (<= 5 m) or raised where the crowns leave the leg in and the view on clear: past the arch it drops to ~5 m, under the crowns that meet over a narrow fairway at 10 m
-      let best = null, sc = -1;
-      for (const [side, dy] of [[0, 0], [-2.5, 0], [2.5, 0], [0, -1.5], [0, 2.5], [-5, 0], [5, 0], [-2.5, 2.5], [2.5, 2.5]]) {
-        const [x0, z0, wx, wz] = wayAt(h, a), x = x0 - wz * side, z = z0 + wx * side, y = over(x, gnd(x, z) + up + dy, z);
-        const q = clearFraction(world, from.x, from.y, from.z, x, y, z, .8, 0, 1.5) + clearFraction(world, x, y, z, to.x, to.y, to.z, .8, 0, 1.5) - Math.abs(side) * .03 - Math.abs(dy) * .01;   // the centre line unless a crown really blocks it
-        if (q > sc + 1e-3) { sc = q; best = new THREE.Vector3(x, y, z); }
+    const over = (x, y, z) => (world.capsules || []).reduce((m, c) => Math.min(Math.hypot(c.a[0] - x, c.a[2] - z), Math.hypot(c.b[0] - x, c.b[2] - z)) < 9 ? Math.max(m, c.a[1] + c.r + 3.5, c.b[1] + c.r + 3.5) : m, y);   // 3.5 m over the arch's beam (only near it: past it the line drops under the crowns)
+    const B = new THREE.Vector3(h.basket[0], h.basketY + .9, h.basket[1]);
+    let s0 = 0;
+    const at = (a, up, from, g = gnd) => {   // over the line a m out: a clear leg in first, then room from the crowns beside it (w12: "a tree canopy covers the left 40% of the frame"), then the smallest move off the last key's shift
+      let best = null, sc = -1e9, bs = 0;
+      for (const side of [0, -1.5, 1.5, -3, 3, -4.5, 4.5]) for (const dy of [0, 1, 2, 4]) {
+        const [x0, z0, wx, wz] = wayAt(h, a), x = x0 - wz * side, z = z0 + wx * side, y = over(x, g(x, z) + up + dy, z);
+        const room = world.treesNear(x, z).reduce((m, t) => t.y + t.fy - t.fr < y + 3 ? Math.min(m, Math.hypot(t.x - x, t.z - z) - t.fr) : m, 5);   // metres to the nearest crown low enough to fill the frame's side
+        const inside = world.treesNear(x, z).reduce((m, t) => Math.min(m, Math.hypot(t.x - x, t.z - z, y - t.y - t.fy) - t.fr * 1.2), 1);   // < 0: the key itself sits in a crown (the leg's cast only docks 5% for a hit at its far end)
+        const q = clearFraction(world, from.x, from.y, from.z, x, y, z, .8, 0, 1.5) + Math.max(0, room) * .08 + Math.min(0, inside) - Math.abs(side - s0) * .03 - Math.abs(side) * .02 - dy * .04;
+        if (q > sc + 1e-3) { sc = q; best = new THREE.Vector3(x, y, z); bs = side; }
       }
-      return best;
+      s0 = bs; return best;
     };
-    const lookAt = a => { const [x, z] = wayAt(h, Math.min(a, Lw)); return new THREE.Vector3(x, world.height(x, z) + 1, z); };
-    const [, , ux, uz] = wayAt(h, Lw), rb = rightOf([ux, uz]), B = new THREE.Vector3(h.basket[0], h.basketY + .9, h.basket[1]);
-    let P4 = null, best = -1;
-    for (const sg of [1, -1]) {   // the basket's three-quarter view from whichever side the woods leave open
-      const x = h.basket[0] - ux * 9.5 + rb[0] * 3.5 * sg, z = h.basket[1] - uz * 9.5 + rb[1] * 3.5 * sg, y = Math.max(h.basketY + 4.6, world.height(x, z) + 3.6);
-      const fr = clearFraction(world, B.x, B.y, B.z, x, y, z, .8); if (fr > best + .05) { best = fr; P4 = new THREE.Vector3(x, y, z); }
+    const a2 = Math.min(Math.max(14, Lw * .36), Lw * .6), aE = Lw - 6.5, n = Math.max(1, Math.round((aE - a2) / 12)), K = [P1, at(a2, 10, P1)];   // over the arch, then a key every ~12 m
+    for (let i = 1; i < n; i++) K.push(at(a2 + (aE - a2) * i / n, 4, K[K.length - 1], world.height));
+    const [, , ux, uz] = wayAt(h, Lw), rb = rightOf([ux, uz]); let P4 = null, best = -1;
+    for (const sg of [0, 1.5, -1.5, 3, -3]) {   // the basket straight ahead, from wherever the woods leave the view open
+      const x = h.basket[0] - ux * 6.5 + rb[0] * sg, z = h.basket[1] - uz * 6.5 + rb[1] * sg, y = Math.max(h.basketY + 1.9, world.height(x, z) + 1.7);
+      const fr = clearFraction(world, B.x, B.y, B.z, x, y, z, .8) - Math.abs(sg) * .02; if (fr > best + .05) { best = fr; P4 = new THREE.Vector3(x, y, z); }
     }
-    const a2 = Math.max(14, Lw * .36), a3 = Lw * .53, a4 = Lw * .7, l2 = lookAt(a2 + 32), l3 = lookAt(a3 + 27), l4 = lookAt(a4 + 22), K2 = at(a2, 10, P1, l2), K3 = at(a3, 5, K2, l3), K4 = at(a4, 5.5, K3, l4);
-    intro.pos = new THREE.CatmullRomCurve3([P1, K2, K3, K4, P4], false, 'centripetal');
-    intro.look = new THREE.CatmullRomCurve3([L1, l2, l3, l4, B], false, 'centripetal');
+    K.push(P4);
+    intro.pos = new THREE.CatmullRomCurve3(K, false, 'centripetal'); intro.L1 = L1; intro.B = B;
+    intro.look = h.way.length > 2 ? new THREE.CatmullRomCurve3([L1, ...Array.from({ length: n }, (_, i) => { const [x, z] = wayAt(h, Math.min(a2 + (aE - a2) * i / n + 25, Lw)); return new THREE.Vector3(x, world.height(x, z) + 1.5, z); }), B], false, 'centripetal') : null;   // a dogleg's eyes follow its bend (locked on the basket they would stare into the woods)
     intro.m0 = Math.min(1.5, v1 * introSpan(h) / intro.pos.getLength()); intro.key = key;
   }
   const s = Math.min(1, (t - INTRO_T1) / introSpan(h)), e = Math.min(1, (s * s * s - 2 * s * s + s) * intro.m0 + s * s * (3 - 2 * s));   // Hermite: leaves at the push-in's speed, settles to rest on the basket
-  intro.pos.getPointAt(e, pos); intro.look.getPointAt(e, look);
+  intro.pos.getPointAt(e, pos); if (intro.look) intro.look.getPointAt(e, look); else look.lerpVectors(intro.L1, intro.B, THREE.MathUtils.smoothstep(e, 0, .3));   // the eyes slide down the line on to the basket and stay there
   return f0 + (aimFov - f0) * u;
 }
 // Disc flight camera (the critics: "it flies itself into the scenery instead of following the disc"; it used to trail a
@@ -798,7 +805,9 @@ function loop() {
     }
   }
   if (!course) return;
-  if (G.phase === 'intro') { G.introT += dt; if (G.introT > introDur(holes[G.holeIdx]) || G.inbox.length) { nextTurn(); cam.snap = true; } }   // a hard cut from the basket back to the tee, as the broadcast does
+  if (G.phase === 'intro') { G.introT += dt; if (G.introT > introDur(holes[G.holeIdx]) || G.inbox.length) { nextTurn(); cam.snap = true; } }   // the cut from the basket back to the tee, under the flash
+  { const a = G.phase === 'intro' ? .7 * THREE.MathUtils.smoothstep(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH, introDur(holes[G.holeIdx])) : Math.max(0, flashA - dt / .2);   // the broadcast's white flash: up over the held basket, down over the tee
+    if (a !== flashA) flashEl.style.opacity = flashA = a; }
   if (G.inbox.length && G.phase === 'aim' && G.mode === 'online') applyRemoteThrow(G.inbox.shift());
   if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
   if (G.pending && (G.phase === 'release' || G.phase === 'flight' || G.phase === 'result')) {
