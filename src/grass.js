@@ -75,7 +75,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         float sc=k*step(mix(.06,.5,fract(aRoot.z*5.3)),grow)*step(fract(aBlade.y*13.1+aRoot.z*7.3),keep),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // each clump gives up at its own point of the thinning into path, gravel and litter: a ragged edge of whole tufts, not a fade
         float hs=mix(.9+cl*.8,.55+cl*.4,fair)*(.8+.4*fract(aRoot.z*13.7))*sc;   // x the 4.5-10 cm blades, in 0.3-1 m clumps: rough 3-17 cm, fairway 2-9 cm
         hs*=1.+(1.-smoothstep(.5,.9,grow))*(.6+cl*1.4);
-        hs*=mix(1.1,.7,gThin(root))*(1.-spot.y*.55);   // thin patches stand lower as well as paler   // the fringe a mower misses stands taller: tufts to 40 cm along every trail, apron and bed edge
+        hs*=mix(1.1,.7,gThin(root))*(1.-spot.y*.55)*(1.-gWorn(root)*.3);   // thin patches stand lower as well as paler   // the fringe a mower misses stands taller: tufts to 40 cm along every trail, apron and bed edge
         float yaw=aRoot.z*6.2832,cs=cos(yaw),sn=sin(yaw);mat2 R=mat2(cs,sn,-sn,cs);
         vec3 bp=position*vec3(1.,hs,1.);bp.xz=R*(position.xz*(1.+aRoot.w)+aSide*max(1.,dCam/6.)*mix(.4,1.,sc));   // far blades widen to stay a pixel wide
         float t=aBlade.x,t2=t*hs,gust=.55+.45*sin(windTime*3.1+root.x*.31-root.y*.27);
