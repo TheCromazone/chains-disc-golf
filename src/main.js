@@ -5,6 +5,7 @@ import { createCharacter, DEFAULT_AVATAR, AVATAR_OPTIONS, randomAvatar } from '.
 import { loadManifest, asset } from './assets.js';
 import { loadModels, modelStatus } from './models.js';
 import { createDiscMesh, setDiscPose } from './disc.js';
+import { clearFraction } from './cam-collide.js';
 import { createPuffs } from './puffs.js';
 import { createWindFx } from './wind.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
@@ -378,7 +379,7 @@ function launchNow() {
 function updateFlight(dt) {
   const f = G.flight, p = G.players[f.pi], n = f.traj.length;
   const chainAt=f.events.find(e=>e[1]==='chains')?.[0];
-  f.playbackRate=chainAt!==undefined && f.t>chainAt-.15 && f.t<chainAt+.40 ? .28 : 1;
+  f.playbackRate=chainAt!==undefined && f.t>chainAt-.15 && f.t<chainAt+.40 ? .28 : f.params.throwType==='putt' ? 1 : CHASE.rate;
   dt*=f.playbackRate; f.t += dt;
   const fi = f.t * 60, i = Math.min(Math.floor(fi), n - 1), a = f.traj[i], b = f.traj[Math.min(i + 1, n - 1)], u = Math.min(1, fi - i);
   const pos = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
@@ -419,6 +420,7 @@ function resolveThrow(pi, r) {
   p.marker.position.set(p.lie[0], world.height(p.lie[0], p.lie[2]) + 0.04, p.lie[2]); p.marker.visible = !p.done;
   if (p.done) setTimeout(() => { if (p.done) p.discMesh.visible = false; }, 2500);
   UI.toast(title, sub, 2000); UI.setHud({ dist: p.lieDist });
+  cam.hold = r.holed ? null : { fov: cam.fov, shift: cam.shift };   // a miss holds the landing shot (or the putt's locked frame); only a holed throw cuts to the reaction
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
   setTimeout(() => { if (G.phase === 'result') { UI.fade(true); setTimeout(() => { nextTurn(); UI.fade(false); }, 320); } }, 2000);
@@ -583,6 +585,122 @@ const dodge = { key: '', ds: 0 };
 // so the establishing shot has sky over the tree line and the fairway running from the pad to the target up the middle
 // (from 13 m up, looking ~30° down an uphill hole, the frame was all turf with the gantry and pin pinned under its top edge).
 const INTRO = { back: 20, side: 1.5, up: 7, ahead: 40, lift: 1.5 };   // far enough back that the group waiting by the pad stands whole in frame
+// The hole flyover (the Disc Golf Masters intro flies the hole from the tee to the basket; ours used to creep 4.7 s round the pad
+// and never showed the target). It opens on that establishing drone, easing forward and down toward the tee exactly as before,
+// so the frame at 1.7 s is unchanged; from there it carries on out over the fairway, climbing to ~10 m (clear over the event
+// arch's banner, never through it), down the hole's own line to a raised three-quarter view of the basket 11 m short of it,
+// holds, and the loop cuts to the tee's aim frame. One centripetal Catmull-Rom in space walked by arc length on one Hermite
+// in time whose start speed is the push-in's at 1.7 s, so the move neither lurches nor stops; span by length, under 8 s.
+const INTRO_T1 = 1.7, INTRO_HOLD = .8, introSpan = h => Math.min(5, Math.max(4, h.len / 17)), introDur = h => INTRO_T1 + introSpan(h) + INTRO_HOLD;
+const intro = { key: '' };
+function wayAt(h, a) {   // the hole's own line (tee, dogleg, basket) a metres from the tee: [x, z, ux, uz]
+  const w = h.way; let i = 0;
+  for (; i < w.length - 2; i++) { const L = Math.hypot(w[i + 1][0] - w[i][0], w[i + 1][1] - w[i][1]); if (a <= L) break; a -= L; }
+  const p = w[i], q = w[i + 1], L = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, ux = (q[0] - p[0]) / L, uz = (q[1] - p[1]) / L;
+  return [p[0] + ux * a, p[1] + uz * a, ux, uz];
+}
+function introPath(h, t, pos, look) {
+  const d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
+  const r = rightOf(d), I = INTRO, f0 = baseFov(), u = ease(Math.min(t, INTRO_T1) / 4.7);
+  _v.set(h.tee[0], h.teeY, h.tee[1]); const aimFov = aimFrame(_v, d, false, _v2, _v3);   // the old push-in's landing: the tee's aim camera
+  const P0 = _v.set(h.tee[0] - d[0] * I.back - r[0] * I.side, h.teeY + I.up, h.tee[1] - d[1] * I.back - r[1] * I.side), ax = h.tee[0] + d[0] * I.ahead, az = h.tee[1] + d[1] * I.ahead;
+  if (t <= INTRO_T1) {
+    pos.lerpVectors(P0, _v2, u); look.set(ax, world.height(ax, az) + I.lift, az).lerp(_v3, u);
+    pos.y = Math.max(pos.y, world.height(pos.x, pos.z) + 1.6); return f0 + (aimFov - f0) * u;
+  }
+  const key = `${G.holeIdx}:${h.tee}:${camera.aspect.toFixed(3)}:${innerHeight}`;
+  if (intro.key !== key) {
+    const P1 = new THREE.Vector3().lerpVectors(P0, _v2, u), L1 = new THREE.Vector3(ax, world.height(ax, az) + I.lift, az).lerp(_v3, u); P1.y = Math.max(P1.y, world.height(P1.x, P1.z) + 1.6);
+    const v1 = 4 * INTRO_T1 / 4.7 ** 2 * P0.distanceTo(_v2);   // the push-in's speed at 1.7 s
+    const Lw = h.way.reduce((s, q, i) => i ? s + Math.hypot(q[0] - h.way[i - 1][0], q[1] - h.way[i - 1][1]) : 0, 0);
+    const gnd = (x, z) => Math.max(world.height(x, z), world.height(x + 5, z), world.height(x - 5, z), world.height(x, z + 5), world.height(x, z - 5));   // rides over humps, never into them
+    const over = (x, y, z) => (world.capsules || []).reduce((m, c) => Math.min(Math.hypot(c.a[0] - x, c.a[2] - z), Math.hypot(c.b[0] - x, c.b[2] - z)) < 14 ? Math.max(m, c.a[1] + c.r + 3.5, c.b[1] + c.r + 3.5) : m, y);   // 3.5 m over the arch's beam
+    const at = (a, up, from, to) => {   // over the line a m out, shifted (<= 5 m) or raised where the crowns leave the leg in and the view on clear: past the arch it drops to ~5 m, under the crowns that meet over a narrow fairway at 10 m
+      let best = null, sc = -1;
+      for (const [side, dy] of [[0, 0], [-2.5, 0], [2.5, 0], [0, -1.5], [0, 2.5], [-5, 0], [5, 0], [-2.5, 2.5], [2.5, 2.5]]) {
+        const [x0, z0, wx, wz] = wayAt(h, a), x = x0 - wz * side, z = z0 + wx * side, y = over(x, gnd(x, z) + up + dy, z);
+        const q = clearFraction(world, from.x, from.y, from.z, x, y, z, .8, 0, 1.5) + clearFraction(world, x, y, z, to.x, to.y, to.z, .8, 0, 1.5) - Math.abs(side) * .01 - Math.abs(dy) * .01;
+        if (q > sc + 1e-3) { sc = q; best = new THREE.Vector3(x, y, z); }
+      }
+      return best;
+    };
+    const lookAt = a => { const [x, z] = wayAt(h, Math.min(a, Lw)); return new THREE.Vector3(x, world.height(x, z) + 1, z); };
+    const [, , ux, uz] = wayAt(h, Lw), rb = rightOf([ux, uz]), B = new THREE.Vector3(h.basket[0], h.basketY + .9, h.basket[1]);
+    let P4 = null, best = -1;
+    for (const sg of [1, -1]) {   // the basket's three-quarter view from whichever side the woods leave open
+      const x = h.basket[0] - ux * 9.5 + rb[0] * 3.5 * sg, z = h.basket[1] - uz * 9.5 + rb[1] * 3.5 * sg, y = Math.max(h.basketY + 4.6, world.height(x, z) + 3.6);
+      const fr = clearFraction(world, B.x, B.y, B.z, x, y, z, .8); if (fr > best + .05) { best = fr; P4 = new THREE.Vector3(x, y, z); }
+    }
+    const a2 = Math.max(14, Lw * .36), a3 = Lw * .53, a4 = Lw * .7, l2 = lookAt(a2 + 32), l3 = lookAt(a3 + 27), l4 = lookAt(a4 + 22), K2 = at(a2, 10, P1, l2), K3 = at(a3, 5, K2, l3), K4 = at(a4, 5.5, K3, l4);
+    intro.pos = new THREE.CatmullRomCurve3([P1, K2, K3, K4, P4], false, 'centripetal');
+    intro.look = new THREE.CatmullRomCurve3([L1, l2, l3, l4, B], false, 'centripetal');
+    intro.m0 = Math.min(1.5, v1 * introSpan(h) / intro.pos.getLength()); intro.key = key;
+  }
+  const s = Math.min(1, (t - INTRO_T1) / introSpan(h)), e = Math.min(1, (s * s * s - 2 * s * s + s) * intro.m0 + s * s * (3 - 2 * s));   // Hermite: leaves at the push-in's speed, settles to rest on the basket
+  intro.pos.getPointAt(e, pos); intro.look.getPointAt(e, look);
+  return f0 + (aimFov - f0) * u;
+}
+// Disc flight camera (the critics: "it flies itself into the scenery instead of following the disc"; it used to trail a
+// fixed 9 m behind on a lagging lerp, so it rushed the tee arch and dived into the hill). It holds the aim frame for the
+// follow-through, then blends (with a lift over the athlete's head) into a chase CHASE.back behind and CHASE.up over the disc,
+// looking a little ahead of it along its heading so the disc sits in the frame's centre third. The chase is placed on the disc
+// every frame (no lag); only the heading is smoothed. Each frame the segment from the disc out to the wanted spot is cast
+// against trunks, crowns, the arch and the ground (cam-collide.js); a hit pulls the camera in fast and it lets out slowly.
+// Around touchdown (known ahead: the flight is simulated before it plays) it eases into a raised three-quarter shot that
+// frames where the disc comes to rest with the basket beyond it, and a miss holds that shot through the result.
+// Disc glint: a soft warm highlight on the disc in flight (a 21 cm disc is a ~12 px fleck at the critics' 640 px), a constant
+// ~3.5% of the frame tall however far it is; it dims once the disc is down. One sprite, drawn only while a drive flies.
+const glintCanvas = document.createElement('canvas'); glintCanvas.width = glintCanvas.height = 64;
+{ const g = glintCanvas.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,250,235,.85)'); r.addColorStop(.22, 'rgba(255,240,210,.35)'); r.addColorStop(1, 'rgba(255,230,190,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }
+const glint = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(glintCanvas), blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false, transparent: true }));
+glint.scale.setScalar(.05); glint.visible = false; glint.renderOrder = 2; scene.add(glint);
+// Under the event arch the chase ducks: near the beam it stays 3 m under the banner's lower edge (the disc passes ~4 m
+// up, the banner's edge 6+), so the gate frames the fairway and the banner only grazes the top edge for an instant instead of
+// filling it (the critics: "flies straight into the tee arch"). Never below `floor` (just over the disc).
+function beamCeiling(x, z, floor) {
+  let y = Infinity;
+  for (const c of world.capsules || []) {
+    if (Math.abs(c.a[1] - c.b[1]) > .5) continue;   // the beam; the legs are upright
+    const ex = c.b[0] - c.a[0], ez = c.b[2] - c.a[2], s = Math.max(0, Math.min(1, ((x - c.a[0]) * ex + (z - c.a[2]) * ez) / (ex * ex + ez * ez || 1))), d = Math.hypot(x - c.a[0] - ex * s, z - c.a[2] - ez * s);
+    if (d < 25) y = Math.min(y, c.a[1] - c.r - 3.2 + Math.max(0, d - 1) * .3);
+  }
+  return Math.max(y, floor);
+}
+const CHASE = { hold: .25, blend: .6, back: 4.5, up: 1.5, lead: 3, lift: .5, land: .45, rate: .75 };   // rate: a drive plays at 3/4 speed, a 60 m drive hangs ~2.5 s as a real one does (the physics' 1.9 s read as a dolly shot)
+function flightPlan(f) {
+  const n = f.traj.length, R = f.traj[n - 1], S = f.traj[0], h = holes[G.holeIdx];
+  const e = f.events.find(e => /^(land|splash|flop|roll)$/.test(e[1])), tLand = e ? e[0] : n / 60;
+  const bx = h.basket[0] - R[0], bz = h.basket[1] - R[2], bd = Math.hypot(bx, bz), sd = Math.hypot(R[0] - S[0], R[2] - S[2]) || 1, fx = (R[0] - S[0]) / sd, fz = (R[2] - S[2]) / sd;
+  let ux = bd > 2 ? bx / bd : fx, uz = bd > 2 ? bz / bd : fz; if (ux * fx + uz * fz < -.2) { ux = fx; uz = fz; }   // past the pin: keep looking the way it flew, never swing round
+  const rs = rightOf([ux, uz]), ry = R[1] + .1;
+  const pref = (S[0] - R[0]) * rs[0] + (S[2] - R[2]) * rs[1] > 0 ? 1 : -1, T = [h.basket[0], h.basketY + 1.3, h.basket[1]];
+  let LP = null, best = -Infinity;
+  for (const sd2 of [pref, -pref]) for (const up of [3.4, 4.6, 6]) {   // the side it came from first, raised until the basket shows over the crest
+    const x = R[0] - ux * 6 + rs[0] * 2.2 * sd2, z = R[2] - uz * 6 + rs[1] * 2.2 * sd2, y = Math.max(world.height(x, z) + up + .1, ry + up);
+    const fr = clearFraction(world, R[0], ry, R[2], x, y, z), q = Math.max(.45, fr), P = new THREE.Vector3(R[0] + (x - R[0]) * q, ry + (y - ry) * q, R[2] + (z - R[2]) * q);
+    const sight = bd > 2 && bd < 45 ? clearFraction(world, P.x, P.y, P.z, T[0], T[1], T[2], .2, .3, .7) : 1, score = fr * 2 + sight - (up - 3.4) * .06 - (sd2 !== pref) * .05;
+    if (score > best) { best = score; LP = P; }
+  }
+  // aim between the disc at rest and the basket so both hold the frame (the disc low, the pin and the tree line beyond it, not a wall of hillside); a far pin: down the line
+  const la = Math.min(bd * .45, 9), LL = new THREE.Vector3(R[0] + ux * la, ry + .25 + la * .06, R[2] + uz * la);
+  if (bd > 2 && bd < 45) { _v.set(R[0], ry, R[2]).sub(LP).normalize(); _v2.set(...T).sub(LP).normalize(); LL.copy(LP).addScaledVector(_v.multiplyScalar(.45).addScaledVector(_v2, .55).normalize(), 10); }
+  return { H: cam.pos.clone(), HL: cam.look.clone(), dir: new THREE.Vector3(f.params.dir[0], 0, f.params.dir[1]).normalize(), pull: 1, tLand, LP, LL };
+}
+function flightCam(f, dt) {
+  const D = f.pos, c = f.cam || (f.cam = flightPlan(f)), S = THREE.MathUtils.smoothstep;
+  _v3.set(f.hv[0], 0, f.hv[2]); if (_v3.lengthSq() > 1e-8) c.dir.lerp(_v3.normalize(), 1 - Math.exp(-4 * dt)).normalize();
+  const hv = c.dir; let cx = D[0] - hv.x * CHASE.back, cy = D[1] + CHASE.up, cz = D[2] - hv.z * CHASE.back;
+  const fr = clearFraction(world, D[0], D[1], D[2], cx, cy, cz, 1.2);   // wide of trunks and well under the arch's banner
+  c.pull += (fr - c.pull) * (1 - Math.exp(-(fr < c.pull ? 16 : 2.5) * dt));
+  const q = Math.max(.25, c.pull); cx = D[0] + (cx - D[0]) * q; cy = D[1] + (cy - D[1]) * q; cz = D[2] + (cz - D[2]) * q;
+  const ceil = beamCeiling(cx, cz, D[1] + .2), lift = CHASE.lift * Math.max(0, Math.min(1, (ceil - D[1] - 1) / 2));   // under the arch: level with the disc, the banner out of the top of frame
+  cy = Math.min(Math.max(cy, D[1] + 1), ceil); cy = Math.max(cy, world.height(cx, cz) + 1.5);
+  const w = S(f.t, CHASE.hold, CHASE.hold + CHASE.blend), wl = S(f.t, CHASE.hold * .5, CHASE.hold + CHASE.blend * .8), wg = S(f.t, c.tLand - CHASE.land, c.tLand + CHASE.land * 1.4);
+  cam.tPos.lerpVectors(c.H, _v.set(cx, cy, cz), w); cam.tPos.y += Math.sin(Math.PI * w) * 1.5;   // up and over the thrower's head
+  cam.tLook.lerpVectors(c.HL, _v2.set(D[0] + hv.x * CHASE.lead, D[1] + lift, D[2] + hv.z * CHASE.lead), wl);   // a little over the disc: the fairway ahead and the tree line, not a wall of hillside
+  if (wg > 0) { cam.tPos.lerp(c.LP, wg); cam.tLook.lerp(c.LL, wg); }
+  glint.material.opacity = 1 - .25 * wg;
+}
 function puttDodge(lie, P) {
   const h = holes[G.holeIdx], key = `${G.holeIdx}:${lie.x.toFixed(2)}:${lie.z.toFixed(2)}`;
   if (dodge.key === key) return dodge.ds;
@@ -607,7 +725,8 @@ function updateCamera(dt) {
   if (document.body.dataset.phase !== G.phase) document.body.dataset.phase = G.phase;
   frameInterface();
   const h = holes[G.holeIdx] || holes[0];
-  let k = 5, fov = baseFov(); cam.tShift = 0;   // only a landscape putt's aimFrame slides the lens
+  let k = 5, fov = baseFov(); cam.tShift = 0; glint.visible = cam.mode === 'flight' && !!G.flight?.pos; glint.material.opacity = 1;   // the putt's disc too: its short line into the chains reads
+  if (glint.visible) { const D = G.flight.pos; glint.position.set(D[0], D[1] + .02, D[2]); }   // only a landscape putt's aimFrame slides the lens
   if (cam.mode === 'menu') {   // clubhouse: a low portrait of the athlete cut at mid-thigh (key art's crop: never at a joint), basket over his off-shoulder, woods closing the top
     const { d, r } = menuStage, t = performance.now() / 1000, p = hero.group.position, wide = camera.aspect > 1.2, S = wide ? MENU.wide : MENU.portrait, sway = Math.sin(t * 0.18) * 0.06;
     // wide: the athlete centred in the view right of the panel (whatever its width); the axis swings left to put him there
@@ -629,18 +748,12 @@ function updateCamera(dt) {
   } else if (cam.mode === 'courses') {   // slow flyover of the whole course
     const t = performance.now() / 1000 * 0.06, cx = holes.reduce((a, h) => a + h.basket[0], 0) / holes.length, cz = holes.reduce((a, h) => a + h.basket[1], 0) / holes.length;
     cam.tPos.set(cx + Math.cos(t) * 170, world.height(cx, cz) + 95, cz + Math.sin(t) * 170); cam.tLook.set(cx, world.height(cx, cz), cz); k = 1.5;
-  } else if (cam.mode === 'intro') {   // flyover: a drone low behind the pad looking down the fairway (INTRO), easing forward and down into the tee's aim frame
-    const d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
-    const r = rightOf(d), u = ease(Math.min(1, G.introT / 4.7));
-    _v.set(h.tee[0], h.teeY, h.tee[1]); const aimFov = aimFrame(_v, d, false, _v2, _v3);   // landing = the aim camera on the tee, so the hand-off is seamless
-    const I = INTRO; _v.set(h.tee[0] - d[0] * I.back - r[0] * I.side, h.teeY + I.up, h.tee[1] - d[1] * I.back - r[1] * I.side); cam.tPos.lerpVectors(_v, _v2, u);
-    const ax = h.tee[0] + d[0] * I.ahead, az = h.tee[1] + d[1] * I.ahead; _v.set(ax, world.height(ax, az) + I.lift, az); cam.tLook.lerpVectors(_v, _v3, u);
-    cam.tPos.y = Math.max(cam.tPos.y, world.height(cam.tPos.x, cam.tPos.z) + 1.6); k = 1e3;   // no smoothing: the eased path is the motion
-    fov += (aimFov - fov) * u;
-  } else if (cam.mode === 'aim' || (cam.mode === 'result' && !G.flight)) {
+  } else if (cam.mode === 'intro') {   // the hole flyover (introPath)
+    fov = introPath(h, G.introT, cam.tPos, cam.tLook); k = 1e3;   // no smoothing: the eased path is the motion
+  } else if (cam.mode === 'aim' || (cam.mode === 'result' && !G.flight && !cam.hold) || (cam.mode === 'flight' && G.flight?.params.throwType === 'putt')) {   // a putt keeps its aim frame locked from the stroke into the chains, as the broadcast holds it
     const p = curP(); if (!p) return;
     const d = aimDir(), lie = p.char.group.position;
-    if (G.overview && cam.mode !== 'result') {
+    if (G.overview && cam.mode === 'aim') {
       const dist = Math.max(20, distToBasket(lie.x, lie.z));
       const mx = (lie.x + basketPos()[0]) / 2, mz = (lie.z + basketPos()[1]) / 2;
       cam.tPos.set(mx - d[0] * dist * 0.22, world.height(mx, mz) + Math.max(45, dist * 0.95), mz - d[1] * dist * 0.22); cam.tLook.set(mx, world.height(mx, mz), mz); k = 4;
@@ -650,16 +763,10 @@ function updateCamera(dt) {
     }
     else fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
-    const f = G.flight;
-    if (f && f.pos) {
-      _v3.set(f.hv[0], 0, f.hv[2]); if (_v3.lengthSq() > 1e-6) cam.lastHv.copy(_v3.normalize());
-      const hv = cam.lastHv, sp = Math.hypot(f.hv[0], f.hv[2]) * 60;
-      const back = f.playbackRate<1 ? 2.1 : 5.5 + Math.min(4, sp * 0.12);
-      cam.tPos.set(f.pos[0] - hv.x * back, f.pos[1] + 2.4, f.pos[2] - hv.z * back); cam.tLook.set(f.pos[0], f.pos[1] + 0.2, f.pos[2]); k = 6;
-      cam.tPos.y = Math.max(cam.tPos.y, world.height(cam.tPos.x, cam.tPos.z) + 1.7);
-    }
+    if (G.flight?.pos) { flightCam(G.flight, dt); k = 1e3; }
+    else if (cam.hold) { cam.tPos.copy(cam.pos); cam.tLook.copy(cam.look); fov = cam.hold.fov; cam.tShift = cam.hold.shift; }
   }
-  const a = 1 - Math.exp(-k * dt);
+  const a = cam.snap ? 1 : 1 - Math.exp(-k * dt); cam.snap = false;
   cam.pos.lerp(cam.tPos, a); cam.look.lerp(cam.tLook, a); cam.fov += (fov - cam.fov) * a; cam.shift += (cam.tShift - cam.shift) * a;
   const gy = world.height(cam.pos.x, cam.pos.z) + 0.7; if (cam.pos.y < gy) cam.pos.y = gy;
   camera.position.copy(cam.pos); camera.lookAt(cam.look);
@@ -690,7 +797,7 @@ function loop() {
     }
   }
   if (!course) return;
-  if (G.phase === 'intro') { G.introT += dt; if (G.introT > 4.7 || G.inbox.length) nextTurn(); }
+  if (G.phase === 'intro') { G.introT += dt; if (G.introT > introDur(holes[G.holeIdx]) || G.inbox.length) { nextTurn(); cam.snap = true; } }   // a hard cut from the basket back to the tee, as the broadcast does
   if (G.inbox.length && G.phase === 'aim' && G.mode === 'online') applyRemoteThrow(G.inbox.shift());
   if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
   if (G.pending && (G.phase === 'release' || G.phase === 'flight' || G.phase === 'result')) {
