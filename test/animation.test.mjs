@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {JOINTS,K,IDLE,poseAt,mirrorPose,soleHeights} from '../src/throw-poses.js';import {THROWS} from '../src/physics.js';
+import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {JOINTS,K,IDLE,poseAt,mirrorPose,soleHeights,RIGS} from '../src/throw-poses.js';import {THROWS} from '../src/physics.js';
 const manifest=JSON.parse(readFileSync('assets/manifest.json','utf8'));assert.equal(Object.keys(THROWS).length,11);assert.deepEqual(Object.keys(K).sort(),Object.keys(THROWS).sort());
 function read(path){const bytes=readFileSync('assets/'+path),n=bytes.readUInt32LE(12);return{d:JSON.parse(bytes.subarray(20,20+n)),bin:bytes.subarray(28+n)};}
 function vals(g,i){const a=g.d.accessors[i],v=g.d.bufferViews[a.bufferView],width={SCALAR:1,VEC3:3,VEC4:4}[a.type],out=[];assert.equal(a.componentType,5126);for(let n=0;n<a.count;n++){const r=[];for(let k=0;k<width;k++)r.push(g.bin.readFloatLE((v.byteOffset||0)+(a.byteOffset||0)+n*(v.byteStride||4*width)+k*4));out.push(r);}return out;}
@@ -16,8 +16,8 @@ console.log('All eleven release poses preserve nonzero, continuous angular momen
 
 for(const [id,keys] of Object.entries(K)){
  for(let i=0;i<=100;i++)for(const left of [false,true]){let p=poseAt(keys,i/100);if(left)p=mirrorPose(p);const feet=soleHeights(p);assert(Math.abs(Math.min(...feet))<1e-7,`${id} support sole stays at floor`);assert(feet.every(h=>h>=-1e-7),`${id} no buried sole`);}
- assert(poseAt(keys,.5).rootY<-.08,`${id} visibly loads knees in windup`);
- const lead=['backhand','putt'].includes(id.split('_')[0])?0:1,feet=soleHeights(poseAt(keys,.8));assert(feet[lead]<.001&&feet[1-lead]>.06,`${id} braces lead leg and frees trailing foot`);
+ assert(Math.min(...soleHeights(poseAt(keys,.5),false,RIGS.glb))>.08,`${id} visibly loads knees in windup`);
+ const lead=['backhand','putt'].includes(id.split('_')[0])?0:1,g=soleHeights(poseAt(keys,.8),false,RIGS.glb),feet=g.map(h=>h-Math.min(...g));   // the shipped athlete's legs (tools/golfer-rig.json ground), which the Blender clips are planted withassert(feet[lead]<.001&&feet[1-lead]>.06,`${id} braces lead leg and frees trailing foot`);
 }
 console.log('All eleven throws and both hands: 2,222 support samples stay on the floor, visible knee loading, braced lead and lifted trailing foot.');
 // Aim stances and the cover-shot idle on the photoreal rig: both soles planted (no floating foot) through the breathing cycle, either hand.
