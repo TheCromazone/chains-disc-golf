@@ -74,7 +74,8 @@ class LightShafts extends Pass {
     const sun = this.scene.userData.sun; if (!sun || !readBuffer.depthTexture) return;
     const facing = this.camera.getWorldDirection(_fwd).dot(sun.dir);
     _sun.copy(sun.dir).multiplyScalar(100).add(this.camera.position).project(this.camera);
-    const fade = THREE.MathUtils.smoothstep(facing, .2, .55) * (1 - THREE.MathUtils.smoothstep(Math.max(Math.abs(_sun.x), Math.abs(_sun.y)), 1.08, 1.3));   // further off frame the blur has no occluders left to cut, only a flat beam
+    const fade = THREE.MathUtils.smoothstep(facing, .2, .55) * (1 - THREE.MathUtils.smoothstep(Math.max(Math.abs(_sun.x), Math.abs(_sun.y)), 1.08, 1.3))   // further off frame the blur has no occluders left to cut, only a flat beam
+      * (1 - (sun.air?.value ?? 0) * (1 - (sun.putt?.shafts ?? 1)));   // round the pin only PUTT_AIR.shafts of it: the putt looks into the sun through the canopy and its streaks read as a milky wash over the woods (w11-1)
     if (fade <= 0) return;
     const u = this.u, auto = renderer.autoClear; renderer.autoClear = false;
     u.uSun.value.set(_sun.x * .5 + .5, _sun.y * .5 + .5); u.tDepth.value = readBuffer.depthTexture; u.tColor.value = readBuffer.texture;
