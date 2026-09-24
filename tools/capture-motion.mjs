@@ -186,19 +186,21 @@ try {
     // candidate grid, score and execution noise) run for that throw alone, so the flight is planned for the throw it really is.
     await js(`(async () => { const c = __chains, G = c.G, p = G.players[0], P = await import('/src/physics.js'), T = ${JSON.stringify(o.throw === 'bot' ? null : o.throw)};
       p.isBot = true; p.difficulty = ${JSON.stringify(o.difficulty)};
-      if (T) {
-        if (!P.THROWS[T]) throw new Error('--throw must be bot or one of ' + Object.keys(P.THROWS).join(','));
-        const replan = () => { const w = c.world, b = w.basket, L = p.lie, dx = b.x - L[0], dz = b.z - L[2], dist = Math.hypot(dx, dz), dir = [dx / dist, dz / dist], disc = P.discById(G.discId), lefty = p.appearance?.hand === 'left';
+      if (T && !P.THROWS[T]) throw new Error('--throw must be bot or one of ' + Object.keys(P.THROWS).join(','));
+      // the noise is drawn from its own stream at the wind-up: three's uuids for a material or texture first used during the 4 s
+      // before the bot plans (w10's shadow-pass material) shifted the shared stream and turned a made putt into a lob off the band
+      const replan = window.__replan = (T, seed, noise = 1) => { __motion.reseed(seed); const w = c.world, b = w.basket, L = p.lie, dx = b.x - L[0], dz = b.z - L[2], dist = Math.hypot(dx, dz), dir = [dx / dist, dz / dist], disc = P.discById(G.discId), lefty = p.appearance?.hand === 'left';
           const powers = dist > 82 ? [.8, .9, 1] : dist > 50 ? [.62, .75, .88, 1] : dist > 26 ? [.45, .58, .72, .86] : [.3, .36, .42, .48, .55, .63]; let best = null, low = Infinity;
           for (const yawOffset of [-28, -18, -9, 0, 9, 18, 28]) for (const power of powers) for (const hyzer of [0, 14]) {
             const r = P.simulate({ pos: [L[0], L[1] + 1.15, L[2]], dir, lefty, throwType: T, disc, power, yawOffset, hyzer }, w, { maxT: 12 }).result, s = r.dist + (r.ob ? 45 : 0) - (r.holed ? 1000 : 0);
             if (s < low) { low = s; best = { power, yawOffset, hyzer }; } }
-          const [ny, np, nh] = { easy: [7, .13, 8], medium: [3.5, .07, 4], hard: [1.4, .03, 1.5] }[p.difficulty] || [3.5, .07, 4], g = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;   // bot.js NOISE and gauss
+          const [ny, np, nh] = { easy: [7, .13, 8], medium: [3.5, .07, 4], hard: [1.4, .03, 1.5] }[p.difficulty] || [3.5, .07, 4], g = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15 * noise;   // bot.js NOISE and gauss
           return { power: Math.min(1, Math.max(.12, best.power + g() * np)), yawOffset: best.yawOffset + g() * ny, hyzer: best.hyzer + g() * nh, launchOffset: 0 }; };
+      if (T) {
         let tw = G.tween, plan = null;
         Object.defineProperty(G, 'throwType', { configurable: true, enumerable: true, get: () => T, set() {} });
         Object.defineProperty(G, 'tween', { configurable: true, enumerable: true, get: () => tw, set(v) {
-          if (v?.done && !plan) { plan = replan(); v.done = () => c.doThrow(G.cur, plan); document.getElementById('waiting').textContent = p.name + ' · ' + P.THROWS[T].name + ', ' + P.discById(G.discId).type.toLowerCase(); }   // botTurn's label named its own pick
+          if (v?.done && !plan) { plan = replan(T, ${+o.seed * 1000 + 11}); v.done = () => c.doThrow(G.cur, plan); document.getElementById('waiting').textContent = p.name + ' · ' + P.THROWS[T].name + ', ' + P.discById(G.discId).type.toLowerCase(); }   // botTurn's label named its own pick
           tw = v; } });
       }
       __motion.reseed(${+o.seed * 1000 + 1}); const m = __motion.mark(); c.setupTurn(0); __motion.delay(800, m); })()`);
@@ -207,7 +209,10 @@ try {
   if (upto >= 4) {   // capture.mjs's putt, 6.5 m short on the tee side, thrown by the bot: 3 s unrecorded while the camera flies in and the drive's result toast clears, then 1 s before the stroke
     await js(`(() => { const c = __chains, G = c.G, p = G.players[0], h = c.holes[G.holeIdx], b = h.basket, dx = h.tee[0] - b[0], dz = h.tee[1] - b[1], L = Math.hypot(dx, dz);
       delete G.throwType; delete G.tween; G.throwType = 'backhand';   // back to plain fields (setupTurn picks the putt)
-      G.flight = G.pending = G.tween = null; const x = b[0] + dx / L * 6.5, z = b[1] + dz / L * 6.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 2; __motion.reseed(${+o.seed * 1000 + 2}); const m = __motion.mark(); c.setupTurn(0); __motion.delay(3300, m); })()`);
+      G.flight = G.pending = G.tween = null; const x = b[0] + dx / L * 6.5, z = b[1] + dz / L * 6.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 2;
+      let tw = null, plan = null;   // the putt is thrown with one fixed plan (the bot's own that went in on run 10's baseline): judged are the stroke and the camera, the reference putt goes in, and a 6.5 m putt is so sensitive that any shift in the shared random stream turned the bot's pick into a lob off the band
+      Object.defineProperty(G, 'tween', { configurable: true, enumerable: true, get: () => tw, set(v) { if (v?.done && !plan && G.phase === 'windup') { plan = { power: .58, yawOffset: 1.44, hyzer: .76, launchOffset: 0 }; v.done = () => c.doThrow(G.cur, plan); } tw = v; } });
+      __motion.reseed(${+o.seed * 1000 + 2}); const m = __motion.mark(); c.setupTurn(0); __motion.delay(3300, m); })()`);
     await seg('putt-settle', { cap: 3000 });
     await seg('putt', { cap: 10000, done: (s, e) => s.t >= first(e, [...GROUND, ...BASKET]) + 1500 });
   }
