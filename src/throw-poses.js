@@ -3,12 +3,22 @@ export const JOINTS = ['root', 'spine', 'head', 'shR', 'elR', 'shL', 'elL', 'hip
 export const IDLE = { root: [0, 0, 0], spine: [0.04, 0, 0], head: [0, 0, 0], shR: [0.28, 0, 0.26], elR: [0.5, 0, 0], shL: [0.15, 0, -0.2], elL: [0.4, 0, 0], hipR: [0, 0, 0.04], knR: [-0.05, 0, 0], hipL: [0, 0, -0.04], knL: [-0.05, 0, 0], rootY: 0 };
 
 export const K = {
+  // The drive, timed to main.js: the windup (phase 0-.5) runs .9 s, the release half .7 s, so the disc leaves at -0 with .5
+  // at -.17 s. Keyed to the reference's kinetic chain: full coil at -.45 s (back to the target, disc out behind the rear hip,
+  // weight in the bent rear leg), the pelvis opening first at -.3 s while the chest stays back, the front foot planted with
+  // the elbow leading and the disc pulled in across the chest at -.17, release at chest height with the arm driving at the
+  // target and the off arm tucked, then the arm wraps past the far shoulder, the chest turns past the line and the rear foot
+  // pivots through; the clip ends (phase 1, +.53 s) still in that follow-through, which main.js holds before the idle.
   backhand: [
-    { t: 0,    root: [0, 0.55, 0], spine: [0.06, 0.1, 0], head: [0, -0.5, 0], shR: [0.95, 0.15, -0.2], elR: [1.2, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 0.5,  root: [0, 1.55, 0], spine: [0.12, 0.35, 0.08], head: [0, -1.2, 0], shR: [0.15, -0.55, -1.45], elR: [0.25, 0, 0], shL: [0.35, 0, -1.0], elL: [0.6, 0, 0], hipR: [0.45, 0, 0.1], knR: [-0.35, 0, 0], hipL: [-0.3, 0, -0.08], knL: [-0.5, 0, 0], rootY: -0.04 },
-    { t: 0.62, root: [0, 0.75, 0], spine: [0.05, -0.15, 0], head: [0, -0.6, 0], shR: [0.05, 0.82, 1.45], elR: [0.08, 0, 0], shL: [0.5, 0, -0.85], elL: [0.9, 0, 0], hipR: [-0.15, 0, 0.1], knR: [-0.25, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.2, 0, 0], rootY: -0.03 },
-    { t: 0.8,  root: [0, -0.35, 0], spine: [0.05, -0.35, -0.08], head: [0, 0.1, 0], shR: [0.1, -0.5, -1.3], elR: [0.35, 0, 0], shL: [0.1, 0, -0.55], elL: [0.5, 0, 0], hipR: [-0.45, 0, 0.12], knR: [-0.55, 0, 0], hipL: [0.15, 0, -0.05], knL: [-0.15, 0, 0], rootY: 0 },
-    { t: 1,    root: [0, -0.45, 0], spine: [0.05, 0, 0], head: [0, 0.2, 0], shR: [0.35, 0, 0.3], elR: [0.4, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
+    { t: 0,    root: [0, 0.55, 0], spine: [0.06, 0.1, 0], head: [0, -0.5, 0], shR: [0.95, 0.15, -0.2], elR: [1.2, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0.3, 0, 0.1], knR: [-0.3, 0, 0], hipL: [0.3, 0, -0.1], knL: [-0.3, 0, 0], rootY: 0 },
+    { t: 0.35, root: [-0.15, 1.85, 0], spine: [-0.35, 1.35, 0.1], head: [0.1, -1.35, 0], shR: [0, 2.6, 0.85], elR: [0.1, 0, 0], shL: [0.25, 0, -0.3], elL: [0.7, 0, 0], hipR: [0.51, 0, 0.735], knR: [-1.067, 0, 0], hipL: [0.711, 0, -0.208], knL: [-1.016, 0, 0], rootY: 0 },
+    { t: 0.43, root: [-0.14, 1.3, 0], spine: [-0.32, 1.5, 0.06], head: [0.05, -1.35, 0], shR: [0, 2.5, 0.95], elR: [0.3, 0, 0], shL: [0.2, 0, -0.25], elL: [0.8, 0, 0], hipR: [0.916, 0, 0.705], knR: [-1.021, 0, 0], hipL: [0.682, 0, -0.311], knL: [-1.24, 0, 0], rootY: 0 },
+    { t: 0.5, root: [-0.12, 0.75, 0], spine: [-0.25, 1.35, 0.03], head: [0, -1.3, 0], shR: [0, 1, 1.3], elR: [1.9, 0, 0], shL: [0.25, 0, -0.15], elL: [1, 0, 0], hipR: [1.128, 0, 0.411], knR: [-1.003, 0, 0], hipL: [0.544, 0, -0.258], knL: [-1.392, 0, 0], rootY: 0 },
+    { t: 0.565, root: [-0.1, 0.5, 0], spine: [-0.26, 1, -0.12], head: [0, -1.2, 0], shR: [0, 0.78, 1.6], elR: [1, 0, 0], shL: [0.35, 0, 0.05], elL: [1.3, 0, 0], hipR: [1.073, 0, 0.221], knR: [-0.872, 0, 0], hipL: [0.4, 0, -0.137], knL: [-1.317, 0, 0], rootY: 0 },
+    { t: 0.62, root: [-0.12, 0.3, 0], spine: [-0.3, 0.75, -0.15], head: [0, -0.95, 0], shR: [0, 0.57, 1.75], elR: [0.12, 0, 0], shL: [0.4, 0, 0.12], elL: [1.45, 0, 0], hipR: [1.008, 0, 0.092], knR: [-0.695, 0, 0], hipL: [0.312, 0, -0.01], knL: [-1.178, 0, 0], rootY: 0 },
+    { t: 0.7, root: [-0.12, -0.1, 0], spine: [-0.25, 0.35, -0.1], head: [0, -0.3, 0], shR: [0, 1.3, 1.6], elR: [0.25, 0, 0], shL: [0.4, 0, 0.1], elL: [1.5, 0, 0], hipR: [0.854, 0, -0.151], knR: [-0.411, 0, 0], hipL: [0.184, 0, 0.164], knL: [-0.957, 0, 0], rootY: 0 },
+    { t: 0.8, root: [-0.12, -0.5, 0], spine: [-0.12, 0, 0], head: [0, 0.4, 0], shR: [0.1, 2.4, 1.3], elR: [0.9, 0, 0], shL: [0.3, 0, -0.15], elL: [1.3, 0, 0], hipR: [0.556, 0, -0.347], knR: [-0.05, 0, 0], hipL: [0.25, 0, -0.05], knL: [-1.3, 0, 0], rootY: 0 },
+    { t: 1, root: [-0.1, -0.75, 0], spine: [-0.1, -0.2, 0], head: [0, 0.75, 0], shR: [0.2, 2.9, 1.1], elR: [1.6, 0, 0], shL: [0.25, 0, -0.2], elL: [1.1, 0, 0], hipR: [0.431, 0, -0.408], knR: [-0.049, 0, 0], hipL: [0.55, 0, 0.05], knL: [-0.8, 0, 0], rootY: 0 },
   ],
   forehand: [
     { t: 0,    root: [0, 0.15, 0], spine: [0.05, 0, 0], head: [0, -0.15, 0], shR: [0.4, 0, 0.5], elR: [1.5, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
@@ -45,20 +55,23 @@ export const K = {
     { t: 0.8,  root: [0, 0.7, 0], spine: [0.55, 0.35, -0.2], head: [0.35, -0.3, 0], shR: [1.1, 0, -0.6], elR: [0.7, 0, 0], shL: [0.2, 0, -0.5], elL: [0.5, 0, 0], hipR: [-0.4, 0, 0.15], knR: [-0.5, 0, 0], hipL: [0.1, 0, -0.05], knL: [-0.1, 0, 0], rootY: -0.04 },
     { t: 1,    root: [0, 0.5, 0], spine: [0.12, 0, 0], head: [0, -0.1, 0], shR: [0.5, 0, 0.3], elR: [0.5, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
   ],
+  // putt (round 9 motion): a compact push. Both hands keep the putter at the chest a touch to the off side, where the camera
+  // over the off shoulder sees it (in front of the belly the body hid it until it flew), the stroke pushes it straight out at
+  // chest height and the off arm stays low and tucked (swung out wide during the reach-back it read as a T).
   putt: [
-    { t: 0,    root: [0, 0, 0], spine: [0.15, 0, 0], head: [-0.1, 0, 0], shR: [0.7, 0, 0.2], elR: [1.7, 0, 0], shL: [0.3, 0, -0.6], elL: [0.4, 0, 0], hipR: [0.25, 0, 0.05], knR: [-0.5, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.5, 0, 0], rootY: -0.1 },
-    { t: 0.5,  root: [0, 0, 0], spine: [0.28, 0, 0], head: [-0.2, 0, 0], shR: [0.45, 0, 0.25], elR: [2.0, 0, 0], shL: [0.35, 0, -0.8], elL: [0.4, 0, 0], hipR: [0.4, 0, 0.05], knR: [-0.8, 0, 0], hipL: [0.4, 0, -0.05], knL: [-0.8, 0, 0], rootY: -0.17 },
-    { t: 0.62, root: [0, 0, 0], spine: [0.05, 0, 0], head: [-0.05, 0, 0], shR: [1.5, 0, 0.1], elR: [0.15, 0, 0], shL: [0.3, 0, -0.7], elL: [0.4, 0, 0], hipR: [-0.25, 0, 0.05], knR: [-0.35, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.25, 0, 0], rootY: -0.03 },
-    { t: 0.8,  root: [0, 0, 0], spine: [-0.05, 0, 0], head: [0, 0, 0], shR: [1.95, 0, 0.1], elR: [0.1, 0, 0], shL: [0.2, 0, -0.6], elL: [0.4, 0, 0], hipR: [-0.7, 0, 0.05], knR: [-0.2, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.15, 0, 0], rootY: 0 },
-    { t: 1,    root: [0, 0, 0], spine: [0.05, 0, 0], head: [0, 0, 0], shR: [1.2, 0, 0.2], elR: [0.4, 0, 0], shL: [0.15, 0, -0.3], elL: [0.4, 0, 0], hipR: [-0.35, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0.15, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
+    { t: 0,    root: [0, 0, 0], spine: [-0.12, 0, 0], head: [0.1, 0, 0], shR: [0.55, 0.45, -0.35], elR: [1.3, 0, 0], shL: [0.25, 0, 0.1], elL: [1.35, 0, 0], hipR: [0.25, 0, 0.05], knR: [-0.5, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.5, 0, 0], rootY: -0.1 },
+    { t: 0.5,  root: [0, 0, 0], spine: [-0.22, 0, 0], head: [0.18, 0, 0], shR: [0.45, 0.55, -0.45], elR: [1.45, 0, 0], shL: [0.3, 0, 0.15], elL: [1.4, 0, 0], hipR: [0.4, 0, 0.05], knR: [-0.8, 0, 0], hipL: [0.4, 0, -0.05], knL: [-0.8, 0, 0], rootY: -0.17 },
+    { t: 0.62, root: [0, 0, 0], spine: [-0.1, 0, 0], head: [0.08, 0, 0], shR: [1.3, 0, 0], elR: [0.2, 0, 0], shL: [0.2, 0, -0.15], elL: [1.1, 0, 0], hipR: [-0.25, 0, 0.05], knR: [-0.35, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.25, 0, 0], rootY: -0.03 },
+    { t: 0.8,  root: [0, 0, 0], spine: [-0.04, 0, 0], head: [0.02, 0, 0], shR: [1.6, 0, 0], elR: [0.05, 0, 0], shL: [0.15, 0, -0.15], elL: [0.9, 0, 0], hipR: [-0.7, 0, 0.05], knR: [-0.2, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.15, 0, 0], rootY: 0 },
+    { t: 1,    root: [0, 0, 0], spine: [-0.05, 0, 0], head: [0, 0, 0], shR: [1.45, 0, 0.05], elR: [0.15, 0, 0], shL: [0.15, 0, -0.2], elL: [0.8, 0, 0], hipR: [-0.35, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0.15, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
   ],
 };
 
-K.backhand.splice(2,0,{...structuredClone(K.backhand[1]),t:.565,root:[0,1.05,0],spine:[.08,.12,.03],head:[0,-.85,0],shR:[.75,.1,-.45],elR:[1.45,0,0],rootY:-.045});
 
 // Disc-footage loading: compress both knees, then brace the lead leg and release the trailing foot.
 // Backhand/putt lead with the throwing-side foot; forehand/overheads lead with the opposite foot.
 for(const [id,keys] of Object.entries(K)) {
+  if(id==='backhand')continue;   // the drive carries its own legs (a split stance that walks through)
   const lead=['backhand','putt'].includes(id)?'R':'L',rear=lead==='R'?'L':'R';
   for(const k of keys) {
     if(k.t===.5){for(const side of ['R','L']){k['hip'+side][0]=.98;k['kn'+side][0]=-1.0;}}
