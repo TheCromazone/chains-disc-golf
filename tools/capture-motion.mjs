@@ -61,6 +61,7 @@ function clock(seed) {
   W.__motion = {
     quiet: () => loads === 0 && document.fonts.status === 'loaded' ? performance.getEntriesByType('resource').length : -1,   // boot is over once this holds still
     start() { if (live) return; live = true; for (const t of timers.values()) N.ct(t.native); for (const a of document.getAnimations()) try { a.finish(); } catch { /* infinite: step() drives it */ } },   // boot's fades land at their end state
+    reseed(n) { s = n >>> 0; },   // each throw draws from its own stream: a change elsewhere that eats a few more randoms (w10's shadow material) must not turn a made putt into a lob off the band
     mark: () => seq, delay(ms, after) { for (const [id, t] of timers) if (id > after) t.due += ms; },   // hold the timers set since mark() (the bot's 700 ms think), not the toasts already running
     async step(ms, n) {
       this.start(); const t0 = now;
@@ -200,13 +201,13 @@ try {
           if (v?.done && !plan) { plan = replan(); v.done = () => c.doThrow(G.cur, plan); document.getElementById('waiting').textContent = p.name + ' · ' + P.THROWS[T].name + ', ' + P.discById(G.discId).type.toLowerCase(); }   // botTurn's label named its own pick
           tw = v; } });
       }
-      const m = __motion.mark(); c.setupTurn(0); __motion.delay(800, m); })()`);
+      __motion.reseed(${+o.seed * 1000 + 1}); const m = __motion.mark(); c.setupTurn(0); __motion.delay(800, m); })()`);
     await seg('drive', { cap: 12000, done: (s, e) => s.t >= first(e, GROUND) + 1000 });
   }
   if (upto >= 4) {   // capture.mjs's putt, 6.5 m short on the tee side, thrown by the bot: 3 s unrecorded while the camera flies in and the drive's result toast clears, then 1 s before the stroke
     await js(`(() => { const c = __chains, G = c.G, p = G.players[0], h = c.holes[G.holeIdx], b = h.basket, dx = h.tee[0] - b[0], dz = h.tee[1] - b[1], L = Math.hypot(dx, dz);
       delete G.throwType; delete G.tween; G.throwType = 'backhand';   // back to plain fields (setupTurn picks the putt)
-      G.flight = G.pending = G.tween = null; const x = b[0] + dx / L * 6.5, z = b[1] + dz / L * 6.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 2; const m = __motion.mark(); c.setupTurn(0); __motion.delay(3300, m); })()`);
+      G.flight = G.pending = G.tween = null; const x = b[0] + dx / L * 6.5, z = b[1] + dz / L * 6.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 2; __motion.reseed(${+o.seed * 1000 + 2}); const m = __motion.mark(); c.setupTurn(0); __motion.delay(3300, m); })()`);
     await seg('putt-settle', { cap: 3000 });
     await seg('putt', { cap: 10000, done: (s, e) => s.t >= first(e, [...GROUND, ...BASKET]) + 1500 });
   }
