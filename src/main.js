@@ -619,7 +619,7 @@ function introPath(h, t, pos, look) {
       let best = null, sc = -1;
       for (const [side, dy] of [[0, 0], [-2.5, 0], [2.5, 0], [0, -1.5], [0, 2.5], [-5, 0], [5, 0], [-2.5, 2.5], [2.5, 2.5]]) {
         const [x0, z0, wx, wz] = wayAt(h, a), x = x0 - wz * side, z = z0 + wx * side, y = over(x, gnd(x, z) + up + dy, z);
-        const q = clearFraction(world, from.x, from.y, from.z, x, y, z, .8, 0, 1.5) + clearFraction(world, x, y, z, to.x, to.y, to.z, .8, 0, 1.5) - Math.abs(side) * .01 - Math.abs(dy) * .01;
+        const q = clearFraction(world, from.x, from.y, from.z, x, y, z, .8, 0, 1.5) + clearFraction(world, x, y, z, to.x, to.y, to.z, .8, 0, 1.5) - Math.abs(side) * .03 - Math.abs(dy) * .01;   // the centre line unless a crown really blocks it
         if (q > sc + 1e-3) { sc = q; best = new THREE.Vector3(x, y, z); }
       }
       return best;
@@ -666,7 +666,7 @@ function beamCeiling(x, z, floor) {
   }
   return Math.max(y, floor);
 }
-const CHASE = { hold: .25, blend: .6, back: 4.5, up: 1.5, lead: 3, lift: .5, land: .45, rate: .75 };   // rate: a drive plays at 3/4 speed, a 60 m drive hangs ~2.5 s as a real one does (the physics' 1.9 s read as a dolly shot)
+const CHASE = { fov: 50, hold: .25, blend: .6, back: 4.5, up: 1.5, lead: 3, lift: .3, land: .45, rate: .75 };   // rate: a drive plays at 3/4 speed, a 60 m drive hangs ~2.5 s as a real one does (the physics' 1.9 s read as a dolly shot)
 function flightPlan(f) {
   const n = f.traj.length, R = f.traj[n - 1], S = f.traj[0], h = holes[G.holeIdx];
   const e = f.events.find(e => /^(land|splash|flop|roll)$/.test(e[1])), tLand = e ? e[0] : n / 60;
@@ -684,7 +684,7 @@ function flightPlan(f) {
   // aim between the disc at rest and the basket so both hold the frame (the disc low, the pin and the tree line beyond it, not a wall of hillside); a far pin: down the line
   const la = Math.min(bd * .45, 9), LL = new THREE.Vector3(R[0] + ux * la, ry + .25 + la * .06, R[2] + uz * la);
   if (bd > 2 && bd < 45) { _v.set(R[0], ry, R[2]).sub(LP).normalize(); _v2.set(...T).sub(LP).normalize(); LL.copy(LP).addScaledVector(_v.multiplyScalar(.45).addScaledVector(_v2, .55).normalize(), 10); }
-  return { H: cam.pos.clone(), HL: cam.look.clone(), dir: new THREE.Vector3(f.params.dir[0], 0, f.params.dir[1]).normalize(), pull: 1, tLand, LP, LL };
+  return { H: cam.pos.clone(), HL: cam.look.clone(), F0: cam.fov, dir: new THREE.Vector3(f.params.dir[0], 0, f.params.dir[1]).normalize(), pull: 1, tLand, LP, LL };
 }
 function flightCam(f, dt) {
   const D = f.pos, c = f.cam || (f.cam = flightPlan(f)), S = THREE.MathUtils.smoothstep;
@@ -696,10 +696,11 @@ function flightCam(f, dt) {
   const ceil = beamCeiling(cx, cz, D[1] + .2), lift = CHASE.lift * Math.max(0, Math.min(1, (ceil - D[1] - 1) / 2));   // under the arch: level with the disc, the banner out of the top of frame
   cy = Math.min(Math.max(cy, D[1] + 1), ceil); cy = Math.max(cy, world.height(cx, cz) + 1.5);
   const w = S(f.t, CHASE.hold, CHASE.hold + CHASE.blend), wl = S(f.t, CHASE.hold * .5, CHASE.hold + CHASE.blend * .8), wg = S(f.t, c.tLand - CHASE.land, c.tLand + CHASE.land * 1.4);
-  cam.tPos.lerpVectors(c.H, _v.set(cx, cy, cz), w); cam.tPos.y += Math.sin(Math.PI * w) * 1.5;   // up and over the thrower's head
+  cam.tPos.lerpVectors(c.H, _v.set(cx, cy, cz), w); const arc = Math.sin(Math.PI * w), rt = rightOf([hv.x, hv.z]); cam.tPos.y += arc * 1.5; cam.tPos.x -= rt[0] * arc; cam.tPos.z -= rt[1] * arc;   // up and past the thrower's left shoulder (the aim camera's side), never through his head
   cam.tLook.lerpVectors(c.HL, _v2.set(D[0] + hv.x * CHASE.lead, D[1] + lift, D[2] + hv.z * CHASE.lead), wl);   // a little over the disc: the fairway ahead and the tree line, not a wall of hillside
   if (wg > 0) { cam.tPos.lerp(c.LP, wg); cam.tLook.lerp(c.LL, wg); }
   glint.material.opacity = 1 - .25 * wg;
+  return c.F0 + (CHASE.fov - c.F0) * w;   // the aim lens eases out with the move: no zoom-out snap at release
 }
 function puttDodge(lie, P) {
   const h = holes[G.holeIdx], key = `${G.holeIdx}:${lie.x.toFixed(2)}:${lie.z.toFixed(2)}`;
@@ -763,7 +764,7 @@ function updateCamera(dt) {
     }
     else fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
-    if (G.flight?.pos) { flightCam(G.flight, dt); k = 1e3; }
+    if (G.flight?.pos) { fov = flightCam(G.flight, dt); k = 1e3; }
     else if (cam.hold) { cam.tPos.copy(cam.pos); cam.tLook.copy(cam.look); fov = cam.hold.fov; cam.tShift = cam.hold.shift; }
   }
   const a = cam.snap ? 1 : 1 - Math.exp(-k * dt); cam.snap = false;
