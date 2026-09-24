@@ -7,7 +7,7 @@ import { canopyGeometry, IMPOSTOR, IMPOSTOR_ROWS, TREE_DIMS } from './canopies.j
 import { model } from './models.js';
 import { modelParts, addModel } from './models.js';
 import { windMaterial, windTime, toonMaterial, paintDetail, terrainSplat } from './materials.js';
-import { dressCourse } from './props.js';
+import { dressCourse, BED } from './props.js';
 import { grassCarpet } from './grass.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
@@ -831,14 +831,30 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const tuftGeo = mergeGeometries([0, Math.PI, Math.PI / 2, -Math.PI / 2].map(a => card.clone().rotateY(a)));   // both windings, so no DoubleSide normal flip
     const tn = tuftGeo.attributes.normal; for (let i = 0; i < tn.count; i++) tn.setXYZ(i, 0, 1, 0);   // lit like the turf they stand in
     const tuftMat = windMaterial(toonMaterial({ map: tuftMap, alphaTest: .45, roughness: .9 }), windClock, true);
+    const nx = segX + 1, fringeAt = (x, z) => {   // 1 on the turf just outside the ground shader's gravel (gCover without its noise), bilinear on the terrain grid
+      const gx = clamp((x + W / 2) / W * segX, 0, segX - 1e-3), gz = clamp((z + H / 2) / H * segZ, 0, segZ - 1e-3), ix = gx | 0, iz = gz | 0, fx = gx - ix, fz = gz - iz;
+      const a = iz * nx + ix, b = a + nx, at4 = (arr, o) => lerp(lerp(arr[a * 4 + o], arr[(a + 1) * 4 + o], fx), lerp(arr[b * 4 + o], arr[(b + 1) * 4 + o], fx), fz);
+      const ax = Math.abs(at4(turf, 2)), sx = at4(splats, 0);
+      return Math.max(smooth(.25, .5, at4(turf, 3)) * smooth(.4, .52, ax) * (1 - smooth(.62, .85, ax)), smooth(.1, .28, sx) * (1 - smooth(.38, .55, sx)));   // the trail's 1 m strip, the apron and worn earth
+    };
     const spots = [];
     for (const h of holes) {
       const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), at = (u, w) => [h.tee[0] + u * cy + w * sy, h.tee[1] - u * sy + w * cy];
       for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .08 + tuftRng() * .2; spots.push({ p: at(2.4 + Math.cos(a) * r, -2.6 + Math.sin(a) * r), s: .14 + tuftRng() * .12 }); }
       for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .3 + tuftRng() * .3; spots.push({ p: [h.basket[0] + Math.cos(a) * r, h.basket[1] + Math.sin(a) * r], s: .12 + tuftRng() * .1 }); }
+      // Ragged fringe: tufts the mower and the rake miss, 12-30 cm, strung along the gravel's edge (trail, apron, worn
+      // earth) and the bed's timbers on the ground the tee camera sees, so every grass-to-gravel border breaks into clumps
+      // that lean over it instead of a clean cut. Placed where the shader's own gravel cover (same grid data) turns from turf.
+      for (let k = 0; k < 60000; k++) {
+        const u = (tuftRng() - .5) * 44, w = 5 - tuftRng() * 32, [x, z] = at(u, w);   // 22 m either side, 5 m behind to 27 m ahead
+        const bed = Math.max(Math.abs(u) - BED.u, -w - BED.f1, BED.f0 + w);   // metres outside the bed's timbers (props' f runs toward the basket: -w)
+        const edge = Math.max(fringeAt(x, z), bed > .02 && bed < .3 ? 1 : 0) * smooth(.3, .6, noise(x / 1.4 + 13, z / 1.4 + 13));   // in clumps and gaps along the edge, not a planted border
+        if (bed < .02 || tuftRng() > edge) continue;
+        spots.push({ p: [x, z], s: .1 + tuftRng() ** 2 * .16, dry: tuftRng() < .3 });
+      }
     }
     const fixed = new THREE.InstancedMesh(tuftGeo, tuftMat, spots.length);
-    spots.forEach(({ p: [x, z], s }, i) => { e.set(0, tuftRng() * 6.3, 0); q.setFromEuler(e); v.set(x, height(x, z) - .04, z); sc.set(s, s * (.8 + tuftRng() * .4), s); m.compose(v, q, sc); fixed.setMatrixAt(i, m); fixed.setColorAt(i, col.setRGB(.8 + tuftRng() * .25, .72 + tuftRng() * .2, .7 + tuftRng() * .3)); });
+    spots.forEach(({ p: [x, z], s, dry }, i) => { e.set(0, tuftRng() * 6.3, 0); q.setFromEuler(e); v.set(x, height(x, z) - .04, z); sc.set(s, s * (.8 + tuftRng() * .4), s); m.compose(v, q, sc); fixed.setMatrixAt(i, m); fixed.setColorAt(i, dry ? col.setRGB(1.05 + tuftRng() * .2, .8 + tuftRng() * .1, .42) : col.setRGB(.8 + tuftRng() * .25, .72 + tuftRng() * .2, .7 + tuftRng() * .3)); });   // a third of the fringe gone to seed, straw-olive
     fixed.receiveShadow = true; group.add(fixed);
   }
 
