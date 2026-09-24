@@ -710,18 +710,6 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const steel = new THREE.Mesh(mergeGeometries(K.lists.steel), toonMaterial({ vertexColors: true, metalness: .35, roughness: .38 }));
   steel.material.onBeforeCompile = s => { GRIME_V(s); GRIME_F(s, !full); };
   steel.material.customProgramCacheKey = () => 'chains-props-steel' + full;
-  // w10 putt verdicts (5/6: 'a dark featureless oval ~1.4 m right of the basket, detached from the pole'): under the 24°
-  // key the solid pressed dish threw one dark ellipse. In the shadow pass alone the dish (picked out by its tint) is a
-  // wire grid, 1 cm wires on a 5 cm pitch (~36% cover: 5 mm, ~19%, cast almost nothing at 640x360; 1.4 cm, ~48%, blurred back to a grey oval), so
-  // the tray casts an open cage: its rim and bars a hoop round a faint lattice, hung on the pole's shadow line. Looks unchanged.
-  const tray = new THREE.Color('#aab0b3'), steelDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
-  steelDepth.onBeforeCompile = s => {
-    s.vertexShader = 'attribute vec3 color;varying float vTray;varying vec2 vGrid;\n' + s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
-      vTray = step(length(color - vec3(${tray.r.toFixed(5)}, ${tray.g.toFixed(5)}, ${tray.b.toFixed(5)})), .003); vGrid = (modelMatrix * vec4(transformed, 1.)).xz / .05;`);
-    s.fragmentShader = 'varying float vTray;varying vec2 vGrid;\n' + s.fragmentShader.replace('void main() {', 'void main() {\n\tvec2 wire = abs(fract(vGrid) - .5); if (vTray > .5 && max(wire.x, wire.y) < .4) discard;');
-  };
-  steelDepth.customProgramCacheKey = () => 'chains-props-steel-depth';
-  steel.customDepthMaterial = steelDepth;
   // The arch's skin: dye-sublimated polyester, a soft satin sheen. Single-sided (see the top). Stretched thin over the
   // truss it passes some of the daylight behind it, so a face turned from the sun still glows with its own print
   // (a fraction of its albedo): the whites stay white and the navy stays navy instead of both sinking to slate.
