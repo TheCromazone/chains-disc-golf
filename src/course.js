@@ -496,21 +496,21 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // and the trodden approach keeps more of its canopy (.75 -> .4) from the pin itself (gapAim.z -1 -> 0), so the pin, its
   // shadow and the lawn stand in sun and the floor nearest the lens in open shade, as in the reference (floor luma at
   // 640x360: mid band 107 -> 116, the reference 129; bottom band 62 -> 72, the reference 69).
-  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector4(0, 0, 1.5, 0) }, gapAim = { value: new THREE.Vector4(0, 1, 0, .4) };
-  const canopyGaps = (mat, open = 1) => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole; s.uniforms.gapAim = gapAim;
+  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector4(0, 0, 1.5, 0) }, gapAim = { value: new THREE.Vector4(0, 1, 0, .4) }, gapReach = { value: new THREE.Vector3(15, 35, 3.2) };   // gapReach: where gapHole's cut gives way to the course-wide one (m from the pin, where the shadow lands); update() widens it at the putt
+  const canopyGaps = (mat, open = 1) => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole; s.uniforms.gapAim = gapAim; s.uniforms.gapReach = gapReach;
     s.vertexShader = 'varying vec3 vGap;\n' + (s.vertexShader.includes('#include <project_vertex>') ? s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       { vec4 g = vec4(position, 1.);
       #ifdef USE_INSTANCING
       g = instanceMatrix * g;
       #endif
       vGap = (modelMatrix * g).xyz; }`) : s.vertexShader.replace('gl_Position = projectionMatrix * mvPosition;', '$& vGap = (modelMatrix * vec4(transformed, 1.)).xyz;'));   // an impostor card writes its own projection, and its `transformed` is already the sun-facing card in world space
-    s.fragmentShader = `uniform vec4 gapSun, gapHole, gapAim;varying vec3 vGap;
+    s.fragmentShader = `uniform vec4 gapSun, gapHole, gapAim;uniform vec3 gapReach;varying vec3 vGap;
       float gapHash(vec2 p) { vec3 q = fract(p.xyx * .1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
       float gapNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(gapHash(i), gapHash(i + vec2(1., 0.)), f.x), mix(gapHash(i + vec2(0., 1.)), gapHash(i + 1.), f.x), f.y); }
       ` + s.fragmentShader.replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
-      { vec3 r = normalize(cross(vec3(0., 1., 0.), gapSun.xyz)), u = cross(gapSun.xyz, r); vec2 p = vec2(dot(vGap, r), dot(vGap, u)) / 3.2;
+      { vec3 r = normalize(cross(vec3(0., 1., 0.), gapSun.xyz)), u = cross(gapSun.xyz, r); vec2 p = vec2(dot(vGap, r), dot(vGap, u)) / gapReach.z;
         vec2 land = vGap.xz - gapSun.xz * max(vGap.y - gapHole.w, 0.) / gapSun.y - gapHole.xy;
-        if (gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25 < ${open.toFixed(2)} * mix(mix(gapHole.z, gapAim.w, smoothstep(gapAim.z, gapAim.z + 2., dot(land, gapAim.xy))), gapSun.w, smoothstep(15., 35., length(land)))) discard; }`); };
+        if (gapNoise(p) + gapNoise(p * 2.3 + 7.) * .5 + gapNoise(p * 5.3 + 3.) * .25 < ${open.toFixed(2)} * mix(mix(gapHole.z, gapAim.w, smoothstep(gapAim.z, gapAim.z + 2., dot(land, gapAim.xy))), gapSun.w, smoothstep(gapReach.x, gapReach.y, length(land)))) discard; }`); };
     mat.customProgramCacheKey = () => prevKey.call(mat) + '|gaps' + open; return mat; };
   const inst = (geo, mat, spots, colorFn, shadow = true, lod = false) => {
     if (lod) {   // near-tree set: every tree's matrix and tint precomputed, drawn only once treeLod() picks it
@@ -862,7 +862,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The glare a shade warmer than the key (its light took the long way through the air), and ~40% of the key's strength:
   // any brighter and the tee's back third, which looks into the lobe, goes to a milky cream veil.
   Object.assign(FOG.glow, { r: sunColor.r * .42, g: sunColor.g * .39, b: sunColor.b * .33 });
-  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG, gap: { hole: gapHole, aim: gapAim }, putt: PUTT_AIR };   // effects.js aims the light shafts at the disc; FOG for the debug hook
+  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG, gap: { hole: gapHole, aim: gapAim, reach: gapReach }, putt: PUTT_AIR };   // effects.js aims the light shafts at the disc; FOG for the debug hook
   const sky = skyDome(def, quality === 'low'); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
   // green-brown bounce from below (the dome's `ground` switch) and the sun's aureole glints in discs, chains and water.
@@ -962,7 +962,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // (#aab8c6-ish on screen) instead of the green-grey that read as fog.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
       Object.assign(FOG.shape, { x: m(34, P.clear), y: m(2.25, P.density), z: m(30, P.knee) });
-      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm), g: warm.g * m(1, P.warm), b: warm.b * m(1, P.warm) }); treeAir.value = k; gapHole.value.z = 1.5 + .7 * k; }   // the putt cuts every crown card whose shadow lands within 15 m of the pin (w7-3: "ground shadows are vague blotches that connect to no trunk"): the green round and past the pin stands in sun crossed by long trunk bars; the tee and flyover keep 1.5
+      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm[0]), g: warm.g * m(1, P.warm[1]), b: warm.b * m(1, P.warm[2]) }); treeAir.value = k; gapHole.value.z = m(1.5, P.cut); gapReach.value.set(m(15, P.reach[0]), m(35, P.reach[1]), m(3.2, P.reach[2])); }   // the putt's canopy gaps (PUTT_AIR.cut, .reach): long shade bands and sunlit swaths round the pin; the tee and flyover keep 1.5, 15-35 m and 3.2 m cells
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
@@ -984,7 +984,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
-const PUTT_AIR = { clear: 34, density: 3.5, knee: 50, haze: [.8, .92, 1.2], warm: 1.4 };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains. w7-2 (gains .48/.54/.66, 0/4): "the haze darkens the scene"; w7-3 (.9/1.05/1.35, density 5.5 from 28 m, 0/4): "a flat milky grey-white fog wall past ~15 m, near and far trees fade alike, overcast mist, not sunlit air". So the air sits between the two (still a bright sky-blue, warming toward the low sun) and starts later and builds slower: the rows within ~30 m of the eye keep full contrast, each row past that lifts a step, and the far line fades to pale blue without going to a white card (eye distance 50 m ~6%, 70 m ~21%, 100 m ~45%)
+const PUTT_AIR = { clear: 34, density: 4.5, knee: 50, haze: [1.5, 1.18, .82], warm: [1.6, 1.42, 1.12], cut: 1, reach: [15, 35, 9] };   // the air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains (r, g, b); and the putt's canopy gaps (the trees section): gapHole.z's cut round the pin, gapReach (where it gives way to the course-wide cut, m, and the gap noise's cell, m). w8: the putt had lost its trunk streaks (w7-1 had them): A/B live, the lawn is 75% sunlit, but with every crown within 15 m cut (2.2) only thin trunk bars crossed it and the green's blade noise swallowed them, so the critics saw 'no readable cast shadows, soft blotches, you cannot tell where the sun is'. Now the crowns keep their shade (cut 1: about half of them cast), cut by a noise ~3x coarser: light-plane cells 9 m across stretch ~2.5x along the sun on the ground at 24°, so the canopy lays long diagonal shade bands with sunlit swaths between (the reference's clearing), all running one way with the trunk bars. And the air there was a cold blue (haze .73, 1.09, 1.96 linear: 'a milky blue-white veil, nothing picks up the sun's warmth'): now a warm pale (~1.37, 1.39, 1.34, the lobe toward the disc a cream 2.1, 1.83, 1.4), a little denser so each row past ~40 m lifts a step into it. Earlier: w7-2 (gains .48/.54/.66, 0/4): "the haze darkens the scene"; w7-3 (.9/1.05/1.35, density 5.5 from 28 m, 0/4): "a flat milky grey-white fog wall past ~15 m, near and far trees fade alike, overcast mist, not sunlit air"; w7-4 (gains .8/.92/1.2, warm 1.4, density 3.5): 0/6.
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: 2.25, z: 30, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
