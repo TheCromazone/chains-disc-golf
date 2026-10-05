@@ -7,6 +7,7 @@ import { loadModels, modelStatus } from './models.js';
 import { createDiscMesh, setDiscPose } from './disc.js';
 import { clearFraction } from './cam-collide.js';
 import { createPuffs } from './puffs.js';
+import { createCelebration } from './celebration.js';
 import { createWindFx } from './wind.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -14,6 +15,7 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { setupInput } from './input.js';
 import { planBotThrow } from './bot.js';
 import { createNet } from './net.js';
+import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, turnKey, lobbyPublic, validateThrowRequest } from './protocol.js';
 import * as UI from './ui.js';
 import { unlock, sfx, setMuted, isMuted } from './audio.js';
 
@@ -22,6 +24,7 @@ const COLORS = ['#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#ff7ad9', '#9b6bff'
 const BOT_NAMES = ['Ricky', 'Paige', 'Simon', 'Eagle', 'Calvin', 'Kristin'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const isMobile = matchMedia('(pointer: coarse)').matches || innerWidth < 700;
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const G = {
   phase: 'menu', mode: 'solo', players: [], holeIdx: 0, holeCount: 9, cur: -1, seed: 7,
@@ -30,6 +33,7 @@ const G = {
   settings: { holes: '9', difficulty: 'medium', quality: isMobile ? 'low' : 'high' },
   net: null, lobby: [], gesture: { power: 0, lateral: 0 }, previewDirty: true, lastPreview: 0, inbox: [],
   avatar: { ...DEFAULT_AVATAR }, courseId: 'pine',
+  sessionId: '', shotSeq: 0, lastShotSeq: 0, syncing: false,
 };
 try { const saved=JSON.parse(localStorage.getItem('chains.avatar') || '{}');Object.assign(G.avatar,saved);if(saved.glasses==null&&saved.shades)G.avatar.glasses='sport'; G.courseId = localStorage.getItem('chains.course') || 'pine'; } catch { /* private mode */ }
 const saveLocal = (k, v) => { try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch { /* ignore */ } };
@@ -42,9 +46,9 @@ renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.A
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
-let post = null, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0;
+let post = null, postEnabled = true, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0, slowTime = 0;
 const lineMats = [];   // screen-space line materials that need the framebuffer size
-const resize = () => { renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' || isMobile ? 1.5 : 2) * resolutionScale); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
+const resize = () => { renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' || isMobile ? 1.5 : 2, Math.sqrt((isMobile ? 1800000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
 addEventListener('resize', resize); resize();
 
 let course, world, holes, effects = null;
@@ -104,6 +108,7 @@ function clearPlayers() { for (const p of G.players) { scene.remove(p.char.group
 // ---------- course + hero (menu avatar) ----------
 let hero = null, windFx = null;
 const puffs = createPuffs(scene);
+const celebration = createCelebration(scene);
 // A calm creator stage uses the same actor, camera and renderer as the course.
 const stageCanvas=document.createElement('canvas');stageCanvas.width=4;stageCanvas.height=256;
 const stageInk=stageCanvas.getContext('2d'),stageGradient=stageInk.createLinearGradient(0,0,0,256);
@@ -234,7 +239,7 @@ function loadCourse(id){courseQueue=courseQueue.catch(()=>{}).then(()=>applyCour
 async function applyCourse(id) {
   const def = courseById(id); if (course && course.def.id === def.id && course.quality === G.settings.quality) return;
   const first = !course; if (!first) { UI.fade(true); await sleep(340); }
-  course?.dispose(); post?.dispose(); post = null;
+  course?.dispose(); post?.dispose(); post = null; postEnabled = true; resolutionScale = 1; slowTime = 0; resize();
   // Full: HDRI ambient, reflective water and a bloom + grade pass. Lite: same textures, no render targets.
   effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
   const hdri = effects ? await effects.loadSky(renderer, asset('skies', def.id) || asset('skies', 'lake')) : null;
@@ -251,9 +256,13 @@ async function applyCourse(id) {
 
 // ---------- game flow ----------
 async function startGame(config) {
+  G.phase = 'loading'; G.inbox = []; G.flight = null; G.remoteShot = null; G.pending = null; G.tween = null; G.cur = -1; cam.mode = 'courses';
   clearPlayers(); await loadCourse(config.courseId || G.courseId); hero.group.visible = false;
+  G.sessionId = config.sessionId || crypto.randomUUID(); G.shotSeq = 0; G.lastShotSeq = 0;
   G.seed = course.def.seed; G.holeCount = config.holeCount; G.holeIdx = 0; G.mode = config.mode;
   G.players = config.players.map((p, i) => createPlayer({ ...p, color: p.color || p.avatar?.jersey || COLORS[i % COLORS.length] }, i));
+  await renderer.compileAsync(scene, camera);
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   for (const id of ['menu', 'setup', 'online', 'score', 'help', 'courses', 'locker']) UI.hide(id);
   UI.show('hud'); UI.selectThrow(G.throwType); UI.selectDisc(G.discId);
   startHole();
@@ -266,14 +275,15 @@ function startHole() {
   const r = rightOf(d);
   G.players.forEach((p, i) => {
     p.strokes = 0; p.done = false; p.lie = [h.tee[0], h.teeY, h.tee[1]]; p.lieDist = h.len; p.marker.visible = false;
-    const sx = h.tee[0] - d[0] * (1.2 + i * 1.3) - r[0] * 2.8, sz = h.tee[1] - d[1] * (1.2 + i * 1.3) - r[1] * 2.8;   // waiting players stand left of the pad
+    const row = Math.floor(i / 4), col = i % 4;
+    const sx = h.tee[0] - d[0] * (1.2 + col * 1.3) - r[0] * (2.8 + row * 1.5), sz = h.tee[1] - d[1] * (1.2 + col * 1.3) - r[1] * (2.8 + row * 1.5);
     p.char.group.position.set(sx, world.height(sx, sz), sz);
     p.char.faceDir(d[0], d[1]); p.char.setPhase(null);
     ensureDisc(p, p.discId || 'driver'); p.discMesh.visible = false;
   });
   UI.setHud({ hole: G.holeIdx + 1, par: h.par, len: h.len, dist: h.len, throwNo: 'Tee', playerName: '' });
   UI.setControlsEnabled(false); UI.waiting(null); preview.visible = false;
-  G.phase = 'intro'; G.introT = 0; G.aim.pitch = 0; cam.mode = 'intro'; G.overview = false;   // pitch reset: the intro lands on the tee's aim frame
+  G.phase = 'intro'; G.introT = reducedMotion ? introDur(h) : 0; G.aim.pitch = 0; cam.mode = 'intro'; G.overview = false;
   // Broadcast-style title over the flyover (the HUD is hidden while data-phase is 'intro'; set it now so the HUD never flashes).
   const title = $('holeTitle'); if (title) { title.firstElementChild.textContent = `Hole ${G.holeIdx + 1}`; title.lastElementChild.textContent = `Par ${h.par} · ${Math.round(h.len)} m`; }
   document.body.dataset.phase = 'intro';
@@ -331,12 +341,15 @@ function setupTurn(idx) {
   if (p.isBot) { UI.setControlsEnabled(false); preview.visible = false; if (iControl(p)) botTurn(p); else UI.waiting(`${p.name} is throwing…`); }
   else if (isMine(p)) { UI.setControlsEnabled(true); UI.waiting(null); preview.visible = true; if (G.mode === 'local' && G.players.filter(q => !q.isBot).length > 1) UI.toast(`${p.name}'s throw`, `${Math.round(dist)} m to the basket`, 1600); }
   else { UI.setControlsEnabled(false); preview.visible = false; UI.waiting(`${p.name} is throwing…`); }
+  if (G.mode === 'online' && G.net?.isHost) G.net.broadcast({ t: 'turn', sessionId: G.sessionId, turn: turnKey(G) });
 }
 async function botTurn(p) {
+  const session = G.sessionId, hole = G.holeIdx, turn = turnKey(G);
+  const stillBotTurn = () => p.isBot && iControl(p) && curP() === p && G.phase === 'aim' && G.sessionId === session && G.holeIdx === hole && turnKey(G) === turn;
   UI.waiting(`${p.name} is thinking…`);
-  await sleep(700); if (curP() !== p || G.phase !== 'aim') return;
+  await sleep(700); if (!stillBotTurn()) return;
   const plan = await planBotThrow({ pos: p.lie, world, difficulty: p.difficulty, lefty: p.appearance?.hand === 'left' });
-  if (curP() !== p || G.phase !== 'aim') return;
+  if (!stillBotTurn()) return;
   G.throwType = plan.throwType; G.discId = plan.discId; UI.selectThrow(G.throwType); UI.selectDisc(G.discId); ensureDisc(p, G.discId); p.discMesh.visible = true;
   G.aim.yaw = Math.atan2(plan.dir[1], plan.dir[0]);
   UI.waiting(`${p.name} · ${THROWS[plan.throwType].name}, ${discById(plan.discId).type.toLowerCase()}`);
@@ -362,14 +375,20 @@ function runSim(params) {
   return { traj, events, result: resultOf(s, world) };
 }
 function launchNow() {
+  G.remoteShot = null;
   const { pi, o, sim: given } = G.pending; const p = G.players[pi];
   let params, sim;
   if (given) { params = given.params; sim = given; }
   else {
     const d = aimDir(), pos = [p.lie[0] + d[0] * 0.4, world.height(p.lie[0], p.lie[2]) + 1.15, p.lie[2] + d[1] * 0.4];   // same release point the preview and bots plan from
     params = { throwType: G.throwType, discId: G.discId, power: o.power, hyzer: o.hyzer || 0, yawOffset: o.yawOffset || 0, launchOffset: o.launchOffset ?? G.aim.pitch, dir: d, pos, lefty: p.appearance?.hand === 'left' };
+    if (G.mode === 'online' && !G.net.isHost) {
+      G.net.toHost({ t: 'throw-request', turn: turnKey(G), params });
+      G.phase = 'awaitThrow'; G.pending = null; UI.waiting('Confirming your throw…'); return;
+    }
     sim = runSim(params);
-    netSend({ t: 'throw', pi, params, traj: sim.traj, events: sim.events, result: sim.result });
+    const seq = ++G.shotSeq; G.lastShotSeq = seq;
+    netSend({ t: 'throw', sessionId: G.sessionId, seq, turn: turnKey(G), pi, params, traj: sim.traj, events: sim.events, result: sim.result });
   }
   ensureDisc(p, params.discId); p.discMesh.visible = true;
   G.flight = { pi, params, traj: sim.traj, events: sim.events, result: sim.result, t: 0, ei: 0, spin: 0, spinRate: 4 + speedFor(params.throwType, params.power) * 3 };
@@ -394,6 +413,7 @@ function updateFlight(dt) {
 }
 const SURFACE_AT = p => world.inWater(p[0], p[2]) ? 'water' : world.rough(p[0], p[2]) > 0.5 ? 'dirt' : 'grass';
 function onFlightEvent(e) {
+  if (document.hidden) return;
   const f = G.flight, at = f?.pos, strength = f?.hv ? Math.min(2, Math.hypot(f.hv[0], f.hv[2]) * 60 / 12) : 1;
   if (at && ['land', 'skip', 'flop', 'roll', 'splash'].includes(e)) puffs.burst(at, e, strength, e === 'splash' ? 'water' : SURFACE_AT(at));
   if (e === 'chains' || e === 'drop') { sfx[e === 'drop' ? 'drop' : 'chains'](G.flight?.params.power ?? .6); UI.toast('Chains!', 'Right in the heart!', 1600); return; }
@@ -402,28 +422,31 @@ function onFlightEvent(e) {
   m[e]?.();
 }
 function resolveThrow(pi, r) {
+  G.remoteShot = null;
   const p = G.players[pi], h = holes[G.holeIdx];
   p.strokes++;
   let title, sub;
   if (r.holed) {
     p.done = true; p.scores[G.holeIdx] = p.strokes;
     if (isMine(p)) buzz([30, 40, 60]);
-    p.char.react?.(p.strokes<h.par?'celebrate':p.strokes>h.par?'slump':'idle_weight');
+    p.char.react?.(p.strokes<h.par?'celebrate':p.strokes>h.par?'slump':'idle');
     title = UI.scoreName(p.strokes, h.par); sub = `${p.name} · ${p.strokes} throw${p.strokes > 1 ? 's' : ''}`;
     sfx.fanfare(p.strokes === 1 ? 'ace' : p.strokes - h.par <= -2 ? 'eagle' : p.strokes - h.par === -1 ? 'birdie' : 'par');
     sfx.applause();
+    if (!reducedMotion && p.strokes <= h.par) { const at = p.char.group.position; celebration.burst([at.x, at.y, at.z], p.strokes === 1 || p.strokes < h.par - 1); }
   } else if (r.ob) { p.strokes++; p.lie = r.lie; title = 'Out of bounds'; sub = '+1 penalty · play from where it went out'; }
   else { p.lie = r.rest; title = r.thrown < 1 ? 'Dropped it' : `${Math.round(r.thrown)} m`; sub = `${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to the basket`; }
   if (!r.holed && !r.ob && r.thrown > 8 && r.dist < Math.max(8, p.lieDist * .35)) { title = 'Nice shot!'; sfx.applause(); }
   if (!p.done && p.strokes >= h.par + 5) { p.done = true; p.scores[G.holeIdx] = p.strokes + 1; title = 'Picked up'; sub = 'max score for the hole'; }
   p.lieDist = distToBasket(p.lie[0], p.lie[2]);
   p.marker.position.set(p.lie[0], world.height(p.lie[0], p.lie[2]) + 0.04, p.lie[2]); p.marker.visible = !p.done;
-  if (p.done) setTimeout(() => { if (p.done) p.discMesh.visible = false; }, 2500);
-  UI.toast(title, sub, 2000); UI.setHud({ dist: p.lieDist });
+  const session = G.sessionId, hole = G.holeIdx;
+  if (p.done) setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && p.done && G.players.includes(p)) p.discMesh.visible = false; }, 2500);
+  UI.toast(title, sub, r.holed ? 2400 : 2000); UI.setHud({ dist: p.lieDist });
   cam.hold = r.holed ? null : { fov: cam.fov, shift: cam.shift };   // a miss holds the landing shot (or the putt's locked frame); only a holed throw cuts to the reaction
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
-  setTimeout(() => { if (G.phase === 'result') { UI.fade(true); setTimeout(() => { nextTurn(); UI.fade(false); }, 320); } }, 2000);
+  setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') nextTurn(); UI.fade(false); }, 320); } }, 2400);
 }
 function endHole() {
   G.phase = 'holeEnd'; preview.visible = false; UI.setControlsEnabled(false);
@@ -443,11 +466,14 @@ function personalBest() {
   return { toPar, prev: prev?.toPar ?? null, isNew };
 }
 function advanceHole() {
+  G.inbox = []; G.flight = null; G.pending = null; G.tween = null;
   UI.hide('score'); UI.show('hud');
   if (G.holeIdx >= G.holeCount - 1) { for (const p of G.players) p.scores = []; G.holeIdx = 0; } else G.holeIdx++;
   startHole();
 }
 function applyRemoteThrow(m) {   // only called when this client is idle in 'aim' (or still in the intro)
+  if (m.sessionId !== G.sessionId || !G.players[m.pi] || m.turn !== turnKey(G)) { G.net?.toHost({ t: 'sync-request' }); return; }
+  G.remoteShot = m;
   if (G.cur !== m.pi) setupTurn(m.pi);
   G.throwType = m.params.throwType; G.discId = m.params.discId; UI.selectThrow(G.throwType); UI.selectDisc(G.discId);
   G.aim.yaw = Math.atan2(m.params.dir[1], m.params.dir[0]);
@@ -456,6 +482,9 @@ function applyRemoteThrow(m) {   // only called when this client is idle in 'aim
   G.phase = 'windup'; p.char.setThrow(G.throwType); cam.mode = 'aim';
 }
 function toMenu() {
+  celebration.clear();
+  input.cancel(); for (const t of disconnectTimers.values()) clearTimeout(t); disconnectTimers.clear(); deferredNet = [];
+  G.sessionId = ''; G.cur = -1; G.nextRequested = null; G.syncing = false;
   G.phase = 'menu'; G.flight = null; G.pending = null; G.tween = null; cam.mode = 'menu'; G.inbox = [];
   clearPlayers(); preview.visible = false; for (const id of ['hud', 'score', 'online', 'setup', 'courses', 'locker']) UI.hide(id); UI.show('menu');
   hero.group.visible = true; course.setHole(0); placeHero();
@@ -767,7 +796,7 @@ function updateCamera(dt) {
       cam.tPos.set(mx - d[0] * dist * 0.22, world.height(mx, mz) + Math.max(45, dist * 0.95), mz - d[1] * dist * 0.22); cam.tLook.set(mx, world.height(mx, mz), mz); k = 4;
     } else if (cam.mode === 'result') {
       const r=rightOf(d);cam.tPos.set(lie.x+d[0]*3.8+r[0]*.7,lie.y+1.45,lie.z+d[1]*3.8+r[1]*.7);
-      cam.tLook.set(lie.x,lie.y+.92,lie.z); k=5;
+      cam.tLook.set(lie.x,lie.y+.92,lie.z); k=5; fov=camera.aspect<1.2?54:38;
     }
     else fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
@@ -792,32 +821,42 @@ const clock = new THREE.Clock(); let time = 0;
 // Open the game with ?fps=1 on a phone to read the real frame rate; the only way to certify the mobile targets.
 const fpsTag = new URLSearchParams(location.search).has('fps') ? document.body.appendChild(Object.assign(document.createElement('div'), { style: 'position:fixed;left:8px;bottom:8px;z-index:99;padding:4px 8px;border-radius:8px;background:rgba(0,0,0,.6);color:#fff;font:600 12px/1.4 system-ui;pointer-events:none' })) : null;
 let fpsNext = 0;
-function loop() {
-  requestAnimationFrame(loop);
-  const rawDt=clock.getDelta(), dt = Math.min(G.maxDt || 0.05, rawDt); time += dt;
+function loop(background = false) {
+  // rAF passes a timestamp; only the explicit boolean true denotes a background tick.
+  background = background === true;
+  if (!background) requestAnimationFrame(loop);
+  if (document.hidden && !background) return;
+  const rawDt=clock.getDelta(), dt = Math.min(G.maxDt || (background ? .25 : .05), rawDt);
+  if ((contextLost && !G.net?.isHost) || G.syncing || G.phase === 'loading') return;
+  time += dt; input.update(dt);
   // Ignore background/paused frames; resolution changes never alter simulation time.
   if(fpsTag&&performance.now()>fpsNext){fpsNext=performance.now()+500;fpsTag.textContent=`${Math.round(1/frameAverage)} fps · ${G.settings.quality==='low'?'Lite':'Full'} · ${Math.round(renderer.getPixelRatio()*100)/100}x · ${innerWidth}×${innerHeight}`;}
-  if(!document.hidden && rawDt>.004 && rawDt<.1){frameAverage=frameAverage*.96+rawDt*.04;frameSamples++;
-    if(frameSamples>90 && time-lastResolutionChange>2){const budget=1/(G.settings.quality==='low'?60:45);const old=resolutionScale;
-      if(frameAverage>budget*1.15)resolutionScale=Math.max(.65,resolutionScale-.08);
+  if(!document.hidden && rawDt>.004 && rawDt<.25){frameAverage=frameAverage*.96+rawDt*.04;frameSamples++;
+    if(frameSamples>90 && time-lastResolutionChange>2){const budget=1/60;const old=resolutionScale;
+      if(frameAverage>budget*1.15)resolutionScale=Math.max(.5,resolutionScale-.08);
       else if(frameAverage<budget*.82)resolutionScale=Math.min(1,resolutionScale+.04);
       if(old!==resolutionScale){resize();lastResolutionChange=time;}
     }
+    slowTime = frameAverage > 1/48 && resolutionScale <= .58 ? slowTime + dt : Math.max(0, slowTime - dt);
+    if (slowTime > 6 && post && postEnabled) { postEnabled = false; slowTime = 0; UI.toast('Graphics adjusted', 'Keeping your round smooth', 1600); }
   }
   if (!course) return;
   if (G.phase === 'intro') { G.introT += dt; if (G.introT > introDur(holes[G.holeIdx]) || G.inbox.length) { nextTurn(); cam.snap = true; } }   // the cut from the basket back to the tee, under the flash
   { const a = G.phase === 'intro' ? .7 * THREE.MathUtils.smoothstep(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH, introDur(holes[G.holeIdx])) : Math.max(0, flashA - dt / .2);   // the broadcast's white flash: up over the held basket, down over the tee
     if (a !== flashA) flashEl.style.opacity = flashA = a; }
-  if (G.inbox.length && G.phase === 'aim' && G.mode === 'online') applyRemoteThrow(G.inbox.shift());
+  if (G.inbox.length && (G.phase === 'aim' || G.phase === 'awaitThrow') && G.mode === 'online') applyRemoteThrow(G.inbox.shift());
+  if (G.nextRequested && G.phase === 'holeEnd') { G.nextRequested = null; advanceHole(); }
   if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
   if (G.pending && (G.phase === 'release' || G.phase === 'flight' || G.phase === 'result')) {
     G.releaseT += dt; const p = G.players[G.pending.pi];
     const ph = 0.5 + Math.min(0.5, G.releaseT / 0.7 * 0.5); p.char.setPhase(ph);
     if (!G.pending.fired && ph >= 0.62) { G.pending.fired = true; launchNow(); }
-    if (ph >= 1) { G.pending = null; setTimeout(() => p.char.setPhase(null), 350); }
+    if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && p !== curP()) p.char.setPhase(null); else if (G.sessionId === session && G.phase === 'flight') p.char.setPhase(null); }, 350); }
   }
   if (G.flight) updateFlight(dt);
-  for (const p of G.players) p.char.update(dt);
+  if (background || contextLost) return; // Keep host authority alive without drawing an unavailable canvas.
+  // Nearby spectators retain smooth motion; offscreen and distant players update at 15 Hz.
+  for (const p of G.players) { p.animationDt = (p.animationDt || 0) + dt; if (p === curP() || (p.char.group.position.distanceToSquared(camera.position) < 25 * 25) || p.animationDt >= 1/15) { p.char.update(p.animationDt); p.animationDt = 0; } }
   if (hero?.group.visible) { hero.update(dt); if (heroDisc) { heroDisc.visible = true; hero.group.getWorldDirection(_v2); holdDisc(hero, heroDisc, [_v2.x * .25, 1, _v2.z * .25], time * .3); } } else if (heroDisc) heroDisc.visible = false;
   const p = curP();
   if (p && (G.phase === 'aim' || G.phase === 'windup' || (G.phase === 'release' && G.pending && !G.pending.fired))) {
@@ -831,11 +870,11 @@ function loop() {
   updateCamera(dt);
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : p ? p.char.group.position : cam.look;
   course.update(dt, time, focus, camera.position);
-  puffs.update(dt); windFx?.update(time, dt, world.wind, focus, camera);
+  puffs.update(dt); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera);
   previewMat.dashOffset -= dt * 1.6; previewEdge.dashOffset = previewMat.dashOffset;
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
-  if(post) post.render(); else renderer.render(scene, camera);
+  if(post && postEnabled) post.render(); else renderer.render(scene, camera);
 }
 
 // ---------- HUD / menu wiring ----------
@@ -847,7 +886,7 @@ $('btnOverview').onclick = () => { if (G.phase !== 'aim') return; G.overview = !
 $('btnMute').onclick = () => { setMuted(!isMuted()); UI.setSoundMuted(isMuted()); };
 $('btnMenu').onclick = async () => { if (await UI.confirmLeave()) toMenu(); };
 $('btnHelp').onclick = () => { UI.hide('menu'); UI.show('help'); }; $('btnHelpClose').onclick = () => { UI.hide('help'); UI.show('menu'); };
-$('btnScoreNext').onclick = () => { netSend({ t: 'next' }); advanceHole(); };
+$('btnScoreNext').onclick = () => { if (G.mode === 'online' && !G.net?.isHost) return; netSend({ t: 'next', sessionId: G.sessionId, holeIdx: G.holeIdx }); advanceHole(); };
 $('btnScoreMenu').onclick = toMenu;
 UI.seg('holesSeg', v => G.settings.holes = v); UI.seg('diffSeg', v => G.settings.difficulty = v);
 $('qualSeg').querySelector(`[data-v="${G.settings.quality}"]`)?.classList.add('on'); $('qualSeg').querySelector(`[data-v="${G.settings.quality === 'low' ? 'high' : 'low'}"]`)?.classList.remove('on');
@@ -873,82 +912,208 @@ function renderSetup() {
   $('playerList').innerHTML = '';
   setupPlayers.forEach((p, i) => {
     const row = document.createElement('div'); row.className = 'row';
-    row.innerHTML = `<i class="dot" style="background:${COLORS[i % COLORS.length]};width:16px;height:16px"></i><input value="${p.name}" maxlength="14" style="flex:1"><span class="muted">${p.isBot ? 'bot' : 'player'}</span><button data-x="${i}">✕</button>`;
+    row.innerHTML = `<i class="dot" style="background:${COLORS[i % COLORS.length]};width:16px;height:16px"></i><input value="${UI.escapeText(p.name)}" maxlength="14" style="flex:1"><span class="muted">${p.isBot ? 'bot' : 'player'}</span><button data-x="${i}">✕</button>`;
     row.querySelector('input').oninput = e => p.name = e.target.value;
     row.querySelector('button').onclick = () => { setupPlayers.splice(i, 1); renderSetup(); };
     $('playerList').appendChild(row);
   });
 }
 $('btnLocal').onclick = () => { setupPlayers = [{ name: 'Player 1' }, { name: 'Player 2' }]; renderSetup(); UI.hide('menu'); UI.show('setup'); };
-$('btnAddHuman').onclick = () => { if (setupPlayers.length < 6) { setupPlayers.push({ name: `Player ${setupPlayers.length + 1}` }); renderSetup(); } };
-$('btnAddBot').onclick = () => { if (setupPlayers.length < 6) { setupPlayers.push({ name: BOT_NAMES[setupPlayers.filter(p => p.isBot).length % BOT_NAMES.length], isBot: true, difficulty: G.settings.difficulty }); renderSetup(); } };
+$('btnAddHuman').onclick = () => { if (setupPlayers.length < MAX_PLAYERS) { setupPlayers.push({ name: `Player ${setupPlayers.length + 1}` }); renderSetup(); } };
+$('btnAddBot').onclick = () => { if (setupPlayers.length < MAX_PLAYERS) { setupPlayers.push({ name: BOT_NAMES[setupPlayers.filter(p => p.isBot).length % BOT_NAMES.length], isBot: true, difficulty: G.settings.difficulty }); renderSetup(); } };
 $('btnSetupBack').onclick = () => { UI.hide('setup'); UI.show('menu'); };
 $('btnSetupStart').onclick = () => { if (!setupPlayers.length) return; let mine = false; startGame({ mode: 'local', holeCount: +G.settings.holes, players: setupPlayers.map(p => { const first = !p.isBot && !mine; if (first) mine = true; return { ...p, name: p.name.trim() || 'Player', avatar: first ? { ...G.avatar } : null }; }) }); };
 
-// online
-$('btnOnline').onclick = () => { UI.hide('menu'); UI.show('online'); UI.show('onlineChoice'); UI.hide('lobby'); $('onlineName').value ||= G.avatar.name || 'Player'; };
-$('btnOnlineBack').onclick = () => { UI.hide('online'); UI.show('menu'); };
-$('btnLeave').onclick = toMenu;
-function renderLobby() {
-  $('lobbyList').innerHTML = G.lobby.map(p => `<li><span>${p.name}${p.isBot ? ' <span class="muted">bot</span>' : ''}</span><span class="muted">${p.host ? 'host' : ''}</span></li>`).join('');
-  $('hostControls').classList.toggle('hidden', !G.net?.isHost); $('guestWait').classList.toggle('hidden', !!G.net?.isHost);
+// online: the host validates commands, computes flight and owns membership.
+const disconnectTimers = new Map();
+let deferredNet = [];
+function roundConfig() {
+  return { mode: 'online', sessionId: G.sessionId, courseId: G.courseId, holeCount: G.holeCount,
+    players: G.players.map(p => ({ name: p.name, color: p.color, isBot: p.isBot, difficulty: p.difficulty, peerId: p.peerId, avatar: p.appearance })) };
 }
-function onNet(ev) {
-  if (ev.type === 'join') { G.lobby.push({ name: ev.name || 'Guest', peerId: ev.id, avatar: ev.avatar || null }); renderLobby(); G.net.broadcast({ t: 'lobby', players: G.lobby, code: G.net.code }); sfx.click(); }
-  else if (ev.type === 'leave') {
-    if (G.net.isHost) {
-      const li = G.lobby.findIndex(p => p.peerId === ev.id); if (li >= 0) G.lobby.splice(li, 1); renderLobby();
-      const gp = G.players.find(p => p.peerId === ev.id);
-      if (gp && G.phase !== 'menu') { gp.isBot = true; gp.difficulty = 'medium'; gp.peerId = null; UI.toast(`${gp.name} left`, 'a bot takes over', 2500); G.net.broadcast({ t: 'botify', name: gp.name }); if (curP() === gp && G.phase === 'aim') botTurn(gp); }
-      else G.net.broadcast({ t: 'lobby', players: G.lobby, code: G.net.code });
-    } else { UI.toast('Host disconnected', '', 3000); setTimeout(toMenu, 1500); }
-  }
-  else if (ev.type === 'msg') {
-    const m = ev.data;
-    if (m.t === 'lobby') { G.lobby = m.players; $('roomCode').textContent = m.code; renderLobby(); }
-    else if (m.t === 'start') { startGame(m.config); }
-    else if (m.t === 'throw') { if (G.net.isHost) G.net.broadcast(m, ev.from); G.inbox.push(m); }
-    else if (m.t === 'next') advanceHole();
-    else if (m.t === 'botify') { const gp = G.players.find(p => p.name === m.name); if (gp) { gp.isBot = true; gp.peerId = null; UI.toast(`${gp.name} left`, 'a bot takes over', 2500); } }
-  }
-  else if (ev.type === 'error') { console.warn(ev.err); }
+function snapshot() {
+  return { config: roundConfig(), holeIdx: G.holeIdx, cur: G.cur, phase: G.phase, seq: G.shotSeq,
+    players: G.players.map(p => ({ scores: [...p.scores], strokes: p.strokes, done: p.done, lie: [...p.lie], lieDist: p.lieDist })),
+    flight: G.flight ? structuredClone(G.flight) : null, shot: G.remoteShot || null };
 }
-$('btnCreate').onclick = async () => {
-  const name = $('onlineName').value.trim() || 'Host';
-  UI.onlineError(); UI.setConnecting('btnCreate', true);
+async function restoreRoom(s) {
+  if (G.syncing || !s?.config || s.config.players.length > MAX_PLAYERS) return;
+  G.syncing = true;
+  G.net.locked = true;
   try {
-    G.net = createNet();
-    const code = await G.net.host(name, onNet);
-    G.lobby = [{ name, peerId: G.net.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code; renderLobby();
+    await startGame(s.config); G.holeIdx = s.holeIdx; startHole();
+    s.players.forEach((state, i) => Object.assign(G.players[i], state));
+    G.shotSeq = s.seq; G.lastShotSeq = s.seq;
+    if (s.cur >= 0 && s.cur < G.players.length && s.phase !== 'intro') {
+      setupTurn(s.cur);
+      if (s.flight) {
+        G.flight = s.flight; G.phase = 'flight'; cam.mode = 'flight'; G.pending = null;
+        const p = curP(); p.char.setThrow(s.flight.params.throwType); p.char.setPhase(1);
+        ensureDisc(p, s.flight.params.discId); p.discMesh.visible = true; UI.setControlsEnabled(false); preview.visible = false; updateFlight(0);
+      } else if (s.shot) applyRemoteThrow(s.shot);
+      else if (s.phase === 'holeEnd') endHole();
+      else if (s.phase === 'result' || curP().done) nextTurn();
+    }
+    UI.toast('Back in the round', 'Scores restored', 1500);
+  } finally { G.syncing = false; const queue = deferredNet; deferredNet = []; queue.forEach(onNet); }
+}
+function renderLobby() {
+  const list = $('lobbyList'); list.replaceChildren();
+  for (const p of G.lobby) {
+    const li = document.createElement('li'), name = document.createElement('span'), status = document.createElement('span');
+    name.textContent = p.name; status.className = 'muted'; status.textContent = p.host ? 'host' : p.disconnected ? 'reconnecting' : p.isBot ? 'bot' : 'ready';
+    li.append(name, status); list.append(li);
+  }
+  $('hostControls').classList.toggle('hidden', !G.net?.isHost); $('guestWait').classList.toggle('hidden', !!G.net?.isHost);
+  $('roomStatus').textContent = `${G.lobby.length} / ${MAX_PLAYERS} players`;
+  $('btnLobbyBot').disabled = G.lobby.length >= MAX_PLAYERS;
+  $('btnLobbyStart').disabled = G.lobby.length === 0 || !!G.net?.locked;
+}
+const publishLobby = () => { renderLobby(); G.net?.broadcast({ t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code }); };
+function rejectGuest(id, reason) { G.net.send(id, { t: 'rejected', reason }); G.net.disconnect(id); }
+function onNet(ev) {
+  if (!G.net) return;
+  if (G.syncing && ev.type === 'msg') { deferredNet.push(ev); return; }
+  if (ev.type === 'join' && G.net.isHost) {
+    if (ev.version !== PROTOCOL_VERSION) return rejectGuest(ev.id, 'Reload the game to use the current room version.');
+    if (typeof ev.token !== 'string' || ev.token.length > 64) return rejectGuest(ev.id, 'Invalid player session. Please reload.');
+    const returning = G.lobby.find(p => p.token === ev.token);
+    if (returning) {
+      const oldId = returning.peerId, pi = G.lobby.indexOf(returning);
+      clearTimeout(disconnectTimers.get(ev.token)); disconnectTimers.delete(ev.token);
+      returning.peerId = ev.id; returning.disconnected = false; returning.isBot = false;
+      if (G.net.locked && G.players[pi]) {
+        const p = G.players[pi]; p.peerId = ev.id; p.isBot = false;
+        if (curP() === p && G.phase === 'windup' && G.tween && !G.remoteShot) { G.tween = null; G.pending = null; setupTurn(pi); }
+        else if (curP() === p && G.phase === 'aim') setupTurn(pi);
+        G.net.broadcast({ t: 'rejoin', pi, peerId: ev.id });
+        G.net.send(ev.id, { t: 'snapshot', state: snapshot() });
+      }
+      if (oldId !== ev.id) G.net.disconnect(oldId);
+      publishLobby(); return;
+    }
+    if (G.net.locked) return rejectGuest(ev.id, 'This round has started. Join the next round with your friends.');
+    if (G.lobby.length >= MAX_PLAYERS) return rejectGuest(ev.id, `This room is full (${MAX_PLAYERS} players).`);
+    G.lobby.push({ name: safeName(ev.name), peerId: ev.id, avatar: ev.avatar || null, token: ev.token }); publishLobby(); sfx.click();
+  } else if (ev.type === 'leave') {
+    if (G.net.isHost) {
+      const li = G.lobby.findIndex(p => p.peerId === ev.id); if (li < 0) return;
+      const member = G.lobby[li];
+      if (!G.net.locked) { G.lobby.splice(li, 1); publishLobby(); return; }
+      member.disconnected = true; publishLobby();
+      UI.toast(`${member.name} disconnected`, 'Holding their place for 30 seconds', 2500);
+      const room = G.net;
+      disconnectTimers.set(member.token, setTimeout(() => {
+        disconnectTimers.delete(member.token); if (G.net !== room || !member.disconnected) return;
+        const p = G.players[li]; if (!p) return;
+        p.isBot = true; p.peerId = null; p.difficulty = 'medium'; member.isBot = true;
+        G.net.broadcast({ t: 'botify', pi: li });
+        UI.toast(`${p.name} is away`, 'A bot keeps the round moving', 2500);
+        if (curP() === p && G.phase === 'aim') botTurn(p);
+      }, 30000));
+    } else { UI.waiting('Reconnecting to the host…'); UI.setControlsEnabled(false); input.cancel(); }
+  } else if (ev.type === 'reconnected') {
+    G.net.toHost({ t: 'sync-request' });
+  } else if (ev.type === 'msg') {
+    const m = ev.data; if (!m || typeof m.t !== 'string') return;
+    if (G.net.isHost) {
+      if (m.t === 'sync-request') { G.net.send(ev.from, G.net.locked ? { t: 'snapshot', state: snapshot() } : { t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code }); return; }
+      // Guests send input only: never accept a client's trajectory, result, next-hole or lobby message.
+      if (m.t === 'throw-request') {
+        if (G.phase !== 'aim' || !validateThrowRequest(m, G, ev.from)) { G.net.send(ev.from, { t: 'throw-denied', reason: 'Waiting for your turn. Syncing the scorecard…' }); return; }
+        const p = curP(), q = m.params, d = q.dir;
+        const params = { throwType: q.throwType, discId: q.discId, power: q.power, hyzer: q.hyzer, yawOffset: q.yawOffset, launchOffset: q.launchOffset,
+          dir: [...d], pos: [p.lie[0] + d[0] * .4, world.height(p.lie[0], p.lie[2]) + 1.15, p.lie[2] + d[1] * .4], lefty: p.appearance?.hand === 'left' };
+        const sim = runSim(params), seq = ++G.shotSeq;
+        const shot = { t: 'throw', sessionId: G.sessionId, turn: m.turn, seq, pi: G.cur, params, ...sim };
+        G.lastShotSeq = seq; G.net.broadcast(shot); applyRemoteThrow(shot);
+      }
+      return;
+    }
+    if (ev.from !== `chains-dg-${G.net.code}`) return;
+    if (m.t === 'lobby') { G.lobby = m.players; $('roomCode').textContent = m.code; renderLobby(); }
+    else if (m.t === 'start') { G.net.locked = true; G.syncing = true; startGame(m.config).finally(() => { G.syncing = false; const queue = deferredNet; deferredNet = []; queue.forEach(onNet); }); }
+    else if (m.t === 'snapshot') restoreRoom(m.state);
+    else if (m.t === 'throw' && m.sessionId === G.sessionId && Number.isInteger(m.seq) && m.seq > G.lastShotSeq) { G.lastShotSeq = m.seq; G.inbox.push(m); }
+    else if (m.t === 'next' && m.sessionId === G.sessionId && m.holeIdx === G.holeIdx) { if (G.phase === 'holeEnd') advanceHole(); else G.nextRequested = m; }
+    else if (m.t === 'botify' && G.players[m.pi]) { const p = G.players[m.pi]; p.isBot = true; p.peerId = null; UI.toast(`${p.name} is away`, 'A bot keeps the round moving', 2000); }
+    else if (m.t === 'rejoin' && G.players[m.pi]) { G.players[m.pi].isBot = false; G.players[m.pi].peerId = m.peerId; }
+    else if (m.t === 'throw-denied') { UI.toast('Round synchronizing', m.reason, 2000); G.net.toHost({ t: 'sync-request' }); }
+    else if (m.t === 'rejected') { const reason = m.reason; G.net.close(); G.net = null; UI.hide('lobby'); UI.show('onlineChoice'); UI.onlineError(reason); }
+    else if (m.t === 'turn') { if (G.phase === 'awaitThrow' && m.turn !== turnKey(G)) G.net.toHost({ t: 'sync-request' }); }
+  } else if (ev.type === 'error') {
+    if (ev.err?.type === 'network' || ev.err?.type === 'server-error') UI.onlineError('The room service is reconnecting. Please keep this page open.');
+  }
+}
+$('btnOnline').onclick = () => { UI.hide('menu'); UI.show('online'); UI.show('onlineChoice'); UI.hide('lobby'); $('onlineName').value ||= G.avatar.name || 'Player'; };
+$('btnOnlineBack').onclick = () => { G.net?.close(); G.net = null; UI.hide('online'); UI.show('menu'); };
+$('btnLeave').onclick = toMenu;
+$('btnCreate').onclick = async () => {
+  const name = safeName($('onlineName').value || 'Host'); UI.onlineError(); UI.setConnecting('btnCreate', true); $('btnJoin').disabled = true;
+  try {
+    G.net?.close(); G.net = createNet();
+    const room = G.net, code = await room.host(name, onNet); if (G.net !== room) return;
+    G.lobby = [{ name, peerId: room.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code; renderLobby();
     UI.hide('onlineChoice'); UI.show('lobby');
-  } catch (e) { UI.onlineError('Could not create a room: ' + (e.message || e)); G.net = null; }
-  UI.setConnecting('btnCreate', false);
+  } catch (e) { UI.onlineError('Could not create a room: ' + (e.message || e)); G.net?.close(); G.net = null; }
+  finally { UI.setConnecting('btnCreate', false); $('btnJoin').disabled = false; }
 };
 $('btnJoin').onclick = async () => {
-  const name = $('onlineName').value.trim() || 'Guest', code = $('joinCode').value.trim().toUpperCase();
-  UI.onlineError();
-  if (code.length !== 4) { UI.onlineError('Enter the four-letter room code to join your friends.'); $('joinCode').focus(); return; }
-  UI.setConnecting('btnJoin', true);
+  const name = safeName($('onlineName').value || 'Guest'), code = $('joinCode').value.trim().toUpperCase(); UI.onlineError();
+  if (!/^[A-Z2-9]{4}$/.test(code)) { UI.onlineError('Enter the four-character room code.'); $('joinCode').focus(); return; }
+  UI.setConnecting('btnJoin', true); $('btnCreate').disabled = true;
   try {
-    G.net = createNet();
-    await G.net.join(code, name, onNet, { ...G.avatar, name });
-    $('roomCode').textContent = code; G.lobby = []; renderLobby(); UI.hide('onlineChoice'); UI.show('lobby');
+    G.net?.close(); G.net = createNet(); G.lobby = [];
+    const room = G.net; await room.join(code, name, onNet, { ...G.avatar, name }); if (G.net !== room) return;
+    $('roomCode').textContent = code; renderLobby(); UI.hide('onlineChoice'); UI.show('lobby');
   } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
-  UI.setConnecting('btnJoin', false);
+  finally { UI.setConnecting('btnJoin', false); $('btnCreate').disabled = false; }
 };
-$('btnLobbyBot').onclick = () => { if (G.lobby.length < 6) { G.lobby.push({ name: BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], isBot: true }); renderLobby(); G.net.broadcast({ t: 'lobby', players: G.lobby, code: G.net.code }); } };
+$('btnLobbyBot').onclick = () => { if (G.lobby.length < MAX_PLAYERS && !G.net.locked) { G.lobby.push({ name: BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], isBot: true }); publishLobby(); } };
 $('btnLobbyStart').onclick = () => {
-  const config = { mode: 'online', courseId: G.courseId, holeCount: +G.settings.holes, players: G.lobby.map((p, i) => ({ name: p.name, isBot: !!p.isBot, difficulty: G.settings.difficulty, peerId: p.peerId || null, avatar: p.avatar || null, color: p.avatar?.jersey || COLORS[i % COLORS.length] })) };
+  if (!G.net?.isHost || G.net.locked || !G.lobby.length) return;
+  G.net.locked = true; renderLobby();
+  const config = { mode: 'online', sessionId: crypto.randomUUID(), courseId: G.courseId, holeCount: +G.settings.holes,
+    players: G.lobby.map((p, i) => ({ name: safeName(p.name), isBot: !!p.isBot, difficulty: G.settings.difficulty, peerId: p.peerId || null, avatar: p.avatar || null, color: p.avatar?.jersey || COLORS[i % COLORS.length] })) };
   G.net.broadcast({ t: 'start', config }); startGame(config);
+};
+$('btnShareRoom').onclick = async () => {
+  const url = new URL(location.href); url.search = ''; url.searchParams.set('room', G.net.code); url.hash = '';
+  try { await navigator.clipboard.writeText(url.href); $('btnShareRoom').textContent = 'Invite link copied'; }
+  catch { $('roomStatus').textContent = url.href; }
 };
 
 // ---------- boot ----------
-setupInput({ sceneEl: canvas, padEl: $('pad'), getThrow: () => G.throwType, onAim, onGesture });
+const playable = () => curP() && !curP().isBot && isMine(curP()) && !G.syncing && !contextLost && !document.querySelector('dialog[open]') && (G.mode !== 'online' || G.net?.isHost || G.net?.conns.size > 0);
+const input = setupInput({ sceneEl: canvas, padEl: $('pad'), getThrow: () => G.throwType, onAim, onGesture,
+  canAim: () => playable() && G.phase === 'aim', canThrow: () => playable() && ['aim','windup'].includes(G.phase), onTrace: UI.gestureTrace,
+  onShortcut(code) {
+    unlock();
+    if (code.startsWith('Digit')) pickDisc(DISCS[+code.slice(-1) - 1].id);
+    else if (code === 'KeyQ' || code === 'KeyE') { const types = Object.keys(THROWS), i = types.indexOf(G.throwType); pickThrow(types[(i + (code === 'KeyQ' ? -1 : 1) + types.length) % types.length]); }
+    else $({ KeyT: 'btnTarget', KeyO: 'btnOverview', KeyM: 'btnMute' }[code])?.click();
+  }
+});
+document.addEventListener('keydown', unlock, { once: true, capture: true });
+let contextLost = false;
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); contextLost = true; input.cancel(); UI.waiting('Restoring graphics…'); });
+canvas.addEventListener('webglcontextrestored', () => { contextLost = false; resize(); G.previewDirty = true; UI.waiting(null); });
+document.addEventListener('visibilitychange', () => { clock.getDelta(); if (!document.hidden && G.mode === 'online' && !G.net?.isHost) G.net?.toHost({ t: 'sync-request' }); });
+setInterval(() => { if (document.hidden && G.mode === 'online' && G.net?.isHost) loop(true); }, 100);
 setTimeout(async () => {
+  try {
   await loadManifest();
   await loadModels(renderer, G.settings.quality);
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
+  await renderer.compileAsync(scene, camera);
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post ? post.render() : renderer.render(scene,camera), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };  // debug hook (remote devtools)
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };
+  const invite = new URLSearchParams(location.search).get('room'); if (/^[A-Z2-9]{4}$/.test(invite || '')) { $('joinCode').value = invite; $('btnOnline').click(); }
+  } catch (error) {
+    const loading = $('loading'); loading.replaceChildren();
+    const message = document.createElement('p'); message.textContent = 'The course could not load. Check your connection, then try again.';
+    const retry = document.createElement('button'); retry.textContent = 'Reload game'; retry.onclick = () => location.reload();
+    loading.append(message, retry); console.error('Game startup failed', error);
+  }
 }, 60);

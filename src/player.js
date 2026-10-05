@@ -10,7 +10,9 @@ export const AVATAR_OPTIONS = {
   ...FACE_OPTIONS,
   skin: ['#f6dcc4', '#eec0a0', '#d9a382', '#c68a5e', '#a86b42', '#8d5a3b', '#6b4229', '#4a2d1c'],
   eyeColor: EYE_COLORS,
-  hair: ['short', 'buzz', 'curly', 'wavy', 'sidepart', 'long', 'ponytail', 'bun', 'braids', 'afro', 'mohawk', 'none'],
+  // Keep the scanned roots intact. Shell-only cuts and a missing shaved scalp
+  // exposed holes; unsupported saved cuts safely use the natural short style.
+  hair: ['short'],
   hairColor: ['#1b1410', '#3b2a1c', '#6b4a2b', '#a5733d', '#d9b26a', '#e6dccb', '#8a2b1a', '#556070'],
   jerseyStyle: JERSEY_STYLES,
   jersey: ['#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#ff7ad9', '#9b6bff', '#ffffff', '#151820', '#ff8a2b', '#16c2d4'],
@@ -27,6 +29,14 @@ export const AVATAR_OPTIONS = {
   figure: ['male', 'female'],
 };
 export const DEFAULT_AVATAR = { hand: 'right', figure: 'male', ...FACE_DEFAULTS, name: 'You', skin: '#d9a382', hair: 'short', hairColor: '#3b2a1c', jersey: '#ff4d3d', jerseyStyle: 'pro', accent: '#ffffff', shorts: '#23262e', socks: '#f4f4f4', shoes: '#f1f1f1', wristband: 'none', headwear: 'none', headwearColor: '#151820', number: 7, shades: false, build: 'athletic', height: 'average' };
+export function normalizeAvatar(value = {}) {
+  const a={...DEFAULT_AVATAR},colors=new Set(['skin','hairColor','jersey','accent','shorts','socks','shoes','headwearColor','eyeColor']);
+  for(const [key,options]of Object.entries(AVATAR_OPTIONS))if(colors.has(key)?typeof value[key]==='string'&&/^#[a-f\d]{6}$/i.test(value[key]):options.includes(value[key]))a[key]=value[key];
+  if(typeof value.name==='string')a.name=value.name.trim().slice(0,24)||'You';
+  if(Number.isFinite(value.number))a.number=Math.max(0,Math.min(99,Math.trunc(value.number)));
+  if(value.glasses===undefined&&value.shades===true)a.glasses='sport';
+  a.shades=a.glasses==='sport';a.lod=value.lod===true;return a;
+}
 export function randomAvatar(rng = Math.random, overrides = {}) {
   const pick = a => a[Math.floor(rng() * a.length)];
   const jersey = overrides.jersey || pick(AVATAR_OPTIONS.jersey);
@@ -37,8 +47,7 @@ export function randomAvatar(rng = Math.random, overrides = {}) {
 import { JOINTS, IDLE, K, mirrorPose, keysFor, poseAt, readyPose, heroPose, STANCE_FADE, stanceFade } from './throw-poses.js';
 
 export function createCharacter(opts = {}) {
-  const a = { ...DEFAULT_AVATAR, ...(opts.color ? { jersey: opts.color } : {}), ...(opts.skin ? { skin: opts.skin } : {}), ...(opts.cap ? { headwearColor: opts.cap } : {}), ...opts };
-  if (opts.glasses === undefined && opts.shades) a.glasses = 'sport';
+  const a = normalizeAvatar({ ...(opts.color ? { jersey: opts.color } : {}), ...(opts.cap ? { headwearColor: opts.cap } : {}), ...opts });
   const imported = createGLTFCharacter(a); if (imported) return imported;
   const g = new THREE.Group();
   const materials = new Set();

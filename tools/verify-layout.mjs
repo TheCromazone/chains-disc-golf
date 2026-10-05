@@ -6,7 +6,7 @@
 // Writes <moment>.jpeg per requested moment and stats.json: draw calls and triangles for one full frame (shadow map
 // and post passes included), mean rAF interval, GPU string, and every console error / exception (shader failures).
 import { spawn } from 'node:child_process';
-import { mkdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,7 @@ const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/capture' }, port: { type: 'string', default: '8101' },
   size: { type: 'string', default: '1280x720' }, dpr: { type: 'string', default: '1' }, quality: { type: 'string' },
   moments: { type: 'string', default: 'menu,flyover,tee,putt,scorecard' }, mobile: { type: 'boolean', default: false },
-  url: { type: 'string' },
+  presentation: { type: 'boolean', default: false },
   chrome: { type: 'string', default: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -69,43 +69,32 @@ async function shoot(name) {
   console.log(`${name}: ${join(out, name + '.jpeg')}  calls ${stats.moments[name].calls}  tris ${stats.moments[name].tris}  ${stats.moments[name].frameMs} ms`);
 }
 
+const source = readFileSync(join(ROOT, 'docs/qa/overlap-audit.js'), 'utf8');
+const auditSource = source.slice(0, source.lastIndexOf('JSON.stringify(')) + 'return { vw: innerWidth, vh: innerHeight, res };';
+const layouts = [];
 try {
   await send('Runtime.enable'); await send('Page.enable');
-  await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: +o.dpr, mobile: o.mobile });
-  if (o.mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
-  await send('Page.navigate', { url: o.url || `http://localhost:${port}/` });
-  await until(`!!(window.__chains && __chains.course && __chains.hero)`, 120000);
-  const q = { full: 'high', lite: 'low' }[o.quality] || o.quality;
-  if (q && await js('__chains.G.settings.quality') !== q) {
-    await js(`document.querySelector('#qualSeg [data-v="${q}"]').click()`);
-    await until(`__chains.course.quality === '${q}' && __chains.G.settings.quality === '${q}'`);
+  for (const [width, height] of (o.presentation ? [[430,932],[1280,720]] : [[360,740],[430,932],[812,375],[568,320],[768,1024],[1366,768]])) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 1000 });
+    await send('Emulation.setTouchEmulationEnabled', { enabled: width < 1000, maxTouchPoints: 5 });
+    await send('Page.navigate', { url: `http://localhost:${port}/` });
+    await until('!!window.__chains', 60000);
+    if (o.presentation) {
+      await js(`(async()=>{const c=__chains;await c.startGame({mode:'solo',holeCount:3,players:[{name:'You'}]});c.nextTurn();c.resolveThrow(0,{holed:true,dist:0,thrown:85});})()`);
+      await sleep(450);
+      const shot=await send('Page.captureScreenshot',{format:'jpeg',quality:90});writeFileSync(join(out,`celebration-${width}.jpg`),Buffer.from(shot.data,'base64'));
+      const frame=await js(`({width:innerWidth,height:innerHeight,fov:__chains.camera.fov,phase:__chains.G.phase,toastTop:document.getElementById('toast').getBoundingClientRect().top})`);
+      layouts.push(frame);console.log('presentation',JSON.stringify(frame));continue;
+    }
+    const result = await js(`(async()=>{${auditSource}})()`);
+    for (const r of result.res) {
+      // The transparent throw pad intentionally sits beneath the gauge and equipment.
+      r.actionableOverlaps = r.overlaps.filter(s => !s.includes('#pad x ') && !s.includes(' x #pad') && !s.includes('#power x #powerLabel'));
+    }
+    layouts.push(result);
+    console.log(`${width}x${height}: ${result.res.length} UI states, ${result.res.reduce((n,r)=>n+r.actionableOverlaps.length+r.offscreen.length+r.clippedLabels.length,0)} findings`);
   }
-  stats.quality = await js('__chains.G.settings.quality');
-  stats.gpu = await js(`(() => { const g = __chains.renderer.getContext(), e = g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; })()`);
-  await sleep(4500); await shoot('menu');   // textures land and the clubhouse camera settles
-  if (upto >= 1) {
-    await js(`document.getElementById('btnSolo').click()`);
-    await until(`__chains.G.phase === 'intro' && __chains.G.introT >= ${want.has('flyover') ? 1.7 : 0}`);
-    if (want.has('flyover')) { await js('__chains.G.maxDt = 1e-9'); await sleep(300); await shoot('flyover'); }   // dt ~ 0 freezes the drone at 1.7 s
-    await js('delete __chains.G.maxDt');
-  }
-  if (upto >= 2) { await js(`(() => { const c = __chains; while (c.G.phase === 'intro') { c.G.introT = 10; c.nextTurn(); } })()`); await sleep(3500); await shoot('tee'); }
-  if (upto >= 3) {   // the human's third throw, 6.5 m short of the pin on the tee side
-    await js(`(() => { const c = __chains, G = c.G, p = G.players[0], h = c.holes[G.holeIdx], b = h.basket, dx = h.tee[0] - b[0], dz = h.tee[1] - b[1], L = Math.hypot(dx, dz);
-      const x = b[0] + dx / L * 6.5, z = b[1] + dz / L * 6.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 2; c.setupTurn(0); })()`);
-    await sleep(3500); await shoot('putt');
-  }
-  if (upto >= 4) {
-    await js(`(() => { const c = __chains, G = c.G; G.players.forEach((p, i) => { p.done = true; p.scores[G.holeIdx] = [3, 2, 4][i % 3]; p.strokes = p.scores[G.holeIdx]; }); c.nextTurn(); })()`);
-    await sleep(2000); await shoot('scorecard');
-  }
-  stats.errors = errors;
-  writeFileSync(join(out, 'stats.json'), JSON.stringify(stats, null, 2));
-  if (errors.length) console.log(`${errors.length} console error(s), see stats.json`);
-  process.exit(0);
-} catch (e) {
-  stats.errors = errors; stats.failure = String(e?.stack || e);
-  writeFileSync(join(out, 'stats.json'), JSON.stringify(stats, null, 2));
-  console.error('capture failed:', e?.message || e, errors.length ? `\n${errors.join('\n')}` : '');
-  process.exit(1);
-}
+  const findings = layouts.flatMap(v => (v.res || []).filter(r=>r.actionableOverlaps.length||r.offscreen.length||r.clippedLabels.length).map(r=>({size:`${v.vw}x${v.vh}`, ...r})));
+  writeFileSync(join(out,o.presentation?'presentation-results.json':'layout-results.json'),JSON.stringify({layouts,findings,errors,passed:findings.length===0&&errors.length===0},null,2));
+  process.exit(findings.length || errors.length ? 1 : 0);
+} catch(e) { writeFileSync(join(out,o.presentation?'presentation-results.json':'layout-results.json'),JSON.stringify({layouts,errors,failure:String(e.stack||e)},null,2));console.error(e);process.exit(1); }

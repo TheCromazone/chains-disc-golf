@@ -27,13 +27,14 @@ export async function planBotThrow({ pos, world, difficulty = 'medium', wind, le
   }
   const maxT = dist <= 15 ? 4 : 12;
   let best = null, bestScore = Infinity;
+  let sliceStart = performance.now();
   for (let i = 0; i < cands.length; i++) {
     const c = cands[i];
     const r = simulate(c, world, { maxT }).result;
     let score = r.dist + (r.ob ? 45 : 0) + (r.holed ? -1000 : 0);
     if (!r.holed && r.dist < 10) score += 0;                 // fine
     if (score < bestScore) { bestScore = score; best = c; }
-    if (i % 12 === 11) await yieldFrame();
+    if (performance.now() - sliceStart > 4) { await yieldFrame(); sliceStart = performance.now(); }
   }
   const n = NOISE[difficulty] || NOISE.medium;
   return {

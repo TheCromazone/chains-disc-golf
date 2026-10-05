@@ -6,13 +6,15 @@
 <meta name="theme-color" content="#65c8ee">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="Find your line. Play 3D disc golf with friends on your phone or desktop.">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Chains — Disc Golf</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23ff4d3d'/><circle cx='50' cy='50' r='22' fill='none' stroke='white' stroke-width='6'/></svg>">
 <link rel="stylesheet" href="src/ui.css">
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+<script src="node_modules/peerjs/dist/peerjs.min.js" defer></script>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -53,6 +55,7 @@
     <div id="discRow" class="equipment-picker hidden" role="group" aria-label="Choose disc"></div>
   </div>
   <div id="pad">
+    <svg id="gestureTrace" aria-hidden="true"><polyline class="trace-edge"/><polyline class="trace-line"/><circle class="trace-start" r="5"/><circle class="trace-end" r="9"/></svg>
     <div class="hint"><span id="hintArrow" data-icon="arrow"></span><span id="hintText">BACKHAND · swipe right</span><span id="hintSub">swipe further for power · drag the view to aim</span></div>
   </div>
 </div>
@@ -115,12 +118,14 @@
     <div id="onlineChoice" class="stack">
       <button class="big primary" id="btnCreate"><span data-icon="online"></span><span>Create a room</span></button>
       <div class="row"><input id="joinCode" maxlength="4" placeholder="ROOM CODE" style="flex:1;text-transform:uppercase;letter-spacing:4px;font-weight:700"><button id="btnJoin" class="primary"><span data-icon="arrow"></span><span>Join</span></button></div>
-      <div class="muted">Create a room and share its four-letter code. Friends can join from any device.</div>
+      <div class="muted">Up to 12 players. Share a room link or four-character code. Keep the host's game open during the round.</div>
       <button id="btnOnlineBack"><span data-icon="back"></span><span>Back</span></button>
     </div>
     <div id="lobby" class="hidden stack">
       <div class="muted" style="text-align:center">Share this code</div>
       <div class="code" id="roomCode">----</div>
+      <div id="roomStatus" class="muted" role="status" style="text-align:center"></div>
+      <button id="btnShareRoom">Copy invite link</button>
       <ul class="list" id="lobbyList"></ul>
       <div class="row" id="hostControls"><button id="btnLobbyBot">+ Bot</button><button class="primary" id="btnLobbyStart" style="flex:1"><span data-icon="play"></span><span>Start round</span></button></div>
       <div id="guestWait" class="muted hidden" style="text-align:center">Waiting for the host to start…</div>
@@ -152,6 +157,7 @@
       <div><b>Disc</b> — Driver flies farthest but needs speed; Putter is straight and short. Flight numbers are Speed | Glide | Turn | Fade.</div>
       <div><b>Throw</b> — pick a throw type, then swipe in the bottom pad in that throw's direction: Backhand →, Forehand ←, Tomahawk ↓, Scoober ↖, Putt ↑. Longer swipe = more power (watch the bar). Swipe slightly down for hyzer (more fade), up for anhyzer.</div>
       <div><b>Flight</b> — a right-hand backhand fades left at the end; forehand fades right. Throw a disc faster than it's rated for and it will turn over.</div>
+      <div><b>Desktop</b> — drag the view or use arrows / WASD to aim. Hold Space to build power, release to throw. Escape cancels. 1–4 pick a disc, Q / E cycle throws, T aims at the basket, O toggles overview. Mouse swipes also work.</div>
       <h2 style="margin-top:6px">Rules</h2>
       <div>Lowest total throws wins. Each hole starts on the tee pad; you play your next throw from where the disc came to rest. Farthest from the basket throws first; the best score on the previous hole tees off first. Holed when the disc rests in the basket or chains. Water and course boundaries are out of bounds: +1 throw, play from where it went out. Circle 1 is 10 m from the basket. Score names: Ace, Eagle, Birdie, Par, Bogey…</div>
     </div>

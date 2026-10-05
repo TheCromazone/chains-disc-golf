@@ -1,0 +1,24 @@
+{
+  "name": "chains-disc-golf",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node serve.mjs",
+    "build": "node tools/build.mjs",
+    "preview": "node serve.mjs --dist",
+    "test": "node --test test/*.test.mjs",
+    "test:browser": "node tools/verify-browser.mjs"
+  },
+  "dependencies": {
+    "peerjs": "1.5.4",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "peer": "1.0.2"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}

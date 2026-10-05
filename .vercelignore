@@ -1,0 +1,9 @@
+node_modules
+dist
+art
+docs
+test
+.git
+.claude
+.impeccable
+.env*

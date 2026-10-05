@@ -4,7 +4,7 @@ import { icon } from './icons.js';
 
 for (const el of document.querySelectorAll('[data-icon]')) el.innerHTML = icon(el.dataset.icon);
 const pressed = (button, on) => { button.classList.toggle('on', on); button.setAttribute('aria-pressed', String(on)); };
-const escapeText = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const escapeText = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const $ = id => document.getElementById(id);
 export const show = id => $(id).classList.remove('hidden');
@@ -29,13 +29,21 @@ export function toast(title, sub = '', ms = 1800) {
 }
 export function fade(on) { $('fade').classList.toggle('on', on); }
 
-export function setPower(p) { $('power').style.setProperty('--p', Math.max(0, Math.min(1, p)).toFixed(3)); $('powerLabel').textContent = p > 0 ? `${Math.round(p * 100)}%` : 'POWER'; }
+export function setPower(p) { const value = Math.max(0, Math.min(1, p)).toFixed(3); if ($('power').style.getPropertyValue('--p') !== value) $('power').style.setProperty('--p', value); const label = p > 0 ? `${Math.round(p * 100)}%` : 'POWER'; if ($('powerLabel').textContent !== label) $('powerLabel').textContent = label; }
+export function gestureTrace(trace) {
+  const svg = $('gestureTrace'); svg.classList.toggle('active', !!trace); if (!trace) return;
+  svg.classList.toggle('invalid', !trace.valid);
+  const points = trace.points.map(p => p.map(n => n.toFixed(1)).join(',')).join(' ');
+  for (const l of svg.querySelectorAll('polyline')) l.setAttribute('points', points);
+  for (const [cls, p] of [['trace-start', trace.points[0]], ['trace-end', trace.points.at(-1)]]) { const c = svg.querySelector('.' + cls); c.setAttribute('cx', p[0]); c.setAttribute('cy', p[1]); }
+}
+let lastHintType = null;
 export function setHint(throwType, sub) {
   const t = THROWS[throwType];
   const angles = { backhand: 0, backhand_io: 0, backhand_oi: 0, forehand: 180, forehand_io: 180, forehand_oi: 180, blade: 135, tomahawk: 90, scoober: -135, hammer: 45, putt: -90 };
-  $('hintArrow').innerHTML = icon('arrow'); $('hintArrow').style.transform = `rotate(${angles[throwType]}deg)`;
-  $('pad').classList.remove('bad'); $('hintText').textContent = `${t.hint[0].toUpperCase()}${t.hint.slice(1)} to throw`;
-  if (sub !== undefined) $('hintSub').textContent = sub;
+  if (lastHintType !== throwType) { $('hintArrow').style.transform = `rotate(${angles[throwType]}deg)`; lastHintType = throwType; }
+  $('pad').classList.remove('bad'); const hint = `${t.hint[0].toUpperCase()}${t.hint.slice(1)} to throw`; if ($('hintText').textContent !== hint) $('hintText').textContent = hint;
+  if (sub !== undefined && $('hintSub').textContent !== sub) $('hintSub').textContent = sub;
 }
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
 export function setHud({ hole, par, len, dist, playerName, throwNo, toPar, windText, windDeg, circle, elev }) {
@@ -43,7 +51,7 @@ export function setHud({ hole, par, len, dist, playerName, throwNo, toPar, windT
   if (elev !== undefined) $('elevText').textContent = `${elev < -0.05 ? '−' : '+'}${Math.abs(elev).toFixed(1)} m`;
   if (hole !== undefined) $('holeLabel').textContent = `HOLE ${hole}`;
   if (par !== undefined) $('holePar').textContent = `Par ${par} · ${Math.round(len)} m`;
-  if (dist !== undefined) { const label = dist < 1 ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`; $('dist').textContent = label; $('dist').setAttribute('aria-label', dist < 1 ? label : `${label} to basket`); const pin = `${Math.round(dist)} m`; if ($('pinDist').textContent !== pin) $('pinDist').textContent = pin; }
+  if (dist !== undefined) { const label = dist < 1 ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`; if ($('dist').textContent !== label) { $('dist').textContent = label; $('dist').setAttribute('aria-label', dist < 1 ? label : `${label} to basket`); } const pin = `${Math.round(dist)} m`; if ($('pinDist').textContent !== pin) $('pinDist').textContent = pin; }
   if (playerName !== undefined) $('playerName').textContent = playerName;
   if (throwNo !== undefined) $('throwLabel').textContent = throwNo;
   if (windText !== undefined) $('windText').textContent = windText;
