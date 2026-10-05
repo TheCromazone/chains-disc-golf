@@ -256,7 +256,13 @@ function hitBasket(s, w) {
     return;
   }
   if (h >= 1.34 && h < 1.46 && d < 0.28) {            // top band
-    if (s.v[1] < 0 && h > 1.40) { s.v = [s.v[0] * 0.55, -s.v[1] * 0.3, s.v[2] * 0.55]; s.p[1] = b.y + 1.46; s.events.push('band'); }
+    if (s.v[1] < 0 && h > 1.40) {
+      s.v = [s.v[0] * 0.55, -s.v[1] * 0.3, s.v[2] * 0.55]; s.p[1] = b.y + 1.46;
+      // a disc settling on the lid would bounce in place until the 25 s cap: once it has slowed, it slides off the domed lid's edge
+      s.lidHits = (s.lidHits || 0) + 1;
+      if (Math.hypot(s.v[0], s.v[2]) < 1.2 || s.lidHits > 3) { const ox = d > 1e-3 ? nx : (s.v[0] || 1), oz = d > 1e-3 ? nz : s.v[2], ol = Math.hypot(ox, oz) || 1; s.v[0] = ox / ol * 1.3; s.v[2] = oz / ol * 1.3; }
+      if (s.lidHits <= 2) s.events.push('band');
+    }
     else if (vr < 0) { s.v[0] -= 1.4 * vr * nx; s.v[2] -= 1.4 * vr * nz; s.v[0] *= 0.45; s.v[2] *= 0.45; s.events.push('band'); }
     return;
   }
@@ -291,6 +297,13 @@ export function simulate(params, w, opts = {}) {
   if (!isDone(s)) s.mode = 'rest';
   if (rec) rec.push([s.p[0], s.p[1], s.p[2], s.n[0], s.n[1], s.n[2], s.spinRate]);
   return { state: s, traj: rec, result: resultOf(s, w) };
+}
+
+// Where a throw from a lie leaves the hand: 0.4 m out along the aim (the reach), shortened inside the circle so a tap-in
+// never releases beyond the pole and flies out the far side. The aim, preview, online host and bots all launch from here.
+export function releasePos(w, lie, dir) {
+  const b = w.basket, reach = b ? Math.min(0.4, Math.max(0, Math.hypot(b.x - lie[0], b.z - lie[2]) - 0.5)) : 0.4;
+  return [lie[0] + dir[0] * reach, w.height(lie[0], lie[2]) + 1.15, lie[2] + dir[1] * reach];
 }
 
 // Flat, empty world for tests/previews.

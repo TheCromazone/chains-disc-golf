@@ -21,8 +21,19 @@ const MARKS = {
   mid: g => { g.lineWidth = 7; for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(80, 96 + i * 16); g.lineTo(176, 96 + i * 16); g.stroke(); } g.beginPath(); g.arc(128, 96, 32, 0, 7); g.stroke(); },
   putter: g => { g.lineWidth = 8; g.beginPath(); g.moveTo(128, 60); g.lineTo(128, 130); g.moveTo(96, 130); g.quadraticCurveTo(128, 154, 160, 130); g.moveTo(112, 78); g.lineTo(144, 78); g.stroke(); g.beginPath(); g.arc(128, 62, 8, 0, 7); g.stroke(); },
 };
-const stamps = new Map();
-const stampMap = disc => { if (stamps.has(disc.id)) return stamps.get(disc.id); const u = asset('discs', disc.id); const t = u ? new THREE.TextureLoader().load(u) : stampTexture(disc); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.__shared = true; stamps.set(disc.id, t); return t; };
+const stamps = new Map(), blurs = new Map();
+const stampMap = disc => { if (stamps.has(disc.id)) return stamps.get(disc.id); const u = asset('discs', disc.id); const t = u ? new THREE.TextureLoader().load(u, () => spinBlur(disc, t.image)) : stampTexture(disc); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.__shared = true; stamps.set(disc.id, t); if (!u) spinBlur(disc, t.image); return t; };
+// A spinning disc's foil smears into rings: a camera at 1/60 s sees a driver's 12 rev/s as a blur, never the sharp stamp
+// jumping ~60 degrees a frame (which strobes). The stamp averaged over a full turn, drawn once per mould; setDiscPose fades
+// the sharp stamp into it as the turn per frame grows.
+const blurMap = disc => { if (!blurs.has(disc.id)) { const c = document.createElement('canvas'); c.width = c.height = 256; const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.__shared = true; blurs.set(disc.id, t); } stampMap(disc); return blurs.get(disc.id); };
+function spinBlur(disc, img) {
+  const t = blurMap(disc), c = t.image, g = c.getContext('2d'), n = 48;
+  if (!img?.width) return;
+  g.clearRect(0, 0, 256, 256); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1 / n;
+  for (let i = 0; i < n; i++) { g.setTransform(1, 0, 0, 1, 128, 128); g.rotate(i / n * Math.PI * 2); g.drawImage(img, -128, -128, 256, 256); }
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; t.needsUpdate = true;
+}
 function stampTexture(disc) {
   const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
   g.clearRect(0, 0, 512, 512); g.scale(2, 2);
@@ -50,7 +61,8 @@ function plastic(color) {
   // and neon palette read as "a thick saturated magenta lozenge" at the tee; real opaque plastic is duller, a fifth of the chroma goes.
   const c = new THREE.Color(color);   // ponytail: the driver stays pink; turned red it vanished against the red #7 jersey at the tee
   const l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.lerp(new THREE.Color(l, l, l), .2);
-  const m = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.44, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.32, sheen: 0.2, sheenRoughness: 0.7, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: 0.8 });
+  // No sheen: it is a fabric lobe (velvet), and on plastic it drew a white rim round the silhouette that bloomed into a halo in flight.
+  const m = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.48, metalness: 0, clearcoat: 0.25, clearcoatRoughness: 0.4, envMapIntensity: 0.7 });
   // the rim a shade deeper than the plate (thicker plastic, worn and handled): edge-on or tipped, the disc shows a plate and
   // a rim instead of one flat bright band. Object space, so both the imported and the lathed profile get it.
   m.onBeforeCompile = s => {
@@ -69,6 +81,9 @@ export function createDiscMesh(disc) {
   if (imported) { imported.scene.traverse(o => { if (o.isMesh) { o.material = plastic(disc.color); o.castShadow = true; } }); g.add(imported.scene); }
   const stamp = new THREE.Mesh(stampGeo, new THREE.MeshStandardMaterial({ map: stampMap(disc), transparent: true, roughness: 0.35, metalness: 0.15, polygonOffset: true, polygonOffsetFactor: -1, depthWrite: false }));
   stamp.renderOrder = 1; g.add(stamp);
+  const smear = new THREE.Mesh(stampGeo, new THREE.MeshStandardMaterial({ map: blurMap(disc), transparent: true, opacity: 0, roughness: 0.4, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -1, depthWrite: false }));
+  smear.renderOrder = 1; smear.visible = false; g.add(smear);
+  g.userData.stamp = stamp; g.userData.smear = smear; g.userData.blur = 0;
   g.scale.y = .6;   // both profiles stand 3.6 cm tall; a driver is ~2 cm, and at the tee the disc read as a thick lozenge
   g.userData.disc = disc; g.userData.spinAngle = 0;
   g.userData.dispose = () => g.traverse(o => { for (const m of [].concat(o.material || [])) if (!m.__shared) m.dispose(); });
@@ -82,4 +97,10 @@ export function setDiscPose(mesh, p, n, spinAngle) {
   _q.setFromUnitVectors(_up, _n);
   _q2.setFromAxisAngle(_up, spinAngle);
   mesh.quaternion.copy(_q).multiply(_q2);
+  // the turn since the last frame sets the smear: past ~5 degrees a frame the sharp stamp starts to strobe
+  const ud = mesh.userData, step = ud.lastSpin === undefined ? 0 : Math.abs(spinAngle - ud.lastSpin); ud.lastSpin = spinAngle;
+  if (!ud.stamp || step > 3) return;   // a new throw re-seeds the angle: no one-frame flash of blur
+  ud.blur += (THREE.MathUtils.smoothstep(step, .09, .4) - ud.blur) * .3;
+  ud.stamp.material.opacity = 1 - ud.blur; ud.stamp.visible = ud.blur < .99;
+  ud.smear.material.opacity = ud.blur * .9; ud.smear.visible = ud.blur > .01;
 }

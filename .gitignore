@@ -33,3 +33,9 @@ art/reference/
 
 # ponytail: capture scratch from tools/capture.mjs, regenerated every round
 art/qa/
+
+# local invite-match storage (serve.mjs)
+.data/
+.vercel
+.env*
+dist/

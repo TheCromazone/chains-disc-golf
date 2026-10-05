@@ -15,6 +15,7 @@ await cp(resolve(root, 'node_modules/three/examples/jsm/libs/draco/gltf'), resol
 await cp(resolve(root, 'node_modules/three/examples/jsm/libs/basis'), resolve(out, 'vendor/basis'), { recursive: true });
 await cp(resolve(root, 'manifest.webmanifest'), resolve(out, 'manifest.webmanifest'));
 await cp(resolve(root, 'icon.svg'), resolve(out, 'icon.svg'));
+await cp(resolve(root, 'sw.js'), resolve(out, 'sw.js'));   // invite-match turn alerts (served from the root so it controls the whole site)
 await build({ entryPoints: [resolve(root, 'src/main.js')], outdir: resolve(out, 'js'), bundle: true, minify: true,
   splitting: true, format: 'esm', target: ['es2022', 'safari16'], entryNames: '[name]-[hash]', chunkNames: '[name]-[hash]', metafile: true,
 }).then(async result => {

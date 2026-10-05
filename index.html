@@ -68,7 +68,7 @@
   <div class="panel stack hub-main">
     <div class="hub-caption"><span class="eyebrow">Your next round</span><span class="muted">Find your line.</span></div>
     <button class="big primary play-cta" id="btnSolo"><span data-icon="play"></span><span class="cta-copy"><strong>Play round</strong><small>Solo · take on the bots</small></span><span class="cta-end" data-icon="arrow"></span></button>
-    <div class="row2"><button class="big mode-btn" id="btnLocal"><span data-icon="players"></span><span>Pass &amp; play</span></button><button class="big mode-btn" id="btnOnline"><span data-icon="online"></span><span>Online room</span></button></div>
+    <div class="row2"><button class="big mode-btn" id="btnLocal"><span data-icon="players"></span><span>Pass &amp; play</span></button><button class="big mode-btn" id="btnOnline"><span data-icon="online"></span><span>Friends</span><b id="matchBadge" class="match-badge hidden" aria-label="Matches waiting on you"></b></button></div>
     <button class="ccard" id="btnCourses"><div class="cmap" id="hubMap"></div><div class="cinfo"><span class="eyebrow">Selected course</span><b id="hubCourse">Pine Hollow</b><span class="muted" id="hubCourseSub"></span></div><span class="chev" data-icon="chevron"></span></button>
     <div class="round-settings">
       <div class="f"><span id="holesLabel">Holes</span><div class="seg" id="holesSeg" role="group" aria-labelledby="holesLabel"><button data-v="3">3</button><button data-v="9" class="on">9</button></div></div>
@@ -117,7 +117,7 @@
     <div id="onlineError" class="inline-error hidden" role="alert"></div>
     <div id="onlineChoice" class="stack">
       <button class="big primary" id="btnCreate"><span data-icon="online"></span><span>Create a room</span></button>
-      <div class="row"><input id="joinCode" maxlength="4" placeholder="ROOM CODE" style="flex:1;text-transform:uppercase;letter-spacing:4px;font-weight:700"><button id="btnJoin" class="primary"><span data-icon="arrow"></span><span>Join</span></button></div>
+      <div class="row"><input id="joinCode" maxlength="4" placeholder="ROOM CODE" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="flex:1;text-transform:uppercase;letter-spacing:4px;font-weight:700"><button id="btnJoin" class="primary"><span data-icon="arrow"></span><span>Join</span></button></div>
       <div class="muted">Up to 12 players. Share a room link or four-character code. Keep the host's game open during the round.</div>
       <button id="btnOnlineBack"><span data-icon="back"></span><span>Back</span></button>
     </div>
@@ -130,6 +130,49 @@
       <div class="row" id="hostControls"><button id="btnLobbyBot">+ Bot</button><button class="primary" id="btnLobbyStart" style="flex:1"><span data-icon="play"></span><span>Start round</span></button></div>
       <div id="guestWait" class="muted hidden" style="text-align:center">Waiting for the host to start…</div>
       <button id="btnLeave"><span data-icon="back"></span><span>Leave</span></button>
+    </div>
+  </div>
+</div>
+
+<div id="matches" class="overlay hidden">
+  <div class="panel stack match-panel">
+    <div id="matchHome" class="stack">
+      <div class="eyebrow"><span data-icon="clock"></span>Play on your own time</div>
+      <h2>Invite match</h2>
+      <p class="muted">Start a match and send the link to your group chat. Everyone plays their hole when they can, and you get a ping when it's your turn. Up to 12 players.</p>
+      <button class="big primary" id="btnMatchNew"><span data-icon="flag"></span><span class="cta-copy"><strong>New match</strong><small id="matchNewSub">Pine Hollow · 9 holes</small></span></button>
+      <div id="matchHomeError" class="inline-error hidden" role="alert"></div>
+      <div id="matchList" class="match-list" aria-live="polite"></div>
+      <details class="match-paste"><summary>Got an invite link?</summary><div class="row"><input id="matchPaste" placeholder="Paste the link" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><button id="btnMatchPaste">Open</button></div></details>
+      <div class="row2"><button id="btnMatchesBack"><span data-icon="back"></span><span>Back</span></button><button id="btnLive"><span data-icon="online"></span><span>Live room</span></button></div>
+    </div>
+    <div id="matchJoin" class="stack hidden">
+      <div class="eyebrow"><span data-icon="online"></span>You're invited</div>
+      <h2 id="matchJoinTitle">Join the match</h2>
+      <p class="muted" id="matchJoinSub"></p>
+      <label class="f">Your name<input id="matchName" maxlength="14" placeholder="Name" autocomplete="nickname"></label>
+      <div id="matchJoinError" class="inline-error hidden" role="alert"></div>
+      <button class="big primary" id="btnMatchJoin"><span data-icon="check"></span><span>Join match</span></button>
+      <p class="muted hidden" id="matchJoinApp">Already added Chains to your Home Screen? Open the app and paste this link there, so your turns and alerts live in one place.</p>
+      <button id="btnMatchJoinBack" class="quiet">Not now</button>
+    </div>
+    <div id="matchView" class="stack hidden">
+      <div class="match-head"><div><div class="eyebrow" id="matchCourse">Pine Hollow · 9 holes</div><h2 id="matchTitle">Match</h2></div><button id="btnMatchInvite" class="match-invite"><span data-icon="share"></span><span>Invite</span></button></div>
+      <div id="matchStatus" class="match-status" role="status"></div>
+      <button class="big primary" id="btnMatchPlay"><span data-icon="play"></span><span id="matchPlayLabel">Play hole 1</span></button>
+      <button class="big primary hidden" id="btnMatchSend"><span data-icon="share"></span><span id="matchSendLabel">Tell them it's their turn</span></button>
+      <div class="row2 hidden" id="matchWaitActions"><button id="btnMatchNudge"><span data-icon="bell"></span><span>Remind</span></button><button id="btnMatchSkip"><span data-icon="arrow"></span><span>Skip their turn</span></button></div>
+      <button class="hidden" id="btnMatchBack2"><span data-icon="check"></span><span>I'm back — deal me in</span></button>
+      <div id="matchError" class="inline-error hidden" role="alert"></div>
+      <div class="score-grid match-grid"><table id="matchTable"></table></div>
+      <ul id="matchFeed" class="match-feed"></ul>
+      <button id="btnMatchAlerts"><span data-icon="bell"></span><span id="matchAlertsLabel">Turn on turn alerts</span></button>
+      <div id="matchInstall" class="match-install hidden">
+        <b>Get turn alerts on iPhone</b>
+        <ol><li>Tap <b>Share</b> in Safari's toolbar.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Open <b>Chains</b> from your Home Screen and tap <b>Turn on turn alerts</b>.</li></ol>
+        <span class="muted">iPhone only sends web alerts to games added to the Home Screen. Until then, the "Tell them it's their turn" button sends the link through Messages.</span>
+      </div>
+      <button id="btnMatchBack"><span data-icon="back"></span><span>All matches</span></button>
     </div>
   </div>
 </div>

@@ -10,7 +10,8 @@ Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc a
 
 - **Play round** — you vs two bots (easy / medium / hard).
 - **Pass & play** — up to twelve people on one phone, plus optional bots.
-- **Online room** — one player creates a room and shares an invite link or a four-character code; friends join from their own devices. Up to twelve players over [PeerJS](https://peerjs.com/). The host validates throw input, computes flight and distributes the same replay to everyone. Reconnects restore scores and the current shot. A disconnected player keeps their slot for 30 seconds, then a bot takes over; returning players can reclaim the slot. Keep the host’s browser open: closing it ends the room.
+- **Invite match** (clubhouse → Friends) — the GamePigeon way: start a match, send the link to your group chat, and everyone plays their hole when it suits them. One turn is a player's whole hole; up to twelve players. Whoever has played the fewest holes goes next (late joiners catch up first), then honours. The next player gets a push notification ("Your turn in Chains"), and the one-tap **Tell them it's their turn** button opens the share sheet for Messages. Works on any network (plain HTTPS to `api/match.js`; matches live in a private Vercel Blob store). iPhone sends web alerts only to games added to the Home Screen; the match screen walks through it and carries your seat into the installed app. A player who sits on a turn for 30 minutes can be skipped and comes back by tapping *I'm back*.
+- **Live room** (Friends → Live room) — one player creates a room and shares an invite link or a four-character code; friends join from their own devices. Up to twelve players over [PeerJS](https://peerjs.com/). The host validates throw input, computes flight and distributes the same replay to everyone. Reconnects restore scores and the current shot. A disconnected player keeps their slot for 30 seconds, then a bot takes over; returning players can reclaim the slot. Keep the host’s browser open: closing it ends the room.
 
 Four courses, three or nine holes each:
 
@@ -98,6 +99,8 @@ vercel link
 vercel deploy --prod
 ```
 
+Environment (Vercel project settings): `BLOB_READ_WRITE_TOKEN` (added when the private Blob store `chains-matches` is connected), `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` for turn alerts (`npx web-push generate-vapid-keys`). Optional relay for live rooms across networks (a phone on cellular often can't reach a peer on Wi-Fi directly): Cloudflare Realtime TURN keys as `CLOUDFLARE_TURN_KEY_ID` + `CLOUDFLARE_TURN_KEY_API_TOKEN`, or any TURN service as `TURN_URLS` (comma separated) + `TURN_USERNAME` + `TURN_CREDENTIAL`; `api/ice.js` hands them to the client. `npm run preview` runs the `api/` functions locally with file storage in `.data/`.
+
 `vercel.json` sets the build, output directory and cache headers. Hashed JavaScript chunks use immutable caching; mutable assets revalidate. GitHub auto-deploy is optional; the published build uses the authenticated Vercel CLI.
 
 ## Structure
@@ -111,7 +114,9 @@ vercel deploy --prod
 | `src/materials.js`, `src/effects.js` | Toon terrain, foliage wind, clean water; retained optional legacy rendering infrastructure |
 | `src/input.js` | Pointer gestures: aim drag and throw swipes |
 | `src/bot.js` | Bots simulate candidate throws and pick the best, with difficulty noise |
-| `src/net.js` | PeerJS host/guest rooms |
+| `src/net.js`, `src/protocol.js` | PeerJS host/guest live rooms (binary serialization, relay servers from `/api/ice`), message validation |
+| `src/match.js`, `sw.js` | Invite matches on the client: seats on the device, match screens, share sheet, push subscription; the service worker shows turn alerts |
+| `api/match.js`, `server/` | Invite-match API (Vercel Function): `match-core.js` rules and turn order, `store.js` Blob/file storage with ETag-checked writes, `push.js` Web Push |
 | `src/audio.js` | Synthesized sound: modal metallic chain cascades, wood knocks, water, wind and birds, with a short outdoor reverb |
 | `src/assets.js` | Optional asset manifest: drop generated textures, course art, disc stamps and real recordings into `assets/` |
 | `src/main.js` | Game state machine, camera, hub menu, locker room, HUD wiring, online sync |
@@ -136,8 +141,11 @@ node test/physics.test.mjs
 node test/assets.test.mjs
 node test/animation.test.mjs
 node test/feedback.test.mjs
+node test/match.test.mjs
 python test/sfx-normalization.py
 ```
+
+Browser checks (real headless Chrome; set `CHROME` to its path): `node tools/verify-browser.mjs --dist` (live room: four rendered players plus nine extra peers over real WebRTC), `node tools/verify-matches.mjs` (invite match: two isolated phones play a whole 3-hole match through the UI and API), `node tools/verify-rounds.mjs` (bots play 3-hole rounds on every course). Each also takes `--url https://chains-disc-golf.vercel.app`; `verify-browser` adds `--public-signal` there.
 
 The asset test checks manifest files, GLB structure, Draco/KTX2 extensions, the golfer triangle budget, bone/material names and animation clips.
 

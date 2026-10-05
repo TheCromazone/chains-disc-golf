@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildCourse, makeRng, COURSES, courseById, courseLayout } from './course.js';
-import { DISCS, THROWS, discById, launch, step, DT, isDone, resultOf, simulate, speedFor } from './physics.js';
+import { DISCS, THROWS, discById, launch, step, DT, isDone, resultOf, simulate, speedFor, releasePos } from './physics.js';
 import { createCharacter, DEFAULT_AVATAR, AVATAR_OPTIONS, randomAvatar } from './player.js';
 import { loadManifest, asset } from './assets.js';
 import { loadModels, modelStatus } from './models.js';
@@ -15,14 +15,18 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { setupInput } from './input.js';
 import { planBotThrow } from './bot.js';
 import { createNet } from './net.js';
-import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, turnKey, lobbyPublic, validateThrowRequest } from './protocol.js';
+import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor } from './protocol.js';
 import * as UI from './ui.js';
+import { createMatches } from './match.js';
 import { unlock, sfx, setMuted, isMuted } from './audio.js';
 
 const $ = UI.$;
 const COLORS = ['#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#ff7ad9', '#9b6bff'];
 const BOT_NAMES = ['Ricky', 'Paige', 'Simon', 'Eagle', 'Calvin', 'Kristin'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+// Shader warm-up, bounded: compileAsync polls KHR_parallel_shader_compile, and on a busy GPU (several tabs, an old phone) a program
+// can report incomplete forever and the game sat on its loading screen. After 6 s, carry on: the first frames compile what is left.
+const warmShaders = () => Promise.race([renderer.compileAsync(scene, camera).catch(() => {}), sleep(6000)]);
 const isMobile = matchMedia('(pointer: coarse)').matches || innerWidth < 700;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -61,7 +65,8 @@ const preview = new THREE.Group(); preview.visible = false; scene.add(preview); 
 const previewLines = [previewEdge, previewMat].map((m, i) => { const l = new Line2(new LineGeometry(), m); l.frustumCulled = false; l.renderOrder = 5 + i; preview.add(l); return l; });
 const aimArrow = (() => {
   const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(.34, -.42); shape.lineTo(.12, -.36); shape.lineTo(.12, -1.15); shape.lineTo(-.12, -1.15); shape.lineTo(-.12, -.36); shape.lineTo(-.34, -.42); shape.closePath();
-  const m = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .82, depthTest: false, depthWrite: false }));
+  // depth tested (the athlete's legs stand in front of it from the tee camera; drawn over everything it cut across his shorts), lifted off the turf by polygon offset
+  const m = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .82, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
   m.renderOrder = 4; m.frustumCulled = false; preview.add(m); return m;
 })();
 // Soft projected contact shadow, only Full draws it.
@@ -71,7 +76,7 @@ shadowGrad.addColorStop(0,'rgba(0,0,0,.5)');shadowGrad.addColorStop(1,'rgba(0,0,
 const contactShadow=new THREE.Mesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shadowCanvas),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
 contactShadow.visible=false;scene.add(contactShadow);
 
-const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0), _q0 = new THREE.Quaternion();
 const aimDir = () => [Math.cos(G.aim.yaw), Math.sin(G.aim.yaw)];
 const rightOf = d => [-d[1], d[0]];
 const curP = () => G.players[G.cur];
@@ -83,9 +88,10 @@ const netSend = msg => { if (G.mode !== 'online' || !G.net) return; G.net.isHost
 const buzz = pattern => { try { navigator.vibrate?.(pattern); } catch { /* no haptics */ } };   // Android only; iOS Safari ignores it
 
 // ---------- players ----------
-function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerId = null, avatar = null }, i) {
+function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerId = null, avatar = null, hand }, i) {
   // bots and unnamed humans get a deterministic random look (same on every online client) in their player colour
-  const appearance = avatar ? { ...avatar, jersey: color } : randomAvatar(makeRng(strHash(name) + i * 97), { jersey: color, name });
+  color = safeColor(color, COLORS[i % COLORS.length]); avatar = avatar && sanitizeAvatar(avatar); name = safeName(name);   // a room's config comes off the network
+  const appearance = avatar ? { ...avatar, jersey: color } : randomAvatar(makeRng(strHash(name) + i * 97), { jersey: color, name, ...(hand ? { hand } : {}) });
   const char = createCharacter({ ...appearance, lod: i > 0 });
   scene.add(char.group);
   const marker = new THREE.Mesh(new THREE.RingGeometry(0.27, 0.4, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false }));
@@ -234,8 +240,8 @@ function holdDisc(char, mesh, n, spin, throwType) {
   setDiscPose(mesh, [_v.x, _v.y, _v.z], [_nrm.x, _nrm.y, _nrm.z], spin);
 }
 function updateHub() { const i = COURSES.findIndex(c => c.id === G.courseId); UI.setHub({ name: G.avatar.name, jersey: G.avatar.jersey, course: COURSES[i], holes: LAYOUTS[i], img: asset('courses', G.courseId) }); }
-let courseQueue=Promise.resolve();
-function loadCourse(id){courseQueue=courseQueue.catch(()=>{}).then(()=>applyCourse(id));return courseQueue;}
+let courseQueue=Promise.resolve(),wantedCourse=null;   // the last course asked for: Play pressed mid-load starts there, not on the one still showing
+function loadCourse(id){wantedCourse=id;courseQueue=courseQueue.catch(()=>{}).then(()=>applyCourse(id));return courseQueue;}
 async function applyCourse(id) {
   const def = courseById(id); if (course && course.def.id === def.id && course.quality === G.settings.quality) return;
   const first = !course; if (!first) { UI.fade(true); await sleep(340); }
@@ -255,17 +261,24 @@ async function applyCourse(id) {
 }
 
 // ---------- game flow ----------
+let startRun = 0;
 async function startGame(config) {
+  const run = ++startRun;
   G.phase = 'loading'; G.inbox = []; G.flight = null; G.remoteShot = null; G.pending = null; G.tween = null; G.cur = -1; cam.mode = 'courses';
-  clearPlayers(); await loadCourse(config.courseId || G.courseId); hero.group.visible = false;
+  clearPlayers(); await loadCourse(config.courseId || wantedCourse || G.courseId);
+  if (run !== startRun || G.phase !== 'loading') return false;   // left (or restarted) while the course loaded: no ghost round
+  hero.group.visible = false;
   G.sessionId = config.sessionId || crypto.randomUUID(); G.shotSeq = 0; G.lastShotSeq = 0;
-  G.seed = course.def.seed; G.holeCount = config.holeCount; G.holeIdx = 0; G.mode = config.mode;
+  G.seed = course.def.seed; G.holeCount = config.holeCount; G.holeIdx = 0; G.mode = config.mode; G.matchId = config.matchId || null; G.asyncThrows = [];
   G.players = config.players.map((p, i) => createPlayer({ ...p, color: p.color || p.avatar?.jersey || COLORS[i % COLORS.length] }, i));
-  await renderer.compileAsync(scene, camera);
+  await warmShaders();
+  if (run !== startRun || G.phase !== 'loading') { clearPlayers(); return false; }
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-  for (const id of ['menu', 'setup', 'online', 'score', 'help', 'courses', 'locker']) UI.hide(id);
+  for (const id of ['menu', 'setup', 'online', 'score', 'help', 'courses', 'locker', 'matches']) UI.hide(id);
   UI.show('hud'); UI.selectThrow(G.throwType); UI.selectDisc(G.discId);
+  if (config.startHole) G.holeIdx = config.startHole;
   startHole();
+  return true;
 }
 function startHole() {
   const h = holes[G.holeIdx]; course.setHole(G.holeIdx);
@@ -292,9 +305,9 @@ function updateWindHud() {
   const [wx, wz] = world.wind, ws = Math.hypot(wx, wz);
   UI.setHud({ windText: ws < 0.3 ? 'calm' : `${ws.toFixed(1)} m/s`, windDeg: (Math.atan2(wz, wx) - G.aim.yaw) * 180 / Math.PI - 90 });
 }
-function honorsOrder() {
-  const prev = G.holeIdx - 1;
-  return [...G.players].map((p, i) => ({ p, i })).sort((a, b) => (prev >= 0 ? (a.p.scores[prev] ?? 99) - (b.p.scores[prev] ?? 99) : 0) || a.i - b.i).map(o => o.p);
+function honorsOrder(hole = G.holeIdx) {   // best score on the previous hole tees first; a tie keeps that hole's own tee order
+  const prev = hole - 1, before = prev >= 0 ? honorsOrder(prev) : G.players;
+  return [...before].map((p, i) => ({ p, i })).sort((a, b) => (prev >= 0 ? (a.p.scores[prev] ?? 99) - (b.p.scores[prev] ?? 99) : 0) || a.i - b.i).map(o => o.p);
 }
 function nextTurn() {
   if (G.phase === 'menu') return;
@@ -380,7 +393,7 @@ function launchNow() {
   let params, sim;
   if (given) { params = given.params; sim = given; }
   else {
-    const d = aimDir(), pos = [p.lie[0] + d[0] * 0.4, world.height(p.lie[0], p.lie[2]) + 1.15, p.lie[2] + d[1] * 0.4];   // same release point the preview and bots plan from
+    const d = aimDir(), pos = releasePos(world, p.lie, d);   // same release point the preview and bots plan from
     params = { throwType: G.throwType, discId: G.discId, power: o.power, hyzer: o.hyzer || 0, yawOffset: o.yawOffset || 0, launchOffset: o.launchOffset ?? G.aim.pitch, dir: d, pos, lefty: p.appearance?.hand === 'left' };
     if (G.mode === 'online' && !G.net.isHost) {
       G.net.toHost({ t: 'throw-request', turn: turnKey(G), params });
@@ -390,7 +403,7 @@ function launchNow() {
     const seq = ++G.shotSeq; G.lastShotSeq = seq;
     netSend({ t: 'throw', sessionId: G.sessionId, seq, turn: turnKey(G), pi, params, traj: sim.traj, events: sim.events, result: sim.result });
   }
-  ensureDisc(p, params.discId); p.discMesh.visible = true;
+  ensureDisc(p, params.discId); p.discMesh.visible = true; G.lastParams = params;
   G.flight = { pi, params, traj: sim.traj, events: sim.events, result: sim.result, t: 0, ei: 0, spin: 0, spinRate: 4 + speedFor(params.throwType, params.power) * 3 };
   G.phase = 'flight'; cam.mode = 'flight'; sfx.whoosh(params.power);
   UI.setHud({ throwNo: `Throw ${p.strokes + 1}` });
@@ -423,6 +436,7 @@ function onFlightEvent(e) {
 }
 function resolveThrow(pi, r) {
   G.remoteShot = null;
+  if (G.mode === 'async' && G.asyncThrows) G.asyncThrows.push({ t: G.lastParams?.throwType, d: G.lastParams?.discId, m: r.thrown, left: r.dist, ob: r.ob, holed: r.holed });
   const p = G.players[pi], h = holes[G.holeIdx];
   p.strokes++;
   let title, sub;
@@ -437,12 +451,12 @@ function resolveThrow(pi, r) {
   } else if (r.ob) { p.strokes++; p.lie = r.lie; title = 'Out of bounds'; sub = '+1 penalty · play from where it went out'; }
   else { p.lie = r.rest; title = r.thrown < 1 ? 'Dropped it' : `${Math.round(r.thrown)} m`; sub = `${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to the basket`; }
   if (!r.holed && !r.ob && r.thrown > 8 && r.dist < Math.max(8, p.lieDist * .35)) { title = 'Nice shot!'; sfx.applause(); }
-  if (!p.done && p.strokes >= h.par + 5) { p.done = true; p.scores[G.holeIdx] = p.strokes + 1; title = 'Picked up'; sub = 'max score for the hole'; }
+  if (!p.done && p.strokes >= h.par + 5) { p.done = true; p.scores[G.holeIdx] = h.par + 6; title = 'Picked up'; sub = `max score for the hole (${h.par + 6})`; }   // a fixed cap, even when the last throw went out of bounds
   p.lieDist = distToBasket(p.lie[0], p.lie[2]);
   p.marker.position.set(p.lie[0], world.height(p.lie[0], p.lie[2]) + 0.04, p.lie[2]); p.marker.visible = !p.done;
   const session = G.sessionId, hole = G.holeIdx;
   if (p.done) setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && p.done && G.players.includes(p)) p.discMesh.visible = false; }, 2500);
-  UI.toast(title, sub, r.holed ? 2400 : 2000); UI.setHud({ dist: p.lieDist });
+  UI.toast(title, sub, r.holed ? 2400 : 2000); UI.setHud({ dist: p.lieDist, holed: r.holed });
   cam.hold = r.holed ? null : { fov: cam.fov, shift: cam.shift };   // a miss holds the landing shot (or the putt's locked frame); only a holed throw cuts to the reaction
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
@@ -450,6 +464,11 @@ function resolveThrow(pi, r) {
 }
 function endHole() {
   G.phase = 'holeEnd'; preview.visible = false; UI.setControlsEnabled(false);
+  if (G.mode === 'async') {   // an invite match: one turn is one hole; the score goes to the match and the next player gets the ping
+    const p = G.players[0], summary = { matchId: G.matchId, hole: G.holeIdx, strokes: p.scores[G.holeIdx], throws: G.asyncThrows.slice(0, 20) }, session = G.sessionId;
+    setTimeout(() => { if (G.sessionId !== session) return; toMenu(); matches.holeDone(summary); }, 900);
+    return;
+  }
   const final = G.holeIdx >= G.holeCount - 1;
   UI.renderScorecard({ players: G.players, holes: holes.slice(0, G.holeCount), holeIdx: G.holeIdx, final, isHost: G.net?.isHost, online: G.mode === 'online', best: final ? personalBest() : null });
 }
@@ -466,7 +485,8 @@ function personalBest() {
   return { toPar, prev: prev?.toPar ?? null, isNew };
 }
 function advanceHole() {
-  G.inbox = []; G.flight = null; G.pending = null; G.tween = null;
+  const nextHole = G.holeIdx >= G.holeCount - 1 ? 0 : G.holeIdx + 1;   // a shot for the next hole that reached a lagging guest early is kept, not thrown away
+  G.inbox = G.inbox.filter(m => m.sessionId === G.sessionId && m.turn?.split(':')[1] === String(nextHole)); G.flight = null; G.pending = null; G.tween = null;
   UI.hide('score'); UI.show('hud');
   if (G.holeIdx >= G.holeCount - 1) { for (const p of G.players) p.scores = []; G.holeIdx = 0; } else G.holeIdx++;
   startHole();
@@ -482,6 +502,7 @@ function applyRemoteThrow(m) {   // only called when this client is idle in 'aim
   G.phase = 'windup'; p.char.setThrow(G.throwType); cam.mode = 'aim';
 }
 function toMenu() {
+  if (G.net?.isHost) try { G.net.broadcast({ t: 'closed' }); } catch { /* best effort */ }
   celebration.clear();
   input.cancel(); for (const t of disconnectTimers.values()) clearTimeout(t); disconnectTimers.clear(); deferredNet = [];
   G.sessionId = ''; G.cur = -1; G.nextRequested = null; G.syncing = false;
@@ -489,6 +510,7 @@ function toMenu() {
   clearPlayers(); preview.visible = false; for (const id of ['hud', 'score', 'online', 'setup', 'courses', 'locker']) UI.hide(id); UI.show('menu');
   hero.group.visible = true; course.setHole(0); placeHero();
   if (G.net) { G.net.close(); G.net = null; }
+  G.mode = 'solo'; G.matchId = null; matches.refreshBadge();
 }
 
 // ---------- gestures ----------
@@ -522,7 +544,7 @@ function onGesture(g) {
 }
 function gestureParams(power, lateral) {
   const th = THROWS[G.throwType], p = curP();
-  const o = { throwType: G.throwType, discId: G.discId, disc: discById(G.discId), power, hyzer: 0, lefty: p.appearance?.hand === 'left', yawOffset: 0, launchOffset: G.aim.pitch, dir: aimDir(), pos: [p.lie[0] + aimDir()[0] * 0.4, world.height(p.lie[0], p.lie[2]) + 1.15, p.lie[2] + aimDir()[1] * 0.4] };
+  const o = { throwType: G.throwType, discId: G.discId, disc: discById(G.discId), power, hyzer: 0, lefty: p.appearance?.hand === 'left', yawOffset: 0, launchOffset: G.aim.pitch, dir: aimDir(), pos: releasePos(world, p.lie, aimDir()) };
   if (th.latMode === 'hyzer') o.hyzer = Math.max(-35, Math.min(35, lateral * 80)); else o.yawOffset = Math.max(-25, Math.min(25, lateral * 50));
   return o;
 }
@@ -538,7 +560,9 @@ function updatePreview() {
   const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
   for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); }
   previewMat.color.set(pw > 0.72 ? '#ffd23f' : '#ffffff');
-  const p = curP(), d = aimDir(); aimArrow.position.set(p.lie[0] + d[0] * 1.7, world.height(p.lie[0] + d[0] * 1.7, p.lie[2] + d[1] * 1.7) + .05, p.lie[2] + d[1] * 1.7); aimArrow.rotation.y = Math.atan2(-d[0], -d[1]); aimArrow.material.color.copy(previewMat.color);   // tip 1.7 m out, pointing down the aim (it used to point back at the player)
+  const p = curP(), d = aimDir(), ax = p.lie[0] + d[0] * 1.15, az = p.lie[2] + d[1] * 1.15, n = world.normal ? world.normal(ax, az) : [0, 1, 0];
+  aimArrow.position.set(p.lie[0] + d[0] * 1.7, world.height(p.lie[0] + d[0] * 1.7, p.lie[2] + d[1] * 1.7) + .04, p.lie[2] + d[1] * 1.7);
+  aimArrow.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]).normalize()).multiply(_q0.setFromAxisAngle(UP, Math.atan2(-d[0], -d[1]))); aimArrow.material.color.copy(previewMat.color);   // laid on the slope, so the depth test never buries its tail   // tip 1.7 m out, pointing down the aim (it used to point back at the player)
 }
 
 // ---------- camera ----------
@@ -684,12 +708,6 @@ function introPath(h, t, pos, look) {
 // against trunks, crowns, the arch and the ground (cam-collide.js); a hit pulls the camera in fast and it lets out slowly.
 // Around touchdown (known ahead: the flight is simulated before it plays) it eases into a raised three-quarter shot that
 // frames where the disc comes to rest with the basket beyond it, and a miss holds that shot through the result.
-// Disc glint: a soft warm highlight on the disc in flight (a 21 cm disc is a ~12 px fleck at the critics' 640 px), a constant
-// ~3.5% of the frame tall however far it is; it dims once the disc is down. One sprite, drawn only while a drive flies.
-const glintCanvas = document.createElement('canvas'); glintCanvas.width = glintCanvas.height = 64;
-{ const g = glintCanvas.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,250,235,.85)'); r.addColorStop(.22, 'rgba(255,240,210,.35)'); r.addColorStop(1, 'rgba(255,230,190,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }
-const glint = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(glintCanvas), blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false, transparent: true }));
-glint.scale.setScalar(.05); glint.visible = false; glint.renderOrder = 2; scene.add(glint);
 // Under the event arch the chase ducks: near the beam it stays 3 m under the banner's lower edge (the disc passes ~4 m
 // up, the banner's edge 6+), so the gate frames the fairway and the banner only grazes the top edge for an instant instead of
 // filling it (the critics: "flies straight into the tee arch"). Never below `floor` (just over the disc).
@@ -702,7 +720,7 @@ function beamCeiling(x, z, floor) {
   }
   return Math.max(y, floor);
 }
-const CHASE = { fov: 50, hold: .25, blend: .6, back: 4.5, up: 1.5, lead: 3, lift: .3, land: .45, rate: .75 };   // rate: a drive plays at 3/4 speed, a 60 m drive hangs ~2.5 s as a real one does (the physics' 1.9 s read as a dolly shot)
+const CHASE = { fov: 50, hold: .1, blend: .6, back: 4.5, up: 1.5, lead: 3, lift: .3, land: .45, rate: .75, track: 6 };   // rate: a drive plays at 3/4 speed, a 60 m drive hangs ~2.5 s as a real one does (the physics' 1.9 s read as a dolly shot)
 function flightPlan(f) {
   const n = f.traj.length, R = f.traj[n - 1], S = f.traj[0], h = holes[G.holeIdx];
   const e = f.events.find(e => /^(land|splash|flop|roll)$/.test(e[1])), tLand = e ? e[0] : n / 60;
@@ -727,15 +745,25 @@ function flightCam(f, dt) {
   _v3.set(f.hv[0], 0, f.hv[2]); if (_v3.lengthSq() > 1e-8) c.dir.lerp(_v3.normalize(), 1 - Math.exp(-4 * dt)).normalize();
   const hv = c.dir; let cx = D[0] - hv.x * CHASE.back, cy = D[1] + CHASE.up, cz = D[2] - hv.z * CHASE.back;
   const fr = clearFraction(world, D[0], D[1], D[2], cx, cy, cz, 1.2);   // wide of trunks and well under the arch's banner
-  c.pull += (fr - c.pull) * (1 - Math.exp(-(fr < c.pull ? 16 : 2.5) * dt));
+  c.pull += (fr - c.pull) * (1 - Math.exp(-(fr < c.pull ? 7 : 2.5) * dt));   // in briskly past a trunk, out slowly; never a one-frame lurch
   const q = Math.max(.25, c.pull); cx = D[0] + (cx - D[0]) * q; cy = D[1] + (cy - D[1]) * q; cz = D[2] + (cz - D[2]) * q;
   const ceil = beamCeiling(cx, cz, D[1] + .2), lift = CHASE.lift * Math.max(0, Math.min(1, (ceil - D[1] - 1) / 2));   // under the arch: level with the disc, the banner out of the top of frame
   cy = Math.min(Math.max(cy, D[1] + 1), ceil); cy = Math.max(cy, world.height(cx, cz) + 1.5);
   const w = S(f.t, CHASE.hold, CHASE.hold + CHASE.blend), wl = S(f.t, CHASE.hold * .5, CHASE.hold + CHASE.blend * .8), wg = S(f.t, c.tLand - CHASE.land, c.tLand + CHASE.land * 1.4);
-  cam.tPos.lerpVectors(c.H, _v.set(cx, cy, cz), w); const arc = Math.sin(Math.PI * w), rt = rightOf([hv.x, hv.z]); cam.tPos.y += arc * 1.5; cam.tPos.x -= rt[0] * arc; cam.tPos.z -= rt[1] * arc;   // up and past the thrower's left shoulder (the aim camera's side), never through his head
+  const arc = Math.sin(Math.PI * w), rt = rightOf([hv.x, hv.z]); _v.set(cx - rt[0] * arc, cy + arc * 1.5, cz - rt[1] * arc);   // up and past the thrower's left shoulder (the aim camera's side), never through his head
+  // A critically damped tracker on the chase spot, fed its velocity: the camera leaves the follow-through at rest and eases up
+  // to the disc's speed. (Lerping from the fixed aim spot to a target running away at 25 m/s made it sit still, then race the
+  // disc at twice its speed to catch a 14 m gap.) Zero lag once caught, no overshoot.
+  if (!c.p) { c.p = c.H.clone(); c.pv = new THREE.Vector3(); c.T = _v.clone(); }
+  if (dt > 0) {
+    _v2.copy(_v).sub(c.T).divideScalar(dt); c.T.copy(_v);
+    if (f.t > CHASE.hold) for (let i = 0, n = Math.ceil(dt / .008), h = dt / n, W = CHASE.track; i < n; i++) {
+      c.pv.addScaledVector(_v3.copy(_v).sub(c.p), W * W * h).addScaledVector(_v3.copy(_v2).sub(c.pv), 2 * W * h); c.p.addScaledVector(c.pv, h);
+    }
+  }
+  cam.tPos.copy(c.p);
   cam.tLook.lerpVectors(c.HL, _v2.set(D[0] + hv.x * CHASE.lead, D[1] + lift, D[2] + hv.z * CHASE.lead), wl);   // a little over the disc: the fairway ahead and the tree line, not a wall of hillside
   if (wg > 0) { cam.tPos.lerp(c.LP, wg); cam.tLook.lerp(c.LL, wg); }
-  glint.material.opacity = 1 - .25 * wg;
   return c.F0 + (CHASE.fov - c.F0) * w;   // the aim lens eases out with the move: no zoom-out snap at release
 }
 function puttDodge(lie, P) {
@@ -762,8 +790,7 @@ function updateCamera(dt) {
   if (document.body.dataset.phase !== G.phase) document.body.dataset.phase = G.phase;
   frameInterface();
   const h = holes[G.holeIdx] || holes[0];
-  let k = 5, fov = baseFov(); cam.tShift = 0; glint.visible = cam.mode === 'flight' && !!G.flight?.pos; glint.material.opacity = 1;   // the putt's disc too: its short line into the chains reads
-  if (glint.visible) { const D = G.flight.pos; glint.position.set(D[0], D[1] + .02, D[2]); }   // only a landscape putt's aimFrame slides the lens
+  let k = 5, fov = baseFov(); cam.tShift = 0;   // only a landscape putt's aimFrame slides the lens
   if (cam.mode === 'menu') {   // clubhouse: a low portrait of the athlete cut at mid-thigh (key art's crop: never at a joint), basket over his off-shoulder, woods closing the top
     const { d, r } = menuStage, t = performance.now() / 1000, p = hero.group.position, wide = camera.aspect > 1.2, S = wide ? MENU.wide : MENU.portrait, sway = Math.sin(t * 0.18) * 0.06;
     // wide: the athlete centred in the view right of the panel (whatever its width); the axis swings left to put him there
@@ -826,7 +853,12 @@ function loop(background = false) {
   background = background === true;
   if (!background) requestAnimationFrame(loop);
   if (document.hidden && !background) return;
-  const rawDt=clock.getDelta(), dt = Math.min(G.maxDt || (background ? .25 : .05), rawDt);
+  const rawDt = clock.getDelta();
+  // A hidden host's timer fires about once a second: replay all of it in 50 ms steps, or its flights ran at a quarter speed and guests outran it.
+  if (background) { for (let left = Math.min(rawDt, 3); left > 1e-4; left -= .05) frame(Math.min(.05, left), rawDt, true); return; }
+  frame(Math.min(G.maxDt || .05, rawDt), rawDt, false);
+}
+function frame(dt, rawDt, background) {
   if ((contextLost && !G.net?.isHost) || G.syncing || G.phase === 'loading') return;
   time += dt; input.update(dt);
   // Ignore background/paused frames; resolution changes never alter simulation time.
@@ -884,7 +916,7 @@ UI.buildThrowButtons(pickThrow); UI.buildDiscChips(pickDisc);
 $('btnTarget').onclick = () => { if (G.phase === 'aim') { const l = curP().lie; G.aim.yaw = Math.atan2(basketPos()[1] - l[2], basketPos()[0] - l[0]); G.aim.pitch = 0; G.previewDirty = true; sfx.click(); } };
 $('btnOverview').onclick = () => { if (G.phase !== 'aim') return; G.overview = !G.overview; $('btnOverview').classList.toggle('on', G.overview); $('btnOverview').setAttribute('aria-pressed', String(G.overview)); sfx.click(); };
 $('btnMute').onclick = () => { setMuted(!isMuted()); UI.setSoundMuted(isMuted()); };
-$('btnMenu').onclick = async () => { if (await UI.confirmLeave()) toMenu(); };
+$('btnMenu').onclick = async () => { if (!(await UI.confirmLeave())) return; const match = G.mode === 'async' ? G.matchId : null; toMenu(); if (match) matches.openMatch(match); };   // leaving an invite turn returns to its scorecard; the hole is not recorded
 $('btnHelp').onclick = () => { UI.hide('menu'); UI.show('help'); }; $('btnHelpClose').onclick = () => { UI.hide('help'); UI.show('menu'); };
 $('btnScoreNext').onclick = () => { if (G.mode === 'online' && !G.net?.isHost) return; netSend({ t: 'next', sessionId: G.sessionId, holeIdx: G.holeIdx }); advanceHole(); };
 $('btnScoreMenu').onclick = toMenu;
@@ -922,7 +954,7 @@ $('btnLocal').onclick = () => { setupPlayers = [{ name: 'Player 1' }, { name: 'P
 $('btnAddHuman').onclick = () => { if (setupPlayers.length < MAX_PLAYERS) { setupPlayers.push({ name: `Player ${setupPlayers.length + 1}` }); renderSetup(); } };
 $('btnAddBot').onclick = () => { if (setupPlayers.length < MAX_PLAYERS) { setupPlayers.push({ name: BOT_NAMES[setupPlayers.filter(p => p.isBot).length % BOT_NAMES.length], isBot: true, difficulty: G.settings.difficulty }); renderSetup(); } };
 $('btnSetupBack').onclick = () => { UI.hide('setup'); UI.show('menu'); };
-$('btnSetupStart').onclick = () => { if (!setupPlayers.length) return; let mine = false; startGame({ mode: 'local', holeCount: +G.settings.holes, players: setupPlayers.map(p => { const first = !p.isBot && !mine; if (first) mine = true; return { ...p, name: p.name.trim() || 'Player', avatar: first ? { ...G.avatar } : null }; }) }); };
+$('btnSetupStart').onclick = () => { if (!setupPlayers.length) return; let mine = false; startGame({ mode: 'local', holeCount: +G.settings.holes, players: setupPlayers.map(p => { const first = !p.isBot && !mine; if (first) mine = true; return { ...p, name: p.name.trim() || 'Player', avatar: first ? { ...G.avatar } : null, hand: p.isBot ? undefined : 'right' }; }) }); };   // a guest's random look never makes them silently left-handed
 
 // online: the host validates commands, computes flight and owns membership.
 const disconnectTimers = new Map();
@@ -941,7 +973,8 @@ async function restoreRoom(s) {
   G.syncing = true;
   G.net.locked = true;
   try {
-    await startGame(s.config); G.holeIdx = s.holeIdx; startHole();
+    if (!(await startGame(s.config)) || !G.net) return;
+    G.holeIdx = s.holeIdx; startHole();
     s.players.forEach((state, i) => Object.assign(G.players[i], state));
     G.shotSeq = s.seq; G.lastShotSeq = s.seq;
     if (s.cur >= 0 && s.cur < G.players.length && s.phase !== 'intro') {
@@ -971,6 +1004,9 @@ function renderLobby() {
 }
 const publishLobby = () => { renderLobby(); G.net?.broadcast({ t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code }); };
 function rejectGuest(id, reason) { G.net.send(id, { t: 'rejected', reason }); G.net.disconnect(id); }
+let turnCheck = null;
+function roomGone(title, sub) { if (!G.net || G.net.isHost) return; toMenu(); UI.toast(title, sub, 4000); }
+addEventListener('pagehide', () => { if (G.net?.isHost) try { G.net.broadcast({ t: 'closed' }); } catch { /* best effort */ } });
 function onNet(ev) {
   if (!G.net) return;
   if (G.syncing && ev.type === 'msg') { deferredNet.push(ev); return; }
@@ -994,7 +1030,7 @@ function onNet(ev) {
     }
     if (G.net.locked) return rejectGuest(ev.id, 'This round has started. Join the next round with your friends.');
     if (G.lobby.length >= MAX_PLAYERS) return rejectGuest(ev.id, `This room is full (${MAX_PLAYERS} players).`);
-    G.lobby.push({ name: safeName(ev.name), peerId: ev.id, avatar: ev.avatar || null, token: ev.token }); publishLobby(); sfx.click();
+    G.lobby.push({ name: safeName(ev.name), peerId: ev.id, avatar: sanitizeAvatar(ev.avatar), token: ev.token }); publishLobby(); sfx.click();
   } else if (ev.type === 'leave') {
     if (G.net.isHost) {
       const li = G.lobby.findIndex(p => p.peerId === ev.id); if (li < 0) return;
@@ -1013,7 +1049,9 @@ function onNet(ev) {
       }, 30000));
     } else { UI.waiting('Reconnecting to the host…'); UI.setControlsEnabled(false); input.cancel(); }
   } else if (ev.type === 'reconnected') {
-    G.net.toHost({ t: 'sync-request' });
+    UI.waiting(null);   // the host answers a rejoin with the lobby or a snapshot on its own: asking again rebuilt the round twice
+  } else if (ev.type === 'lost') {
+    roomGone('Lost the connection to the host', 'The room has closed. Start a new room or an invite match.');
   } else if (ev.type === 'msg') {
     const m = ev.data; if (!m || typeof m.t !== 'string') return;
     if (G.net.isHost) {
@@ -1023,7 +1061,7 @@ function onNet(ev) {
         if (G.phase !== 'aim' || !validateThrowRequest(m, G, ev.from)) { G.net.send(ev.from, { t: 'throw-denied', reason: 'Waiting for your turn. Syncing the scorecard…' }); return; }
         const p = curP(), q = m.params, d = q.dir;
         const params = { throwType: q.throwType, discId: q.discId, power: q.power, hyzer: q.hyzer, yawOffset: q.yawOffset, launchOffset: q.launchOffset,
-          dir: [...d], pos: [p.lie[0] + d[0] * .4, world.height(p.lie[0], p.lie[2]) + 1.15, p.lie[2] + d[1] * .4], lefty: p.appearance?.hand === 'left' };
+          dir: [...d], pos: releasePos(world, p.lie, d), lefty: p.appearance?.hand === 'left' };
         const sim = runSim(params), seq = ++G.shotSeq;
         const shot = { t: 'throw', sessionId: G.sessionId, turn: m.turn, seq, pi: G.cur, params, ...sim };
         G.lastShotSeq = seq; G.net.broadcast(shot); applyRemoteThrow(shot);
@@ -1040,12 +1078,26 @@ function onNet(ev) {
     else if (m.t === 'rejoin' && G.players[m.pi]) { G.players[m.pi].isBot = false; G.players[m.pi].peerId = m.peerId; }
     else if (m.t === 'throw-denied') { UI.toast('Round synchronizing', m.reason, 2000); G.net.toHost({ t: 'sync-request' }); }
     else if (m.t === 'rejected') { const reason = m.reason; G.net.close(); G.net = null; UI.hide('lobby'); UI.show('onlineChoice'); UI.onlineError(reason); }
-    else if (m.t === 'turn') { if (G.phase === 'awaitThrow' && m.turn !== turnKey(G)) G.net.toHost({ t: 'sync-request' }); }
+    else if (m.t === 'closed') roomGone('The host left', 'The room has closed. Start a new room or an invite match.');
+    else if (m.t === 'turn') {   // the host's turn marker: a guest still on an older turn (a lost shot) resyncs instead of waiting forever
+      clearTimeout(turnCheck);
+      if (m.sessionId === G.sessionId && m.turn !== turnKey(G) && G.phase !== 'flight' && G.phase !== 'release' && G.phase !== 'result') turnCheck = setTimeout(() => { if (G.net && m.turn !== turnKey(G) && !G.inbox.length && ['aim', 'awaitThrow', 'windup'].includes(G.phase)) G.net.toHost({ t: 'sync-request' }); }, 2000);
+    }
   } else if (ev.type === 'error') {
     if (ev.err?.type === 'network' || ev.err?.type === 'server-error') UI.onlineError('The room service is reconnecting. Please keep this page open.');
   }
 }
-$('btnOnline').onclick = () => { UI.hide('menu'); UI.show('online'); UI.show('onlineChoice'); UI.hide('lobby'); $('onlineName').value ||= G.avatar.name || 'Player'; };
+const openLive = () => { UI.hide('menu'); UI.show('online'); UI.show('onlineChoice'); UI.hide('lobby'); $('onlineName').value ||= G.avatar.name || 'Player'; };
+// Invite matches (src/match.js): turn-based, over plain HTTPS, so phones on any network can play together.
+const matches = createMatches({
+  hideMenus: () => { for (const id of ['menu', 'online', 'setup', 'courses', 'help', 'score']) UI.hide(id); },
+  showMenu: () => UI.show('menu'), openLive, me, toast: UI.toast, buzz, inRound: () => G.phase !== 'menu',
+  course: () => { const c = courseById(G.courseId); return { id: c.id, name: c.name }; },
+  holes: () => +G.settings.holes,
+  pars: id => LAYOUTS[Math.max(0, COURSES.findIndex(c => c.id === id))].map(h => h.par),
+  startTurn: ({ matchId, courseId, holeCount, hole }) => startGame({ mode: 'async', matchId, courseId, holeCount, startHole: hole, players: [{ ...me(), hand: G.avatar.hand }] }),
+});
+$('btnOnline').onclick = () => { sfx.click(); matches.open(); };
 $('btnOnlineBack').onclick = () => { G.net?.close(); G.net = null; UI.hide('online'); UI.show('menu'); };
 $('btnLeave').onclick = toMenu;
 $('btnCreate').onclick = async () => {
@@ -1098,7 +1150,8 @@ document.addEventListener('keydown', unlock, { once: true, capture: true });
 let contextLost = false;
 canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); contextLost = true; input.cancel(); UI.waiting('Restoring graphics…'); });
 canvas.addEventListener('webglcontextrestored', () => { contextLost = false; resize(); G.previewDirty = true; UI.waiting(null); });
-document.addEventListener('visibilitychange', () => { clock.getDelta(); if (!document.hidden && G.mode === 'online' && !G.net?.isHost) G.net?.toHost({ t: 'sync-request' }); });
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => { clock.getDelta(); if (document.hidden) { hiddenAt = Date.now(); return; } if (G.mode === 'online' && !G.net?.isHost && Date.now() - hiddenAt > 8000) G.net?.toHost({ t: 'sync-request' }); });   // a glance away no longer rebuilds the whole round
 setInterval(() => { if (document.hidden && G.mode === 'online' && G.net?.isHost) loop(true); }, 100);
 setTimeout(async () => {
   try {
@@ -1106,10 +1159,11 @@ setTimeout(async () => {
   await loadModels(renderer, G.settings.quality);
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
-  await renderer.compileAsync(scene, camera);
+  await warmShaders();
   UI.hide('loading'); loop();
   window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };
-  const invite = new URLSearchParams(location.search).get('room'); if (/^[A-Z2-9]{4}$/.test(invite || '')) { $('joinCode').value = invite; $('btnOnline').click(); }
+  const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) { $('joinCode').value = invite; openLive(); }
+  else matches.boot();
   } catch (error) {
     const loading = $('loading'); loading.replaceChildren();
     const message = document.createElement('p'); message.textContent = 'The course could not load. Check your connection, then try again.';

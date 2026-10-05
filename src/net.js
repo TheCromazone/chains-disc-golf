@@ -1,19 +1,22 @@
 import { PROTOCOL_VERSION, safeName } from './protocol.js';
+const SERIALIZATION = 'binary';   // PeerJS chunks binary messages; its JSON mode refuses anything over ~16 KB (a long throw's replay)
 // One reliable connection per guest. Host owns scores and sends the authoritative replay.
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const roomId = code => `chains-dg-${code}`;
 
 export function createNet() {
-  const net = { peer: null, conns: new Map(), isHost: false, code: null, name: '', onEvent: () => {}, locked: false };
-  let generation = 0, closing = false, retry = null, heartbeat = null, lastHost = Date.now(), joining = false;
+  const net = { peer: null, conns: new Map(), isHost: false, code: null, name: '', onEvent: () => {}, locked: false, myId: null };
+  let generation = 0, closing = false, retry = null, heartbeat = null, lastHost = Date.now(), joining = false, lostSince = 0;
   const timers = new Set();
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
-  const options = () => ({ debug: 0, ...(globalThis.CHAINS_PEER_CONFIG || {}) });
+  const options = () => ({ debug: 0, ...(net.ice ? { config: { iceServers: net.ice } } : {}), ...(globalThis.CHAINS_PEER_CONFIG || {}) });
+  // Relay (TURN) servers from /api/ice when the deployment has credentials: phones on cellular can't always reach a peer on Wi-Fi directly.
+  const loadIce = async () => { if (net.ice !== undefined) return; net.ice = null; try { const r = await fetch('/api/ice', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); if (Array.isArray(j.iceServers) && j.iceServers.length) net.ice = j.iceServers; } } catch { /* static host or offline: PeerJS defaults */ } };
   const ready = () => new Promise((res, rej) => {
     if (!window.Peer) return rej(new Error('PeerJS failed to load'));
     const peer = net.peer, gen = generation;
     const timer = later(() => rej(new Error('The room service did not respond. Check your connection and try again.')), 12000);
-    peer.once('open', id => { clearTimeout(timer); timers.delete(timer); if (gen === generation) res(id); });
+    peer.on('open', id => { if (gen !== generation) return; net.myId = id; clearTimeout(timer); timers.delete(timer); res(id); });   // also after a signalling reconnect: the id survives the gap
     peer.on('error', e => { if (gen !== generation || closing) return; clearTimeout(timer); timers.delete(timer); rej(e); net.onEvent({ type: 'error', err: e }); });
     peer.on('disconnected', () => { if (gen !== generation || closing) return; later(() => { if (peer.disconnected && !peer.destroyed) peer.reconnect(); }, 1000); });
   });
@@ -37,16 +40,25 @@ export function createNet() {
   };
   function scheduleReconnect() {
     if (retry || closing) return;
-    retry = later(async () => { retry = null; if (closing || net.peer?.destroyed) return;
-      try { await connectHost(); net.onEvent({ type: 'reconnected' }); } catch { scheduleReconnect(); }
+    if (!lostSince) lostSince = Date.now();
+    if (Date.now() - lostSince > 45000) { net.onEvent({ type: 'lost' }); return; }   // the host is gone for good: stop retrying and say so
+    retry = later(async () => {   // retry stays set until this attempt settles, so the heartbeat never starts a second one alongside
+      if (closing || net.peer?.destroyed) { retry = null; return; }
+      try { await connectHost(); retry = null; lostSince = 0; net.onEvent({ type: 'reconnected' }); } catch { retry = null; scheduleReconnect(); }
     }, 1500);
   }
   const connectHost = () => new Promise((res, rej) => {
+    const peer = net.peer;
+    const conn = peer && !peer.disconnected ? peer.connect(roomId(net.code), { reliable: true, serialization: SERIALIZATION, metadata: { name: net.name, avatar: net.avatar, token: net.token, version: PROTOCOL_VERSION } }) : null;
+    if (!conn) return rej(new Error('Still reaching the room service. Try again in a moment.'));   // connect() returns nothing while signalling is down
     joining = true;
-    const conn = net.peer.connect(roomId(net.code), { reliable: true, serialization: 'json', metadata: { name: net.name, avatar: net.avatar, token: net.token, version: PROTOCOL_VERSION } });
-    const t = later(() => { joining = false; conn.close(); rej(new Error('Room not reachable. Check the code and network, then try again.')); }, 12000);
-    conn.once('open', () => { clearTimeout(t); timers.delete(t); joining = false; lastHost = Date.now(); wire(conn); res(); });
-    conn.once('error', e => { clearTimeout(t); timers.delete(t); joining = false; rej(e); });
+    let settled = false;
+    const done = (err) => { if (settled) return; settled = true; clearTimeout(t); timers.delete(t); peer.off('error', onPeerError); joining = false; if (err) { try { conn.close(); } catch {} rej(err); } else { lastHost = Date.now(); wire(conn); res(); } };
+    const onPeerError = e => { if (e?.type === 'peer-unavailable') done(new Error('No room with that code. Check it, or ask the host to make a new room.')); };
+    peer.on('error', onPeerError);
+    const t = later(() => done(new Error("Couldn't reach the host. On different networks (cellular and Wi-Fi) direct play can be blocked: try the same Wi-Fi, or start an invite match.")), 15000);
+    conn.once('open', () => done());
+    conn.once('error', e => done(e));
   });
   function startHeartbeat() {
     heartbeat = setInterval(() => {
@@ -57,7 +69,7 @@ export function createNet() {
     }, 4000);
   }
   net.host = async (name, onEvent) => {
-    net.onEvent = onEvent; net.isHost = true; net.name = safeName(name); closing = false;
+    net.onEvent = onEvent; net.isHost = true; net.name = safeName(name); closing = false; await loadIce();
     for (let attempt = 0; attempt < 4; attempt++) {
       let code = ''; const bytes = crypto.getRandomValues(new Uint32Array(4)); for (const b of bytes) code += CHARS[b % CHARS.length];
       net.code = code; generation++;
@@ -72,7 +84,7 @@ export function createNet() {
     if (!/^[A-Z2-9]{4}$/.test(net.code)) throw new Error('Enter a four-character room code.');
     const tokenKey = `chains.room.${net.code}`; net.token = crypto.randomUUID();
     try { net.token = sessionStorage.getItem(tokenKey) || net.token; sessionStorage.setItem(tokenKey, net.token); } catch {}
-    net.peer = new window.Peer(options());
+    await loadIce(); net.peer = new window.Peer(options());
     await ready();
     await connectHost(); startHeartbeat();
   };
@@ -81,6 +93,6 @@ export function createNet() {
   net.toHost = data => { for (const c of net.conns.values()) if (c.open) c.send(data); };
   net.disconnect = id => later(() => net.conns.get(id)?.close(), 250);
   net.close = () => { closing = true; generation++; for (const t of timers) clearTimeout(t); timers.clear(); clearInterval(heartbeat); retry = null; try { net.peer?.destroy(); } catch {} net.conns.clear(); net.peer = null; };
-  net.id = () => net.peer?.id;
+  net.id = () => net.peer?.id || net.myId;   // the cached id: during a signalling reconnect peer.id reads null and every turn looked like someone else's
   return net;
 }

@@ -71,7 +71,7 @@ try {
   const thinPeers = [];
   for (let i = 0; i < 9; i++) {
     const p = await page({ thin: true }); thinPeers.push(p);
-    await p.js(`(async()=>{window.events=[];window.peer=new Peer(window.CHAINS_PEER_CONFIG||{});window.token=crypto.randomUUID();window.conn=await new Promise((r,j)=>{peer.on('open',()=>{const c=peer.connect('chains-dg-${code}',{reliable:true,serialization:'json',metadata:{name:'Extra ${i}',version:2,token}});c.on('data',d=>events.push(d));c.on('open',()=>r(c));c.on('error',j)});});return true})()`);
+    await p.js(`(async()=>{window.events=[];window.peer=new Peer(window.CHAINS_PEER_CONFIG||{});window.token=crypto.randomUUID();window.conn=await new Promise((r,j)=>{peer.on('open',()=>{const c=peer.connect('chains-dg-${code}',{reliable:true,serialization:'binary',metadata:{name:'Extra ${i}',version:3,token}});c.on('data',d=>events.push(d));c.on('open',()=>r(c));c.on('error',j)});});return true})()`);
     if (i < 8) await host.wait(`__chains.G.lobby.length === ${5 + i}`);
     else await p.wait(`events.some(e=>e.t==='rejected')`);
   }

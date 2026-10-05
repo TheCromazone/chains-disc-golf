@@ -7,8 +7,8 @@ const pressed = (button, on) => { button.classList.toggle('on', on); button.setA
 export const escapeText = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const $ = id => document.getElementById(id);
-export const show = id => $(id).classList.remove('hidden');
-export const hide = id => $(id).classList.add('hidden');
+export const show = id => $(id)?.classList.remove('hidden');
+export const hide = id => $(id)?.classList.add('hidden');
 export function confirmLeave() {
   const dialog = $('leaveDialog');
   if (dialog.open) return Promise.resolve(false);
@@ -46,12 +46,12 @@ export function setHint(throwType, sub) {
   if (sub !== undefined && $('hintSub').textContent !== sub) $('hintSub').textContent = sub;
 }
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
-export function setHud({ hole, par, len, dist, playerName, throwNo, toPar, windText, windDeg, circle, elev }) {
+export function setHud({ hole, par, len, dist, holed, playerName, throwNo, toPar, windText, windDeg, circle, elev }) {
   if (toPar !== undefined) $('toPar').textContent = toPar === 0 ? 'E' : toPar > 0 ? `+${toPar}` : `−${-toPar}`;
   if (elev !== undefined) $('elevText').textContent = `${elev < -0.05 ? '−' : '+'}${Math.abs(elev).toFixed(1)} m`;
   if (hole !== undefined) $('holeLabel').textContent = `HOLE ${hole}`;
   if (par !== undefined) $('holePar').textContent = `Par ${par} · ${Math.round(len)} m`;
-  if (dist !== undefined) { const label = dist < 1 ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`; if ($('dist').textContent !== label) { $('dist').textContent = label; $('dist').setAttribute('aria-label', dist < 1 ? label : `${label} to basket`); } const pin = `${Math.round(dist)} m`; if ($('pinDist').textContent !== pin) $('pinDist').textContent = pin; }
+  if (dist !== undefined) { const label = holed ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`; if ($('dist').textContent !== label) { $('dist').textContent = label; $('dist').setAttribute('aria-label', holed ? label : `${label} to basket`); } const pin = `${Math.round(dist)} m`; if ($('pinDist').textContent !== pin) $('pinDist').textContent = pin; }
   if (playerName !== undefined) $('playerName').textContent = playerName;
   if (throwNo !== undefined) $('throwLabel').textContent = throwNo;
   if (windText !== undefined) $('windText').textContent = windText;
@@ -72,11 +72,14 @@ function closeUtilities(returnFocus = false) {
   $('sideBtns').classList.add('hidden'); $('btnUtilities').setAttribute('aria-expanded', 'false');
   if (returnFocus && wasOpen) $('btnUtilities').focus();
 }
-$('btnUtilities').onclick = () => {
+// Focus moves into and back out of the menus only for the keyboard (a click has e.detail >= 1): a mouse user's focus left on a
+// HUD button would swallow Space, the aim keys and the shortcuts, which input.js ignores on buttons.
+$('btnUtilities').onclick = e => {
   const wasOpen = $('btnUtilities').getAttribute('aria-expanded') === 'true'; closeUtilities(); closeEquipment();
-  if (!wasOpen) { $('sideBtns').classList.remove('hidden'); $('btnUtilities').setAttribute('aria-expanded', 'true'); $('btnTarget').focus(); }
+  if (!wasOpen) { $('sideBtns').classList.remove('hidden'); $('btnUtilities').setAttribute('aria-expanded', 'true'); if (e.detail === 0) $('btnTarget').focus(); }
+  if (e.detail !== 0) $('btnUtilities').blur();
 };
-$('sideBtns').addEventListener('click', e => { if (e.target.closest('button')) closeUtilities(e.target.closest('button').id !== 'btnMenu'); });
+$('sideBtns').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { closeUtilities(e.detail === 0 && b.id !== 'btnMenu'); if (e.detail !== 0) b.blur(); } });
 $('sideBtns').addEventListener('keydown', e => {
   if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
   e.preventDefault(); const buttons = [...$('sideBtns').querySelectorAll('button')], i = buttons.indexOf(document.activeElement);
@@ -90,11 +93,12 @@ function closeEquipment(returnFocus = false) {
   if (returnFocus && previous) $(equipmentPickers[previous]).focus();
 }
 for (const [row, button] of Object.entries(equipmentPickers)) {
-  $(button).onclick = () => {
+  $(button).onclick = e => {
     const wasOpen = openEquipment === row; closeEquipment(); closeUtilities();
+    if (e.detail !== 0) $(button).blur();
     if (wasOpen) return;
     openEquipment = row; $(row).classList.remove('hidden'); $(button).setAttribute('aria-expanded', 'true'); $('hud').classList.add('equipment-open');
-    ($(row).querySelector('.on') || $(row).querySelector('button'))?.focus();
+    if (e.detail === 0) ($(row).querySelector('.on') || $(row).querySelector('button'))?.focus();
   };
   $(row).onkeydown = e => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
@@ -108,11 +112,11 @@ document.addEventListener('pointerdown', e => { if (openEquipment && !$('control
 export function setResultMode(on) { document.body.classList.toggle('result-mode', on); if (on) { closeEquipment(); closeUtilities(); } }
 export function buildThrowButtons(onPick) {
   const row = $('throwRow'); row.innerHTML = '';
-  for (const [id, t] of Object.entries(THROWS)) { const b = document.createElement('button'); b.dataset.id = id; b.innerHTML = `${icon(id)}<span>${t.name}</span>`; b.title = `${t.name}: ${t.hint}`; b.onclick = () => { onPick(id); closeEquipment(true); }; row.appendChild(b); }
+  for (const [id, t] of Object.entries(THROWS)) { const b = document.createElement('button'); b.dataset.id = id; b.innerHTML = `${icon(id)}<span>${t.name}</span>`; b.title = `${t.name}: ${t.hint}`; b.onclick = e => { onPick(id); closeEquipment(e.detail === 0); if (e.detail !== 0) b.blur(); }; row.appendChild(b); }
 }
 export function buildDiscChips(onPick) {
   const row = $('discRow'); row.innerHTML = '';
-  for (const d of DISCS) { const b = document.createElement('button'); b.dataset.id = d.id; b.innerHTML = `<i class="dot" style="background:${d.color}"></i>${d.id === 'driver' ? 'Driver' : d.id === 'fairway' ? 'Fairway' : d.id === 'mid' ? 'Midrange' : 'Putter'} <span class="muted">${d.speed}|${d.glide}|${d.turn}|${d.fade}</span>`; b.onclick = () => { onPick(d.id); closeEquipment(true); }; row.appendChild(b); }
+  for (const d of DISCS) { const b = document.createElement('button'); b.dataset.id = d.id; b.innerHTML = `<i class="dot" style="background:${d.color}"></i>${d.id === 'driver' ? 'Driver' : d.id === 'fairway' ? 'Fairway' : d.id === 'mid' ? 'Midrange' : 'Putter'} <span class="muted">${d.speed}|${d.glide}|${d.turn}|${d.fade}</span>`; b.onclick = e => { onPick(d.id); closeEquipment(e.detail === 0); if (e.detail !== 0) b.blur(); }; row.appendChild(b); }
 }
 export function selectThrow(id) { for (const b of $('throwRow').children) pressed(b, b.dataset.id === id); setHint(id); $('currentThrow').textContent = THROWS[id].name; $('currentThrowIcon').innerHTML = icon(id); $('btnThrowPicker').setAttribute('aria-label', `Choose throw, current: ${THROWS[id].name}`); }
 export function selectDisc(id) { for (const b of $('discRow').children) pressed(b, b.dataset.id === id); const d = DISCS.find(d => d.id === id); const name = id === 'mid' ? 'Midrange' : id[0].toUpperCase() + id.slice(1); $('currentDisc').textContent = name; $('currentDiscDot').style.background = d?.color || '#fff'; $('btnDiscPicker').setAttribute('aria-label', `Choose disc, current: ${name}`); }
@@ -221,7 +225,7 @@ export function renderScorecard({ players, holes, holeIdx, final, isHost, online
   $('scoreTitle').textContent = final ? 'Final results' : `Hole ${holeIdx + 1} complete`;
   $('scoreStand').innerHTML = '';   // standings live in the grid now: rows are ranked, to-par sits in the total column
   let html = `<tr><th class="key">Hole<div class="muted">Par</div></th>${holes.map((h, i) => `<th${i === holeIdx ? ' class="cur"' : ''}>${i + 1}<div class="muted">${h.par}</div></th>`).join('')}<th>Tot</th></tr>`;   // the row names the header's two lines once, so each column prints just its numbers, big
-  sorted.forEach((t, i) => { html += `<tr><td class="name"><span class="rank">${final && i === 0 ? icon('trophy') : String(i + 1).padStart(2, '0')}</span><i class="dot" style="background:${t.p.color}"></i>${escapeText(t.p.name)}</td>${holes.map((h, j) => { const s = t.p.scores[j], cur = j === holeIdx; return s == null ? `<td class="blank"></td>` :`<td class="s${Math.max(-3, Math.min(4, s - h.par))}${cur ? ' cur' : ''}"><span class="mk${cur ? ' badge' : ''}">${s}</span></td>`; }).join('')}<td class="tot">${t.s}<small class="${t.toPar < 0 ? 'under' : t.toPar > 0 ? 'over' : 'even'}">${fmt(t.toPar)}</small></td></tr>`; });
+  sorted.forEach((t, i) => { html += `<tr><td class="name"><span class="rank">${final && i === 0 ? icon('trophy') : String(i + 1).padStart(2, '0')}</span><i class="dot" style="background:${escapeText(t.p.color)}"></i>${escapeText(t.p.name)}</td>${holes.map((h, j) => { const s = t.p.scores[j], cur = j === holeIdx; return s == null ? `<td class="blank"></td>` :`<td class="s${Math.max(-3, Math.min(4, s - h.par))}${cur ? ' cur' : ''}"><span class="mk${cur ? ' badge' : ''}">${s}</span></td>`; }).join('')}<td class="tot">${t.s}<small class="${t.toPar < 0 ? 'under' : t.toPar > 0 ? 'over' : 'even'}">${fmt(t.toPar)}</small></td></tr>`; });
   $('scoreTable').innerHTML = html;
   $('btnScoreNext').innerHTML = `${final ? 'Play again' : 'Next hole'}${icon('arrow')}`;
   const hostOk = !online || isHost;

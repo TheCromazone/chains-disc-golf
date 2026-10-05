@@ -8,11 +8,15 @@
     "build": "node tools/build.mjs",
     "preview": "node serve.mjs --dist",
     "test": "node --test test/*.test.mjs",
-    "test:browser": "node tools/verify-browser.mjs"
+    "test:browser": "node tools/verify-browser.mjs",
+    "test:matches": "node tools/verify-matches.mjs",
+    "test:rounds": "node tools/verify-rounds.mjs"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.0",
     "peerjs": "1.5.4",
-    "three": "0.170.0"
+    "three": "0.170.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "esbuild": "0.25.12",

@@ -428,3 +428,49 @@ body[data-phase='intro'] #pin i { height: 46px; }   /* the establishing shot see
 #pin::after { content: ''; width: 5px; height: 5px; margin-top: -1px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 1.5px #0c111466; }
 @media (max-height: 520px) and (min-aspect-ratio: 5/4) { #pin b { font-size: 13px; padding: 2px 8px 1px 6px; } #pin svg { width: 11px; height: 11px; } #pin i { height: 18px; } }
 @media (prefers-reduced-motion: reduce) { #holeTitle, #hud { transition: none; } }
+
+/* ---- invite matches: turn-based play on everyone's own time ---- */
+.match-badge { position: absolute; top: -7px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #f14e5a; color: #fff; font: 800 12px/22px var(--display); letter-spacing: .3px; box-shadow: 0 2px 6px #c2395155; }
+#matches { align-items: flex-end; padding-top: calc(70px + var(--sat)); }   /* sits low like the clubhouse sheet, so the athlete stays in view above it */
+.match-panel h2 { margin-bottom: 0; }
+#btnMatchNew { min-height: 58px; justify-content: flex-start; gap: 12px; text-align: left; }
+#btnMatchNew .cta-copy { display: flex; flex-direction: column; gap: 1px; }
+#btnMatchNew strong { font-family: var(--display); font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; line-height: 1; }
+#btnMatchNew small { font-size: 11px; font-weight: 600; color: #fff3ef; }
+.match-list { display: flex; flex-direction: column; gap: 6px; }
+.match-list:empty { display: none; }
+.match-item { justify-content: space-between; width: 100%; min-height: 54px; text-align: left; }
+.match-item .mi-copy { display: flex; flex-direction: column; min-width: 0; }
+.match-item .mi-copy b { font-family: var(--display); font-size: 16px; text-transform: uppercase; letter-spacing: .4px; }
+.match-item .mi-copy span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.match-item .mi-tag { flex: none; padding: 3px 8px; border-radius: 999px; font: 700 11px/1.4 var(--display); letter-spacing: .8px; text-transform: uppercase; background: #4997b61c; color: var(--muted); }
+.match-item.yours { border-color: #f6a596; box-shadow: inset 0 0 0 1px #f6a596, 0 3px 9px #17496918; }
+.match-item.yours .mi-tag { background: #f14e5a; color: #fff; }
+.match-paste summary { cursor: pointer; font-size: 12px; font-weight: 650; color: var(--accent); padding: 4px 0; }
+.match-paste .row { margin-top: 6px; }
+.match-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.match-invite { flex: none; min-height: 36px; padding: 6px 12px; font-size: 13px; }
+.match-status { padding: 10px 12px; border-radius: 12px; background: #4997b614; border: 1px solid #ffffff70; font-size: 13px; line-height: 1.4; }
+.match-status b { font-weight: 750; }
+.match-status.yours { background: #ffe4dea8; border-color: #f6a596; }
+.match-grid { padding: 4px 0 0; }
+#matchTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+#matchTable th, #matchTable td { padding: 6px 4px; text-align: center; border-bottom: 1px solid #ffffff60; white-space: nowrap; }
+#matchTable th { font: 700 12px/1.1 var(--display); letter-spacing: .5px; color: var(--muted); }
+#matchTable th .muted, #matchTable th small { display: block; font-size: 10px; font-weight: 500; }
+#matchTable td.name { text-align: left; font-weight: 700; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+#matchTable td.name .dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; vertical-align: 1px; }
+#matchTable tr.up td.name::after { content: ' ●'; color: #f14e5a; font-size: 10px; }
+#matchTable tr.away td { opacity: .55; }
+#matchTable td.tot { font-weight: 800; }
+#matchTable td.tot small { display: block; font-size: 10px; font-weight: 700; }
+#matchTable th.cur { color: var(--accent); }
+.match-feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.match-feed:empty { display: none; }
+.match-feed li b { color: var(--text); }
+.match-install { padding: 12px; border-radius: 12px; background: #ffffff70; border: 1px solid #ffffffb0; font-size: 13px; }
+.match-install ol { margin: 6px 0 8px; padding-left: 20px; }
+.match-install li { margin: 2px 0; }
+@media (min-width: 900px) and (min-aspect-ratio: 6/5) {   /* wide: the sheet stands at the left like the clubhouse panel, the athlete free beside it */
+  #matches { align-items: center; justify-content: flex-start; padding: calc(24px + var(--sat)) 24px calc(24px + var(--sab)) max(24px, 3vw); }
+}

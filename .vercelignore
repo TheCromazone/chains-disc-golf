@@ -7,3 +7,5 @@ test
 .claude
 .impeccable
 .env*
+.data
+.vercel
