@@ -3,12 +3,22 @@ export const JOINTS = ['root', 'spine', 'head', 'shR', 'elR', 'shL', 'elL', 'hip
 export const IDLE = { root: [0, 0, 0], spine: [0.04, 0, 0], head: [0, 0, 0], shR: [0.28, 0, 0.26], elR: [0.5, 0, 0], shL: [0.15, 0, -0.2], elL: [0.4, 0, 0], hipR: [0, 0, 0.04], knR: [-0.05, 0, 0], hipL: [0, 0, -0.04], knL: [-0.05, 0, 0], rootY: 0 };
 
 export const K = {
+  // The drive, timed to main.js: the windup (phase 0-.5) runs .9 s, the release half .7 s, so the disc leaves at -0 with .5
+  // at -.17 s. Keyed to the reference's kinetic chain: full coil at -.45 s (back to the target, disc out behind the rear hip,
+  // weight in the bent rear leg), the pelvis opening first at -.3 s while the chest stays back, the front foot planted with
+  // the elbow leading and the disc pulled in across the chest at -.17, release at chest height with the arm driving at the
+  // target and the off arm tucked, then the arm wraps past the far shoulder, the chest turns past the line and the rear foot
+  // pivots through; the clip ends (phase 1, +.53 s) still in that follow-through, which main.js holds before the idle.
   backhand: [
-    { t: 0,    root: [0, 0.55, 0], spine: [0.06, 0.1, 0], head: [0, -0.5, 0], shR: [0.95, 0.15, -0.2], elR: [1.2, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
-    { t: 0.5,  root: [0, 1.55, 0], spine: [0.12, 0.35, 0.08], head: [0, -1.2, 0], shR: [0.15, -0.55, -1.45], elR: [0.25, 0, 0], shL: [0.35, 0, -1.0], elL: [0.6, 0, 0], hipR: [0.45, 0, 0.1], knR: [-0.35, 0, 0], hipL: [-0.3, 0, -0.08], knL: [-0.5, 0, 0], rootY: -0.04 },
-    { t: 0.62, root: [0, 0.75, 0], spine: [0.05, -0.15, 0], head: [0, -0.6, 0], shR: [0.05, 0.82, 1.45], elR: [0.08, 0, 0], shL: [0.5, 0, -0.85], elL: [0.9, 0, 0], hipR: [-0.15, 0, 0.1], knR: [-0.25, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.2, 0, 0], rootY: -0.03 },
-    { t: 0.8,  root: [0, -0.35, 0], spine: [0.05, -0.35, -0.08], head: [0, 0.1, 0], shR: [0.1, -0.5, -1.3], elR: [0.35, 0, 0], shL: [0.1, 0, -0.55], elL: [0.5, 0, 0], hipR: [-0.45, 0, 0.12], knR: [-0.55, 0, 0], hipL: [0.15, 0, -0.05], knL: [-0.15, 0, 0], rootY: 0 },
-    { t: 1,    root: [0, -0.45, 0], spine: [0.05, 0, 0], head: [0, 0.2, 0], shR: [0.35, 0, 0.3], elR: [0.4, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
+    { t: 0,    root: [0, 0.55, 0], spine: [0.06, 0.1, 0], head: [0, -0.5, 0], shR: [0.95, 0.15, -0.2], elR: [1.2, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0.3, 0, 0.1], knR: [-0.3, 0, 0], hipL: [0.3, 0, -0.1], knL: [-0.3, 0, 0], rootY: 0 },
+    { t: 0.35, root: [-0.15, 1.85, 0], spine: [-0.35, 1.35, 0.1], head: [0.1, -1.35, 0], shR: [0, 2.6, 0.85], elR: [0.1, 0, 0], shL: [0.25, 0, -0.3], elL: [0.7, 0, 0], hipR: [0.51, 0, 0.735], knR: [-1.067, 0, 0], hipL: [0.711, 0, -0.208], knL: [-1.016, 0, 0], rootY: 0 },
+    { t: 0.43, root: [-0.14, 1.3, 0], spine: [-0.32, 1.5, 0.06], head: [0.05, -1.35, 0], shR: [0, 2.5, 0.95], elR: [0.3, 0, 0], shL: [0.2, 0, -0.25], elL: [0.8, 0, 0], hipR: [0.916, 0, 0.705], knR: [-1.021, 0, 0], hipL: [0.682, 0, -0.311], knL: [-1.24, 0, 0], rootY: 0 },
+    { t: 0.5, root: [-0.12, 0.75, 0], spine: [-0.25, 1.35, 0.03], head: [0, -1.3, 0], shR: [0, 1, 1.3], elR: [1.9, 0, 0], shL: [0.25, 0, -0.15], elL: [1, 0, 0], hipR: [1.128, 0, 0.411], knR: [-1.003, 0, 0], hipL: [0.544, 0, -0.258], knL: [-1.392, 0, 0], rootY: 0 },
+    { t: 0.565, root: [-0.1, 0.5, 0], spine: [-0.26, 1, -0.12], head: [0, -1.2, 0], shR: [0, 0.78, 1.6], elR: [1, 0, 0], shL: [0.35, 0, 0.05], elL: [1.3, 0, 0], hipR: [1.073, 0, 0.221], knR: [-0.872, 0, 0], hipL: [0.4, 0, -0.137], knL: [-1.317, 0, 0], rootY: 0 },
+    { t: 0.62, root: [-0.12, 0.3, 0], spine: [-0.3, 0.75, -0.15], head: [0, -0.95, 0], shR: [0, 0.57, 1.75], elR: [0.12, 0, 0], shL: [0.4, 0, 0.12], elL: [1.45, 0, 0], hipR: [1.008, 0, 0.092], knR: [-0.695, 0, 0], hipL: [0.312, 0, -0.01], knL: [-1.178, 0, 0], rootY: 0 },
+    { t: 0.7, root: [-0.12, -0.1, 0], spine: [-0.25, 0.35, -0.1], head: [0, -0.3, 0], shR: [0, 1.3, 1.6], elR: [0.25, 0, 0], shL: [0.4, 0, 0.1], elL: [1.5, 0, 0], hipR: [0.854, 0, -0.151], knR: [-0.411, 0, 0], hipL: [0.184, 0, 0.164], knL: [-0.957, 0, 0], rootY: 0 },
+    { t: 0.8, root: [-0.12, -0.5, 0], spine: [-0.12, 0, 0], head: [0, 0.4, 0], shR: [0.1, 2.4, 1.3], elR: [0.9, 0, 0], shL: [0.3, 0, -0.15], elL: [1.3, 0, 0], hipR: [0.556, 0, -0.347], knR: [-0.05, 0, 0], hipL: [0.25, 0, -0.05], knL: [-1.3, 0, 0], rootY: 0 },
+    { t: 1, root: [-0.1, -0.75, 0], spine: [-0.1, -0.2, 0], head: [0, 0.75, 0], shR: [0.2, 2.9, 1.1], elR: [1.6, 0, 0], shL: [0.25, 0, -0.2], elL: [1.1, 0, 0], hipR: [0.431, 0, -0.408], knR: [-0.049, 0, 0], hipL: [0.55, 0, 0.05], knL: [-0.8, 0, 0], rootY: 0 },
   ],
   forehand: [
     { t: 0,    root: [0, 0.15, 0], spine: [0.05, 0, 0], head: [0, -0.15, 0], shR: [0.4, 0, 0.5], elR: [1.5, 0, 0], shL: [0.3, 0, -0.3], elL: [0.5, 0, 0], hipR: [0, 0, 0.05], knR: [-0.1, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
@@ -45,20 +55,23 @@ export const K = {
     { t: 0.8,  root: [0, 0.7, 0], spine: [0.55, 0.35, -0.2], head: [0.35, -0.3, 0], shR: [1.1, 0, -0.6], elR: [0.7, 0, 0], shL: [0.2, 0, -0.5], elL: [0.5, 0, 0], hipR: [-0.4, 0, 0.15], knR: [-0.5, 0, 0], hipL: [0.1, 0, -0.05], knL: [-0.1, 0, 0], rootY: -0.04 },
     { t: 1,    root: [0, 0.5, 0], spine: [0.12, 0, 0], head: [0, -0.1, 0], shR: [0.5, 0, 0.3], elR: [0.5, 0, 0], shL: [0.1, 0, -0.2], elL: [0.35, 0, 0], hipR: [-0.2, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
   ],
+  // putt (round 9 motion): a compact push. Both hands keep the putter at the chest a touch to the off side, where the camera
+  // over the off shoulder sees it (in front of the belly the body hid it until it flew), the stroke pushes it straight out at
+  // chest height and the off arm stays low and tucked (swung out wide during the reach-back it read as a T).
   putt: [
-    { t: 0,    root: [0, 0, 0], spine: [0.15, 0, 0], head: [-0.1, 0, 0], shR: [0.7, 0, 0.2], elR: [1.7, 0, 0], shL: [0.3, 0, -0.6], elL: [0.4, 0, 0], hipR: [0.25, 0, 0.05], knR: [-0.5, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.5, 0, 0], rootY: -0.1 },
-    { t: 0.5,  root: [0, 0, 0], spine: [0.28, 0, 0], head: [-0.2, 0, 0], shR: [0.45, 0, 0.25], elR: [2.0, 0, 0], shL: [0.35, 0, -0.8], elL: [0.4, 0, 0], hipR: [0.4, 0, 0.05], knR: [-0.8, 0, 0], hipL: [0.4, 0, -0.05], knL: [-0.8, 0, 0], rootY: -0.17 },
-    { t: 0.62, root: [0, 0, 0], spine: [0.05, 0, 0], head: [-0.05, 0, 0], shR: [1.5, 0, 0.1], elR: [0.15, 0, 0], shL: [0.3, 0, -0.7], elL: [0.4, 0, 0], hipR: [-0.25, 0, 0.05], knR: [-0.35, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.25, 0, 0], rootY: -0.03 },
-    { t: 0.8,  root: [0, 0, 0], spine: [-0.05, 0, 0], head: [0, 0, 0], shR: [1.95, 0, 0.1], elR: [0.1, 0, 0], shL: [0.2, 0, -0.6], elL: [0.4, 0, 0], hipR: [-0.7, 0, 0.05], knR: [-0.2, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.15, 0, 0], rootY: 0 },
-    { t: 1,    root: [0, 0, 0], spine: [0.05, 0, 0], head: [0, 0, 0], shR: [1.2, 0, 0.2], elR: [0.4, 0, 0], shL: [0.15, 0, -0.3], elL: [0.4, 0, 0], hipR: [-0.35, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0.15, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
+    { t: 0,    root: [0, 0, 0], spine: [-0.12, 0, 0], head: [0.1, 0, 0], shR: [0.55, 0.45, -0.35], elR: [1.3, 0, 0], shL: [0.25, 0, 0.1], elL: [1.35, 0, 0], hipR: [0.25, 0, 0.05], knR: [-0.5, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.5, 0, 0], rootY: -0.1 },
+    { t: 0.5,  root: [0, 0, 0], spine: [-0.22, 0, 0], head: [0.18, 0, 0], shR: [0.45, 0.55, -0.45], elR: [1.45, 0, 0], shL: [0.3, 0, 0.15], elL: [1.4, 0, 0], hipR: [0.4, 0, 0.05], knR: [-0.8, 0, 0], hipL: [0.4, 0, -0.05], knL: [-0.8, 0, 0], rootY: -0.17 },
+    { t: 0.62, root: [0, 0, 0], spine: [-0.1, 0, 0], head: [0.08, 0, 0], shR: [1.3, 0, 0], elR: [0.2, 0, 0], shL: [0.2, 0, -0.15], elL: [1.1, 0, 0], hipR: [-0.25, 0, 0.05], knR: [-0.35, 0, 0], hipL: [0.3, 0, -0.05], knL: [-0.25, 0, 0], rootY: -0.03 },
+    { t: 0.8,  root: [0, 0, 0], spine: [-0.04, 0, 0], head: [0.02, 0, 0], shR: [1.6, 0, 0], elR: [0.05, 0, 0], shL: [0.15, 0, -0.15], elL: [0.9, 0, 0], hipR: [-0.7, 0, 0.05], knR: [-0.2, 0, 0], hipL: [0.25, 0, -0.05], knL: [-0.15, 0, 0], rootY: 0 },
+    { t: 1,    root: [0, 0, 0], spine: [-0.05, 0, 0], head: [0, 0, 0], shR: [1.45, 0, 0.05], elR: [0.15, 0, 0], shL: [0.15, 0, -0.2], elL: [0.8, 0, 0], hipR: [-0.35, 0, 0.05], knR: [-0.3, 0, 0], hipL: [0.15, 0, -0.05], knL: [-0.1, 0, 0], rootY: 0 },
   ],
 };
 
-K.backhand.splice(2,0,{...structuredClone(K.backhand[1]),t:.565,root:[0,1.05,0],spine:[.08,.12,.03],head:[0,-.85,0],shR:[.75,.1,-.45],elR:[1.45,0,0],rootY:-.045});
 
 // Disc-footage loading: compress both knees, then brace the lead leg and release the trailing foot.
 // Backhand/putt lead with the throwing-side foot; forehand/overheads lead with the opposite foot.
 for(const [id,keys] of Object.entries(K)) {
+  if(id==='backhand')continue;   // the drive carries its own legs (a split stance that walks through)
   const lead=['backhand','putt'].includes(id)?'R':'L',rear=lead==='R'?'L':'R';
   for(const k of keys) {
     if(k.t===.5){for(const side of ['R','L']){k['hip'+side][0]=.98;k['kn'+side][0]=-1.0;}}
@@ -97,12 +110,120 @@ export function poseAt(keys, phase) {
   const out={};for(const j of JOINTS)out[j]=[0,1,2].map(c=>interpolate(j,c));out.rootY=interpolate('rootY',0);out.rootY=-Math.min(...soleHeights(out,false));return out;
 }
 
+// Aim stances per throw family, absolute joint angles in the shared contract (right-handed; callers mirror), breathing
+// added per frame; the windup morphs them into the clip (stanceFade below). Spine and head pitch: negative leans forward.
+// Hips pitch forward and every leg is solved so both soles stay planted with the shin near vertical: the rig has no
+// ankle, so a leaning shin tips the foot onto its toe.
+export const STANCE = {
+  // backhand: side-on and pre-coiled (pelvis ~70°, chest ~135° off the line), weight settled into bent knees, head turned
+  // back over the leading shoulder to the target, the off arm hanging loose: the set-up a real reach-back starts from, and
+  // the one Disc Golf Masters shows its thrower in; the chest hunched over the disc (a bolt-upright torso read as a
+  // mannequin). The throwing arm was solved numerically (shR, elR incl. the forearm's roll) against the aim camera with
+  // the grip hand (gltf-player.js GRIP: wrist flexed ~29°, the disc's far side raised ~34° off square to the hand): the
+  // upper arm out toward the target at shoulder height, the elbow open ~80°, the forearm sloping ~27° down to the hand, the
+  // thumb side turned to the lens so the thumb sits on the plate and the fingers hook under the rim, the disc level ~20 cm
+  // under the shoulder reaching back toward the chest. Critics read earlier solves (the forearm pointed at the lens, a
+  // dangling forearm, a wrist bent 80-90°, an elbow folded shut) as a chicken wing or a disc hanging off a broken wrist.
+  // Re-solved (round 7) for the Disc Golf Masters address: the upper arm forward toward the lens, the elbow folded ~130° so
+  // the forearm lies across the chest, the hand out on the target side with the disc level ~19 cm under the shoulder and
+  // ~21 cm in front of the sternum. The upper arm held out sideways at shoulder height with the disc out by the hip read as
+  // "a mannequin with one arm lifted". Round 8: the upper arm lifted ~.2 rad more so the disc sits cocked at the chest
+  // (at belt height the forearm read as a stiff diagonal), and the off arm hangs loose against the ribs, elbow soft, the
+  // hand beside the thigh (bent ~60° and held off the hip it read as a claw gripping an invisible ball). Round 9: the
+  // tee camera saw that forearm edge-on, the elbow tucked in front of the far shoulder and the upper arm buried in the
+  // chest ("a flat wedge with no elbow"). Solved in the aim frame (throwing shoulder to target points in the chest's own
+  // axes): the elbow ~20 cm out to the target side, 6 cm under the shoulder and 12 cm forward; the forearm dropping from it
+  // to the disc centre ~17 cm under the shoulder and 34 cm in front of the chest, the plate within ~25° of level. Upper arm,
+  // elbow and forearm now stand clear of the shirt and the disc sits outside the torso, against the grass. Round 10: that
+  // elbow was the arm's outermost point with the forearm folded back under it to the disc ("a chicken wing", 2 of 3
+  // critics). The grip hand is now cocked (gltf-player.js GRIP.cock), so a thumb-up hand holds the plate level at the end
+  // of a forearm reaching on toward the target: the upper arm out and forward, the elbow just over shoulder height and open
+  // ~133°, the forearm dropping ~33° to a hand that is the arm's leftmost point, the disc level at the chest (~18 cm under
+  // the shoulder) reaching back from the hand across the front of the shirt, as in the Disc Golf Masters address. Held
+  // 5 cm lower, the phone frame hid the hand and disc behind the swipe prompt. Round 11: at the tee that arm still ran
+  // out and down like a tube with the disc at the hip, because the tee camera sits above the shoulder and a forearm
+  // dropping toward the lens projects straight down. Solved together with a new grip cock (gltf-player.js GRIP.cock) in
+  // the chest frame (throwing side R, chest front F, up U, from the shoulder): the elbow out at shoulder height (R .28,
+  // F .1), the forearm reaching level toward the lens so it foreshortens (wrist R .17, F .38, level with the shoulder),
+  // the plate level ~7 cm under the shoulder reaching back across the chest, as the Disc Golf Masters address shows it;
+  // the chest turned ~9° further from the target (more coil, and square enough to the lens that the disc crosses it).
+  // Round 12: still "an arm stuck straight out with a sleeve web". Solved in screen space against the tee camera to the
+  // Disc Golf Masters frame: elbow bent ~88°, upper arm lowered and forward, the hand hanging off a level forearm just
+  // outside the chest with the plate edge-on and level, reaching back across the shirt (GRIP.cock re-solved with it).
+  // Round 13: that hand still hung ~7 cm past the chest at the end of a forearm lying flat to the lens ("thrust out sideways");
+  // the elbow closes ~13° more so the hand comes in to the edge of the chest and the forearm foreshortens toward the target.
+  // Round 14: solved in screen space together with GRIP.cock (the seat moved per candidate) against the reference's shoulder-
+  // relative offsets: that elbow was still the arm's outermost point with the forearm folded back to the chest ("one fleshy
+  // lump"). Now the upper arm reaches forward, the elbow bent ~50°, the hand drops off it toward the target with the plate
+  // level (~7° to the lens) reaching back across the chest, clear of the shirt: the Disc Golf Masters silhouette.
+  // Round 15: measured on a grid against the reference, that whole arm sat ~25 px (at 640) too high under a near-level upper
+  // arm, so the forearm pointed at the lens and read as a lump. Re-solved in screen space from the throwing shoulder: the upper
+  // arm slopes down to an elbow ~29 px under the shoulder, the forearm drops from it showing its side, the hand ~47 px under
+  // the shoulder and the plate level at the hand reaching back across the chest (the reference's full drop put hand and disc
+  // behind the phone's swipe prompt). The chin drops ~.4 rad and the head turns
+  // ~.25 rad further to the target: the reference's head sits low between the shoulders seen from three-quarters behind,
+  // and the upright head on a long neck read as a full profile bolted onto a square chest. The
+  // off elbow softens ~10° more (hanging straight to the thigh, critics read the free arm as dead).
+  // Round 16 (m2 body): blind critics read that address as "the disc flat against the belly at waist height, both arms
+  // folded down, the forearm bending like a rubber hose". Measured at 640x360 against 0100-tee-hole1 the reference plate
+  // sits ~37 px under the throwing shoulder crossing the chest, ours ~60 px. Re-solved in screen space (the plate's
+  // attitude held): the upper arm lifted and swung on toward the lens, the elbow opened, so the elbow rises ~13 px and the
+  // hand and plate ~27 px, the plate now ~35 px under the shoulder across the chest. The off arm swings out from the ribs
+  // with the elbow softer ("elbows tucked against the torso"; the reference's free arm hangs clear, counterbalancing). The
+  // chin drops ~15° more: the m2 scan's longer neck read at the tee as "a pale column" under a head held upright.
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.28, -1.75, -.12], shR: [.583, 1.164, .872], elR: [.712, -.447, 0], shL: [.45, 0, -.32], elL: [.75, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
+  // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
+  forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
+  // putt: square to the pin with the throwing-side foot a half step ahead, knees loaded, hips hinged, the putter set in
+  // both hands in front of the belly and a little to the off side, where the camera over the off shoulder still sees it,
+  // eyes up on the chains
+  putt: { root: [-.12, .2, 0], spine: [-.16, -.17, 0], head: [.14, -.05, 0], shR: [.1, .65, -.05], elR: [1.5, 0, 0], shL: [-.1, -.1, -.3], elL: [1.6, 0, 0], hipR: [.76, 0, .1], knR: [-.54, 0, 0], hipL: [.72, 0, -.12], knL: [-.66, 0, 0] },
+};
+// Cover-shot idle for the menu tee and bystanders: weight over the right leg, the left knee soft with its toe still on the
+// ground, disc hand raised beside the head with the forearm upright (main.js spins the disc flat on it), off hand on the
+// hip, head level. Right-handed; callers mirror. Absolute joint values, breathing sway added per frame.
+const HERO = { root: [0, .08, -.03], spine: [.02, -.06, .05], head: [.02, .12, -.02], shR: [.45, -.4, .2], elR: [2.6, 0, 0], shL: [-.15, 0, -.5], elL: [.36, 0, .96], hipR: [.02, 0, .04], knR: [-.03, 0, 0], hipL: [.02, 0, -.1], knL: [-.26, 0, 0] };
+export function heroPose(time, rig = RIGS.lite) {
+  const pose = { rootY: 0 }; for (const j of JOINTS) pose[j] = [...(HERO[j] || IDLE[j])];
+  const breath = Math.sin(time * 1.2);
+  pose.spine[0] += .012 * breath; pose.shR[2] += .015 * breath; pose.elR[0] -= .02 * breath; pose.shL[2] -= .01 * Math.sin(time * .9);
+  pose.head[1] += .05 * Math.sin(time * .35); pose.head[0] += .015 * Math.sin(time * .6); pose.root[2] += .006 * Math.sin(time * .5);
+  pose.rootY = -Math.min(...soleHeights(pose, false, rig));
+  return pose;
+}
+// The swipe morphs the stance into the clip across most of the windup rather than its first few percent: the coiled,
+// knee-loaded set-up and the clip's reach-back share their shape, and a short fade bobbed the athlete upright between them.
+export const STANCE_FADE = .4;
+export const stanceFade = phase => { const u = Math.min(1, Math.max(0, phase / STANCE_FADE)); return 1 - u * u * (3 - 2 * u); };
+// The female scan's forearm skin shears into a flat fin past ~70° of forearm roll, so her backhand address folds the arm
+// with the upper arm out toward the target instead; round 8 swings it forward and opens the elbow so the forearm lies
+// across her chest with the disc cocked there too (the round-7 solve hung it at the belt under a raised elbow). Round 9:
+// the same elbow-out address as his, solved for her shorter arm with the elbow ~8 cm less abducted (further out her
+// sleeve shears), the forearm roll still under 20°. Round 10: re-solved with the cocked grip like his (her forearm roll
+// ~70°, at the edge of where her skin shears). Round 11: his level-forearm address, re-solved for her arm (roll ~20°).
+export const STANCE_F = {};   // round 12: his screen-space address (small forearm roll, under where her skin shears) fits her arm too; re-solve if her disc misses the seat
+export function readyPose(type, time, rig = RIGS.lite, over = null) {
+  const family = type.split('_')[0], stance = { ...(STANCE[family] || STANCE.forehand), ...over?.[family] }, breath = Math.sin(time * 1.3), pose = { rootY: 0 };
+  for (const j of JOINTS) pose[j] = [...(stance[j] || IDLE[j])];
+  const bank = type.endsWith('_io') ? .08 : type.endsWith('_oi') ? -.08 : 0;   // inside-out / outside-in: the shoulders already lean the way the clip banks
+  pose.spine[2] += bank; pose.head[2] -= bank * .6;
+  // breathing and a slow settle of the coil, so the set-up never freezes
+  pose.knR[0] -= .02 + .02 * breath; pose.knL[0] -= .02 + .02 * breath; pose.spine[0] += .015 * breath; pose.head[1] += .04 * Math.sin(time * .5);
+  pose.root[1] += .03 * Math.sin(time * .7); pose.spine[1] += .02 * Math.sin(time * .7 + .6); pose.elR[0] += .03 * breath;
+  pose.rootY = -Math.min(...soleHeights(pose, false, rig));
+  return pose;
+}
+
 // Sole support for the visual rig only. No X/Z root travel and no change to the player's lie.
+// Leg geometry of the procedural rig and of ChainsRig (tools/golfer-rig.json "ground", what the Blender clips were planted with).
+export const RIGS = { lite: { root: .64, hipDrop: .02, hipX: .115, thigh: .26, sole: [0, -.333, -.052], soleRadii: [.083, .027, .154] },
+  glb: { root: .9867, hipDrop: .0905, hipX: .0995, thigh: .3638, sole: [0, -.5324, -.0196], soleRadii: [.0639, .012, .1418] } };
 function rotate(v,r){let[x,y,z]=v;const[rx,ry,rz]=r;let c=Math.cos(rz),s=Math.sin(rz);[x,y]=[x*c-y*s,x*s+y*c];c=Math.cos(ry);s=Math.sin(ry);[x,z]=[x*c+z*s,-x*s+z*c];c=Math.cos(rx);s=Math.sin(rx);return[x,y*c-z*s,y*s+z*c];}
-export function soleHeights(p,includeRootY=true){return ['R','L'].map(side=>{
+export function soleHeights(p,includeRootY=true,g=RIGS.lite){return ['R','L'].map(side=>{
  const hip=p['hip'+side],kn=p['kn'+side],root=p.root;const foot=v=>rotate(rotate(rotate(v,kn),hip),root);
- const knee=rotate([0,-.26,0],hip),sole=rotate(rotate([0,-.333,-.052],kn),hip);
- const center=rotate([(side==='R'?1:-1)*.115+knee[0]+sole[0],-.02+knee[1]+sole[1],knee[2]+sole[2]],root);
- const radius=Math.hypot(foot([.083,0,0])[1],foot([0,.027,0])[1],foot([0,0,.154])[1]);
- return .64+(includeRootY?p.rootY:0)+center[1]-radius;
+ const knee=rotate([0,-g.thigh,0],hip),sole=rotate(rotate(g.sole,kn),hip);
+ const center=rotate([(side==='R'?1:-1)*g.hipX+knee[0]+sole[0],-g.hipDrop+knee[1]+sole[1],knee[2]+sole[2]],root);
+ const[rx,ry,rz]=g.soleRadii,radius=Math.hypot(foot([rx,0,0])[1],foot([0,ry,0])[1],foot([0,0,rz])[1]);
+ return g.root+(includeRootY?p.rootY:0)+center[1]-radius;
 });}

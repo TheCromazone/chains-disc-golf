@@ -10,6 +10,10 @@
     "skin_normal": "textures/skin_normal.png",
     "dirt": "textures/dirt.jpg",
     "sand": "textures/sand.jpg",
+    "turf_rough": "textures/turf_rough.jpg",
+    "turf_mottle": "textures/turf_mottle.jpg",
+    "gravel": "textures/gravel.jpg",
+    "litter": "textures/litter.jpg",
     "grass_detail": "textures/r3/fairway.jpg",
     "rough_detail": "textures/r3/rough.jpg",
     "green_detail": "textures/r3/green.jpg",
@@ -39,7 +43,12 @@
     "leaf_deciduous": "textures/foliage/leaf_deciduous.webp",
     "leaf_deciduous_lod": "textures/foliage/leaf_deciduous_lod.webp",
     "leaf_pine": "textures/foliage/leaf_pine.webp",
-    "leaf_pine_lod": "textures/foliage/leaf_pine_lod.webp"
+    "leaf_pine_lod": "textures/foliage/leaf_pine_lod.webp",
+    "leaves": "textures/foliage/leaves.webp",
+    "leaves_n": "textures/foliage/leaves_n.webp",
+    "bark_birch": "textures/foliage/bark_birch.webp",
+    "impostors": "textures/foliage/impostors.webp",
+    "impostors_n": "textures/foliage/impostors_n.webp"
   },
   "courses": {
     "pine": "courses/pine_toon.jpg",

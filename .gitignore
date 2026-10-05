@@ -27,3 +27,15 @@ docs/qa/r3/page@*.webm
 art/blender/golfer-v3-textures/
 art/blender/golfer-v3-f-textures/
 art/meshy/
+
+# ponytail: copyrighted reference stills, local only
+art/reference/
+
+# ponytail: capture scratch from tools/capture.mjs, regenerated every round
+art/qa/
+
+# local invite-match storage (serve.mjs)
+.data/
+.vercel
+.env*
+dist/

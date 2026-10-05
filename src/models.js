@@ -18,9 +18,10 @@ export async function loadModels(renderer, quality = 'full') {
   const clipNames = [...baseClips,...baseClips.map(n=>n+'_left')];
   const names = [...bodies, 'disc', ...(full ? ['pine', 'deciduous', 'bush'] : []), ...clipNames.map(n=>'golfer_'+n)];   // Full also fetches the Blender trees
   if (!names.some(n => asset('models', n))) return;
-  const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/');
+  const vendor = location.pathname.startsWith('/node_modules/') || document.querySelector('script[type="importmap"]') ? '/node_modules/three/examples/jsm/libs/' : '/vendor/';
+  const draco = new DRACOLoader().setDecoderPath(vendor.endsWith('libs/') ? vendor + 'draco/gltf/' : vendor + 'draco/');
   draco.setWorkerLimit(2);
-  const ktx = new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/basis/').detectSupport(renderer);
+  const ktx = new KTX2Loader().setTranscoderPath(vendor + 'basis/').detectSupport(renderer);
   ktx.setWorkerLimit(2);
   const loader = new GLTFLoader().setDRACOLoader(draco).setKTX2Loader(ktx);
   await Promise.all(names.map(async name => {

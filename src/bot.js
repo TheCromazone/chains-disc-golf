@@ -1,6 +1,6 @@
 // Bot planner: simulates candidate throws with the real physics and picks the best, then adds
 // difficulty-dependent execution error. Chunked with setTimeout so the frame never stalls.
-import { simulate, discById } from './physics.js';
+import { simulate, discById, releasePos } from './physics.js';
 
 const NOISE = { easy: { yaw: 7, power: 0.13, hyzer: 8 }, medium: { yaw: 3.5, power: 0.07, hyzer: 4 }, hard: { yaw: 1.4, power: 0.03, hyzer: 1.5 } };
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
@@ -11,7 +11,7 @@ export async function planBotThrow({ pos, world, difficulty = 'medium', wind, le
   const dx = b.x - pos[0], dz = b.z - pos[2], dist = Math.hypot(dx, dz);
   const dir = [dx / dist, dz / dist];
   const cands = [];
-  const base = { pos: [pos[0], pos[1] + 1.15, pos[2]], dir, lefty };
+  const base = { pos: releasePos(world, pos, dir), dir, lefty };   // the release point the throw will really leave from
   if (dist <= 15) {
     const p0 = Math.min(1, 0.22 + dist * 0.072);
     for (const yaw of [-4, -2, 0, 2, 4]) for (const dp of [-0.1, -0.05, 0, 0.05, 0.1])
@@ -27,13 +27,14 @@ export async function planBotThrow({ pos, world, difficulty = 'medium', wind, le
   }
   const maxT = dist <= 15 ? 4 : 12;
   let best = null, bestScore = Infinity;
+  let sliceStart = performance.now();
   for (let i = 0; i < cands.length; i++) {
     const c = cands[i];
     const r = simulate(c, world, { maxT }).result;
     let score = r.dist + (r.ob ? 45 : 0) + (r.holed ? -1000 : 0);
     if (!r.holed && r.dist < 10) score += 0;                 // fine
     if (score < bestScore) { bestScore = score; best = c; }
-    if (i % 12 === 11) await yieldFrame();
+    if (performance.now() - sliceStart > 4) { await yieldFrame(); sliceStart = performance.now(); }
   }
   const n = NOISE[difficulty] || NOISE.medium;
   return {

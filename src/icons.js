@@ -23,6 +23,9 @@ const paths = {
   tomahawk: '<path d="M8 5c7-5 12 2 8 8l-4 7m-3-6 3 6 6-3"/>',
   scoober: '<path d="M18 19c7-6-1-14-8-10L4 12m7 2-7-2 3-7"/>',
   putt: '<path d="M12 21V4m-6 6 6-6 6 6"/><path d="M4 20h3m10 0h3"/>',
+  bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zm4 4a2 2 0 0 0 4 0"/>',
+  share: '<path d="M12 3v12m-5-7 5-5 5 5M5 13v7h14v-7"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 paths.backhand_io = paths.backhand + '<path d="m14 21 6-2"/>'; paths.backhand_oi = paths.backhand + '<path d="m14 19 6 2"/>';
 paths.forehand_io = paths.forehand + '<path d="m4 19 6 2"/>'; paths.forehand_oi = paths.forehand + '<path d="m4 21 6-2"/>';

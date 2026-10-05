@@ -6,7 +6,7 @@ const RHO = 1.225, AREA = 0.0346, MASS = 0.175, G = 9.81, R_DISC = 0.105;
 export const DT = 1 / 240;
 
 export const DISCS = [
-  { id: 'driver',  name: 'VORTEX',   type: 'Distance Driver', speed: 12, glide: 5, turn: -1, fade: 3, color: '#ff4d3d' },
+  { id: 'driver',  name: 'VORTEX',   type: 'Distance Driver', speed: 12, glide: 5, turn: -1, fade: 3, color: '#ff2e88' },
   { id: 'fairway', name: 'FALCON',   type: 'Fairway Driver',  speed: 7,  glide: 5, turn: 0,  fade: 2, color: '#2f80ff' },
   { id: 'mid',     name: 'MERIDIAN', type: 'Midrange',        speed: 5,  glide: 4, turn: -1, fade: 1, color: '#ffcc00' },
   { id: 'putter',  name: 'ANCHOR',   type: 'Putter',          speed: 2,  glide: 3, turn: 0,  fade: 1, color: '#f4f4f4' },
@@ -113,6 +113,7 @@ export function step(s, w, dt = DT) {
     s.p = [s.p[0] + s.v[0] * dt, s.p[1] + s.v[1] * dt, s.p[2] + s.v[2] * dt];
     s.maxH = Math.max(s.maxH, s.p[1]);
     hitTrees(s, w, dt);
+    hitCapsules(s, w);
     hitBasket(s, w);
     if (s.mode !== 'fly') return;
     groundContact(s, w);
@@ -133,6 +134,7 @@ export function step(s, w, dt = DT) {
     s.n = rotAxis(scale(rightOf, side), vh, -side * s.lean * 0.9);
     s.spinRate = ns / R_DISC;
     hitTrees(s, w, dt);
+    hitCapsules(s, w);
     if (s.lean > 1.05 || ns < 1.2) { s.mode = 'ground'; s.v = scale(s.v, 0.5); s.events.push('flop'); s.wobble = 0.55; s.wobbleA = Math.atan2(s.n[2], s.n[0]); }
   } else if (s.mode === 'ground') {
     const gy = w.height(s.p[0], s.p[2]), N = w.normal(s.p[0], s.p[2]);
@@ -220,6 +222,25 @@ function hitTrees(s, w, dt) {
   }
 }
 
+// Built props the disc can hit (the event arch's legs and beam): w.capsules = [{ a, b, r, tag }], a segment swollen by
+// r. Printed fabric over a truss is a dead thud: the disc is set back on the skin, rebounds with a fifth of the speed it
+// hit with and keeps half its glancing speed, and the event is the prop's tag ('arch': main.js toasts "Off the arch").
+function hitCapsules(s, w) {
+  const list = w.capsules; if (!list) return;
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i], ab = [c.b[0] - c.a[0], c.b[1] - c.a[1], c.b[2] - c.a[2]], ap = [s.p[0] - c.a[0], s.p[1] - c.a[1], s.p[2] - c.a[2]];
+    const t = clamp(dot(ap, ab) / dot(ab, ab), 0, 1), d = [ap[0] - ab[0] * t, ap[1] - ab[1] * t, ap[2] - ab[2] * t], dl = len(d), R = c.r + R_DISC;
+    if (dl >= R) continue;
+    const n = dl > 1e-6 ? scale(d, 1 / dl) : [0, 1, 0], vn = dot(s.v, n);
+    s.p = [s.p[0] + n[0] * (R - dl), s.p[1] + n[1] * (R - dl), s.p[2] + n[2] * (R - dl)];
+    if (vn >= 0) continue;
+    s.v = [(s.v[0] - vn * n[0]) * 0.5 - vn * 0.2 * n[0], (s.v[1] - vn * n[1]) * 0.5 - vn * 0.2 * n[1], (s.v[2] - vn * n[2]) * 0.5 - vn * 0.2 * n[2]];
+    s.spinRate *= 0.5;
+    s.n = norm([s.n[0] + n[0] * 0.6, s.n[1] + n[1] * 0.6 + 0.2, s.n[2] + n[2] * 0.6]);
+    s.events.push(c.tag);
+  }
+}
+
 function hitBasket(s, w) {
   const b = w.basket; if (!b) return;
   const dx = s.p[0] - b.x, dz = s.p[2] - b.z, d = Math.hypot(dx, dz), h = s.p[1] - b.y;
@@ -235,7 +256,13 @@ function hitBasket(s, w) {
     return;
   }
   if (h >= 1.34 && h < 1.46 && d < 0.28) {            // top band
-    if (s.v[1] < 0 && h > 1.40) { s.v = [s.v[0] * 0.55, -s.v[1] * 0.3, s.v[2] * 0.55]; s.p[1] = b.y + 1.46; s.events.push('band'); }
+    if (s.v[1] < 0 && h > 1.40) {
+      s.v = [s.v[0] * 0.55, -s.v[1] * 0.3, s.v[2] * 0.55]; s.p[1] = b.y + 1.46;
+      // a disc settling on the lid would bounce in place until the 25 s cap: once it has slowed, it slides off the domed lid's edge
+      s.lidHits = (s.lidHits || 0) + 1;
+      if (Math.hypot(s.v[0], s.v[2]) < 1.2 || s.lidHits > 3) { const ox = d > 1e-3 ? nx : (s.v[0] || 1), oz = d > 1e-3 ? nz : s.v[2], ol = Math.hypot(ox, oz) || 1; s.v[0] = ox / ol * 1.3; s.v[2] = oz / ol * 1.3; }
+      if (s.lidHits <= 2) s.events.push('band');
+    }
     else if (vr < 0) { s.v[0] -= 1.4 * vr * nx; s.v[2] -= 1.4 * vr * nz; s.v[0] *= 0.45; s.v[2] *= 0.45; s.events.push('band'); }
     return;
   }
@@ -270,6 +297,13 @@ export function simulate(params, w, opts = {}) {
   if (!isDone(s)) s.mode = 'rest';
   if (rec) rec.push([s.p[0], s.p[1], s.p[2], s.n[0], s.n[1], s.n[2], s.spinRate]);
   return { state: s, traj: rec, result: resultOf(s, w) };
+}
+
+// Where a throw from a lie leaves the hand: 0.4 m out along the aim (the reach), shortened inside the circle so a tap-in
+// never releases beyond the pole and flies out the far side. The aim, preview, online host and bots all launch from here.
+export function releasePos(w, lie, dir) {
+  const b = w.basket, reach = b ? Math.min(0.4, Math.max(0, Math.hypot(b.x - lie[0], b.z - lie[2]) - 0.5)) : 0.4;
+  return [lie[0] + dir[0] * reach, w.height(lie[0], lie[2]) + 1.15, lie[2] + dir[1] * reach];
 }
 
 // Flat, empty world for tests/previews.

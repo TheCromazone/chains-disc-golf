@@ -1,5 +1,7 @@
 # Chains — mobile 3D disc golf
 
+**[Play on desktop or mobile](https://chains-disc-golf.vercel.app)** · Online and pass & play support up to **12 players**.
+
 Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc and a throw type, then swipe in the throw pad: the swipe direction must match the throw (backhand →, forehand ←, tomahawk ↓, scoober ↖, hammer ↘, blade ↙, putt ↑; inside-out and outside-in variants of both backhand and forehand), the swipe length sets the power bar, and a slightly lower or higher swipe adds hyzer or anhyzer. Discs fly with a real turn/fade model, skip, roll, kick off trees, chain out, and splash into ponds.
 
 ![Chains clubhouse](docs/qa/r3/after-clubhouse-430.png)
@@ -7,8 +9,9 @@ Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc a
 ## Play
 
 - **Play round** — you vs two bots (easy / medium / hard).
-- **Pass & play** — up to six people on one phone, plus optional bots.
-- **Online room** — one player creates a room and shares a 4-letter code; friends join from their own phones. Peer-to-peer over [PeerJS](https://peerjs.com/), no server to run.
+- **Pass & play** — up to twelve people on one phone, plus optional bots.
+- **Invite match** (clubhouse → Friends) — the GamePigeon way: start a match, send the link to your group chat, and everyone plays their hole when it suits them. One turn is a player's whole hole; up to twelve players. Whoever has played the fewest holes goes next (late joiners catch up first), then honours. The next player gets a push notification ("Your turn in Chains"), and the one-tap **Tell them it's their turn** button opens the share sheet for Messages. Works on any network (plain HTTPS to `api/match.js`; matches live in a private Vercel Blob store). iPhone sends web alerts only to games added to the Home Screen; the match screen walks through it and carries your seat into the installed app. A player who sits on a turn for 30 minutes can be skipped and comes back by tapping *I'm back*.
+- **Live room** (Friends → Live room) — one player creates a room and shares an invite link or a four-character code; friends join from their own devices. Up to twelve players over [PeerJS](https://peerjs.com/). The host validates throw input, computes flight and distributes the same replay to everyone. Reconnects restore scores and the current shot. A disconnected player keeps their slot for 30 seconds, then a bot takes over; returning players can reclaim the slot. Keep the host’s browser open: closing it ends the room.
 
 Four courses, three or nine holes each:
 
@@ -19,7 +22,7 @@ Four courses, three or nine holes each:
 
 **Locker room** — a Blender-authored athlete (`tools/build-golfer-v2.py`) with Face / Hair / Outfit / Body tabs. Face: eyes, eye colour, brows, nose, mouth, facial hair and glasses are atlas decals on the head. Hair: twelve styles, seven kinds of headwear, colours for both. Outfit: shirt colour and style (hoops, stripes, sash, sleeves, split, chevron), trim, number, shorts, socks, shoes, wristbands. Body: skin, build, height and throwing hand (left-handers get mirrored clips and physics). Each player's appearance travels with them in online rooms.
 
-Works on phones (touch) and desktop (mouse). Add it to your home screen for a full-screen app.
+Works on phones (touch) and desktop (mouse or keyboard). Hold Space for power and release to throw, arrows / WASD aim, Escape cancels, 1–4 select discs, Q / E cycle throws, T targets the basket and O opens overview. Add it to your home screen for a full-screen app.
 
 ### Look
 
@@ -31,7 +34,7 @@ Two photoreal Meshy bodies, rebuilt for Chains in Blender (`tools/build-golfer-v
 
 ### Course trees
 
-Full tier instances Blender trees (`tools/build-trees.py`): tapered branch tubes with crossed photo leaf cards (keyed Higgsfield leaf and pine clusters in `assets/textures/foliage`), three deciduous and three pine variants plus two bushes, alpha-tested with cut-out shadows and a per-instance tint. Lite keeps the embedded low-poly crowns.
+Full tier instances Blender trees (`tools/build-trees.py`): tapered branch tubes with crossed photo leaf cards (keyed Higgsfield leaf and pine clusters in `assets/textures/foliage`), three deciduous and three pine variants plus two bushes, alpha-tested with cut-out shadows. Cards pack along every limb and fill the crown core so no trunk shows through the mass (about a hundred cards per deciduous crown, 1.9k triangles per species file). A hemispherical occlusion gradient is baked into the leaf vertex colour (lit top rim, dark core and underside) and each leaf normal points away from the crown centre (per tier on pines) rather than across its card, so the runtime lights a crown as one volume with a bright top and dark underside; trunks stay bare for a third to a half of the height so the branch skeleton and sky gaps read, and every instance gets its own tilt, height and a roughly ±10% hue and lightness lean; leaves lit from behind glow through a back-light term in the leaf shader. Lite keeps the embedded low-poly crowns.
 
 ### Game interface
 
@@ -64,7 +67,14 @@ Standard stroke play, lightly simplified:
 
 ## Run it locally
 
-Any static server works. Without dependencies:
+Install the pinned dependencies, then start the development server:
+
+```bash
+npm ci
+npm run dev
+```
+
+The underlying server command is:
 
 ```bash
 node serve.mjs
@@ -80,7 +90,18 @@ node test/physics.test.mjs
 
 ## Deploy
 
-It's static: push to GitHub and enable **Pages** on the repository root. Three.js and PeerJS load from CDNs.
+Production is a static, bundled Vercel build. Three.js, PeerJS, Draco and Basis codecs are served from the same origin, with no runtime CDN dependencies. Only runtime files go into `dist`; art projects, QA files, credentials and development tools are excluded.
+
+```bash
+npm run build
+npm run preview
+vercel link
+vercel deploy --prod
+```
+
+Environment (Vercel project settings): `BLOB_READ_WRITE_TOKEN` (added when the private Blob store `chains-matches` is connected), `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` for turn alerts (`npx web-push generate-vapid-keys`). Optional relay for live rooms across networks (a phone on cellular often can't reach a peer on Wi-Fi directly): Cloudflare Realtime TURN keys as `CLOUDFLARE_TURN_KEY_ID` + `CLOUDFLARE_TURN_KEY_API_TOKEN`, or any TURN service as `TURN_URLS` (comma separated) + `TURN_USERNAME` + `TURN_CREDENTIAL`; `api/ice.js` hands them to the client. `npm run preview` runs the `api/` functions locally with file storage in `.data/`.
+
+`vercel.json` sets the build, output directory and cache headers. Hashed JavaScript chunks use immutable caching; mutable assets revalidate. GitHub auto-deploy is optional; the published build uses the authenticated Vercel CLI.
 
 ## Structure
 
@@ -93,12 +114,14 @@ It's static: push to GitHub and enable **Pages** on the repository root. Three.j
 | `src/materials.js`, `src/effects.js` | Toon terrain, foliage wind, clean water; retained optional legacy rendering infrastructure |
 | `src/input.js` | Pointer gestures: aim drag and throw swipes |
 | `src/bot.js` | Bots simulate candidate throws and pick the best, with difficulty noise |
-| `src/net.js` | PeerJS host/guest rooms |
+| `src/net.js`, `src/protocol.js` | PeerJS host/guest live rooms (binary serialization, relay servers from `/api/ice`), message validation |
+| `src/match.js`, `sw.js` | Invite matches on the client: seats on the device, match screens, share sheet, push subscription; the service worker shows turn alerts |
+| `api/match.js`, `server/` | Invite-match API (Vercel Function): `match-core.js` rules and turn order, `store.js` Blob/file storage with ETag-checked writes, `push.js` Web Push |
 | `src/audio.js` | Synthesized sound: modal metallic chain cascades, wood knocks, water, wind and birds, with a short outdoor reverb |
 | `src/assets.js` | Optional asset manifest: drop generated textures, course art, disc stamps and real recordings into `assets/` |
 | `src/main.js` | Game state machine, camera, hub menu, locker room, HUD wiring, online sync |
 
-No build step and no required assets. The shipped art replaces procedural defaults; an empty `assets/` folder still boots and plays. Sounds retain synthesis and accept optional sample overrides. To upgrade the look and sound with generated or recorded assets, follow [docs/codex-asset-prompts.md](docs/codex-asset-prompts.md); anything you add to `assets/manifest.json` replaces the procedural version, everything else keeps working.
+Development serves ES modules; production uses the build above. Optional art can fall back to procedural assets. The shipped art replaces procedural defaults; an empty `assets/` folder still boots and plays. Sounds retain synthesis and accept optional sample overrides. To upgrade the look and sound with generated or recorded assets, follow [docs/codex-asset-prompts.md](docs/codex-asset-prompts.md); anything you add to `assets/manifest.json` replaces the procedural version, everything else keeps working.
 
 
 ## Graphics and animation
@@ -118,12 +141,15 @@ node test/physics.test.mjs
 node test/assets.test.mjs
 node test/animation.test.mjs
 node test/feedback.test.mjs
+node test/match.test.mjs
 python test/sfx-normalization.py
 ```
 
+Browser checks (real headless Chrome; set `CHROME` to its path): `node tools/verify-browser.mjs --dist` (live room: four rendered players plus nine extra peers over real WebRTC), `node tools/verify-matches.mjs` (invite match: two isolated phones play a whole 3-hole match through the UI and API), `node tools/verify-rounds.mjs` (bots play 3-hole rounds on every course). Each also takes `--url https://chains-disc-golf.vercel.app`; `verify-browser` adds `--public-signal` there.
+
 The asset test checks manifest files, GLB structure, Draco/KTX2 extensions, the golfer triangle budget, bone/material names and animation clips.
 
-Round-three QA: **83 manifest entries**, all ten throws pass handedness and flight regressions, a real pointer swipe and a complete Full-quality hole pass, and empty-assets play works in both qualities. No JavaScript errors in integration checks. The six viewport overlap audit, including the open ten-entry throw sheet, includes 360×740, 430×932, 812×375, 568×320, 768×1024 and 1366×768. The previous PeerJS transport verification remains applicable: protocol source and message shapes were preserved.
+Round-three QA: **83 manifest entries**, all ten throws pass handedness and flight regressions, a real pointer swipe and a complete Full-quality hole pass, and empty-assets play works in both qualities. No JavaScript errors in integration checks. The six viewport overlap audit, including the open ten-entry throw sheet, includes 360×740, 430×932, 812×375, 568×320, 768×1024 and 1366×768. That historical transport result is superseded by the current protocol-v2 browser verification below.
 
 The art pass brings Lite startup below **2 MB**, including CDN code (see the current byte ledger in [the canopy report](docs/qa/r4/REPORT.md)). Disc stamps are 6.6–18.7 KB; normal maps are 256px JPEGs. **60 fps Lite / 45 fps Full on mid-range Android and iPhone 12 remain physical-device targets, not certified results.** Desktop Chromium does not establish mobile GPU or Safari performance.
 
@@ -172,4 +198,21 @@ Six compact Blender crown variants use baked vertex occlusion and authored smoot
 
 `art/unity/Assets/Editor/RenderChains.cs` renders the sampled course layouts to JPEG cards and half-float EXR skies. Run Unity in batch mode with `-projectPath art/unity -executeMethod RenderChains.Run -quit`. Generated Unity scenes/caches are disposable; the editor script recreates them. There is no Unity game build or runtime dependency.
 
-For a minimal static deployment, publish `index.html`, `src/` and `assets/`. Authoring files, QA images and local tools are not needed by players. `chains.avatar`, `chains.course`, and the `lobby`, `start`, `throw`, `next`, `botify` message contracts remain unchanged.
+Publish the generated `dist/` directory for deployment. The local `chains.avatar` and `chains.course` preferences remain compatible. Rooms now use protocol v2: guests send bounded throw requests, and only the host sends trajectories, membership changes and next-hole commands. Older room clients must reload.
+
+## Current playability pass
+
+- Up to 12 online or local players; roster capacity and joins after a round starts are checked. Invite links fill the join code.
+- Swipe capture includes movement outside the pad, final release coordinates and coalesced pointer samples. OS cancellation, secondary fingers, blur, rotation and hidden tabs cannot accidentally throw. A live trail and authored windup track your swipe.
+- Keyboard charging, aiming, equipment shortcuts and cancellation work alongside mouse gestures.
+- Hosts maintain authoritative game updates on a lightweight timer while hidden; hidden guests restore authoritative state on return. Browser/OS suspension can still interrupt a host, so keep its page open.
+- Mobile starts in Lite, uses an appropriate pixel budget, and adapts resolution toward 60 fps. Sustained slow Full rendering drops the optional postprocessing pass. Shader warmup runs before the tee; bot planning yields within a 4 ms budget; distant spectators update at 15 Hz.
+- Scoring uses the existing rigged celebration and score audio, with one pooled confetti draw at the player for successful holes. Reduced motion disables confetti and skips the flyover.
+
+Run `npm test` for physics, assets, animations, feedback, touch/keyboard and protocol checks. `npm run test:browser` runs four rendered Chrome players plus additional real WebRTC guests, the 12-player capacity limit, ownership checks, identical shot results, reconnection and rotation. For the published game, use:
+
+```bash
+node tools/verify-browser.mjs --public-signal --url https://chains-disc-golf.vercel.app
+```
+
+See [the current report](docs/qa/playability/REPORT.md). Desktop Chrome emulation verifies layout and interaction, not actual iPhone/Android GPU performance; physical-phone fps remains unverified. The current visual polish does not establish a universal AAA-quality rating.

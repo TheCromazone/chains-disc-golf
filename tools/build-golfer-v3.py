@@ -1,15 +1,19 @@
 """Chains athlete v3: photoreal Meshy bodies re-rigged on ChainsRig.
 Run: blender -b -P tools/build-golfer-v3.py -- [--source <meshy.glb>] [--variant m|f] [--preview <dir>]
 Reads a Meshy 7 image-to-3D athlete (~100k triangles, 24-joint auto-rig, 2048 baked albedo), straightens
-its A-pose into the ChainsRig rest (arms and legs vertical), curls the fingers into a rim grip, merges the
-24 joint weights into the eleven ChainsRig bones, decimates to a game body and a phone LOD (the face keeps
+its A-pose into the ChainsRig rest (arms and legs vertical; the hands stay half open, the runtime morphs the disc hand's
+grip), merges the 24 joint weights into the eleven ChainsRig bones, fits the scan's loose tee onto the body as a jersey (fit_shirt: shorter
+sleeves on the arm, a waist taper, armpit weights that let the throwing arm rise without a wing of shirt), decimates to a
+game body and a phone LOD (the face keeps
 most of its triangles), unwraps each body afresh so no triangle straddles a texture seam, then bakes from the
 untouched high-res copy: albedo, tangent normals, ambient occlusion, and a world-position map that classifies
 every texel into recolourable regions (skin, shirt, shorts, hair, socks, shoes, iris, beard zones).
 Hair, headwear and glasses are grown from the measured skull. Writes:
   art/blender/golfer-v3[-f]-source.blend, -lod-source.blend, golfer-v3[-f]-textures/*.png (masters)
   assets/models/golfer[-f].glb, golfer[-f]-lod.glb, golfer[-f]-build-report.json, tools/golfer[-f]-rig.json
-then run: python tools/pack-body-textures.py [--variant f]
+then run: python tools/pack-body-textures.py [--variant f] --clean
+The female phone LOD is her full body re-exported lean (her decimated scan shatters); to redo just that step from the
+committed source blend: blender -b -P tools/build-golfer-v3.py -- --variant f --lod-from-full
 """
 from pathlib import Path
 import sys, json, math, shutil
@@ -28,7 +32,7 @@ TEXSRC = SOURCE / f'golfer-v3{TAG}-textures'
 PREVIEW = '--preview' in argv
 PREVIEW_DIR = Path(arg('--preview', 'docs/qa/r7'))
 if not PREVIEW_DIR.is_absolute(): PREVIEW_DIR = ROOT / PREVIEW_DIR   # Blender resolves bare relative render paths against the drive root
-DEFAULT_SOURCE = {'m': r'C:\Users\matth\OneDrive\Documents\ultimate frisbee game\assets\figures\athlete-v2.glb', 'f': str(ROOT / 'art/meshy/athlete-f.glb')}
+DEFAULT_SOURCE = {'m': str(ROOT / 'art/meshy/athlete-m2/athlete-m2.glb'), 'f': str(ROOT / 'art/meshy/athlete-f.glb')}   # m2: Meshy multi-image scan (grey raglan tee, black shorts, grey trail shoes); art/meshy is local only
 MESHY = Path(arg('--source', DEFAULT_SOURCE.get(VARIANT, '')))
 BUDGET = {'full': 12400, 'lod': 6200}   # body triangles; hair, headwear and glasses variants ride on top
 TEX = 2048
@@ -172,6 +176,37 @@ def merge_seams(body):
   REPORT['seams'] = {'verts': len(bm.verts), 'boundary': sum(1 for e in bm.edges if e.is_boundary)}; log('seams', json.dumps(REPORT['seams']))
   bm.to_mesh(body.data); bm.free()
 
+def unhook_flank(body, J):
+  """Meshy's auto-rig can skin the torso's flank beside the hanging elbow (and the waist beside the forearm) partly or wholly
+  to the arm (the m2 scan: waist vertices at 1.0 on the forearm). Raised, the arm dragged a sheet of shirt out of the ribs:
+  a web to the disc hand at the tee, torn shards under the akimbo arm in the menu. In the scan's A-pose the arm stands clear
+  of the torso, so arm weight on a vertex 7-10 cm or more from the arm's bone chain goes to the torso groups it already has."""
+  c = world_coords(body); n = len(c); gi = {vg.name: vg.index for vg in body.vertex_groups}   # the joints are in world space; the parented scan's own coordinates still face the other way
+  Wm = np.zeros((n, len(body.vertex_groups)), np.float32)
+  for v in body.data.vertices:
+    for g in v.groups: Wm[v.index, g.group] = g.weight
+  ss = lambda a, b, t: (lambda u: u * u * (3 - 2 * u))(np.clip((t - a) / (b - a), 0, 1))
+  tor = [gi[k] for k in ('Spine02', 'Spine01', 'Spine', 'Hips') if k in gi]; before = Wm.copy(); moved_n = 0
+  for s in ('Left', 'Right'):
+    P = [np.array(J[s + k], np.float32) for k in ('Arm', 'ForeArm', 'Hand')]; P.append(P[2] + (P[2] - P[1]) / np.linalg.norm(P[2] - P[1]) * .19)   # to the fingertips
+    d = np.full(n, 9.0, np.float32)
+    for a, b in zip(P[:-1], P[1:]):
+      t = np.clip((c - a) @ (b - a) / float((b - a) @ (b - a)), 0, 1); d = np.minimum(d, np.linalg.norm(c - (a + t[:, None] * (b - a)), axis=1))
+    k = ss(.07, .1, d); arm = [gi[s + x] for x in ('Arm', 'ForeArm', 'Hand') if s + x in gi]
+    near = body.vertex_groups.new(name='near' + s[0])   # fit_shirt: only surface near the arm in the A-pose can be sleeve (the hanging arm overlaps the lats by ~3 cm)
+    for j in np.nonzero(k < .5)[0].tolist(): near.add([j], 1.0, 'REPLACE')
+    moved = Wm[:, arm].sum(1) * k; Wm[:, arm] *= (1 - k)[:, None]; moved_n += int((moved > .05).sum())
+    have = Wm[:, tor].sum(1, keepdims=True)
+    share = np.where(have > 1e-4, Wm[:, tor] / np.maximum(have, 1e-4), 0)
+    up = c[:, 1] > J['Spine01'][1]   # no torso weight yet: by height, the chest bone or the hips
+    share[(have[:, 0] <= 1e-4) & up, tor.index(gi['Spine01'])] = 1; share[(have[:, 0] <= 1e-4) & ~up, tor.index(gi['Hips'])] = 1
+    Wm[:, tor] += moved[:, None] * share
+  for j in np.nonzero(np.abs(Wm - before).max(1) > 1e-5)[0].tolist():
+    for g, vg in enumerate(list(body.vertex_groups)[:Wm.shape[1]]):
+      if Wm[j, g] > 1e-5: vg.add([j], float(Wm[j, g]), 'REPLACE')
+      elif before[j, g] > 0: vg.remove([j])
+  REPORT['unhooked'] = moved_n; log('unhooked flank verts', moved_n)
+
 def bake_pose(arm, body):
   mod = next(m for m in body.modifiers if m.type == 'ARMATURE'); apply_mod(body, mod)
   select([body]); bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
@@ -184,7 +219,8 @@ def remap_weights(body):
     for g in v.groups:
       t = MAP.get(names[g.group])
       if t and g.weight > 1e-4: acc[t][v.index] = acc[t].get(v.index, 0.0) + g.weight
-  for vg in list(body.vertex_groups): body.vertex_groups.remove(vg)
+  for vg in list(body.vertex_groups):
+    if not vg.name.startswith('near'): body.vertex_groups.remove(vg)   # unhook_flank's arm-side maps stay for fit_shirt
   for b in BONES:
     vg = body.vertex_groups.new(name=b)
     for i, w in acc[b].items(): vg.add([i], w, 'REPLACE')
@@ -209,22 +245,100 @@ def set_coords(body, c):
 def hand_box(c, h):
   return (np.abs(c[:, 0] - h[0]) < .08) & (np.abs(c[:, 2] - h[2]) < .1) & (c[:, 1] < h[1] + .015) & (c[:, 1] > h[1] - .26)
 
-def curl_fingers(body, J):
-  """The scan's fingers hang straight. Bend them around a disc rim: three hinges per finger (knuckle, middle,
-  tip) rotate everything below the hinge toward the palm, blended over a couple of centimetres so the skin
-  stretches instead of creasing. Fingertips end up hooked where the rim of a hanging disc sits."""
-  c = coords(body); p = c.copy()
-  for side, s in (('Right', -1), ('Left', 1)):   # the right palm faces -x (the thigh), so its fingertips swing toward -x
-    h = np.array(J[side + 'Hand'], np.float32); box = hand_box(c, h)
-    tip = c[box][:, 1].min(); L = h[1] - tip   # hand length, wrist to fingertip
-    for frac, deg in ((.53, 38), (.76, 62), (.9, 34)):
-      y0 = h[1] - frac * L; w = np.clip((y0 + .012 - c[:, 1]) / .024, 0, 1) * box
-      piv = p[box][np.argmin(np.abs(c[box][:, 1] - y0) + np.abs(c[box][:, 2] - h[2]) * .3)]   # a vertex on the hinge line, in its already-bent position
-      a = w * math.radians(deg) * s; ca, sa = np.cos(a), np.sin(a)
-      dx, dy = p[:, 0] - piv[0], p[:, 1] - piv[1]
-      p[:, 0] = piv[0] + dx * ca - dy * sa; p[:, 1] = piv[1] + dx * sa + dy * ca
-    REPORT.setdefault('hands', {})[side] = {'length': float(L), 'tipDrop': float(h[1] - p[box][:, 1].min()), 'tipIn': float(s * (p[box][:, 0] - h[0]).max())}
-  set_coords(body, p)
+SLEEVE = .17   # the fitted sleeve ends this far below the shoulder joint; pack-body-textures.py recolours the scan's longer sleeve below it as arm
+def fit_shirt(body, RIG, ref=None, rewire=True):
+  """The scan wears a loose tee: its sleeves stand off the arm and reach the elbow, its sides hang straight from the chest to
+  the thigh, and the auto-rig skinned the flank under each armpit to the upper arm, so the raised throwing arm dragged the
+  shirt's side out into a wing. In the rest pose (arms hanging): the flank facing each arm goes to the chest bones, the sleeve
+  and the arm's back and front up to the joint go wholly to the arm, and the chest and back beside the joint to the torso; the
+  sleeve and shoulder cap are pulled toward the arm's axis and the sleeve shortened; the torso is tapered from the armpit to
+  the waist (sides in, lower back forward), widens again to the hips and eases back to the shorts' own width at the cuffs.
+  ref: the full body's measurements, so the phone LOD is fitted to the same shape. rewire: the weight moves read which side
+  of the armpit a vertex faces from its normal; the female scan's doubled, partly flipped cloth layers would be torn apart
+  by that (twin layers riding different bones), so she keeps her weights and gets only the shape, which is position-only."""
+  c = coords(body); n = len(c); x, y, z = c[:, 0], c[:, 1], c[:, 2]
+  nb = np.empty(n * 3, np.float32); body.data.vertices.foreach_get('normal', nb); nb = nb.reshape(n, 3); nrm = np.stack([nb[:, 0], nb[:, 2], -nb[:, 1]], 1)
+  W = {b: weights(body, b) for b in BONES}; W0 = {b: w.copy() for b, w in W.items()}
+  ss = lambda a, b, t: (lambda u: u * u * (3 - 2 * u))(np.clip((t - a) / (b - a), 0, 1))   # smoothstep; a > b runs downhill
+  hipY = (RIG['hipR'][1] + RIG['hipL'][1]) / 2; kneeY = (RIG['knR'][1] + RIG['knL'][1]) / 2
+  d = np.zeros_like(c); geo = {'hem': {}}
+  for side, s in (('R', 1), ('L', -1)):
+    sh, el = 'sh' + side, 'el' + side; S, E = RIG[sh], RIG[el]
+    near = weights(body, 'near' + side) > .5 if 'near' + side in body.vertex_groups else np.ones(n, bool)   # unhook_flank: surface by the arm in the A-pose
+    if ref: ax, az, rs, apex = ref[side]
+    else:   # the arm's axis and radius from its skin above the elbow (hers is a few coarse rings: the whole elbow region, else the joint)
+      low = (W[sh] + W[el] > .9) & (y > E[1] + .02) & (y < E[1] + .07) & (s * x > .06)
+      if low.sum() < 8: low = (W[sh] + W[el] > .5) & (y > E[1] - .12) & (y < E[1] + .1) & (s * x > .03)
+      ax, az, rs = (float(np.median(x[low])), float(np.median(z[low])), 0) if low.sum() >= 6 else (S[0], S[2], .034)
+      rs = rs or float(np.median(np.hypot(x[low] - ax, z[low] - az)))
+    dx, dz = x - ax, z - az; r = np.hypot(dx, dz); out = (dx * nrm[:, 0] + dz * nrm[:, 2]) / np.maximum(r, 1e-6)   # +1: the normal leaves the arm's axis
+    flank = (out < -.3) & (s * x > .03) & (s * x < s * ax - .01) & (y > E[1]) & (y < S[1] - .03) & (r < .16)   # torso side facing the arm
+    if not ref: apex = float(np.percentile(y[flank], 95)) if flank.sum() > 10 else S[1] - .12   # the armpit: top of that flank
+    geo[side] = (ax, az, rs, apex)
+    if rewire:
+      f = flank * (1 - ss(apex - .03, apex + .05, y)) * ss(.15, .45, -out)
+      moved = f * (W[sh] + W[el]); W[sh] *= 1 - f; W[el] *= 1 - f
+      tor = W['spine'] + W['root']; share = np.where(tor > 1e-3, W['spine'] / np.maximum(tor, 1e-3), (y > (RIG['root'][1] + RIG['spine'][1]) / 2).astype(np.float32))
+      W['spine'] += moved * share; W['root'] += moved * (1 - share)
+      f2 = (y > apex - .08) * (1 - ss(s * ax - .08, s * ax - .02, s * x)); moved2 = f2 * W[sh]; W[sh] -= moved2; W['spine'] += moved2   # chest and back medial of the joint
+      sleeve = (out > .1) & (s * x > .05) & (r < rs * 2.8) & (y > E[1]) & (y < apex) & near   # the m2 scan's hanging arm sinks into the lats: without `near` its flank read as sleeve and went to the arm (spikes at the waist)
+      upper = (s * x > s * ax - .03) & (r < .1) & (y >= apex) & (y < S[1]) & near
+      g = sleeve * (1 - ss(apex - .07, apex, y)) + upper * ss(s * ax - .03, s * ax, s * x) * (1 - ss(S[1] - .07, S[1] - .01, y)); tor = W['spine'] + W['root']
+      W[sh] += g * tor; W['spine'] *= 1 - g; W['root'] *= 1 - g
+    # toward the arm's axis, as much as the vertex rides the arm: below the new hem onto the arm's own radius, above it the
+    # sleeve keeps a few millimetres of cloth and a fifth of its slack
+    hem = S[1] - SLEEVE; rarm = rs * (1.1 + .45 * ss(E[1], S[1], y)); geo['hem'][side] = round(float(hem), 4)
+    below = 1 - ss(hem - .012, hem, y); rt = rarm + (1 - below) * (rarm * .08 + .004)
+    m = np.clip(W[sh], 0, 1) * (1 - ss(.10, .16, r)) * ss(E[1] + .02, E[1] + .06, y) * (1 - ss(S[1] + .01, S[1] + .07, y)) * (s * x > .03) * near
+    ex = np.maximum(0, r - rt) * m * (1 - .2 * (1 - below))
+    d[:, 0] -= ex * dx / np.maximum(r, 1e-6); d[:, 2] -= ex * dz / np.maximum(r, 1e-6)
+  # torso taper from 1 cm sections of the surface (the decimated torso has few vertices, its edges are dense enough), arms excluded
+  apex = min(geo['R'][3], geo['L'][3]); tw = 1 - np.clip(W['shR'] + W['elR'] + W['shL'] + W['elL'], 0, 1)
+  body.data.calc_loop_triangles(); T = np.empty(len(body.data.loop_triangles) * 3, np.int32); body.data.loop_triangles.foreach_get('vertices', T); T = T.reshape(-1, 3); A = c[T]
+  def section(yy):
+    s = A[:, :, 1] - yy; q = []
+    for i, j in ((0, 1), (1, 2), (2, 0)):
+      m = (s[:, i] < 0) != (s[:, j] < 0); u = (s[m, i] / (s[m, i] - s[m, j]))[:, None]
+      q.append(np.concatenate([A[m, i] + u * (A[m, j] - A[m, i]), tw[T[m, i]][:, None] * (1 - u) + tw[T[m, j]][:, None] * u], 1))
+    q = np.concatenate(q); return q[q[:, 3] > .5]
+  ys = np.arange(kneeY + .1, apex + .005, .01); st = np.full((len(ys), 4), np.nan)
+  for k, yy in enumerate(ys):
+    q = section(yy)
+    if len(q) >= 12: x0 = float(np.median(q[:, 0])); st[k] = x0, np.percentile(np.abs(q[:, 0] - x0), 95), np.percentile(q[:, 2], 3), np.percentile(q[:, 2], 97)
+  ok = ~np.isnan(st[:, 0]); st = np.stack([np.interp(ys, ys[ok], st[ok, i]) for i in range(4)], 1)
+  med = lambda v: np.array([np.median(v[max(0, i - 3):i + 4]) for i in range(len(v))])   # a stray hand or fold in a band or two must not set the taper
+  bx0, bhw, bzf, bzb = (med(st[:, i]) for i in range(4)); bhw = np.minimum(bhw, 1.15 * np.median(bhw))
+  top = ys > apex - .06
+  chw, czf, czb = ref['chest'] if ref else (float(bhw[top].mean()), float(bzf[top].mean()), float(bzb[top].mean())); geo['chest'] = (chw, czf, czb); zc = (czf + czb) / 2
+  # half-width: the chest's at the armpit, the same at the waist, 1.22 x it at the hip joints; the back comes forward ~16 %
+  # toward the waist (lumbar curve) and the belly flattens a little
+  key = [hipY, hipY + .45 * (apex - hipY), apex - .1]
+  sx = np.minimum(1, np.interp(ys, key, [1.22, 1.0, 1.02]) * chw / np.maximum(bhw, 1e-3))
+  szb = np.minimum(1, (zc + (czb - zc) * np.interp(ys, key, [1.0, .84, 1.0]) - zc) / np.maximum(bzb - zc, 1e-3))
+  szf = np.minimum(1, (zc + (czf - zc) * np.interp(ys, key, [1.02, .92, 1.0]) - zc) / np.minimum(bzf - zc, -1e-3))
+  # below the hip joints the shorts ease back out to their own width at the cuffs (the thighs under them never move): held
+  # wide under a fitted shirt they read as puffy
+  cuffY = kneeY + .12; legs = ys < hipY
+  sx = np.where(legs, 1 - (1 - np.interp(hipY, ys, sx)) * np.clip((ys - cuffY) / (hipY - cuffY), 0, 1), sx)
+  fz = ss(hipY - .16, hipY - .02, ys) * ss(apex + .01, apex - .08, ys); fx = np.where(legs, ss(apex + .01, apex - .08, ys), fz)
+  sx, szb, szf = 1 - (1 - sx) * fx, 1 - (1 - szb) * fz, 1 - (1 - szf) * fz
+  inb = (y > ys[0]) & (y < ys[-1]); X0 = np.interp(y, ys, bx0); SX = np.interp(y, ys, sx); SZ = np.where(z > zc, np.interp(y, ys, szb), np.interp(y, ys, szf))
+  d[:, 0] += inb * tw * (X0 + (x - X0) * SX - x); d[:, 2] += inb * tw * (zc + (z - zc) * SZ - z)
+  set_coords(body, c + d)
+  # the scan's own cuff, now bare arm a few centimetres under the new hem, stays a ridge round the upper arm: relax that band
+  bm = bmesh.new(); bm.from_mesh(body.data); bm.verts.ensure_lookup_table(); cc = c + d
+  for side, s in (('R', 1), ('L', -1)):
+    h = geo['hem'][side]; band = np.nonzero((W['sh' + side] + W['el' + side] > .6) & (s * cc[:, 0] > .05) & (cc[:, 1] > h - .08) & (cc[:, 1] < h - .003))[0]
+    for _ in range(6): bmesh.ops.smooth_vert(bm, verts=[bm.verts[i] for i in band.tolist()], factor=.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+  bm.to_mesh(body.data); bm.free()
+  for b in BONES:
+    ch = np.nonzero(np.abs(W[b] - W0[b]) > 1e-4)[0]; vg = body.vertex_groups[b]
+    for i in ch.tolist():
+      if W[b][i] > 1e-4: vg.add([i], float(W[b][i]), 'REPLACE')
+      else: vg.remove([i])
+  for g in [vg for vg in body.vertex_groups if vg.name.startswith('near')]: body.vertex_groups.remove(g)
+  REPORT.setdefault('fit', []).append({'arms': {k: [round(float(v), 4) for v in geo[k]] for k in 'RL'}, 'chest': [round(v, 4) for v in geo['chest']], 'waistScale': round(float(sx[np.argmin(np.abs(ys - key[1]))]), 3), 'maxMove': round(float(np.linalg.norm(d, axis=1).max()), 4)})
+  log('fit', json.dumps(REPORT['fit'][-1])); return geo
 
 def decimate_split(body, J, budget, share=.3):
   """Two passes with an explicit budget: first the body collapses while the face and hands are pinned (weight 0
@@ -375,8 +489,14 @@ def bake_textures(body, hi, J, head, lod):
   shorts = ~headzone & dark_c & ~forearm & ~upperarm & (py > kneeY - .03) & (py < hipY + .09)   # hands and forearms hang inside the shorts band; a shadowed wrist is skin, not shorts
   sleeve = upperarm & (py > J['RightArm'][1] - .17)   # the sleeve reaches about 17 cm below the shoulder joint; arm skin below it is never shirt
   jersey = ~headzone & ~skin_c & ~shorts & ~forearm & ~(upperarm & ~sleeve) & (py > hipY - .07) & (py < neckY + .03)   # every torso texel that is not skin: shadowed folds included, so nothing stays white under a colour
-  socks = light_c & (py < ankleY + .21) & (py > ankleY - .04) & ~jersey
-  shoes = dark_c & (py < ankleY + .03)
+  # below the shin every non-skin texel is sock or shoe: the m2 scan's grey trail shoes are neither dark nor white, and
+  # the colour tests had turned their uppers into skin. The shoe is what sits under the ankle, or darker than the sock
+  # just above it (the collar)
+  low = hit & ~skin_c & ~jersey & (py < ankleY + .21); band = low & (py > ankleY + .06) & (py < ankleY + .15)
+  sockw = float(np.median(lum[band])) if band.sum() > 50 else .5
+  shoes = low & ((py < ankleY - .01) | ((py < ankleY + .05) & (lum < .6 * sockw)))
+  socks = low & ~shoes & (py > ankleY - .04)
+  REPORT['feet' + sfx] = {'ankleY': float(ankleY), 'sockLum': sockw}
   eyewhite = headzone & light_c & (np.abs(py - eyeY) < .03) & (np.abs(px) < .07) & (pz < faceZ + .06)
   skin = hit & ~(hair | iris | shoes | shorts | jersey | socks | eyewhite)
   # beard zones over skin: mustache .25, chin .5, jaw .75 (the runtime picks strengths per style)
@@ -418,8 +538,11 @@ def bake_textures(body, hi, J, head, lod):
   return region_lum, skin_mean
 
 # ---------- measurements ----------
+def world_coords(body):   # game coords in world space: before bake_pose the scan is still parented to the turned armature
+  c = coords(body); M = np.array(body.matrix_world); b = np.stack([c[:, 0], -c[:, 2], c[:, 1]], 1) @ M[:3, :3].T + M[:3, 3]; return np.stack([b[:, 0], b[:, 2], -b[:, 1]], 1)
+
 def measure_head(body, J):
-  w = weights(body, 'head'); c = coords(body)
+  w = weights(body, 'head'); c = world_coords(body)   # local coords faced backwards before bake_pose: the bake's eye line and nose landed on the back of the head and the iris and beard masks came out empty
   sel = (w > .5) & (c[:, 1] > J['neck'][1] + .02)
   lo, hi = c[sel].min(0), c[sel].max(0); centre = (lo + hi) / 2; radii = (hi - lo) / 2
   frontsel = sel & (c[:, 2] < J['Head'][2] - .03) & (np.abs(c[:, 0]) < .04)
@@ -566,6 +689,19 @@ def build_rig(objs, RIG, extras):
   for k, v in extras.items(): rig[k] = v
   return rig
 
+def export_glb(path, lean=False):   # lean: the phone LOD made from the full body; 13-bit positions (.2 mm) and 8-bit normals (the runtime rebuilds hers) fit its byte budget
+  bpy.ops.export_scene.gltf(filepath=str(path), export_format='GLB', export_yup=True, export_animations=False, export_image_format='NONE',
+    export_skins=True, export_all_influences=False, export_extras=True, export_texcoords=True, export_apply=False,
+    export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=10 if lean else 6, export_draco_position_quantization=13 if lean else 14,
+    export_draco_normal_quantization=8 if lean else 10, export_draco_texcoord_quantization=12, export_draco_generic_quantization=12)
+
+if '--lod-from-full' in argv:
+  # The female scan keeps ~1000 holes, so decimating it to the phone budget stalls at ~9.7k triangles and folds the
+  # surface into shards (the LOD looked shattered on phones). Her phone LOD is her full body instead (+2.7k triangles),
+  # which also shares the full UV layout: pack-body-textures.py gives it the full atlas at half size.
+  bpy.ops.wm.open_mainfile(filepath=str(SOURCE / f'golfer-v3{TAG}-source.blend'))
+  export_glb(OUT / f'golfer{TAG}-lod.glb', lean=True); log('LOD_FROM_FULL', VARIANT, (OUT / f'golfer{TAG}-lod.glb').stat().st_size); sys.exit(0)
+
 def export(name, budget):
   objs = meshes(); total = sum(tris(o) for o in objs)
   for o in objs:
@@ -574,9 +710,7 @@ def export(name, budget):
   log('TRIS', name, total, json.dumps(REPORT[name]['perMesh']))
   assert total < budget, (name, total)
   bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE / (name + '.blend')), compress=True)
-  bpy.ops.export_scene.gltf(filepath=str(OUT / (name + '.glb')), export_format='GLB', export_yup=True, export_animations=False, export_image_format='NONE',
-    export_skins=True, export_all_influences=False, export_extras=True, export_texcoords=True, export_apply=False,
-    export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6, export_draco_position_quantization=14, export_draco_normal_quantization=10, export_draco_texcoord_quantization=12, export_draco_generic_quantization=12)
+  export_glb(OUT / (name + '.glb'))
   REPORT[name]['bytes'] = (OUT / (name + '.glb')).stat().st_size
   log('EXPORT', name, json.dumps({k: v for k, v in REPORT[name].items() if k != 'perMesh'}))
 
@@ -612,6 +746,7 @@ def build(lod, shared):
   # hang straight they sit against the hips and bake rays from a forearm start inside the shirt.
   Ja = {b.name: game(arm.matrix_world @ b.head) for b in arm.pose.bones}
   merge_seams(body)
+  if VARIANT == 'm': unhook_flank(body, Ja)   # her build predates it and ships as is
   M = {k: material(k, c, r) for k, c, r in [('hair', (.16, .09, .05), .85), ('headwear', (.08, .09, .12), .8), ('trim', (1, 1, 1), .7), ('frame', (.05, .05, .06), .45), ('lens', (.08, .09, .11), .15)]}
   alb = max((i for i in bpy.data.images if i.size[0] >= 512), key=lambda i: i.size[0] * i.size[1])   # the Meshy albedo, whatever it is called
   hi = body.copy(); hi.data = body.data.copy(); hi.name = 'hi'; bpy.context.collection.objects.link(hi)
@@ -625,14 +760,15 @@ def build(lod, shared):
   head = measure_head(body, Ja)
   region_lum, skin_mean = bake_textures(body, hi, Ja, head, lod)
   bpy.data.objects.remove(hi, do_unlink=True)
-  J = straighten(arm); bake_pose(arm, body); remap_weights(body)
-  curl_fingers(body, J)
-  head = measure_head(body, J); ground = measure_ground(body, J)
-  if not lod: shared['ground'] = ground; shared['head'] = head
-  HEAD_C, HEAD_R, EYE_Y, TOP_Y, FACE_Z = tuple(head['centre']), tuple(head['radii']), head['eyeY'], head['top'], head['faceZ']
+  J = straighten(arm); bake_pose(arm, body); remap_weights(body)   # the hands stay as scanned, half open: gltf-player.js hooks the disc hand round the rim with morphs
   RIG = {'root': J['Hips'], 'spine': J['Spine02'], 'head': J['neck'], 'shR': J['RightArm'], 'elR': J['RightForeArm'], 'shL': J['LeftArm'], 'elL': J['LeftForeArm'],
          'hipR': J['RightUpLeg'], 'knR': J['RightLeg'], 'hipL': J['LeftUpLeg'], 'knL': J['LeftLeg']}
   RIG = {k: [float(x) for x in v] for k, v in RIG.items()}
+  fit = fit_shirt(body, RIG, shared.get('fit'), rewire=VARIANT == 'm')
+  if not lod: shared['fit'] = fit
+  head = measure_head(body, J); ground = measure_ground(body, J)
+  if not lod: shared['ground'] = ground; shared['head'] = head
+  HEAD_C, HEAD_R, EYE_Y, TOP_Y, FACE_Z = tuple(head['centre']), tuple(head['radii']), head['eyeY'], head['top'], head['faceZ']
   hand = [J['RightHand'][i] - J['RightForeArm'][i] + (0, -.075, -.012)[i] for i in range(3)]
   REPORT['handR'] = [float(x) for x in J['RightHand']]
   wr = wrist_radius(body, J)
@@ -647,7 +783,9 @@ def build(lod, shared):
   leg = float(J['RightUpLeg'][1]); ref = ROOT / 'tools/golfer-rig.json'
   leg_scale = 1.0 if VARIANT == 'm' or not ref.exists() else leg / float(json.loads(ref.read_text())['extras'].get('legLength', leg))
   extras = {'handOffset': hand, 'headCentre': list(HEAD_C), 'headRadii': list(HEAD_R), 'eyeY': head['eyeY'], 'faceZ': head['faceZ'], 'chinY': head['chin'],
-            'chestZ': chest['chestZ'], 'chestY': chest['chestY'], 'regionLum': region_lum, 'skinMean': skin_mean, 'height': float(coords(body)[:, 1].max()), 'legLength': leg, 'legScale': leg_scale, 'figure': VARIANT}
+            'chestZ': chest['chestZ'], 'chestY': chest['chestY'], 'regionLum': region_lum, 'skinMean': skin_mean, 'height': float(coords(body)[:, 1].max()), 'legLength': leg, 'legScale': leg_scale, 'figure': VARIANT,
+            'sleeveHem': fit['hem'], 'shirtHem': round((RIG['hipR'][1] + RIG['hipL'][1]) / 2 + .055, 4)}   # the jersey ends at the hip: pack-body-textures.py turns the scan's tee below it into shorts
+  if VARIANT == 'm': extras['hairCards'] = 0   # gltf-player.js: the m2 scan's hair is sculpted volume in locks; cards over it read as a curly helmet
   build_rig(meshes(), RIG, extras)
   if not lod: shared['rig'] = RIG; shared['hand'] = hand; shared['extras'] = extras
   return RIG
@@ -669,4 +807,6 @@ for src, dst in ((f'golfer-v3{TAG}-source.glb', f'golfer{TAG}.glb'), (f'golfer-v
 manifest = ROOT / 'assets/manifest.json'; doc = json.loads(manifest.read_text())
 doc['models'][f'golfer{KEY}'] = f'models/golfer{TAG}.glb'; doc['models'][f'golfer{KEY}_lod'] = f'models/golfer{TAG}-lod.glb'
 manifest.write_text(json.dumps(doc, indent=2) + '\n')
+if VARIANT == 'f':   # her decimated LOD shatters: ship her full body as the phone LOD (same as --lod-from-full)
+  bpy.ops.wm.open_mainfile(filepath=str(SOURCE / f'golfer-v3{TAG}-source.blend')); export_glb(OUT / f'golfer{TAG}-lod.glb', lean=True)
 log('GOLFER_V3_DONE', VARIANT)

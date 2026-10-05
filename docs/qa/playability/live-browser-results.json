@@ -1,0 +1,75 @@
+{
+  "timestamp": "2026-10-05T01:13:51.903Z",
+  "url": "https://chains-disc-golf.vercel.app",
+  "checks": [
+    {
+      "name": "Four independent rendered players join one room",
+      "detail": true
+    },
+    {
+      "name": "Host rejects guest lobby/score/trajectory spoofing",
+      "detail": true
+    },
+    {
+      "name": "12-player real WebRTC room admits 12 and rejects player 13",
+      "detail": true
+    },
+    {
+      "name": "Host starts the same four-player course on all clients",
+      "detail": true
+    },
+    {
+      "name": "Real touch swipe animates athlete/trail; OS cancel returns to aim without throwing",
+      "detail": true
+    },
+    {
+      "name": "Mobile throw uses one authoritative replay: identical strokes and lies on four clients",
+      "detail": true
+    },
+    {
+      "name": "Host rejects wrong-player and out-of-range throw commands",
+      "detail": true
+    },
+    {
+      "name": "Disconnected guest reconnects and restores authoritative scores",
+      "detail": true
+    },
+    {
+      "name": "Guest mobile throw is validated by host and resolves identically on all four clients",
+      "detail": true
+    },
+    {
+      "name": "Real desktop keyboard aims, charges and cancels",
+      "detail": true
+    },
+    {
+      "name": "Desktop Space throw resolves with hidden host; returning guest catches up",
+      "detail": true
+    },
+    {
+      "name": "Portrait-to-landscape keeps round state and caps mobile rendering resolution",
+      "detail": true
+    },
+    {
+      "name": "Four real holed putts trigger celebrations and identical completed scorecards",
+      "detail": true
+    },
+    {
+      "name": "Host advances the next hole on all four clients",
+      "detail": true
+    },
+    {
+      "name": "No browser or shader errors",
+      "detail": true
+    }
+  ],
+  "errors": [],
+  "transport": "PeerJS public signaling + real WebRTC",
+  "physicalPhoneFPS": "unverified",
+  "rendering": {
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M4, Unspecified Version)",
+    "quality": "high",
+    "ratio": 0.5
+  },
+  "passed": true
+}

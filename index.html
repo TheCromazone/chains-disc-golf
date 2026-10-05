@@ -6,27 +6,35 @@
 <meta name="theme-color" content="#65c8ee">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="Find your line. Play 3D disc golf with friends on your phone or desktop.">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Chains — Disc Golf</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23ff4d3d'/><circle cx='50' cy='50' r='22' fill='none' stroke='white' stroke-width='6'/></svg>">
 <link rel="stylesheet" href="src/ui.css">
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+<script src="node_modules/peerjs/dist/peerjs.min.js" defer></script>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="loading"><div class="spin"></div><div class="muted">Growing the course…</div></div>
 <div id="fade"></div>
+<!-- target tag over the basket: placed every frame by the camera section of src/main.js, text by UI.setHud's dist -->
+<div id="pin" aria-hidden="true"><b><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="1.5" width="10" height="2.6" rx="1"/><path d="M5.2 4.1 7 9m1-4.9V9m2.8-4.9L9 9M3 9.4h10l-1.6 2.4H4.6zM8 11.8V15m-2.2 0h4.4"/></svg><span id="pinDist">85 m</span></b><i></i></div>
 
 <div id="hud" class="hidden">
-  <div id="top" class="panel" aria-label="Round information">
-    <div id="holeInfo"><span class="muted" id="holeLabel">HOLE 1</span><b id="holePar">Par 3 · 85 m</b></div>
-    <div id="distInfo"><b id="dist" aria-label="Distance to basket">85 m</b><span id="wind"><span id="windArrow" data-icon="arrow"></span><span id="windText">calm</span></span></div>
-    <div id="playerInfo"><span class="muted" id="throwNo">Throw 1</span><b id="playerName">You</b></div>
+  <div id="top" aria-label="Round information">
+    <div id="holeInfo"><span id="holeLabel">HOLE 1</span><span id="holePar">Par 3 · 85 m</span></div>
+    <div id="playerInfo"><b id="playerName">You</b><b id="toPar" aria-label="Score to par">E</b></div>
+    <div id="throwNo"><span id="throwLabel">Throw 1</span><b id="dist" aria-label="Distance to basket">85 m</b></div>
   </div>
-  <div id="powerLabel">POWER</div>
+  <div id="conditions" aria-label="Conditions">
+    <span id="wind"><span id="windArrow" data-icon="arrow"></span>Wind <b id="windText">calm</b></span>
+    <span id="elev">Elevation <b id="elevText">—</b></span>
+  </div>
   <div id="power"><div id="powerFill"></div></div>
+  <div id="powerLabel">POWER</div>
   <div id="utilities">
     <button id="btnUtilities" aria-label="Course tools" aria-expanded="false" aria-controls="sideBtns"><span data-icon="menu"></span></button>
     <div id="sideBtns" class="hidden" role="group" aria-label="Course tools">
@@ -47,9 +55,8 @@
     <div id="discRow" class="equipment-picker hidden" role="group" aria-label="Choose disc"></div>
   </div>
   <div id="pad">
-    <div id="hintArrow" data-icon="arrow"></div>
-    <div id="hintText">BACKHAND · swipe right</div>
-    <div id="hintSub">swipe further for power · drag the view to aim</div>
+    <svg id="gestureTrace" aria-hidden="true"><polyline class="trace-edge"/><polyline class="trace-line"/><circle class="trace-start" r="5"/><circle class="trace-end" r="9"/></svg>
+    <div class="hint"><span id="hintArrow" data-icon="arrow"></span><span id="hintText">BACKHAND · swipe right</span><span id="hintSub">swipe further for power · drag the view to aim</span></div>
   </div>
 </div>
 
@@ -61,7 +68,7 @@
   <div class="panel stack hub-main">
     <div class="hub-caption"><span class="eyebrow">Your next round</span><span class="muted">Find your line.</span></div>
     <button class="big primary play-cta" id="btnSolo"><span data-icon="play"></span><span class="cta-copy"><strong>Play round</strong><small>Solo · take on the bots</small></span><span class="cta-end" data-icon="arrow"></span></button>
-    <div class="row2"><button class="big mode-btn" id="btnLocal"><span data-icon="players"></span><span>Pass &amp; play</span></button><button class="big mode-btn" id="btnOnline"><span data-icon="online"></span><span>Online room</span></button></div>
+    <div class="row2"><button class="big mode-btn" id="btnLocal"><span data-icon="players"></span><span>Pass &amp; play</span></button><button class="big mode-btn" id="btnOnline"><span data-icon="online"></span><span>Friends</span><b id="matchBadge" class="match-badge hidden" aria-label="Matches waiting on you"></b></button></div>
     <button class="ccard" id="btnCourses"><div class="cmap" id="hubMap"></div><div class="cinfo"><span class="eyebrow">Selected course</span><b id="hubCourse">Pine Hollow</b><span class="muted" id="hubCourseSub"></span></div><span class="chev" data-icon="chevron"></span></button>
     <div class="round-settings">
       <div class="f"><span id="holesLabel">Holes</span><div class="seg" id="holesSeg" role="group" aria-labelledby="holesLabel"><button data-v="3">3</button><button data-v="9" class="on">9</button></div></div>
@@ -110,13 +117,15 @@
     <div id="onlineError" class="inline-error hidden" role="alert"></div>
     <div id="onlineChoice" class="stack">
       <button class="big primary" id="btnCreate"><span data-icon="online"></span><span>Create a room</span></button>
-      <div class="row"><input id="joinCode" maxlength="4" placeholder="ROOM CODE" style="flex:1;text-transform:uppercase;letter-spacing:4px;font-weight:700"><button id="btnJoin" class="primary"><span data-icon="arrow"></span><span>Join</span></button></div>
-      <div class="muted">Create a room and share its four-letter code. Friends can join from any device.</div>
+      <div class="row"><input id="joinCode" maxlength="4" placeholder="ROOM CODE" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="flex:1;text-transform:uppercase;letter-spacing:4px;font-weight:700"><button id="btnJoin" class="primary"><span data-icon="arrow"></span><span>Join</span></button></div>
+      <div class="muted">Up to 12 players. Share a room link or four-character code. Keep the host's game open during the round.</div>
       <button id="btnOnlineBack"><span data-icon="back"></span><span>Back</span></button>
     </div>
     <div id="lobby" class="hidden stack">
       <div class="muted" style="text-align:center">Share this code</div>
       <div class="code" id="roomCode">----</div>
+      <div id="roomStatus" class="muted" role="status" style="text-align:center"></div>
+      <button id="btnShareRoom">Copy invite link</button>
       <ul class="list" id="lobbyList"></ul>
       <div class="row" id="hostControls"><button id="btnLobbyBot">+ Bot</button><button class="primary" id="btnLobbyStart" style="flex:1"><span data-icon="play"></span><span>Start round</span></button></div>
       <div id="guestWait" class="muted hidden" style="text-align:center">Waiting for the host to start…</div>
@@ -125,15 +134,60 @@
   </div>
 </div>
 
+<div id="matches" class="overlay hidden">
+  <div class="panel stack match-panel">
+    <div id="matchHome" class="stack">
+      <div class="eyebrow"><span data-icon="clock"></span>Play on your own time</div>
+      <h2>Invite match</h2>
+      <p class="muted">Start a match and send the link to your group chat. Everyone plays their hole when they can, and you get a ping when it's your turn. Up to 12 players.</p>
+      <button class="big primary" id="btnMatchNew"><span data-icon="flag"></span><span class="cta-copy"><strong>New match</strong><small id="matchNewSub">Pine Hollow · 9 holes</small></span></button>
+      <div id="matchHomeError" class="inline-error hidden" role="alert"></div>
+      <div id="matchList" class="match-list" aria-live="polite"></div>
+      <details class="match-paste"><summary>Got an invite link?</summary><div class="row"><input id="matchPaste" placeholder="Paste the link" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><button id="btnMatchPaste">Open</button></div></details>
+      <div class="row2"><button id="btnMatchesBack"><span data-icon="back"></span><span>Back</span></button><button id="btnLive"><span data-icon="online"></span><span>Live room</span></button></div>
+    </div>
+    <div id="matchJoin" class="stack hidden">
+      <div class="eyebrow"><span data-icon="online"></span>You're invited</div>
+      <h2 id="matchJoinTitle">Join the match</h2>
+      <p class="muted" id="matchJoinSub"></p>
+      <label class="f">Your name<input id="matchName" maxlength="14" placeholder="Name" autocomplete="nickname"></label>
+      <div id="matchJoinError" class="inline-error hidden" role="alert"></div>
+      <button class="big primary" id="btnMatchJoin"><span data-icon="check"></span><span>Join match</span></button>
+      <p class="muted hidden" id="matchJoinApp">Already added Chains to your Home Screen? Open the app and paste this link there, so your turns and alerts live in one place.</p>
+      <button id="btnMatchJoinBack" class="quiet">Not now</button>
+    </div>
+    <div id="matchView" class="stack hidden">
+      <div class="match-head"><div><div class="eyebrow" id="matchCourse">Pine Hollow · 9 holes</div><h2 id="matchTitle">Match</h2></div><button id="btnMatchInvite" class="match-invite"><span data-icon="share"></span><span>Invite</span></button></div>
+      <div id="matchStatus" class="match-status" role="status"></div>
+      <button class="big primary" id="btnMatchPlay"><span data-icon="play"></span><span id="matchPlayLabel">Play hole 1</span></button>
+      <button class="big primary hidden" id="btnMatchSend"><span data-icon="share"></span><span id="matchSendLabel">Tell them it's their turn</span></button>
+      <div class="row2 hidden" id="matchWaitActions"><button id="btnMatchNudge"><span data-icon="bell"></span><span>Remind</span></button><button id="btnMatchSkip"><span data-icon="arrow"></span><span>Skip their turn</span></button></div>
+      <button class="hidden" id="btnMatchBack2"><span data-icon="check"></span><span>I'm back — deal me in</span></button>
+      <div id="matchError" class="inline-error hidden" role="alert"></div>
+      <div class="score-grid match-grid"><table id="matchTable"></table></div>
+      <ul id="matchFeed" class="match-feed"></ul>
+      <button id="btnMatchAlerts"><span data-icon="bell"></span><span id="matchAlertsLabel">Turn on turn alerts</span></button>
+      <div id="matchInstall" class="match-install hidden">
+        <b>Get turn alerts on iPhone</b>
+        <ol><li>Tap <b>Share</b> in Safari's toolbar.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Open <b>Chains</b> from your Home Screen and tap <b>Turn on turn alerts</b>.</li></ol>
+        <span class="muted">iPhone only sends web alerts to games added to the Home Screen. Until then, the "Tell them it's their turn" button sends the link through Messages.</span>
+      </div>
+      <button id="btnMatchBack"><span data-icon="back"></span><span>All matches</span></button>
+    </div>
+  </div>
+</div>
+
 <div id="score" class="overlay hidden">
   <div class="panel stack">
     <div class="eyebrow"><span data-icon="trophy"></span>Round report</div>
     <h2 id="scoreTitle">Scorecard</h2>
-    <div id="scoreBest" class="muted hidden" style="text-align:center;margin:-6px 0 10px"></div>
-    <div id="scoreStand"></div>
-    <div style="overflow-x:auto"><table id="scoreTable"></table></div>
-    <div class="row"><button id="btnScoreMenu"><span data-icon="menu"></span><span>Menu</span></button><button class="primary" id="btnScoreNext" style="flex:1">Next hole</button></div>
-    <div id="scoreWait" class="muted hidden" style="text-align:center">Waiting for the host…</div>
+    <div class="score-body">
+      <div id="scoreBest" class="muted hidden"></div>
+      <div id="scoreStand"></div>
+      <div class="score-grid"><table id="scoreTable"></table></div>
+      <div class="row score-actions"><button id="btnScoreMenu"><span data-icon="menu"></span><span>Menu</span></button><button class="primary" id="btnScoreNext" style="flex:1">Next hole</button></div>
+      <div id="scoreWait" class="muted hidden">Waiting for the host…</div>
+    </div>
   </div>
 </div>
 
@@ -146,6 +200,7 @@
       <div><b>Disc</b> — Driver flies farthest but needs speed; Putter is straight and short. Flight numbers are Speed | Glide | Turn | Fade.</div>
       <div><b>Throw</b> — pick a throw type, then swipe in the bottom pad in that throw's direction: Backhand →, Forehand ←, Tomahawk ↓, Scoober ↖, Putt ↑. Longer swipe = more power (watch the bar). Swipe slightly down for hyzer (more fade), up for anhyzer.</div>
       <div><b>Flight</b> — a right-hand backhand fades left at the end; forehand fades right. Throw a disc faster than it's rated for and it will turn over.</div>
+      <div><b>Desktop</b> — drag the view or use arrows / WASD to aim. Hold Space to build power, release to throw. Escape cancels. 1–4 pick a disc, Q / E cycle throws, T aims at the basket, O toggles overview. Mouse swipes also work.</div>
       <h2 style="margin-top:6px">Rules</h2>
       <div>Lowest total throws wins. Each hole starts on the tee pad; you play your next throw from where the disc came to rest. Farthest from the basket throws first; the best score on the previous hole tees off first. Holed when the disc rests in the basket or chains. Water and course boundaries are out of bounds: +1 throw, play from where it went out. Circle 1 is 10 m from the basket. Score names: Ace, Eagle, Birdie, Par, Bogey…</div>
     </div>
@@ -163,5 +218,7 @@
   </form>
 </dialog>
 <script type="module" src="src/main.js"></script>
+<!-- hole intro title: shown while body[data-phase="intro"], text set by startHole() in src/main.js -->
+<div id="holeTitle" aria-hidden="true"><b>Hole 1</b><span>Par 3 · 85 m</span></div>
 </body>
 </html>

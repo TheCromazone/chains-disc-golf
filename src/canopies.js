@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CANOPY_DATA } from './canopy-data.js';
+export { IMPOSTOR, IMPOSTOR_ROWS, TREE_DIMS } from './impostors.js';   // impostor card extents and per-species collider sizes, generated with the trees
 
 // Tiny Blender-authored geometry is embedded so Lite and an empty asset manifest
 // keep the same crowns without fetching a GLB, texture, decoder or loader.
