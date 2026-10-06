@@ -74,7 +74,22 @@
     "icon": "icon.png",
     "menu_bg": "menu_bg.jpg"
   },
-  "sfx": {},
+  "sfx": {
+    "whoosh": [
+      "sfx/whoosh_1.mp3",
+      "sfx/whoosh_2.mp3",
+      "sfx/whoosh_3.mp3",
+      "sfx/whoosh_4.mp3"
+    ],
+    "land_grass": [
+      "sfx/land_grass_1.mp3",
+      "sfx/land_grass_2.mp3"
+    ],
+    "land_dirt": [
+      "sfx/land_dirt_1.mp3",
+      "sfx/land_dirt_2.mp3"
+    ]
+  },
   "models": {
     "golfer": "models/golfer.glb",
     "disc": "models/disc.glb",

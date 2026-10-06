@@ -422,6 +422,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   };
   // Pop-up event canopy: 3 x 3 m, navy roof, printed valance, a draped registration table underneath.
   const addTent = (world, white = false) => {   // white: a plain vendor/players' canopy, walled at the back, for the village beyond the arch
+    { const c = new THREE.Vector3().setFromMatrixPosition(world); camCapsules.push({ a: [c.x, c.y + .3, c.z], b: [c.x, c.y + 2.6, c.z], r: 2, tag: 'tent' }); }   // the chase camera steers round a canopy instead of filling the frame with it
     for (const [x, z] of [[-1.47, -1.47], [1.47, -1.47], [-1.47, 1.47], [1.47, 1.47]]) K.steel(at(box(.04, 2.12, .04), pose(x, 1.06, z), world), '#c4c9cc');
     paint(at(new THREE.ConeGeometry(2.12, .85, 4, 1, true).rotateY(Math.PI / 4), pose(0, 2.54, 0), world), white ? '#f1f1ee' : NAVY);
     for (let k = 0; k < 4; k++) { const v = at(new THREE.PlaneGeometry(3, .3), pose(Math.sin(k * Math.PI / 2) * 1.5, 1.97, Math.cos(k * Math.PI / 2) * 1.5, k * Math.PI / 2), world); if (white) paint(v, '#ecebe6'); else K.print(v, 'valance'); }
@@ -636,7 +637,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // Yellow rope on white stakes runs from the pad to its legs with an event sign on each line turned to the tee; the
   // crew's UTV parks off the left line, a feather flag stands between it and the left leg, the registration canopy
   // sits just outside the pad camera's left edge (Full), so it never shows as a sliver, and white canopies stand beyond.
-  const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], archU = .5;
+  const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], camCapsules = [], archU = .5;
   let archF = 33;
   for (const af of [33, 31, 35, 29, 37]) if ([-1, 1].every(s => clearOf(...frame(h1, archU + s * legX, af), 1.5))) { archF = af; break; }
   // each leg's plinth top: 24 cm over the ground at its centre, its skirt cut to the ground (dug in on the uphill side);
@@ -745,5 +746,5 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     paint.castShadow = paint.receiveShadow = true; meshes.push(paint);
   }
   for (const g of [...K.lists.print, ...K.lists.steel, ...K.lists.arch, ...K.lists.paint]) g.dispose();
-  return { meshes, capsules };
+  return { meshes, capsules, camCapsules };
 }
