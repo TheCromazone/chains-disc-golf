@@ -38,6 +38,10 @@ for(const [name,path] of Object.entries(manifest.models)){
     if(!['idle','practice','celebrate','slump','walk'].includes(name.slice(7).replace(/_left$/, '')))assert(Math.abs(Math.max(...gltf.animations[0].samplers.map(s=>gltf.accessors[s.input].max[0]))-1)<.02,'one-second normalized throw');
     for(const accessor of gltf.accessors){assert(accessor.count>0,'nonempty accessor');assert(accessor.bufferView<gltf.bufferViews.length,'valid buffer view');}
   } else if(['pine','deciduous','bush'].includes(name)) {assert(gltf.extensionsRequired?.includes('KHR_draco_mesh_compression'),name+' Draco');assert.equal(gltf.images?.length||0,0,name+' leaf textures ship separately');assert(triangles<8000&&bin.length<120000,name+' tree budget (all variants; drawn only within the 62 m LOD, impostors beyond)');assert(gltf.materials.some(m=>m.name==='bark'),name+' bark material');assert(gltf.nodes.filter(n=>n.mesh!==undefined).length>=2,name+' has variants');
+  } else if(name==='headwear') {   // tools/build-headwear.py: six hats per figure, fitted in bind space, tinted at runtime (AO in COLOR_0)
+    assert(gltf.extensionsRequired?.includes('KHR_draco_mesh_compression'),'headwear Draco');assert.equal(gltf.textures?.length||0,0,'headwear is vertex-coloured');
+    const names=new Set(gltf.meshes.map(m=>m.name));for(const f of ['m','f'])for(const h of ['cap','backcap','visor','beanie','bucket','headband'])assert(names.has(`hw_${f}_${h}`),`hw_${f}_${h}`);
+    assert(gltf.meshes.every(m=>m.primitives.every(p=>p.attributes.COLOR_0!==undefined)),'every hat carries baked AO');assert(triangles<80000&&bin.length<300000,'headwear budget');
   } else if(name==='disc') {assert(triangles>800&&triangles<8000,'disc lathe budget');assert.equal(gltf.textures?.length||0,0,'disc is runtime-tinted plastic');assert(bin.length<200000,'disc byte budget');
   } else {assert(gltf.extensionsRequired.includes('KHR_draco_mesh_compression'),name+' Draco');assert(gltf.extensionsRequired.includes('KHR_texture_basisu'),name+' KTX2');assert.equal(gltf.images.length,3,name+' baked PBR maps');}
   console.log(name,triangles,'triangles',bin.length,'bytes');
