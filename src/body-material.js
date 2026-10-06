@@ -108,7 +108,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   const u = {
     uMask1: { value: tex('mask1' + suffix, { ...opts, srgb: false }) }, uMask2: { value: tex('mask2' + suffix, { ...opts, srgb: false }) },
     uPal: { value: REGIONS.map(() => new THREE.Color()) }, uMean: { value: new Float32Array(REGIONS.map((r, i) => Math.max(.004, MEAN_FIX[prefix]?.[i] ?? (Array.isArray(spec.regionLum) ? spec.regionLum[i] : spec.regionLum?.[r]) ?? .5))) },
-    uDetail: { value: new Float32Array(DETAIL) }, uBeard: { value: new THREE.Vector3() }, uHair: { value: new THREE.Color() },
+    uDetail: { value: new Float32Array(DETAIL) }, uBeard: { value: new THREE.Vector3() }, uHair: { value: new THREE.Color() }, uEye: { value: new THREE.Vector2(spec.eyeY ?? 1.68, spec.faceZ ?? -.12) },
     uSkinMean: { value: new THREE.Color().setRGB(...(SKIN_FIX[prefix] || spec.skinMean || [.35, .22, .16]), THREE.LinearSRGBColorSpace) },   // the scan's own skin colour (linear)
     uKnit: { value: texture('jersey_pattern', { srgb: false }) },   // athletic mesh knit (mean .49): the cloth reads as fabric up close and mips to nothing far away
     uPrint: { value: printTexture(avatar.number) },
@@ -131,7 +131,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     // per-region roughness: skin keeps a soft sheen, hair and cloth stay matte (a glossy jersey or scalp reads as plastic).
     // Skin also scatters: direct light wraps a little past the terminator with a warm tint, the cheap stand-in for
     // subsurface that keeps a face from looking like painted vinyl.
-    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5, chainsCloth = 0.; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + FOLD_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec2 uEye; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5, chainsCloth = 0.; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + FOLD_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { vec3 j = vJerseyPos; bool back = j.z > 0.; vec4 b = back ? uPrintB : uPrintF;   // after the jersey style, so the print sits on its panels; seen from its own side, the print reads left to right
         vec2 q = vec2((back ? j.x : -j.x) / b.y + .5, (j.y - b.x) / b.z + .5);
         if (q.x > 0. && q.x < 1. && q.y > 0. && q.y < 1.) diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * chainsJersey); }
@@ -162,6 +162,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
       { vec4 m1 = texture2D(uMask1, vMapUv), m2 = texture2D(uMask2, vMapUv);
         vec3 base = diffuseColor.rgb; float lum = dot(base, vec3(.2126, .7152, .0722));
         float w[7]; w[0] = m1.r; w[1] = m1.g; w[2] = m1.b; w[3] = m1.a; w[4] = m2.r; w[5] = m2.g; w[6] = m2.b;
+        { float keep = smoothstep(.010, .006, abs(vJerseyPos.y - (uEye.x - .013))) * step(vJerseyPos.z, uEye.y + .06), cut = w[6] * (1. - keep); w[6] -= cut; w[0] += cut; }   // the baked iris zone also caught brows and lids: only the irises (1.3 cm under the rig's eyeY, which marks the brow line) keep it
         // the armpit (skin shared between the torso and an upper arm) is the scan's bare underarm; with the arm raised across the
         // chest in the backhand address it stretches into a pale membrane in front of the shirt. A T-shirt drapes fabric there:
         { float pit = smoothstep(.08, .25, vArmW) * (1. - smoothstep(.75, .92, vArmW)) * (1. - vElbow); w[1] += w[0] * pit; w[0] *= 1. - pit; }
@@ -191,7 +192,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         { vec3 hp = vJerseyPos * chainsHairK; float s = chainsNoise(hp) * .6 + chainsNoise(hp * 2.1) * .4, lock = chainsNoise(hp * .3 + 7.);
           col *= 1. + chainsHair * ((s - .5) * 1.7 + (lock - .5) * 1.3 + .15); chainsHairS = mix(.5, s, uStrands); }
         float bz = m2.a; float zi = floor(bz * 4. + .002); float soft = clamp(fract(bz * 4. + .002) / .96, 0., 1.);   // zone id + feather share one channel
-        float zone = (zi > 2.5 ? uBeard.z : zi > 1.5 ? uBeard.y : zi > .5 ? uBeard.x : 0.) * soft;
+        float zone = (zi > 2.5 ? uBeard.z : zi > 1.5 ? uBeard.y : zi > .5 ? uBeard.x : 0.) * soft * smoothstep(uEye.x - .02, uEye.x - .045, vJerseyPos.y);   // beard zones live below the nose: stray ones on the forehead stay skin
         float grain = fract(sin(dot(floor(vMapUv * 1100.), vec2(12.9898, 78.233))) * 43758.5453);
         col = mix(col, uHair * (.5 + .5 * clamp(lum / uMean[0], .3, 1.4)), zone * (.6 + .4 * grain));
         chainsKnit = (texture2D(uKnit, vec2(vJerseyPos.x * .7 + vJerseyPos.z * .7, vJerseyPos.y) * 16.).r - .49) * ${knitAmp.toFixed(2)} * (w[1] + .5 * w[2] + .6 * w[4]);   // bind-pose projection: ~3 mm cells, the same scale on every island
@@ -212,7 +213,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     const p = u.uPal.value; p[0].set(a.skin); p[1].set(a.jersey); p[2].set(a.shorts); p[3].set(a.hair === 'none' ? a.skin : a.hairColor);
     p[4].set(a.socks || a.accent); p[5].set(a.shoes); p[6].set(a.eyeColor || '#2b2b2b');
     for (const i of [1, 2, 4]) cloth(p[i]);
-    u.uStrands.value = a.hair === 'none' ? 0 : 1; u.uHair.value.set(a.hairColor); u.uBeard.value.fromArray(BEARD[a.facialHair] || BEARD.none);
+    u.uStrands.value = a.hair === 'none' ? 0 : 1; u.uHair.value.set(a.hairColor); u.uBeard.value.fromArray(a.figure === 'female' ? BEARD.none : BEARD[a.facialHair] || BEARD.none);   // the female bake has no beard zones: its masks put them on the forehead
     material.userData.jerseyAccent?.value.set(a.accent);
   };
   setPalette(avatar);

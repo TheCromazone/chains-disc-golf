@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { model } from './models.js';
 
 // Closed, fitted headwear replaces cut-up scan shells; natural source hair stays.
 // Coordinates below are in the model's bind space, then mounted to the head bone.
@@ -28,7 +29,11 @@ export function createPlayerHeadwear(head, skin, spec, avatar, lod) {
   function band(y,height,rx,rz,mat,name){const g=new THREE.CylinderGeometry(1,1,height,segments,1,true);g.scale(rx,1,rz);g.translate(centre.x,y,centre.z);return add(g,mat,name);}
   function brim(y,back=false){const z=centre.z+(back?1:-1)*(radii.z+.036),rx=radii.x+.018;const g=new THREE.SphereGeometry(1,lod?24:40,8);g.scale(rx,.0035,.084);g.translate(centre.x,y,z);return add(g,hatMat,'cap_brim');}
   const hat=avatar.headwear||'none',covered=['cap','backcap','beanie','bucket'].includes(hat);
-  if(hat!=='none'){
+  // Blender-fitted hats (tools/build-headwear.py): grown on this figure's own skull and hair, AO in the vertex colours,
+  // already in bind space. The procedural set below stays as the fallback until the file has loaded.
+  const fitted=hat!=='none'&&model('headwear')?.scene.getObjectByName(`hw_${avatar.figure==='female'?'f':'m'}_${hat}`);
+  if(fitted?.isMesh){const g=fitted.geometry.clone();g.applyMatrix4(fitted.matrixWorld);if(!g.attributes.normal)g.computeVertexNormals();const m=material(avatar.headwearColor,.86);m.vertexColors=!!g.attributes.color;add(g,m,'fitted_'+hat);}
+  else if(hat!=='none'){
     const y=eye+.048,rx=radii.x+.015,rz=radii.z+.02;
     if(covered){add(dome(rx,radii.y*.72,rz,y,centre.y+radii.y+.025+(hat==='beanie'?.018:0)),hatMat,'hat_crown');band(y+.007,hat==='beanie'?.035:.016,rx*1.008,rz*1.008,hatMat,'hat_band');}
     else band(y,.024,rx,rz,hatMat,'hat_band');

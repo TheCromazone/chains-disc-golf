@@ -32,13 +32,17 @@ export async function loadModels(renderer, quality = 'full') {
       models.set(name, gltf); modelStatus[name] = 'ready';
     } catch { modelStatus[name] = 'procedural fallback'; }
   }));
+  // Fitted headwear (tools/build-headwear.py) follows in the background: hats are cosmetic, so they never hold up the
+  // first frame; athletes built before it lands keep the procedural hats.
+  const hats = asset('models', 'headwear') && !models.has('headwear') ? loader.loadAsync(asset('models', 'headwear'))
+    .then(g => { g.scene.updateMatrixWorld(true); models.set('headwear', g); modelStatus.headwear = 'ready'; }, () => { modelStatus.headwear = 'procedural fallback'; }) : null;
   const clips = clipNames.flatMap(n=>models.get('golfer_'+n)?.animations || []);
   for (const [body, lod] of [['golfer', 'golfer_lod'], ['golfer_f', 'golfer_f_lod']]) {   // both figures share the rig and the clip set
     const actor = models.get(full ? body : lod) || models.get(lod); if (!actor) continue;
     actor.animations = clips; if (models.get(lod)) models.get(lod).animations = clips;
     models.set(body, actor); modelStatus[body] = 'ready';
   }
-  draco.dispose(); ktx.dispose();
+  Promise.resolve(hats).finally(() => { draco.dispose(); ktx.dispose(); });
 }
 export const model = name => models.get(name);
 export function cloneModel(name) {

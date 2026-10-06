@@ -181,7 +181,8 @@ export function renderLocker(avatar, opts, onChange) {
   function draw() {
     content.innerHTML = ''; content.setAttribute('aria-labelledby', `locker-tab-${lockerCategory}`);
     for (const b of tabs.children) { const selected = b.dataset.category === lockerCategory; b.classList.toggle('on', selected); b.setAttribute('aria-selected', String(selected)); b.tabIndex = selected ? 0 : -1; }
-    let keys = AV_GROUPS[lockerCategory];
+    let keys = AV_GROUPS[lockerCategory].filter(k => k !== 'facialHair' || avatar.figure !== 'female');   // the female figure has no beard zones
+    if (lockerCategory === 'face' && !keys.includes(faceCategory)) faceCategory = keys[0];
     if (lockerCategory === 'face') {
       const parts = document.createElement('div'); parts.className = 'face-tabs'; parts.setAttribute('role', 'group'); parts.setAttribute('aria-label', 'Face parts');
       keys.filter(k => opts[k]).forEach(k => { const b = document.createElement('button'); b.textContent = AV_LABELS[k]; pressed(b, faceCategory === k); b.onclick = () => { faceCategory = k; draw(); }; parts.append(b); });

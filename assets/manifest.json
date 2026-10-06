@@ -118,7 +118,8 @@
     "golfer_hammer": "models/golfer-hammer.glb",
     "golfer_hammer_left": "models/golfer-hammer_left.glb",
     "golfer_f": "models/golfer-f.glb",
-    "golfer_f_lod": "models/golfer-f-lod.glb"
+    "golfer_f_lod": "models/golfer-f-lod.glb",
+    "headwear": "models/headwear.glb"
   },
   "skies": {
     "pine": "skies/pine.exr",

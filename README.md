@@ -181,6 +181,7 @@ blender --background --python tools/build-golfer-v2.py   # previous lofted athle
 blender --background --python tools/build-disc.py        # lathed disc with mould text
 blender --background --python tools/render-icon.py       # app icon: the game's basket and a disc in the chains (Cycles) -> art/icon/icon-render.png
 node tools/pack-icons.mjs                                 # apple-touch, PWA and favicon sizes from that render (ffmpeg)
+blender --background --python tools/build-headwear.py    # fitted hats grown on each athlete's skull and hair -> assets/models/headwear.glb ([--preview art/qa-headwear])
 # Key art for the loading screen and link previews: art/keyart (ChatGPT wide, Gemini tall; prompts in art/keyart/prompts.json),
 # scaled into assets/keyart/ with ffmpeg
 python tools/split-golfer-clips.py
