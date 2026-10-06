@@ -15,7 +15,7 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { setupInput } from './input.js';
 import { planBotThrow } from './bot.js';
 import { createNet } from './net.js';
-import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor } from './protocol.js';
+import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, uniqueName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor } from './protocol.js';
 import * as UI from './ui.js';
 import { createMatches } from './match.js';
 import { unlock, sfx, setMuted, isMuted } from './audio.js';
@@ -1036,7 +1036,7 @@ function onNet(ev) {
     }
     if (G.net.locked) return rejectGuest(ev.id, 'This round has started. Join the next round with your friends.');
     if (G.lobby.length >= MAX_PLAYERS) return rejectGuest(ev.id, `This room is full (${MAX_PLAYERS} players).`);
-    G.lobby.push({ name: safeName(ev.name), peerId: ev.id, avatar: sanitizeAvatar(ev.avatar), token: ev.token }); publishLobby(); sfx.click();
+    G.lobby.push({ name: uniqueName(ev.name, G.lobby.map(p => p.name)), peerId: ev.id, avatar: sanitizeAvatar(ev.avatar), token: ev.token }); publishLobby(); sfx.click();
   } else if (ev.type === 'leave') {
     if (G.net.isHost) {
       const li = G.lobby.findIndex(p => p.peerId === ev.id); if (li < 0) return;
@@ -1134,7 +1134,7 @@ $('btnJoin').onclick = async () => {
   } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
   finally { UI.setConnecting('btnJoin', false); $('btnCreate').disabled = false; }
 };
-$('btnLobbyBot').onclick = () => { if (G.lobby.length < MAX_PLAYERS && !G.net.locked) { G.lobby.push({ name: BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], isBot: true }); publishLobby(); } };
+$('btnLobbyBot').onclick = () => { if (G.lobby.length < MAX_PLAYERS && !G.net.locked) { G.lobby.push({ name: uniqueName(BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], G.lobby.map(p => p.name)), isBot: true }); publishLobby(); } };
 $('btnLobbyStart').onclick = () => {
   if (!G.net?.isHost || G.net.locked || !G.lobby.length) return;
   G.net.locked = true; renderLobby();

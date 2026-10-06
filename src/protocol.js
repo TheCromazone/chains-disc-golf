@@ -3,6 +3,13 @@ import { THROWS, DISCS } from './physics.js';
 export const MAX_PLAYERS = 12;
 export const PROTOCOL_VERSION = 3;   // 3: binary serialization (PeerJS chunks big messages; JSON mode silently dropped any over 16 KB)
 export const safeName = value => String(value || 'Player').replace(/[\u0000-\u001f]/g, '').slice(0, 14).trim() || 'Player';
+// Four friends who never changed the default name all arrive as "You": number the repeats ("You 2") so the lobby,
+// the scorecard and whose-turn toasts can tell them apart.
+export const uniqueName = (value, taken) => {
+  const base = safeName(value), used = new Set([...taken].map(n => String(n).toLowerCase()));
+  if (!used.has(base.toLowerCase())) return base;
+  for (let i = 2; ; i++) { const tag = ` ${i}`, name = base.slice(0, 14 - tag.length).trim() + tag; if (!used.has(name.toLowerCase())) return name; }
+};
 export const turnKey = g => `${g.sessionId}:${g.holeIdx}:${g.cur}:${g.players[g.cur]?.strokes ?? 0}`;
 export const lobbyPublic = players => players.map(({ token, ...p }) => p);
 export const safeColor = (c, fallback = '#ff4d3d') => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c : fallback;
