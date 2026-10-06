@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { CHROME } from './chrome-path.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { values: o } = parseArgs({ options: {
@@ -18,7 +19,7 @@ const { values: o } = parseArgs({ options: {
   size: { type: 'string', default: '1280x720' }, dpr: { type: 'string', default: '1' }, quality: { type: 'string' },
   moments: { type: 'string', default: 'menu,flyover,tee,putt,scorecard' }, mobile: { type: 'boolean', default: false },
   url: { type: 'string' },
-  chrome: { type: 'string', default: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' },
+  chrome: { type: 'string', default: CHROME },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const [w, h] = o.size.split('x').map(Number), port = +o.port, cdp = port + 1000, out = resolve(ROOT, o.out);

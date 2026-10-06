@@ -1,7 +1,7 @@
 {
   "url": "http://localhost:8180",
   "checks": [
-    "Host creates a 3-hole invite match (2Q4UTFGW) and is up first",
+    "Host creates a 3-hole invite match (3QCHVLFX) and is up first",
     "Host plays hole 1 in 3D; the score lands on the server",
     "Guest opens the invite link on another phone and joins by name",
     "After the host's next hole the turn passes to the late joiner, who sees it without reloading",

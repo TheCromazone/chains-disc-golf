@@ -2,6 +2,8 @@
 
 **[Play on desktop or mobile](https://chains-disc-golf.vercel.app)** · Online and pass & play support up to **12 players**.
 
+**Playtesting with friends?** Start with [docs/PLAYTEST.md](docs/PLAYTEST.md): the three ways to play together, controls, and what to report.
+
 Swipe-to-throw disc golf in the browser. Aim by dragging the view, pick a disc and a throw type, then swipe in the throw pad: the swipe direction must match the throw (backhand →, forehand ←, tomahawk ↓, scoober ↖, hammer ↘, blade ↙, putt ↑; inside-out and outside-in variants of both backhand and forehand), the swipe length sets the power bar, and a slightly lower or higher swipe adds hyzer or anhyzer. Discs fly with a real turn/fade model, skip, roll, kick off trees, chain out, and splash into ponds.
 
 ![Chains clubhouse](docs/qa/r3/after-clubhouse-430.png)
@@ -177,6 +179,8 @@ python tools/pack-body-textures.py [--variant f]            # WebP albedo/normal
 blender --background --python tools/build-trees.py -- --preview docs/qa/r7                            # pine, deciduous and bush GLBs with leaf cards
 blender --background --python tools/build-golfer-v2.py   # previous lofted athlete (kept for reference)
 blender --background --python tools/build-disc.py        # lathed disc with mould text
+blender --background --python tools/render-icon.py       # app icon: the game's basket and a disc in the chains (Cycles) -> art/icon/icon-render.png
+node tools/pack-icons.mjs                                 # apple-touch, PWA and favicon sizes from that render (ffmpeg)
 python tools/split-golfer-clips.py
 # Rebuild the current authored motion set after rebuilding the body:
 node tools/extract-poses.mjs

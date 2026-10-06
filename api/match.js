@@ -1,6 +1,6 @@
 // Invite matches API: create, join, play a turn, alerts, and the seat-aware app manifest. Vercel Function (Node), web-standard handlers.
 import { createMatch, joinMatch, seatPlayer, playTurn, markAway, markBack, addPush, publicMatch, isFinished, MatchError } from '../server/match-core.js';
-import { loadMatch, saveMatch, updateMatch } from '../server/store.js';
+import { loadMatchFresh, saveMatch, updateMatch } from '../server/store.js';
 import { notify, vapidPublicKey } from '../server/push.js';
 
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers } });
@@ -14,7 +14,12 @@ export async function GET(request) {
   if (action === 'manifest') return manifest(url);
   const id = url.searchParams.get('id');
   if (!idOk(id)) return json(NOT_FOUND, 404);
-  const cur = await loadMatch(id); if (!cur) return json(NOT_FOUND, 404);
+  if (action === 'seq') {   // the poll: tiny, the same for every player, so the CDN answers most of them without touching Blob
+    const cur = await loadMatchFresh(id, 4000); if (!cur) return json(NOT_FOUND, 404);
+    const m = cur.data;
+    return json({ seq: m.seq, turn: m.turn?.pid || null, finished: isFinished(m) }, 200, { 'cache-control': 'public, max-age=0, must-revalidate', 'cdn-cache-control': 'public, s-maxage=8' });
+  }
+  const cur = await loadMatchFresh(id, 4000, +url.searchParams.get('seq') || 0); if (!cur) return json(NOT_FOUND, 404);
   let you = null; const pid = url.searchParams.get('pid'), token = request.headers.get('x-seat-token');
   if (pid && token) try { you = seatPlayer(cur.data, pid, token); } catch { /* a stale seat reads as a spectator */ }
   const etag = `W/"${cur.data.seq}-${you?.id || ''}"`;
@@ -114,6 +119,6 @@ function manifest(url) {
   const start = seats.length ? `/#seats=${seats.join(',')}` : '/';
   return new Response(JSON.stringify({ name: 'Chains — Disc Golf', short_name: 'Chains', id: '/', start_url: start, scope: '/', display: 'standalone', orientation: 'any',
     background_color: '#0e2a1f', theme_color: '#65c8ee', description: 'Find your line. Play 3D disc golf with friends on your phone or desktop.',
-    icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }, { src: '/assets/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }] }),
+    icons: [{ src: '/assets/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' }, { src: '/assets/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: '/assets/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }] }),
   { headers: { 'content-type': 'application/manifest+json', 'cache-control': 'no-store' } });
 }

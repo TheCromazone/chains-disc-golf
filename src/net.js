@@ -20,11 +20,20 @@ export function createNet() {
     peer.on('error', e => { if (gen !== generation || closing) return; clearTimeout(timer); timers.delete(timer); rej(e); net.onEvent({ type: 'error', err: e }); });
     peer.on('disconnected', () => { if (gen !== generation || closing) return; later(() => { if (peer.disconnected && !peer.destroyed) peer.reconnect(); }, 1000); });
   });
+  const GUEST_SILENT_MS = 25000;   // a guest pings every 4 s; this long without a word and the host lets them go
+  // Forget a connection and report the leave now. A guest whose tab was closed or frozen (Safari, a locked phone) can leave
+  // its data channel looking open for minutes, and the round sat waiting on that player's turn.
+  const drop = conn => {
+    if (net.conns.get(conn.peer) !== conn) return;
+    net.conns.delete(conn.peer); net.onEvent({ type: 'leave', id: conn.peer });
+    try { conn.close(); } catch { /* already gone */ }
+  };
   const wire = (conn, meta) => {
     const old = net.conns.get(conn.peer); net.conns.set(conn.peer, conn); old?.close();
-    const gen = generation;
+    const gen = generation; conn.lastSeen = Date.now();
     conn.on('data', d => {
       if (gen !== generation || closing || !d || typeof d !== 'object') return;
+      conn.lastSeen = Date.now();
       if (d.t === '_ping') { conn.send({ t: '_pong' }); return; }
       if (d.t === '_pong') { lastHost = Date.now(); return; }
       if (!net.isHost) lastHost = Date.now();
@@ -60,13 +69,21 @@ export function createNet() {
     conn.once('open', () => done());
     conn.once('error', e => done(e));
   });
-  function startHeartbeat() {
+  function startHeartbeat() {   // guest: keep pinging while hidden too, so a quick app switch doesn't trip the host's watch
     heartbeat = setInterval(() => {
-      if (net.isHost || closing || document.hidden) return;
+      if (net.isHost || closing) return;
       const c = net.conns.values().next().value;
-      if (c?.open) { c.send({ t: '_ping' }); if (Date.now() - lastHost > 20000) c.close(); }
-      else scheduleReconnect();
+      if (c?.open) { c.send({ t: '_ping' }); if (!document.hidden && Date.now() - lastHost > 20000) c.close(); }
+      else if (!document.hidden) scheduleReconnect();
     }, 4000);
+  }
+  function startHostWatch() {
+    clearInterval(heartbeat);
+    heartbeat = setInterval(() => {
+      if (!net.isHost || closing) return;
+      const now = Date.now();
+      for (const c of [...net.conns.values()]) if (now - (c.lastSeen || now) > GUEST_SILENT_MS) drop(c);
+    }, 5000);
   }
   net.host = async (name, onEvent) => {
     net.onEvent = onEvent; net.isHost = true; net.name = safeName(name); closing = false; await loadIce();
@@ -76,7 +93,7 @@ export function createNet() {
       net.peer = new window.Peer(roomId(code), options());
       // Listen before readiness so the first guest cannot arrive between callbacks.
       net.peer.on('connection', conn => { conn.once('open', () => wire(conn, conn.metadata || {})); });
-      try { await ready(); return code; } catch (e) { net.peer.destroy(); if (e.type !== 'unavailable-id' || attempt === 3) throw e; }
+      try { await ready(); startHostWatch(); return code; } catch (e) { net.peer.destroy(); if (e.type !== 'unavailable-id' || attempt === 3) throw e; }
     }
   };
   net.join = async (code, name, onEvent, avatar = null) => {

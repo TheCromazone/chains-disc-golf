@@ -7,13 +7,14 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { CHROME } from './chrome-path.mjs';
 
 const root = resolve(import.meta.dirname, '..'), port = 8190, dbg = 9190;
 const arg = (k, d) => process.argv.includes(k) ? process.argv[process.argv.indexOf(k) + 1] : d;
 const external = arg('--url', null), base = external || `http://localhost:${port}`, courses = arg('--courses', 'pine,meadow,lake,gull').split(','), holes = arg('--holes', '3'), quality = arg('--quality', 'low');
 const profile = mkdtempSync(join(tmpdir(), 'chains-rounds-'));
 const server = external ? null : spawn(process.execPath, ['serve.mjs', '--dist'], { cwd: root, env: { ...process.env, PORT: '' + port }, stdio: 'ignore' });
-const chrome = spawn(process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', ['--headless=new', `--remote-debugging-port=${dbg}`, `--user-data-dir=${profile}`, '--no-first-run', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
+const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${dbg}`, `--user-data-dir=${profile}`, '--no-first-run', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
 const pause = ms => new Promise(r => setTimeout(r, ms));
 const errors = [];
 try {

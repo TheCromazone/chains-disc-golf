@@ -693,7 +693,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const ctx = { holes, trees, name: def.name, fairwayW: def.fairwayW };
   paintAtlas(atlas, scale, ctx);
   const map = new THREE.CanvasTexture(atlas); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = 8;
-  if (document.fonts && !document.fonts.check(`800 40px ${FONT}`)) document.fonts.load(`800 40px ${FONT}`).then(() => { if (map.image) { paintAtlas(atlas, scale, ctx); map.needsUpdate = true; } }).catch(() => {});   // signs repaint in the condensed face once it lands
+  if (document.fonts && !(document.fonts.check(`800 40px ${FONT}`) && document.fonts.check(`700 40px ${FONT}`))) Promise.all([document.fonts.load(`800 40px ${FONT}`), document.fonts.load(`700 40px ${FONT}`)]).then(() => { if (map.image) { paintAtlas(atlas, scale, ctx); map.needsUpdate = true; } }).catch(() => {});   // signs repaint in the condensed face once it lands
   // Double-sided so cloth reads from behind, but only back faces go into the shadow map: the flat mat and sign faces
   // under a 19° sun would otherwise shadow themselves in bands (acne). Cloth is two sheets, so one always casts.
   const print = new THREE.Mesh(mergeGeometries(K.lists.print), toonMaterial({ map, vertexColors: true, roughness: .82, side: THREE.DoubleSide, shadowSide: THREE.BackSide }));
