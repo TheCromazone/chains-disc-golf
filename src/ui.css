@@ -233,10 +233,22 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 .kbd { display: inline-block; padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; background: #ffffff10; }
 #help .instructions > div { padding: 0 0 12px; border-bottom: 1px solid #ffffff14; color: #36576b; font-size: 13px; line-height: 1.6; }
 #help .instructions b { color: var(--text); }
-#loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; background: linear-gradient(0deg, #06120ee6, #06120e8c 55%, #06120eb3), url('../assets/courses/pine_card.jpg') center / cover, var(--ink); z-index: 50; color: #d6e6de; }
-#loading .load-brand { color: #fff; font-family: var(--display); font-size: 72px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; line-height: .9; text-align: center; margin-bottom: 10px; text-shadow: 0 4px 22px #0008; }
-#loading .load-brand small { display: block; font-size: 14px; letter-spacing: 5px; color: #ffe1a3; margin-bottom: 6px; }
-#loading .load-brand::after { content: ''; display: block; width: 56px; height: 5px; background: var(--mint); margin: 12px auto 0; transform: skewX(-24deg); }
+/* Key art (art/keyart: ChatGPT wide, Gemini tall): the wordmark sits in each image's calm area, the dark left third
+   on landscape screens and the canopy on portrait phones. */
+#loading { position: fixed; inset: 0; display: flex; justify-content: center; flex-direction: column; gap: 14px; z-index: 50; color: #d6e6de;
+  align-items: flex-start; padding: 0 max(6vw, 24px);
+  background: linear-gradient(90deg, #06120ef0, #06120ea6 32%, #06120e1f 62%, transparent), url('../assets/keyart/keyart-wide.jpg') 70% center / cover, var(--ink); }
+#loading .load-brand { text-align: left; }
+#loading .load-brand::after { margin-left: 2px; }
+@media (orientation: portrait) {
+  #loading { align-items: center; justify-content: flex-start; padding: calc(12vh + var(--sat)) 24px 0;
+    background: linear-gradient(180deg, #06120ee0, #06120e8c 30%, #06120e14 55%, transparent), url('../assets/keyart/keyart-tall.jpg') center 70% / cover, var(--ink); }
+  #loading .load-brand { text-align: center; }
+  #loading .load-brand::after { margin: 12px auto 0; }
+}
+#loading .load-brand { color: #fff; font-family: var(--display); font-size: clamp(60px, 8vw, 128px); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; line-height: .9; margin-bottom: 10px; text-shadow: 0 4px 22px #0008; }
+#loading .load-brand small { display: block; font-size: clamp(13px, 1.1vw, 18px); letter-spacing: 5px; color: #ffe1a3; margin-bottom: 6px; }
+#loading .load-brand::after { content: ''; display: block; width: 56px; height: 5px; background: var(--mint); margin-top: 12px; transform: skewX(-24deg); }
 #loading .muted { color: #d6e6de; }
 .spin { width: 42px; height: 42px; border: 2px solid #ffffff20; border-top-color: var(--accent); border-radius: 50%; animation: rot 1s linear infinite; }
 @keyframes rot { to {transform:rotate(360deg)} }

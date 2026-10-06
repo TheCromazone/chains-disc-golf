@@ -1,0 +1,22 @@
+{
+  "made": "2026-10-06",
+  "images": [
+    {
+      "file": "chatgpt-keyart-wide.jpg",
+      "tool": "ChatGPT (image generation), in the owner's account",
+      "size": "1672x941, re-encoded to JPEG from the downloaded PNG",
+      "reference": "an in-game tee shot of Pine Hollow hole 1 (athlete in the red #7 jersey under the event arch)",
+      "prompt": "Create an image. This is an in-game screenshot from my browser disc golf game called Chains. Using it as the reference for the athlete, outfit and course style, make polished key art for the game's loading screen and share card: wide 16:9 landscape. Keep the athlete recognisable: athletic young man, short dark brown hair, red patterned jersey with a white number 7, black shorts. Show him from behind and to the side, mid backhand throw, a bright coral-pink disc just leaving his hand and flying down a sunlit fairway toward a silver disc golf basket with hanging chains and a yellow top band in the distance. Wooded park course of tall pines and birches, golden-hour sun flaring through the trees, soft haze, crisp foreground grass on a tee pad. Cinematic, photoreal with a slightly stylised video-game finish, rich but natural colours. Keep the left third of the frame darker and calmer so a logo can sit there. No text, no logos, no watermarks, no extra people.",
+      "used_in": ["assets/keyart/keyart-wide.jpg (loading screen on landscape screens)", "assets/og-card.jpg (link previews)"]
+    },
+    {
+      "file": "gemini-keyart-tall.jpg",
+      "tool": "Gemini (Pro, image generation), in the owner's account",
+      "size": "1536x2752",
+      "reference": "none (text only)",
+      "prompt": "Generate an image: tall 9:16 portrait key art for a phone loading screen of a 3D disc golf video game called Chains. A sunlit wooded disc golf course at golden hour: tall pines and white birch trunks, warm sun flaring through the canopy, soft haze between the trees. In the lower half, an athletic young man seen from behind, short dark brown hair, red patterned athletic jersey with a large white number 7, black shorts, white sneakers, standing on a green tee pad mid backhand throw. A bright coral-pink disc golf disc arcs up the fairway toward a silver disc golf basket with hanging steel chains and a yellow top band in the middle distance. Cinematic, photoreal with a polished video-game finish, natural rich greens and warm golds. Keep the top third mostly sky and soft canopy, calm and slightly darker, so a logo can sit there. No text, no logos, no watermark, no other people.",
+      "used_in": ["assets/keyart/keyart-tall.jpg (loading screen on portrait phones)"]
+    }
+  ],
+  "related": "The app icon is a Cycles render of the game's own basket and disc (tools/render-icon.py); the course cards are in-engine renders."
+}
