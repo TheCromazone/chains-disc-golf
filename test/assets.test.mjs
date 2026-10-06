@@ -3,7 +3,7 @@ import { readFile, stat } from 'node:fs/promises';
 const root=new URL('../assets/',import.meta.url);
 const manifest=JSON.parse(await readFile(new URL('manifest.json',root),'utf8'));
 let bytes=0,entries=0;
-for(const group of Object.values(manifest))for(const path of Object.values(group)){
+for(const group of Object.values(manifest))for(const path of Object.values(group).flat()){   // an sfx name may list several takes
   assert(!path.includes('..'),'manifest paths stay inside assets');
   const info=await stat(new URL(path,root));assert(info.size>0,path);bytes+=info.size;entries++;
 }

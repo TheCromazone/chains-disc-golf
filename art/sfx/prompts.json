@@ -1,0 +1,17 @@
+{
+  "made": "2026-10-06",
+  "tool": "Gemini (Create video, in the owner's account). Its music model returned nothing for foley prompts, so the sounds come from the soundtrack of two generated videos.",
+  "clips": [
+    {
+      "name": "tee shots",
+      "prompt": "Close-up, camera on a tripod right beside a disc golf tee pad in a quiet wooded park. A player's arm swings through and rips a backhand throw: the plastic disc snaps out of the hand and whooshes fast past the camera lens, spinning away down the fairway. He throws three discs in a row, a few seconds apart, each one a sharp, airy, spinning whoosh that fades into the distance. Realistic, crisp, close-miked sound only: the swish of the arm, the snap of the release and the disc's whoosh. No music, no voices, no birds, no wind.",
+      "takes": "python3 tools/process-sfx.py whoosh throws.wav --peak -7 --at 0.95-1.75,3.85-4.5,6.55-7.4,8.7-9.3"
+    },
+    {
+      "name": "landings",
+      "prompt": "Locked-off camera at ground level beside a short-mown grass fairway in a quiet park on a calm sunny afternoon. A red plastic disc golf disc flies in fast and low from the left, spinning, cutting through the air right past the camera, then hits the grass, skids a short way and wobbles flat to a stop. A second later a blue disc does the same on a hard packed dirt path in the foreground. Realistic, crisp sound only: the airy spinning whoosh of each disc as it passes the microphone and the dull thump, brushing slide and little wobble as it lands. No music, no voices, no wind noise, no birds.",
+      "takes": "python3 tools/process-sfx.py land_grass landing.wav --peak -6 --at 1.92-2.95,1.94-2.5 && python3 tools/process-sfx.py land_dirt landing.wav --peak -6 --at 5.93-6.95,7.3-7.98"
+    }
+  ],
+  "runtime": "src/audio.js: whoosh on release (gain and pitch follow power), land_grass / land_dirt on first ground contact by surface (gain follows impact speed); a random take each time, synthesis as the fallback."
+}

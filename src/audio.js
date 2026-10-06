@@ -79,7 +79,8 @@ export const sfx = {
   band() { if (!ctx) return; if (play('band')) return; const t0 = now();
     burst(0.05, { f0: 1800, f1: 600, q: 0.5, gain: 0.35, t0 }); ring(rnd(820, 980), [1, 1.58, 2.32, 3.1], [1, 0.5, 0.3, 0.15], 0.32, 0.3, { t0, send: 0.45 }); partial(170, 0.12, 0.16, { f1: 90, t0 }); chainCascade(t0 + 0.02, 4, 0.08); },
   pole() { if (!ctx) return; if (play('band', { rate: 0.7 })) return; const t0 = now(); burst(0.04, { f0: 1200, f1: 500, q: 0.6, gain: 0.3, t0 }); ring(rnd(480, 560), [1, 2.76, 5.4], [1, 0.35, 0.15], 0.22, 0.3, { t0, send: 0.4 }); },
-  thud(k = 1) { if (!ctx) return; if (play('grass', {gain:k}) || play('thud', { gain: k, rate: rnd(0.9, 1.1) })) return; const t0 = now();
+  thud(k = 1, surface = 'grass') { if (!ctx) return;   // k: impact speed (1 = a typical landing); recorded takes per surface first
+    if (play(surface === 'dirt' ? 'land_dirt' : 'land_grass', { gain: Math.min(1.25, .45 + .45 * k), rate: rnd(.94, 1.06) }) || play('grass', {gain:k}) || play('thud', { gain: k, rate: rnd(0.9, 1.1) })) return; const t0 = now();
     partial(105, 0.16, 0.34 * k, { f1: 48, t0 }); burst(0.09, { f0: 420, f1: 120, q: 0.7, gain: 0.3 * k, type: 'lowpass', t0 }); burst(0.24, { f0: 2600, f1: 1500, q: 0.4, gain: 0.07 * k, type: 'highpass', t0: t0 + 0.01, attack: 0.02 }); },
   skip() { if (!ctx) return; if (play('skip')) return; const t0 = now(); burst(0.07, { f0: 800, f1: 300, q: 0.7, gain: 0.22, t0 }); partial(150, 0.07, 0.18, { f1: 70, t0 }); burst(0.14, { f0: 3000, f1: 1800, q: 0.4, gain: 0.05, type: 'highpass', t0 }); },
   tree() { if (!ctx) return; if (play('tree')) return; const t0 = now();
@@ -130,14 +131,15 @@ async function loadSamples() {
   try {
     const m = await fetch('assets/manifest.json').then(r => r.ok ? r.json() : null);
     if (!m?.sfx) return;
-    await Promise.allSettled(Object.entries(m.sfx).map(async ([name, url]) => {
+    // a name maps to one file or to several takes; play() picks a take at random so repeats never sound identical
+    await Promise.allSettled(Object.entries(m.sfx).flatMap(([name, urls]) => [].concat(urls).map(async url => {
       const buf = await fetch('assets/' + url).then(r => r.ok ? r.arrayBuffer() : null); if (!buf) return;
-      samples[name] = await ctx.decodeAudioData(buf);
-    }));
+      (samples[name] ||= []).push(await ctx.decodeAudioData(buf));
+    })));
   } catch { /* Optional recordings retain their synth fallback independently. */ }
 }
 function play(name, { gain = 1, rate = 1, loop = false, send = 0.25 } = {}) {
-  const b = samples[name]; if (!b) return false;
+  const takes = samples[name]; if (!takes?.length) return false; const b = takes[Math.floor(Math.random() * takes.length)];
   const s = ctx.createBufferSource(); s.buffer = b; s.loop = loop; s.playbackRate.value = rate * (loop ? 1 : rnd(0.97, 1.03));
   const g = ctx.createGain(); g.gain.value = gain; s.connect(g); out(g, loop ? 0 : send); s.start();
   return true;

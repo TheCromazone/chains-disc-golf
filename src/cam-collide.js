@@ -5,7 +5,7 @@
 // one grid cell a frame. Returns the clear fraction 0..1 (1 = nothing in the way), backed off one step from the first hit.
 const N = 20;
 export function clearFraction(world, ax, ay, az, bx, by, bz, margin = .6, ground = 1.2, crown = .8) {   // crown: the share of a crown's radius that counts (its leaf cards are sparse at the rim)
-  const trees = world.treesNear((ax + bx) / 2, (az + bz) / 2), caps = world.capsules || [];   // 3x3 cells of 12 m round the midpoint: a chase segment is ~6 m
+  const trees = world.treesNear((ax + bx) / 2, (az + bz) / 2), caps = world.camBlockers || world.capsules || [];   // camBlockers: the arch's capsules plus camera-only ones (tents)   // 3x3 cells of 12 m round the midpoint: a chase segment is ~6 m
   for (let i = 1; i <= N; i++) {
     const u = i / N, x = ax + (bx - ax) * u, y = ay + (by - ay) * u, z = az + (bz - az) * u;
     let hit = y < world.height(x, z) + ground * u;   // the clearance grows from the subject (a disc on the turf) out to the lens
