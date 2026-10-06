@@ -1,6 +1,9 @@
 /* Chains / resort sports: clean aqua, coral actions, refractive white glass. Display type is a vendored OFL condensed face. */
-@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 700; font-display: swap; src: url('../assets/fonts/barlow-condensed-700.woff2') format('woff2'); }
-@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 800; font-display: swap; src: url('../assets/fonts/barlow-condensed-800.woff2') format('woff2'); }
+/* Barlow Condensed (OFL, via @fontsource/barlow-condensed): Latin, plus Latin Extended for accented names. */
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 700; font-display: swap; src: url('../assets/fonts/barlow-condensed-700.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 700; font-display: swap; src: url('../assets/fonts/barlow-condensed-700-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 800; font-display: swap; src: url('../assets/fonts/barlow-condensed-800.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 800; font-display: swap; src: url('../assets/fonts/barlow-condensed-800-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 :root {
   --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
   --accent: #087d9c; --ink: #12374e; --mint: #5cf0a8; --black: #0c1114;
@@ -13,6 +16,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ink); 
 canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 html { height: 100dvh; }
 body { -webkit-user-select: none; user-select: none; }
+html, body, button, input, .overlay, #hud { touch-action: manipulation; }   /* iOS Safari ignores user-scalable=no: no double-tap zoom on quick repeated taps */
 input { -webkit-user-select: text; user-select: text; }
 #gestureTrace { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; opacity: 0; pointer-events: none; color: #5cf0a8; }
 #gestureTrace.active { opacity: 1; }
@@ -229,7 +233,11 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 .kbd { display: inline-block; padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; background: #ffffff10; }
 #help .instructions > div { padding: 0 0 12px; border-bottom: 1px solid #ffffff14; color: #36576b; font-size: 13px; line-height: 1.6; }
 #help .instructions b { color: var(--text); }
-#loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; background: var(--ink); z-index: 50; }
+#loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; background: linear-gradient(0deg, #06120ee6, #06120e8c 55%, #06120eb3), url('../assets/courses/pine_card.jpg') center / cover, var(--ink); z-index: 50; color: #d6e6de; }
+#loading .load-brand { color: #fff; font-family: var(--display); font-size: 72px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; line-height: .9; text-align: center; margin-bottom: 10px; text-shadow: 0 4px 22px #0008; }
+#loading .load-brand small { display: block; font-size: 14px; letter-spacing: 5px; color: #ffe1a3; margin-bottom: 6px; }
+#loading .load-brand::after { content: ''; display: block; width: 56px; height: 5px; background: var(--mint); margin: 12px auto 0; transform: skewX(-24deg); }
+#loading .muted { color: #d6e6de; }
 .spin { width: 42px; height: 42px; border: 2px solid #ffffff20; border-top-color: var(--accent); border-radius: 50%; animation: rot 1s linear infinite; }
 @keyframes rot { to {transform:rotate(360deg)} }
 /* Scorecard: a folder-tab card in black and mint over the dimmed course, with a RESULTS watermark. */
@@ -474,3 +482,5 @@ body[data-phase='intro'] #pin i { height: 46px; }   /* the establishing shot see
 @media (min-width: 900px) and (min-aspect-ratio: 6/5) {   /* wide: the sheet stands at the left like the clubhouse panel, the athlete free beside it */
   #matches { align-items: center; justify-content: flex-start; padding: calc(24px + var(--sat)) 24px calc(24px + var(--sab)) max(24px, 3vw); }
 }
+/* opened from a room invite link: joining is the only thing on offer (Create moves behind "Host my own room instead") */
+#online.invited #btnCreate { display: none; }

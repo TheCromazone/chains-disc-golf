@@ -4,7 +4,7 @@ self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('push', e => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data?.text() }; }
   e.waitUntil(self.registration.showNotification(d.title || 'Chains — Disc Golf', {
-    body: d.body || "It's your turn.", tag: d.tag || 'chains', renotify: true, icon: '/assets/icon.png', badge: '/icon.svg', data: { url: d.url || '/' },
+    body: d.body || "It's your turn.", tag: d.tag || 'chains', renotify: true, icon: '/assets/icons/icon-192.png', badge: '/icon.svg', data: { url: d.url || '/' },
   }));
 });
 // A tap opens the match: an open game tab is focused and told which match; otherwise a new window opens on it.

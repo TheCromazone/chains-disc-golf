@@ -51,9 +51,10 @@
     "impostors_n": "textures/foliage/impostors_n.webp"
   },
   "courses": {
-    "pine": "courses/pine_toon.jpg",
-    "meadow": "courses/meadow_toon.jpg",
-    "lake": "courses/lake_toon.jpg"
+    "pine": "courses/pine_card.jpg",
+    "meadow": "courses/meadow_card.jpg",
+    "lake": "courses/lake_card.jpg",
+    "bluff": "courses/bluff_card.jpg"
   },
   "discs": {
     "driver": "discs/driver.png",

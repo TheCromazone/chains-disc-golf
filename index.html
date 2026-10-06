@@ -7,9 +7,26 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="description" content="Find your line. Play 3D disc golf with friends on your phone or desktop.">
+<meta name="apple-mobile-web-app-title" content="Chains">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Chains — Disc Golf</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23ff4d3d'/><circle cx='50' cy='50' r='22' fill='none' stroke='white' stroke-width='6'/></svg>">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="assets/icons/favicon-64.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<!-- link previews for invite links sent over Messages, WhatsApp, Discord… (og:image must be an absolute URL) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Chains — Disc Golf">
+<meta property="og:title" content="Chains — 3D disc golf with your friends">
+<meta property="og:description" content="Swipe to throw. Play a round together on your phone or desktop — up to 12 players.">
+<meta property="og:url" content="https://chains-disc-golf.vercel.app/">
+<meta property="og:image" content="https://chains-disc-golf.vercel.app/assets/og-card.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Chains: an athlete winds up a backhand on a wooded disc golf tee">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://chains-disc-golf.vercel.app/assets/og-card.jpg">
+<link rel="preload" href="assets/fonts/barlow-condensed-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/barlow-condensed-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="src/ui.css">
 <script type="importmap">
 { "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
@@ -18,7 +35,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="loading"><div class="spin"></div><div class="muted">Growing the course…</div></div>
+<div id="loading"><div class="load-brand"><small>Disc golf club</small>Chains</div><div class="spin"></div><div class="muted">Growing the course…</div></div>
 <div id="fade"></div>
 <!-- target tag over the basket: placed every frame by the camera section of src/main.js, text by UI.setHud's dist -->
 <div id="pin" aria-hidden="true"><b><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="1.5" width="10" height="2.6" rx="1"/><path d="M5.2 4.1 7 9m1-4.9V9m2.8-4.9L9 9M3 9.4h10l-1.6 2.4H4.6zM8 11.8V15m-2.2 0h4.4"/></svg><span id="pinDist">85 m</span></b><i></i></div>
@@ -112,13 +129,15 @@
 <div id="online" class="overlay hidden">
   <div class="panel stack">
     <div class="eyebrow"><span data-icon="online"></span>Play together</div>
-    <h2>Online room</h2>
-    <label class="f">Your name<input id="onlineName" maxlength="14" placeholder="Name"></label>
+    <h2 id="onlineTitle">Online room</h2>
+    <div id="inviteNote" class="muted hidden">You're invited. Type your name, then tap <b>Join</b>.</div>
+    <label class="f">Your name<input id="onlineName" maxlength="14" placeholder="Name" autocomplete="nickname"></label>
     <div id="onlineError" class="inline-error hidden" role="alert"></div>
     <div id="onlineChoice" class="stack">
       <button class="big primary" id="btnCreate"><span data-icon="online"></span><span>Create a room</span></button>
       <div class="row"><input id="joinCode" maxlength="4" placeholder="ROOM CODE" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="flex:1;text-transform:uppercase;letter-spacing:4px;font-weight:700"><button id="btnJoin" class="primary"><span data-icon="arrow"></span><span>Join</span></button></div>
       <div class="muted">Up to 12 players. Share a room link or four-character code. Keep the host's game open during the round.</div>
+      <button id="btnHostInstead" class="hidden">Host my own room instead</button>
       <button id="btnOnlineBack"><span data-icon="back"></span><span>Back</span></button>
     </div>
     <div id="lobby" class="hidden stack">
