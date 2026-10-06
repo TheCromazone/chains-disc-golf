@@ -52,7 +52,8 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
 let post = null, postEnabled = true, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0, slowTime = 0;
 const lineMats = [];   // screen-space line materials that need the framebuffer size
-const resize = () => { renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' || isMobile ? 1.5 : 2, Math.sqrt((isMobile ? 1800000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
+const resize = () => { if (!innerWidth || !innerHeight) return;   // a page opened in a background tab (or a hidden pane) reports 0x0: an aspect of 0/0 poisoned the camera with NaN for good
+  renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' || isMobile ? 1.5 : 2, Math.sqrt((isMobile ? 1800000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
 addEventListener('resize', resize); resize();
 
 let course, world, holes, effects = null;
@@ -811,7 +812,8 @@ function updateCamera(dt) {
     cam.tLook.set(p.x + r[0] * side, p.y + (faceEdit ? hy - .01 : hy * .62), p.z + r[1] * side); k = 4;
   } else if (cam.mode === 'courses') {   // slow flyover of the whole course
     const t = performance.now() / 1000 * 0.06, cx = holes.reduce((a, h) => a + h.basket[0], 0) / holes.length, cz = holes.reduce((a, h) => a + h.basket[1], 0) / holes.length;
-    cam.tPos.set(cx + Math.cos(t) * 170, world.height(cx, cz) + 95, cz + Math.sin(t) * 170); cam.tLook.set(cx, world.height(cx, cz), cz); k = 1.5;
+    const ox = cx + Math.cos(t) * 80, oz = cz + Math.sin(t) * 80;   // low and close: a higher orbit rose out of the sky dome and showed the world's edge
+    cam.tPos.set(ox, Math.max(world.height(ox, oz), world.height(cx, cz)) + 30, oz); cam.tLook.set(cx, world.height(cx, cz), cz); k = 1.5;
   } else if (cam.mode === 'intro') {   // the hole flyover (introPath)
     fov = introPath(h, G.introT, cam.tPos, cam.tLook); k = 1e3;   // no smoothing: the eased path is the motion
   } else if (cam.mode === 'aim' || (cam.mode === 'result' && !G.flight && !cam.hold) || (cam.mode === 'flight' && G.flight?.params.throwType === 'putt')) {   // a putt keeps its aim frame locked from the stroke into the chains, as the broadcast holds it
@@ -832,6 +834,10 @@ function updateCamera(dt) {
   }
   const a = cam.snap ? 1 : 1 - Math.exp(-k * dt); cam.snap = false;
   cam.pos.lerp(cam.tPos, a); cam.look.lerp(cam.tLook, a); cam.fov += (fov - cam.fov) * a; cam.shift += (cam.tShift - cam.shift) * a;
+  if (!Number.isFinite(cam.pos.x + cam.pos.y + cam.pos.z + cam.look.x + cam.look.y + cam.look.z + cam.fov + cam.shift)) {   // one bad frame must not blind the camera forever: lerp never recovers from NaN
+    if (Number.isFinite(cam.tPos.x + cam.tPos.y + cam.tPos.z + cam.tLook.x + cam.tLook.y + cam.tLook.z)) { cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook); } else { cam.pos.set(0, 30, 0); cam.look.set(0, 0, 1); }
+    cam.fov = Number.isFinite(fov) ? fov : baseFov(); cam.shift = 0;
+  }
   const gy = world.height(cam.pos.x, cam.pos.z) + 0.7; if (cam.pos.y < gy) cam.pos.y = gy;
   camera.position.copy(cam.pos); camera.lookAt(cam.look);
   if (Math.abs(camera.fov - cam.fov) > .01) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }   // resize() resets fov by aspect; this re-applies the mode's lens every frame
@@ -1087,7 +1093,14 @@ function onNet(ev) {
     if (ev.err?.type === 'network' || ev.err?.type === 'server-error') UI.onlineError('The room service is reconnecting. Please keep this page open.');
   }
 }
-const openLive = () => { UI.hide('menu'); UI.show('online'); UI.show('onlineChoice'); UI.hide('lobby'); $('onlineName').value ||= G.avatar.name || 'Player'; };
+// An invite link (?room=CODE) opens straight onto Join: the big Create button had invited friends opening empty rooms of their own.
+const setInvited = code => {
+  $('online').classList.toggle('invited', !!code); UI[code ? 'show' : 'hide']('inviteNote'); UI[code ? 'show' : 'hide']('btnHostInstead');
+  $('onlineTitle').textContent = code ? `Join room ${code}` : 'Online room'; if (code) $('joinCode').value = code;
+};
+const openLive = (invite = '') => { UI.hide('menu'); UI.show('online'); UI.show('onlineChoice'); UI.hide('lobby'); $('onlineName').value ||= G.avatar.name || 'Player'; setInvited(invite); };
+$('btnHostInstead').onclick = () => { setInvited(''); $('joinCode').value = ''; };
+$('onlineName').addEventListener('focus', e => { if (['You', 'Player'].includes(e.target.value)) e.target.select(); });   // the default name is a placeholder: typing replaces it
 // Invite matches (src/match.js): turn-based, over plain HTTPS, so phones on any network can play together.
 const matches = createMatches({
   hideMenus: () => { for (const id of ['menu', 'online', 'setup', 'courses', 'help', 'score']) UI.hide(id); },
@@ -1129,8 +1142,15 @@ $('btnLobbyStart').onclick = () => {
     players: G.lobby.map((p, i) => ({ name: safeName(p.name), isBot: !!p.isBot, difficulty: G.settings.difficulty, peerId: p.peerId || null, avatar: p.avatar || null, color: p.avatar?.jersey || COLORS[i % COLORS.length] })) };
   G.net.broadcast({ t: 'start', config }); startGame(config);
 };
+// Phones open the share sheet (Messages, WhatsApp…) with the link; desktops copy it. Either way the code stays on screen.
+const shareSheet = isMobile && !!navigator.share;
+$('btnShareRoom').textContent = shareSheet ? 'Send invite link' : 'Copy invite link';
 $('btnShareRoom').onclick = async () => {
   const url = new URL(location.href); url.search = ''; url.searchParams.set('room', G.net.code); url.hash = '';
+  if (shareSheet) {
+    try { await navigator.share({ title: 'Chains — Disc Golf', text: `Join my disc golf room in Chains — code ${G.net.code}`, url: url.href }); return; }
+    catch (e) { if (e?.name === 'AbortError') return; }   // dismissed the sheet: nothing to do
+  }
   try { await navigator.clipboard.writeText(url.href); $('btnShareRoom').textContent = 'Invite link copied'; }
   catch { $('roomStatus').textContent = url.href; }
 };
@@ -1147,11 +1167,12 @@ const input = setupInput({ sceneEl: canvas, padEl: $('pad'), getThrow: () => G.t
   }
 });
 document.addEventListener('keydown', unlock, { once: true, capture: true });
+for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, e => e.preventDefault(), { passive: false });   // iOS Safari: a stray two-finger pinch would zoom the whole game
 let contextLost = false;
 canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); contextLost = true; input.cancel(); UI.waiting('Restoring graphics…'); });
 canvas.addEventListener('webglcontextrestored', () => { contextLost = false; resize(); G.previewDirty = true; UI.waiting(null); });
 let hiddenAt = 0;
-document.addEventListener('visibilitychange', () => { clock.getDelta(); if (document.hidden) { hiddenAt = Date.now(); return; } if (G.mode === 'online' && !G.net?.isHost && Date.now() - hiddenAt > 8000) G.net?.toHost({ t: 'sync-request' }); });   // a glance away no longer rebuilds the whole round
+document.addEventListener('visibilitychange', () => { clock.getDelta(); if (document.hidden) { hiddenAt = Date.now(); return; } resize(); if (G.mode === 'online' && !G.net?.isHost && Date.now() - hiddenAt > 8000) G.net?.toHost({ t: 'sync-request' }); });   // a glance away no longer rebuilds the whole round
 setInterval(() => { if (document.hidden && G.mode === 'online' && G.net?.isHost) loop(true); }, 100);
 setTimeout(async () => {
   try {
@@ -1162,7 +1183,7 @@ setTimeout(async () => {
   await warmShaders();
   UI.hide('loading'); loop();
   window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };
-  const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) { $('joinCode').value = invite; openLive(); }
+  const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
   else matches.boot();
   } catch (error) {
     const loading = $('loading'); loading.replaceChildren();

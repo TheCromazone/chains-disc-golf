@@ -68,12 +68,19 @@ assert.throws(() => joinMatch(big, { name: 'P13' }), /full/);
 
 // Storage: two writers racing on the same match both land (the loser re-reads and re-applies).
 const dir = mkdtempSync(join(tmpdir(), 'chains-store-')); process.env.CHAINS_DATA_DIR = dir; delete process.env.BLOB_READ_WRITE_TOKEN;
-const { saveMatch, loadMatch, updateMatch, Conflict } = await import('../server/store.js');
+const { saveMatch, loadMatch, loadMatchFresh, updateMatch, Conflict } = await import('../server/store.js');
 const { match: s } = createMatch({ name: 'Host', courseId: 'meadow', holeCount: 9 });
 await saveMatch(s.id, s, null);
 await assert.rejects(saveMatch(s.id, s, null), Conflict, 'creating over an existing match is a conflict');
 await Promise.all(Array.from({ length: 8 }, (_, i) => updateMatch(s.id, x => joinMatch(x, { name: 'J' + i }))));
 assert.equal((await loadMatch(s.id)).data.players.length, 9, 'eight racing joins all land, none overwritten');
+// Polls read through the instance's copy (each origin read spends the Blob store's monthly budget); a newer seq skips it.
+const fresh = await loadMatchFresh(s.id); assert.equal(fresh.data.seq, (await loadMatch(s.id)).data.seq, 'a poll after a write sees that write');
+fresh.data.players.length = 0; assert.equal((await loadMatchFresh(s.id)).data.players.length, 9, 'callers get a copy, never the cached object');
+const behind = structuredClone((await loadMatch(s.id)).data); behind.seq += 5; behind.courseName = 'Elsewhere';
+const { writeFile } = await import('node:fs/promises'); await writeFile(join(dir, 'matches', `${s.id}.json`), JSON.stringify(behind));   // another instance's write
+assert.notEqual((await loadMatchFresh(s.id)).data.courseName, 'Elsewhere', 'within the window the poll is served from this instance');
+assert.equal((await loadMatchFresh(s.id, 4000, behind.seq)).data.courseName, 'Elsewhere', 'asking for a newer seq goes to the origin');
 rmSync(dir, { recursive: true, force: true });
 
 console.log('Invite matches OK: catch-up turns, honours, away/back, validation, secrets and racing writes.');

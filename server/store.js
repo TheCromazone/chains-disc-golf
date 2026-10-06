@@ -49,7 +49,26 @@ async function fileSave(id, data, etag) {
 }
 
 export const loadMatch = id => (useBlob() ? blobLoad : fileLoad)(id);
-export const saveMatch = (id, data, etag = null) => (useBlob() ? blobSave : fileSave)(id, data, etag);
+export async function saveMatch(id, data, etag = null) {
+  const tag = await (useBlob() ? blobSave : fileSave)(id, data, etag);
+  remember(id, data, tag); return tag;
+}
+
+// Reads for polling. Every origin read of a private blob is a Blob "simple operation" (Hobby: 10,000 a month, then the
+// store locks for 30 days), so polls are answered from this instance's copy while it is fresh. Writes still read the origin
+// (updateMatch) because their ETag check needs the current version.
+const recent = new Map();   // id -> { data, etag, at }
+function remember(id, data, etag) {
+  recent.set(id, { data: structuredClone(data), etag, at: Date.now() });
+  if (recent.size > 200) recent.delete(recent.keys().next().value);
+}
+export async function loadMatchFresh(id, maxAge = 4000, minSeq = 0) {
+  const hit = recent.get(id);
+  if (hit && Date.now() - hit.at < maxAge && (hit.data.seq || 0) >= minSeq) return { data: structuredClone(hit.data), etag: hit.etag };
+  const cur = await loadMatch(id);
+  if (cur) remember(id, cur.data, cur.etag);
+  return cur;
+}
 
 // Read, change, write; on a lost race read again and re-apply (the change function must be safe to repeat).
 export async function updateMatch(id, change) {

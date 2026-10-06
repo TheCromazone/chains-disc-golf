@@ -27,14 +27,26 @@ export function createMatches(d) {
     if (!r.ok) { const e = new Error(j.error || `The match service answered ${r.status}.`); e.status = r.status; throw e; }
     return j;
   }
-  async function fetchMatch(id, conditional = false) {
-    const seat = seatOf(id), url = `${API}?id=${id}${seat ? `&pid=${seat.pid}` : ''}`;
+  async function fetchMatch(id, conditional = false, seq = 0) {
+    const seat = seatOf(id), url = `${API}?id=${id}${seat ? `&pid=${seat.pid}` : ''}${seq ? `&seq=${seq}` : ''}`;
     const r = await fetch(url, { headers: { ...(seat ? { 'x-seat-token': seat.token } : {}), ...(conditional && etag ? { 'if-none-match': etag } : {}) }, cache: 'no-store' });
     if (r.status === 304) return null;
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { const e = new Error(j.error || 'Could not load the match.'); e.status = r.status; throw e; }
     if (conditional) etag = r.headers.get('etag') || '';
     matchCache.set(id, j.match); return j.match;
+  }
+  // Polls ask only "has anything changed?" (one number, cached by the CDN for every player in the match) and fetch the
+  // whole match only when it has: each origin read of the match spends the Blob store's small monthly operation budget.
+  async function fetchSeq(id) {
+    const r = await fetch(`${API}?action=seq&id=${id}`);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.error || 'Could not load the match.'); e.status = r.status; throw e; }
+    return j;
+  }
+  async function freshMatch(id) {
+    const s = await fetchSeq(id), was = matchCache.get(id);
+    return was && was.seq >= s.seq ? was : fetchMatch(id, false, s.seq);
   }
 
   // ---- screens ----
@@ -48,7 +60,7 @@ export function createMatches(d) {
     const course = d.course(); $('matchNewSub').textContent = `${course.name} · ${d.holes()} holes · change both in the clubhouse`;
     const ids = Object.keys(seats).sort((a, b) => (seats[b].at || 0) - (seats[a].at || 0)).slice(0, 20), list = $('matchList');
     list.replaceChildren(...ids.map(id => item(id, matchCache.get(id))));
-    await Promise.all(ids.map(async id => { try { const m = await fetchMatch(id); list.querySelector(`[data-id="${id}"]`)?.replaceWith(item(id, m)); } catch (e) { if (e.status === 404) { delete seats[id]; write(SEATS, seats); list.querySelector(`[data-id="${id}"]`)?.remove(); } } }));
+    await Promise.all(ids.map(async id => { try { const m = await freshMatch(id); list.querySelector(`[data-id="${id}"]`)?.replaceWith(item(id, m)); } catch (e) { if (e.status === 404) { delete seats[id]; write(SEATS, seats); list.querySelector(`[data-id="${id}"]`)?.remove(); } } }));
   }
   function item(id, m) {
     const b = document.createElement('button'); b.className = 'match-item'; b.dataset.id = id; b.onclick = () => openMatch(id);
@@ -123,8 +135,24 @@ export function createMatches(d) {
   }
 
   // ---- polling while the match is on screen ----
-  function startPoll() { stopPoll(); poll = setInterval(async () => { if (document.hidden || !current) return; try { const was = matchCache.get(current); const m = await fetchMatch(current, true); if (m) { if (m.turn?.pid === m.you && was?.turn?.pid !== m.you) { d.toast('Your turn!', `Hole ${(m.players.find(p => p.id === m.you)?.scores.length || 0) + 1} is ready`, 2200); d.buzz?.([40, 60, 40]); } render(m); } } catch { /* offline for a moment */ } }, 6000); }
-  function stopPoll() { clearInterval(poll); poll = null; }
+  // Every 5 s while the match keeps moving, easing to 12 s and then 30 s once it has sat still for 3 and 10 minutes
+  // (turn alerts and coming back to the tab bring it straight back).
+  let lastChange = 0, pollGen = 0;   // pollGen: a newer poll chain (reopened match, tab shown again) retires the older one
+  function startPoll() { stopPoll(); lastChange = Date.now(); schedulePoll(pollGen); }
+  function schedulePoll(gen) { const idle = Date.now() - lastChange; poll = setTimeout(() => pollOnce(gen), idle < 180000 ? 5000 : idle < 600000 ? 12000 : 30000); }
+  async function pollOnce(gen) {
+    const id = current; if (!id || gen !== pollGen) return;
+    if (!document.hidden) try {
+      const was = matchCache.get(id), s = await fetchSeq(id);
+      if (current === id && (!was || s.seq > was.seq)) {
+        const m = await fetchMatch(id, false, s.seq); lastChange = Date.now();
+        if (current === id) { if (m.turn?.pid === m.you && was?.turn?.pid !== m.you) { d.toast('Your turn!', `Hole ${(m.players.find(p => p.id === m.you)?.scores.length || 0) + 1} is ready`, 2200); d.buzz?.([40, 60, 40]); } render(m); }
+      }
+    } catch { /* offline for a moment */ }
+    if (current === id && gen === pollGen) schedulePoll(gen);
+  }
+  function stopPoll() { clearTimeout(poll); poll = null; pollGen++; }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && current && poll) { stopPoll(); lastChange = Date.now(); poll = -1; pollOnce(pollGen); } });
 
   // ---- actions ----
   async function newMatch() {
@@ -232,7 +260,7 @@ export function createMatches(d) {
   async function refreshBadge() {
     const badge = $('matchBadge'), ids = Object.keys(seats); if (!badge) return;
     if (!ids.length) { badge.classList.add('hidden'); return; }
-    let n = 0; await Promise.all(ids.slice(0, 12).map(async id => { try { const m = await fetchMatch(id); if (!m.finished && m.turn?.pid === m.you) n++; } catch { /* skip */ } }));
+    let n = 0; await Promise.all(ids.slice(0, 12).map(async id => { try { const s = await fetchSeq(id); if (!s.finished && s.turn && s.turn === seatOf(id)?.pid) n++; } catch { /* skip */ } }));
     badge.textContent = String(n); badge.classList.toggle('hidden', !n);
   }
 
