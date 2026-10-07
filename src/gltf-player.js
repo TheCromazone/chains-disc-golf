@@ -381,6 +381,7 @@ export function createGLTFCharacter(avatar) {
   const gripSkin = a => { const c = gripMat.color.set(a.skin), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.setRGB((l + (c.r - l) * GRIP.chroma) * .93, (l + (c.g - l) * GRIP.chroma) * .96, (l + (c.b - l) * GRIP.chroma) * 1.25).multiplyScalar(GRIP.tone); };   // the body's cooler white balance
   gripSkin(avatar);
   const headwear = createPlayerHeadwear(joints.head, skin, spec, avatar, lod);
+  body.tuck(headwear.tuck, skin.skeleton.bones.indexOf(joints.head));   // hat hair: his locks lie down under a covering hat
   const gripHands = {};
   const restHands = {}, openHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); into[name] = h; };
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.hands)) mount(geo, name, gripHands, 'grip_');

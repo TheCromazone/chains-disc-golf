@@ -2,6 +2,26 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { model } from './models.js';
 
+// Hat hair (tools/build-headwear.py, node hw_<fig>_tuck): per direction from his skull centre, the radius his locks are
+// pulled down to while a covering hat is on; decoded once per figure into a half-float texture for body-material.js.
+const tucks = new Map();
+function tuckField(fig) {
+  const hats = model('headwear'); if (!hats) return null;
+  if (!tucks.has(fig)) {
+    const raw = hats.scene.getObjectByName(`hw_${fig}_tuck`)?.userData.tuck, t = raw && JSON.parse(raw);
+    let field = null;
+    if (t) {
+      const bytes = Uint8Array.from(atob(t.r), c => c.charCodeAt(0)), radii = new Uint16Array(bytes.buffer), half = new Uint16Array(radii.length);
+      for (let i = 0; i < radii.length; i++) half[i] = THREE.DataUtils.toHalfFloat(radii[i] / 1e5);
+      const texture = new THREE.DataTexture(half, t.nphi, t.nth, THREE.RedFormat, THREE.HalfFloatType);
+      texture.wrapS = THREE.RepeatWrapping; texture.magFilter = texture.minFilter = THREE.LinearFilter; texture.needsUpdate = true;
+      field = { texture, centre: t.c, keep: t.keep };
+    }
+    tucks.set(fig, field);
+  }
+  return tucks.get(fig);
+}
+
 // Closed, fitted headwear replaces cut-up scan shells; natural source hair stays.
 // Coordinates below are in the model's bind space, then mounted to the head bone.
 export function createPlayerHeadwear(head, skin, spec, avatar, lod) {
@@ -32,6 +52,8 @@ export function createPlayerHeadwear(head, skin, spec, avatar, lod) {
   // Blender-fitted hats (tools/build-headwear.py): grown on this figure's own skull and hair, AO in the vertex colours,
   // already in bind space. The procedural set below stays as the fallback until the file has loaded.
   const fitted=hat!=='none'&&model('headwear')?.scene.getObjectByName(`hw_${avatar.figure==='female'?'f':'m'}_${hat}`);
+  // A covering fitted hat was grown on hat hair, so it hands the body its tuck field (the visor and headband show the locks).
+  const tuck=fitted?.isMesh&&covered?tuckField(avatar.figure==='female'?'f':'m'):null;
   if(fitted?.isMesh){const g=fitted.geometry.clone();g.applyMatrix4(fitted.matrixWorld);if(!g.attributes.normal)g.computeVertexNormals();const m=material(avatar.headwearColor,.86);m.vertexColors=!!g.attributes.color;add(g,m,'fitted_'+hat);}
   else if(hat!=='none'){
     const y=eye+.048,rx=radii.x+.015,rz=radii.z+.02;
@@ -55,5 +77,5 @@ export function createPlayerHeadwear(head, skin, spec, avatar, lod) {
   // Merge permanent parts by material; a cap's six seams cost one draw.
   for(const mat of materials){const meshes=group.children.filter(m=>m.material===mat&&!glasses.some(([,g])=>g===m));if(meshes.length<2)continue;const combined=mergeGeometries(meshes.map(m=>m.geometry));if(!combined)continue;for(const m of meshes){group.remove(m);geometries.delete(m.geometry);m.geometry.dispose();}add(combined,mat,'fitted_headwear_parts');}
   const setFace=a=>{const style=a.glasses!==undefined?a.glasses:a.shades?'sport':'none';for(const [id,m]of glasses)m.visible=id===style;};setFace(avatar);
-  return{setFace,dispose(){group.removeFromParent();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}};
+  return{setFace,tuck,dispose(){group.removeFromParent();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}};
 }

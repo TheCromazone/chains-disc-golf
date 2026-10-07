@@ -114,6 +114,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     uPrint: { value: printTexture(avatar.number) },
     uArm: { value: new THREE.Vector4(-1, -1, -1, -1) },   // skeleton indices of the four arm bones (gltf-player.js): the 'pro' shirt's panels need arm vs torso
     uPanelN: { value: prefix === 'body_f_' ? 0 : 1 }, uStrands: { value: 1 }, uSleeve: { value: 1e3 },
+    uTuck: { value: null }, uTuckC: { value: new THREE.Vector4(0, 0, 0, -1) }, uHeadBone: { value: -1 },   // hat hair (tuck below); w < 0: off
   };
   const chestY = spec.chestY || 1.3, box = (PRINT[prefix] || PRINT.body_);
   u.uPrintF = { value: new THREE.Vector4(chestY + box.front[0], ...box.front.slice(1)) }; u.uPrintB = { value: new THREE.Vector4(chestY + box.back[0], ...box.back.slice(1)) };
@@ -122,16 +123,30 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   material.onBeforeCompile = s => {
     Object.assign(s.uniforms, u);
     // bind-pose normal and arm weight: which cloth faces sideways off the torso and which is the arm's underside
-    s.vertexShader = 'uniform vec4 uArm; varying vec3 vBindN; varying float vArmW, vElbow;\n' + s.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+    s.vertexShader = 'uniform vec4 uArm, uTuckC; uniform float uHeadBone; uniform sampler2D uTuck; varying vec3 vBindN; varying float vArmW, vElbow;\n' + s.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
       vBindN = objectNormal; vArmW = 0.; vElbow = 0.;
       #ifdef USE_SKINNING
         vec4 armW = vec4(dot(skinWeight, vec4(equal(skinIndex, uArm.xxxx))), dot(skinWeight, vec4(equal(skinIndex, uArm.yyyy))), dot(skinWeight, vec4(equal(skinIndex, uArm.zzzz))), dot(skinWeight, vec4(equal(skinIndex, uArm.wwww))));
         vArmW = armW.x + armW.y + armW.z + armW.w; vElbow = min(1., 4. * (armW.x * armW.y + armW.z * armW.w));   // upper arm and forearm share the elbow's skin
-      #endif`);
+      #endif`).replace('#include <skinning_vertex>', `
+      // hat hair: under a covering hat his sculpted locks stood out round the band as a ragged fringe. uTuck holds, per
+      // direction from the skull centre (uTuckC.xyz), the radius of the locks' base (tools/build-headwear.py, which grows
+      // the hats on the head tucked the same way); anything of the head beyond it is pulled down, keeping uTuckC.w of its height
+      #ifdef USE_SKINNING
+        if (uTuckC.w >= 0.) {
+          vec3 d = transformed - uTuckC.xyz; float r = max(length(d), 1e-5), th = degrees(acos(clamp(d.y / r, -1., 1.)));
+          float hw = min(1., dot(skinWeight, vec4(equal(skinIndex, vec4(uHeadBone)))) / .5);
+          if (hw > 0. && th < 150.) {
+            float t = texture2D(uTuck, vec2(atan(-d.z, d.x) / 6.28319 + .5 / 64., (th + .5) / 151.)).r;
+            if (r > t) transformed = uTuckC.xyz + d / r * mix(r, t + (r - t) * uTuckC.w, hw);
+          }
+        }
+      #endif
+      #include <skinning_vertex>`);
     // per-region roughness: skin keeps a soft sheen, hair and cloth stay matte (a glossy jersey or scalp reads as plastic).
     // Skin also scatters: direct light wraps a little past the terminator with a warm tint, the cheap stand-in for
     // subsurface that keeps a face from looking like painted vinyl.
-    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec2 uEye; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5, chainsCloth = 0.; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + FOLD_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec2 uEye; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve; uniform vec4 uTuckC; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5, chainsCloth = 0.; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + FOLD_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { vec3 j = vJerseyPos; bool back = j.z > 0.; vec4 b = back ? uPrintB : uPrintF;   // after the jersey style, so the print sits on its panels; seen from its own side, the print reads left to right
         vec2 q = vec2((back ? j.x : -j.x) / b.y + .5, (j.y - b.x) / b.z + .5);
         if (q.x > 0. && q.x < 1. && q.y > 0. && q.y < 1.) diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * chainsJersey); }
@@ -184,13 +199,16 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
           chainsCav = clamp(1.1 - lum / uMean[0], 0., .7) + .6 * vElbow; chainsMot = chainsNoise(vJerseyPos * 33.) * .65 + chainsNoise(vJerseyPos * 95.) * .35;
           shifted *= mix(vec3(1.), vec3(1.02, .78, .78), min(chainsCav, 1.)) * (1. + (chainsMot - .5) * vec3(.34, .06, .0));
           col = mix(col, shifted, w[0]); }
-        for (int i = 1; i < 7; i++) { float d = mix(1., clamp(lum / uMean[i], .25, 1.8), uDetail[i]); col = mix(col, uPal[i] * d, w[i]); }
+        // under a hat the hair's tone keeps to a narrow range: the band under the rim is its edge, where skin-bright texels in the
+        // hair mask lit light hair up to 1.8x as a jagged gold-foil fringe
+        float hairHi = uTuckC.w >= 0. ? 1.15 : 1.8;
+        for (int i = 1; i < 7; i++) { float d = mix(1., clamp(lum / uMean[i], .25, i == 3 ? hairHi : 1.8), uDetail[i]); col = mix(col, uPal[i] * d, w[i]); }
         col = mix(col, uPal[1] * mix(1., clamp(lum / uMean[0], .45, 1.4), .9), sleeveK);   // measured against the skin it was, or the pale scan lit the sleeve past the shirt
         // the scan's own short hair is a smooth cap ("sits like a helmet"): strands, as noise stretched along the way hair lies
         // (down the sides and back, front to back over the crown), in tone, roughness and a bump the sheen breaks on
         chainsHairK = mix(vec3(120., 26., 120.), vec3(120., 120., 26.), smoothstep(.35, .8, vBindN.y)); chainsHair = w[3] * uStrands;   // a shaved head (hair 'none') keeps a smooth scalp
         { vec3 hp = vJerseyPos * chainsHairK; float s = chainsNoise(hp) * .6 + chainsNoise(hp * 2.1) * .4, lock = chainsNoise(hp * .3 + 7.);
-          col *= 1. + chainsHair * ((s - .5) * 1.7 + (lock - .5) * 1.3 + .15); chainsHairS = mix(.5, s, uStrands); }
+          col *= 1. + chainsHair * ((s - .5) * 1.7 + (lock - .5) * 1.3 + .15) * (uTuckC.w >= 0. ? .55 : 1.); chainsHairS = mix(.5, s, uStrands); }
         float bz = m2.a; float zi = floor(bz * 4. + .002); float soft = clamp(fract(bz * 4. + .002) / .96, 0., 1.);   // zone id + feather share one channel
         float zone = (zi > 2.5 ? uBeard.z : zi > 1.5 ? uBeard.y : zi > .5 ? uBeard.x : 0.) * soft * smoothstep(uEye.x - .02, uEye.x - .045, vJerseyPos.y);   // beard zones live below the nose: stray ones on the forehead stay skin
         float grain = fract(sin(dot(floor(vMapUv * 1100.), vec2(12.9898, 78.233))) * 43758.5453);
@@ -217,5 +235,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     material.userData.jerseyAccent?.value.set(a.accent);
   };
   setPalette(avatar);
-  return { material, setPalette, mask: u.uMask1.value, arms: ix => u.uArm.value.set(...ix), sleeve: y => { u.uSleeve.value = y; }, dispose: () => u.uPrint.value.dispose() };
+  // tuck: a field from player-headwear.js (or null to let the hair stand); headBone: the head's skeleton index
+  const tuck = (field, headBone) => { u.uTuck.value = field?.texture || null; u.uHeadBone.value = headBone; if (field) u.uTuckC.value.set(...field.centre, field.keep); else u.uTuckC.value.w = -1; };
+  return { material, setPalette, tuck, mask: u.uMask1.value, arms: ix => u.uArm.value.set(...ix), sleeve: y => { u.uSleeve.value = y; }, dispose: () => u.uPrint.value.dispose() };
 }
