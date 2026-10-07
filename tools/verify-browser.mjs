@@ -16,7 +16,7 @@ const profile = mkdtempSync(join(tmpdir(), 'chains-verify-'));
 const server = spawn(process.execPath, ['serve.mjs', ...(process.argv.includes('--dist') ? ['--dist'] : [])], { cwd: root, env: { ...process.env, PORT: '' + port }, stdio: 'ignore' });
 let signalServer;
 const signal = report.transport.startsWith('local') ? PeerServer({ port: peerPort, path: '/' }, server => { signalServer = server; }) : null;
-const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
+const chrome = spawn(CHROME, ['--headless=new', '--mute-audio', `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
 const pause = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, label, ms = 30000) { for (const t = Date.now(); Date.now() - t < ms; await pause(100)) { if (await fn()) return; } throw new Error('Timed out: ' + label); }
 const sessions = [];

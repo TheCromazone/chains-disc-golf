@@ -30,7 +30,7 @@ mkdirSync(out, { recursive: true });
 
 const server = spawn(process.execPath, ['serve.mjs'], { cwd: ROOT, env: { ...process.env, PORT: String(port) }, stdio: 'ignore' });
 const profile = mkdtempSync(join(tmpdir(), 'chains-capture-'));
-const chrome = spawn(o.chrome, ['--headless=new', `--remote-debugging-port=${cdp}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
+const chrome = spawn(o.chrome, ['--headless=new', '--mute-audio', `--remote-debugging-port=${cdp}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--ignore-gpu-blocklist',
   '--disable-gpu-vsync', '--disable-frame-rate-limit',   // uncapped rAF, so frameMs compares builds instead of reading the display's refresh
   `--window-size=${w},${h}`, 'about:blank'], { stdio: 'ignore' });
