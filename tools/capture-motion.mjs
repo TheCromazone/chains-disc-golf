@@ -83,7 +83,7 @@ function clock(seed) {
 
 const server = spawn(process.execPath, ['serve.mjs'], { cwd: ROOT, env: { ...process.env, PORT: String(port) }, stdio: 'ignore' });
 const profile = mkdtempSync(join(tmpdir(), 'chains-motion-'));
-const chrome = spawn(o.chrome, ['--headless=new', `--remote-debugging-port=${cdp}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
+const chrome = spawn(o.chrome, ['--headless=new', '--mute-audio', `--remote-debugging-port=${cdp}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--ignore-gpu-blocklist',
   '--disable-gpu-vsync', '--disable-frame-rate-limit',   // the step's one real rAF (compositor hand-off) returns at once instead of waiting on a 60 Hz beat
   `--window-size=${w},${h}`, 'about:blank'], { stdio: 'ignore' });

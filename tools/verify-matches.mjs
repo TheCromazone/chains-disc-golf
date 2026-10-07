@@ -17,7 +17,7 @@ let cookie = '';   // a protected preview: the share link's auth cookie, for the
 const data = mkdtempSync(join(tmpdir(), 'chains-matches-')), profile = mkdtempSync(join(tmpdir(), 'chains-mchrome-'));
 const out = join(root, 'docs/qa/matches'); mkdirSync(out, { recursive: true });
 const server = external ? null : spawn(process.execPath, ['serve.mjs', '--dist'], { cwd: root, env: { ...process.env, PORT: '' + port, CHAINS_DATA_DIR: data }, stdio: 'ignore' });
-const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${dbg}`, `--user-data-dir=${profile}`, '--no-first-run', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
+const chrome = spawn(CHROME, ['--headless=new', '--mute-audio', `--remote-debugging-port=${dbg}`, `--user-data-dir=${profile}`, '--no-first-run', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
 const pause = ms => new Promise(r => setTimeout(r, ms));
 const until = async (fn, label, ms = 45000) => { for (const t = Date.now(); Date.now() - t < ms; await pause(150)) if (await fn()) return; throw new Error('Timed out: ' + label); };
 const errors = [], report = { url: base, checks: [] };

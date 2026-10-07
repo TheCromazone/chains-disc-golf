@@ -11,10 +11,11 @@ export async function launch({ port = 9333, headless = true, gpu = true } = {}) 
   const profile = mkdtempSync(join(tmpdir(), 'chains-cdp-'));
   const args = [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
     '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
-    '--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', 'about:blank'];
+    '--autoplay-policy=no-user-gesture-required', '--mute-audio', '--use-fake-ui-for-media-stream', 'about:blank'];   // muted: the game's sound still runs, the Mac's speakers stay quiet
   if (headless) args.unshift('--headless=new');
   if (gpu) args.unshift('--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=metal');
   const proc = spawn(CHROME, args, { stdio: 'ignore' });
+  process.once('exit', () => proc.kill());   // a script that throws still takes its Chrome with it (crashed runs had left ~20 behind)
   for (let i = 0; i < 100; i++) { try { if ((await fetch(`http://127.0.0.1:${port}/json/version`)).ok) break; } catch {} await pause(150); }
   const browser = { port, proc, close: () => proc.kill() };
   browser.newPage = () => newPage(browser);
