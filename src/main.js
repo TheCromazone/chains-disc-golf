@@ -9,6 +9,8 @@ import { clearFraction } from './cam-collide.js';
 import { createPuffs } from './puffs.js';
 import { createCelebration } from './celebration.js';
 import { createWindFx } from './wind.js';
+import { createShotGuide } from './shot-guide.js';
+import { suggestPower } from './shot-planning.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -63,6 +65,7 @@ const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos
 const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false });
 const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .42, depthTest: false, depthWrite: false });
 const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();
+const shotGuide = createShotGuide(preview);
 const previewLines = [previewEdge, previewMat].map((m, i) => { const l = new Line2(new LineGeometry(), m); l.frustumCulled = false; l.renderOrder = 5 + i; preview.add(l); return l; });
 const aimArrow = (() => {
   const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(.34, -.42); shape.lineTo(.12, -.36); shape.lineTo(.12, -1.15); shape.lineTo(-.12, -1.15); shape.lineTo(-.12, -.36); shape.lineTo(-.34, -.42); shape.closePath();
@@ -94,6 +97,7 @@ function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerI
   color = safeColor(color, COLORS[i % COLORS.length]); avatar = avatar && sanitizeAvatar(avatar); name = safeName(name);   // a room's config comes off the network
   const appearance = avatar ? { ...avatar, jersey: color } : randomAvatar(makeRng(strHash(name) + i * 97), { jersey: color, name, ...(hand ? { hand } : {}) });
   const char = createCharacter({ ...appearance, lod: i > 0 });
+  char.setGround?.((x, z) => world.height(x, z));
   scene.add(char.group);
   const marker = new THREE.Mesh(new THREE.RingGeometry(0.27, 0.4, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false }));
   marker.visible = false; scene.add(marker);
@@ -102,6 +106,7 @@ function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerI
 function setPlayerDetail(p, lod) {
   if (p.lod === lod || G.settings.quality === 'low') return;
   const next = createCharacter({ ...p.appearance, lod });
+  next.setGround?.((x, z) => world.height(x, z));
   next.group.position.copy(p.char.group.position); next.group.rotation.copy(p.char.group.rotation);
   scene.remove(p.char.group); p.char.dispose(); p.char = next; p.lod = lod; scene.add(next.group);
 }
@@ -151,7 +156,7 @@ const LAYOUTS = COURSES.map(courseLayout);
 // off-shoulder and the woods past it closing the top of the frame. Trees inside ~25 m keep 95% of their contrast
 // through the haze, so staging close is what clears the fog. Of the greens whose approach runs away from the sun (the
 // low key then lights his face and the woods instead of haloing him) the one with the most trees past it wins.
-const MENU = { short: 5, lat: 1.25, face: .2, kick: 40, haze: 1.6, wide: { back: 3.3, up: 1.3, aim: 1.37, x: .5, fov: 23 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
+const MENU = { short: 5, lat: 1.25, face: .2, kick: 8, haze: 1.6, wide: { back: 3.3, up: 1.3, aim: 1.37, x: .5, fov: 23 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
 const menuStage = { d: [0, 1], r: [-1, 0] };
 // Contact shade under the clubhouse hero: the key light sits behind the lens, so his own shadow falls out of sight behind him.
 const blobCanvas = document.createElement('canvas'); blobCanvas.width = blobCanvas.height = 64; const blobInk = blobCanvas.getContext('2d'), blobGrad = blobInk.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -214,7 +219,7 @@ function stageClubhouse() {
   const n = world.normal(x, z); menuBlob.position.set(x, y + .03, z); menuBlob.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]));
 }
 let heroDisc = null;
-function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); kickLight(hero.group); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
+function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); hero.setGround?.((x, z) => world.height(x, z)); kickLight(hero.group); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
 // Disc in the hand. Idle: carried by the rim at the thigh, plate hanging beside the leg. Throwing: gripped so the
 // plate rides the wrist through the windup and is exactly level with the planned release normal at phase .62.
 const _qh = new THREE.Quaternion(), _qg = new THREE.Quaternion(), _off = new THREE.Vector3(), _nrm = new THREE.Vector3(), _gp = new THREE.Vector3(), _gn = new THREE.Vector3();
@@ -226,8 +231,7 @@ function holdDisc(char, mesh, n, spin, throwType) {
     _qg.copy(char.group.quaternion).invert();
     _nrm.set(n[0], n[1], n[2]).applyQuaternion(_qg).applyQuaternion(rel.qInv).applyQuaternion(_qh);
     _off.copy(rel.dir).multiplyScalar(.075).y -= .015; _off.applyQuaternion(rel.qInv).applyQuaternion(_qh);
-  } else if (char.heroWeight > .5) { char.group.getWorldDirection(_nrm).multiplyScalar(-.3); _nrm.x += Math.sin(spin * 3) * .06; _nrm.z += Math.cos(spin * 3) * .06; _nrm.y = 1; _off.set(0, -.08, 0).applyQuaternion(_qh); spin *= 40; }   // cover shot: spun like a trick on the raised hand, face tipped a little to the lens
-  else { _nrm.copy(CARRY_N).applyQuaternion(_qh); _off.copy(CARRY_OFF).applyQuaternion(_qh); spin = 0; }
+  } else { _nrm.copy(CARRY_N).applyQuaternion(_qh); _off.copy(CARRY_OFF).applyQuaternion(_qh); spin = 0; }
   _v.add(_off);
   // backhand set-up: the rim seated in the gripping hand, handed over to the release frame through the windup (level at .62)
   const w = rel ? char.gripPose?.(_gp, _gn) || 0 : 0;
@@ -350,7 +354,7 @@ function setupTurn(idx) {
   UI.selectThrow(G.throwType); UI.selectDisc(G.discId); ensureDisc(p, G.discId); p.discMesh.visible = true;
   UI.setHud({ dist, circle: dist <= 10, playerName: p.name, throwNo: p.strokes === 0 ? 'Tee shot' : `Throw ${p.strokes + 1}`, elev: holes[G.holeIdx].basketY - lie[1], toPar: p.scores.reduce((s, v, i) => v == null ? s : s + v - holes[i].par, 0) });
   updateWindHud();
-  UI.setPower(0); G.gesture = { power: 0, lateral: 0 }; G.previewDirty = true;
+  UI.setPower(0); G.gesture = { power: 0, lateral: 0 }; G.previewDirty = true; G.previewPower = null; G.planDirty = false;
   G.phase = 'aim'; cam.mode = 'aim'; G.overview = false; $('btnOverview').classList.remove('on'); $('btnOverview').setAttribute('aria-pressed', 'false');
   if (p.isBot) { UI.setControlsEnabled(false); preview.visible = false; if (iControl(p)) botTurn(p); else UI.waiting(`${p.name} is throwing…`); }
   else if (isMine(p)) { UI.setControlsEnabled(true); UI.waiting(null); preview.visible = true; if (G.mode === 'local' && G.players.filter(q => !q.isBot).length > 1) UI.toast(`${p.name}'s throw`, `${Math.round(dist)} m to the basket`, 1600); }
@@ -372,7 +376,8 @@ async function botTurn(p) {
 }
 function doThrow(pi, o, sim = null) {
   const p = G.players[pi];
-  G.phase = 'release'; G.releaseT = 0; G.pending = { pi, o, sim, fired: false };
+  const startPhase = THREE.MathUtils.clamp(p.char.getPhase() ?? .5, 0, .5);
+  G.phase = 'release'; G.releaseT = 0; G.pending = { pi, o, sim, fired: false, startPhase, leadIn: (.5 - startPhase) * .36 };
   p.char.setThrow(G.throwType); UI.setControlsEnabled(false); preview.visible = false;
 }
 function runSim(params) {
@@ -450,7 +455,7 @@ function resolveThrow(pi, r) {
     sfx.applause();
     if (!reducedMotion && p.strokes <= h.par) { const at = p.char.group.position; celebration.burst([at.x, at.y, at.z], p.strokes === 1 || p.strokes < h.par - 1); }
   } else if (r.ob) { p.strokes++; p.lie = r.lie; title = 'Out of bounds'; sub = '+1 penalty · play from where it went out'; }
-  else { p.lie = r.rest; title = r.thrown < 1 ? 'Dropped it' : `${Math.round(r.thrown)} m`; sub = `${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to the basket`; }
+  else { p.lie = r.rest; title = r.thrown < 1 ? 'Dropped it' : `${Math.round(r.thrown)} m · ${world.rough(r.rest[0], r.rest[2]) > .5 ? 'Rough' : 'Fairway'}`; sub = `${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to the basket${Number.isFinite(r.airTime) ? ` · ${r.airTime.toFixed(1)} s flight` : ''}`; }
   if (!r.holed && !r.ob && r.thrown > 8 && r.dist < Math.max(8, p.lieDist * .35)) { title = 'Nice shot!'; sfx.applause(); }
   if (!p.done && p.strokes >= h.par + 5) { p.done = true; p.scores[G.holeIdx] = h.par + 6; title = 'Picked up'; sub = `max score for the hole (${h.par + 6})`; }   // a fixed cap, even when the last throw went out of bounds
   p.lieDist = distToBasket(p.lie[0], p.lie[2]);
@@ -519,6 +524,7 @@ function onAim({ dx, dy }) {
   if (G.phase !== 'aim' || !isMine(curP()) || curP().isBot) return;
   G.aim.yaw += dx * (G.overview ? 0.0025 : 0.0038);
   G.aim.pitch = Math.max(-6, Math.min(16, G.aim.pitch - dy * 0.06));
+  G.planDirty = true; G.planChangedAt = performance.now();
   G.previewDirty = true; updateWindHud();
 }
 function onGesture(g) {
@@ -552,15 +558,26 @@ function gestureParams(power, lateral) {
 const previewWorld = () => ({ ...world, treesNear: () => [], basket: world.basket });
 function updatePreview() {
   if (!preview.visible) return;
-  const now = performance.now(); if (!G.previewDirty || now - G.lastPreview < 70) return;
+  const now = performance.now();
+  // Refresh the power search after aim settles, keeping swipe feedback cheap.
+  if (G.planDirty && G.phase === 'aim' && now - G.planChangedAt > 200) { G.previewPower = null; G.previewDirty = true; G.planDirty = false; }
+  if (!G.previewDirty || now - G.lastPreview < 70) return;
   G.previewDirty = false; G.lastPreview = now;
-  const pw = G.phase === 'windup' && G.gesture.power > 0.1 ? G.gesture.power : 0.72;
-  const o = gestureParams(pw, G.phase === 'windup' ? G.gesture.lateral : 0);
+  // The landing guide plans the shot; it never solves the putt. Inside the circle, for putts, and once the swipe starts,
+  // the ribbon stops at 70% of the flight and the ring, readout and power mark go away, so the player's swipe decides it.
+  const charging = G.phase === 'windup', assist = G.throwType !== 'putt' && curP().lieDist > 10, guided = assist && !charging;
+  if (G.previewPower == null) G.previewPower = assist ? suggestPower(gestureParams(.72, 0), previewWorld()) : .72;
+  const pw = charging ? Math.max(.10, G.gesture.power) : G.previewPower;
+  const o = gestureParams(pw, charging ? G.gesture.lateral : 0);
   const r = simulate(o, previewWorld(), { record: true, every: 6, maxT: 12 });
-  const lie = curP().lie, pts = r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))).filter((q, i, a) => i >= a.length - 2 || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);   // the ribbon starts at the thrower's shoulder instead of slashing across his back
+  const estimate = shotGuide.set(r.result, world, G.throwType === 'putt');
+  shotGuide.group.visible = guided;
+  UI.setShotPlan(guided ? { ...estimate, power: pw } : null, assist ? G.previewPower : null);
+  G.shotPreview = { ...estimate, power: pw, rest: r.result.rest, guided };
+  const lie = curP().lie, pts = (guided ? r.traj : r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7)))).filter((q, i, a) => i >= a.length - 2 || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);   // the ribbon starts at the thrower's shoulder instead of slashing across his back
   const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
   for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); }
-  previewMat.color.set(pw > 0.72 ? '#ffd23f' : '#ffffff');
+  previewMat.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
   const p = curP(), d = aimDir(), ax = p.lie[0] + d[0] * 1.15, az = p.lie[2] + d[1] * 1.15, n = world.normal ? world.normal(ax, az) : [0, 1, 0];
   aimArrow.position.set(p.lie[0] + d[0] * 1.7, world.height(p.lie[0] + d[0] * 1.7, p.lie[2] + d[1] * 1.7) + .04, p.lie[2] + d[1] * 1.7);
   aimArrow.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]).normalize()).multiply(_q0.setFromAxisAngle(UP, Math.atan2(-d[0], -d[1]))); aimArrow.material.color.copy(previewMat.color);   // laid on the slope, so the depth test never buries its tail   // tip 1.7 m out, pointing down the aim (it used to point back at the player)
@@ -851,6 +868,7 @@ function updateCamera(dt) {
 
 // ---------- main loop ----------
 const clock = new THREE.Clock(); let time = 0;
+const _gazeTarget = new THREE.Vector3();
 // Open the game with ?fps=1 on a phone to read the real frame rate; the only way to certify the mobile targets.
 const fpsTag = new URLSearchParams(location.search).has('fps') ? document.body.appendChild(Object.assign(document.createElement('div'), { style: 'position:fixed;left:8px;bottom:8px;z-index:99;padding:4px 8px;border-radius:8px;background:rgba(0,0,0,.6);color:#fff;font:600 12px/1.4 system-ui;pointer-events:none' })) : null;
 let fpsNext = 0;
@@ -887,14 +905,20 @@ function frame(dt, rawDt, background) {
   if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
   if (G.pending && (G.phase === 'release' || G.phase === 'flight' || G.phase === 'result')) {
     G.releaseT += dt; const p = G.players[G.pending.pi];
-    const ph = 0.5 + Math.min(0.5, G.releaseT / 0.7 * 0.5); p.char.setPhase(ph);
+    const leadIn = G.pending.leadIn || 0;
+    const u = leadIn ? Math.min(1, G.releaseT / leadIn) : 1;
+    const ph = G.releaseT < leadIn ? G.pending.startPhase + (.5 - G.pending.startPhase) * u * u * (3 - 2 * u) : .5 + Math.min(.5, (G.releaseT - leadIn) / .7 * .5); p.char.setPhase(ph);
     if (!G.pending.fired && ph >= 0.62) { G.pending.fired = true; launchNow(); }
     if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && p !== curP()) p.char.setPhase(null); else if (G.sessionId === session && G.phase === 'flight') p.char.setPhase(null); }, 350); }
   }
   if (G.flight) updateFlight(dt);
   if (background || contextLost) return; // Keep host authority alive without drawing an unavailable canvas.
   // Nearby spectators retain smooth motion; offscreen and distant players update at 15 Hz.
-  for (const p of G.players) { p.animationDt = (p.animationDt || 0) + dt; if (p === curP() || (p.char.group.position.distanceToSquared(camera.position) < 25 * 25) || p.animationDt >= 1/15) { p.char.update(p.animationDt); p.animationDt = 0; } }
+  for (const p of G.players) { p.animationDt = (p.animationDt || 0) + dt; if (p === curP() || (p.char.group.position.distanceToSquared(camera.position) < 25 * 25) || p.animationDt >= 1/15) {
+    const b = world.basket, at = G.flight?.pos;
+    if (b) p.char.lookAt?.(_gazeTarget.set(at ? at[0] : b.x, at ? at[1] : b.y + 1.35, at ? at[2] : b.z));
+    p.char.update(p.animationDt); p.animationDt = 0;
+  } }
   if (hero?.group.visible) { hero.update(dt); if (heroDisc) { heroDisc.visible = true; hero.group.getWorldDirection(_v2); holdDisc(hero, heroDisc, [_v2.x * .25, 1, _v2.z * .25], time * .3); } } else if (heroDisc) heroDisc.visible = false;
   const p = curP();
   if (p && (G.phase === 'aim' || G.phase === 'windup' || (G.phase === 'release' && G.pending && !G.pending.fired))) {
@@ -916,12 +940,14 @@ function frame(dt, rawDt, background) {
 }
 
 // ---------- HUD / menu wiring ----------
-function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.selectThrow(id); if (id === 'putt') { G.discId = 'putter'; UI.selectDisc('putter'); ensureDisc(curP(), 'putter'); curP().discMesh.visible = true; } G.previewDirty = true; sfx.click(); }
-function pickDisc(id) { if (G.phase !== 'aim') return; G.discId = id; UI.selectDisc(id); ensureDisc(curP(), id); curP().discMesh.visible = true; G.previewDirty = true; sfx.click(); }
+function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.selectThrow(id); if (id === 'putt') { G.discId = 'putter'; UI.selectDisc('putter'); ensureDisc(curP(), 'putter'); curP().discMesh.visible = true; } G.previewDirty = true; G.previewPower = null; sfx.click(); }
+function pickDisc(id) { if (G.phase !== 'aim') return; G.discId = id; ensureDisc(curP(), id); curP().discMesh.visible = true; UI.selectDisc(id); G.previewDirty = true; G.previewPower = null; sfx.click(); }
 UI.buildThrowButtons(pickThrow); UI.buildDiscChips(pickDisc);
-$('btnTarget').onclick = () => { if (G.phase === 'aim') { const l = curP().lie; G.aim.yaw = Math.atan2(basketPos()[1] - l[2], basketPos()[0] - l[0]); G.aim.pitch = 0; G.previewDirty = true; sfx.click(); } };
+$('btnTarget').onclick = () => { if (G.phase === 'aim') { const l = curP().lie; G.aim.yaw = Math.atan2(basketPos()[1] - l[2], basketPos()[0] - l[0]); G.aim.pitch = 0; G.previewDirty = true; G.previewPower = null; G.planDirty = false; sfx.click(); } };
 $('btnOverview').onclick = () => { if (G.phase !== 'aim') return; G.overview = !G.overview; $('btnOverview').classList.toggle('on', G.overview); $('btnOverview').setAttribute('aria-pressed', String(G.overview)); sfx.click(); };
-$('btnMute').onclick = () => { setMuted(!isMuted()); UI.setSoundMuted(isMuted()); };
+$('btnMute').onclick = () => { setMuted(!isMuted()); UI.setSoundMuted(isMuted()); saveLocal('chains.muted', isMuted() ? '1' : '0'); };
+// The mute choice persists; ?mute=1 starts silent for test browsers and simulators (it is not saved).
+{ let m = new URLSearchParams(location.search).has('mute'); try { m ||= localStorage.getItem('chains.muted') === '1'; } catch { /* private mode */ } if (m) { setMuted(true); UI.setSoundMuted(true); } }
 $('btnMenu').onclick = async () => { if (!(await UI.confirmLeave())) return; const match = G.mode === 'async' ? G.matchId : null; toMenu(); if (match) matches.openMatch(match); };   // leaving an invite turn returns to its scorecard; the hole is not recorded
 $('btnHelp').onclick = () => { UI.hide('menu'); UI.show('help'); }; $('btnHelpClose').onclick = () => { UI.hide('help'); UI.show('menu'); };
 $('btnScoreNext').onclick = () => { if (G.mode === 'online' && !G.net?.isHost) return; netSend({ t: 'next', sessionId: G.sessionId, holeIdx: G.holeIdx }); advanceHole(); };

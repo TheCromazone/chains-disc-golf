@@ -1,0 +1,97 @@
+{
+  "command": "node tools/verify-rounds.mjs --courses pine,meadow,lake,bluff --quality low",
+  "holesPerCourse": 3,
+  "players": [
+    "You",
+    "Ricky",
+    "Paige"
+  ],
+  "courses": [
+    {
+      "id": "pine",
+      "seconds": 322,
+      "scores": [
+        [
+          5,
+          4,
+          3
+        ],
+        [
+          5,
+          3,
+          3
+        ],
+        [
+          5,
+          3,
+          5
+        ]
+      ]
+    },
+    {
+      "id": "meadow",
+      "seconds": 342,
+      "scores": [
+        [
+          5,
+          3,
+          4
+        ],
+        [
+          5,
+          4,
+          2
+        ],
+        [
+          5,
+          6,
+          3
+        ]
+      ]
+    },
+    {
+      "id": "lake",
+      "seconds": 274,
+      "scores": [
+        [
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          9
+        ],
+        [
+          3,
+          4,
+          4
+        ]
+      ]
+    },
+    {
+      "id": "bluff",
+      "seconds": 328,
+      "scores": [
+        [
+          4,
+          5,
+          6
+        ],
+        [
+          3,
+          4,
+          3
+        ],
+        [
+          3,
+          5,
+          3
+        ]
+      ]
+    }
+  ],
+  "errors": [],
+  "passed": true
+}

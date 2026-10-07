@@ -7,6 +7,7 @@ import { cloneModel, model } from './models.js';
 import { rimLight } from './materials.js';
 import { repairPlayerSkinning } from './player-skinning.js';
 import { createPlayerHeadwear } from './player-headwear.js';
+import { createAthleteMotion } from './athlete-motion.js';
 import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL } from './body-material.js';
 import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
@@ -76,8 +77,8 @@ const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wri
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
 // The same hand at rest, for the free hand in the set-up: the scan's hanging hand is one fused mitten ("a mitten under a
 // swollen wrist knob"). Fingers in a loose cascade, more curl toward the little finger; the thumb lies along the index. Curled
-// about twice as far as it first was: straighter, the four fingers read at the tee as "a flat paddle".
-const REST = { curl: [[22, 42, 24], [26, 50, 28], [30, 56, 30], [34, 62, 32]], thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
+// progressively toward the little finger, keeping a relaxed wrist and visible finger separation.
+const REST = { curl: [[12, 24, 14], [16, 30, 18], [20, 36, 22], [24, 42, 26]], thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const taperAt = y => 1 - GRIP.taper * smooth(.11, 0, y);   // y: metres above the wrist joint
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); return p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
@@ -159,7 +160,7 @@ function gripHand(L, wrist, lod, rest = false, open = false) {
 }
 function handMorphs(mesh, handOffset, lod) {
   const g = mesh.geometry; if (g.userData.grip) return g.userData.grip;
-  const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = pos.count, seats = {}, hands = {}, rests = {}, opens = {}, wrists = {}, tucks = [], hooks = [];
+  const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = pos.count, seats = {}, hands = {}, holds = {}, rests = {}, wrists = {}, tucks = [], hooks = [];
   const Z = new THREE.Vector3(0, 0, -1), m = new THREE.Matrix4(), p = new THREE.Vector3(), o = new THREE.Vector3();
   for (const [name, side] of [['elR', 1], ['elL', -1]]) {
     const b = mesh.skeleton.bones.findIndex(x => x.name === name), E = new THREE.Vector3().setFromMatrixPosition(m.copy(mesh.skeleton.boneInverses[b]).invert());
@@ -215,8 +216,13 @@ function handMorphs(mesh, handOffset, lod) {
       const ao = new Float32Array(h.ao.length * 3); h.ao.forEach((v, i) => ao.set([v, v, v], i * 3)); geo.setAttribute('color', new THREE.BufferAttribute(ao, 3));
       return geo;
     };
-    hands[name] = handGeo(gh, qg); rests[name] = handGeo(gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod, true));   // the rest hand shares the grip's wrist flex, so the tucked scan wrist bends to meet either
-    opens[name] = handGeo(gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod, true, true));
+    const restingWrist = new THREE.Quaternion().setFromAxisAngle(Z, .10);
+    hands[name] = handGeo(gh, qg); rests[name] = handGeo(gripHand(L, { a: ax, b: bx, cx, cz }, lod, true), restingWrist);
+    holds[name] = handGeo(gh, restingWrist);
+    // One continuous hand from the seated backhand grip through the pull and
+    // open follow-through. Switching meshes at a grip threshold popped the wrist.
+    holds[name].morphAttributes.position = [rests[name].attributes.position, hands[name].attributes.position];
+    holds[name].morphAttributes.normal = [rests[name].attributes.normal, hands[name].attributes.normal];
     const delta = (Q, M, idx = hand) => {
       const dp = new Float32Array(n * 3), dn = new Float32Array(n * 3);
       idx.forEach((i, k) => {
@@ -229,7 +235,7 @@ function handMorphs(mesh, handOffset, lod) {
   }
   const all = [...tucks, ...hooks];   // 0/1 tuck R/L, 2/3 hook R/L
   g.morphAttributes.position = all.map(t => t[0]); g.morphAttributes.normal = all.map(t => t[1]); g.morphTargetsRelative = true;
-  return g.userData.grip = { seats, hands, rests, opens, wrists };
+  return g.userData.grip = { seats, hands, holds, rests, wrists };
 }
 
 // Hair cards over the scan's own short hair. Its cap is painted on the skull, and every tee critic read it (and the noise
@@ -382,11 +388,10 @@ export function createGLTFCharacter(avatar) {
   gripSkin(avatar);
   const headwear = createPlayerHeadwear(joints.head, skin, spec, avatar, lod);
   body.tuck(headwear.tuck, skin.skeleton.bones.indexOf(joints.head));   // hat hair: his locks lie down under a covering hat
-  const gripHands = {};
-  const restHands = {}, openHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); into[name] = h; };
-  for (const [name, geo] of Object.entries(skin.geometry.userData.grip.hands)) mount(geo, name, gripHands, 'grip_');
+  const holdHands = {};
+  const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); into[name] = h; };
+  for (const [name, geo] of Object.entries(skin.geometry.userData.grip.holds)) mount(geo, name, holdHands, 'hold_');
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.rests)) mount(geo, name, restHands, 'rest_');
-  for (const [name, geo] of Object.entries(skin.geometry.userData.grip.opens)) mount(geo, name, openHands, 'open_');
   const cuffMat = new THREE.MeshStandardMaterial({ color: avatar.accent, roughness: .9 }); cuffMat.color.multiplyScalar(.68); owned.add(cuffMat);
   const cuffGeometry = new THREE.CylinderGeometry(1, 1, .032, lod ? 12 : 20, 1, true);
   for (const [name, wrist] of Object.entries(skin.geometry.userData.grip.wrists)) {
@@ -427,6 +432,7 @@ export function createGLTFCharacter(avatar) {
   actor.scale.set(build * tall, tall, tall);
   // the clips were authored for the male rig's legs; a shorter rig scales their hip drops so the soles still meet the ground
   const legScale = spec.legScale || 1, rootRestY = joints.root.position.y;
+  const motion = createAthleteMotion({ joints, actor, skin, group });
   const handed = name => lefty && actions.has(name + '_left') ? name + '_left' : name;
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map(src.animations.map(c => [c.name, mixer.clipAction(c)]));
@@ -437,7 +443,7 @@ export function createGLTFCharacter(avatar) {
   // The menu hero, whose disc holdDisc carries outside any throw (carry()), gets the cover-shot pose instead; bystanders,
   // who hold no visible disc, keep the relaxed idle clip rather than raising an empty hand. ponytail: inferred rather than
   // a setStance() call because main.js is shared; add the call if a second consumer needs the state.
-  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, hookW = 0, aimType = 'backhand';
+  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand';
   function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; group.updateMatrixWorld(true); }
   function blendTo(pose, w, base = null) {   // slerp the bones toward a shared-contract pose: over the mixer output, or over the windup pose the clip was baked from
     // (the mixer skips bones whose value did not change, so a held windup phase is rebuilt from the shared keys instead of read back)
@@ -502,9 +508,11 @@ export function createGLTFCharacter(avatar) {
     setFace(value) { body.setPalette(value); gripSkin(value); hairShow(value); headwear.setFace(value); },
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
-    get heroWeight() { return heroW; },   // how far into the cover-shot pose: holdDisc spins the disc on the raised hand past half
+    get heroWeight() { return heroW; },   // blend into the relaxed clubhouse stance
     gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c)); nrm.copy(s.n).transformDirection(forearm.matrixWorld); } return w; },   // holdDisc: the disc seated in the gripping hand, and how much of it to use
     carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
+    setGround: fn => motion.setGround(fn),
+    lookAt: value => motion.lookAt(value),
     react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
     update(dt) {
@@ -521,16 +529,20 @@ export function createGLTFCharacter(avatar) {
       // the free hand keeps half the curl (straight scanned fingers, and a third of the curl, read as a flat paddle; the female scan's mitten shards past a third). In the set-up the
       // modelled grip hand takes over from the tucked scan hand (a crossfade would show two hands); it hands
       // the disc back to the hooked scan hand in the first few percent of the swipe, before the seat drifts toward the release
-      const grip = gripW() > .9, holding = phase !== null ? phase < .68 : carries >= 1 || grips >= 1, mi = skin.morphTargetInfluences;
-      hookW = THREE.MathUtils.clamp(hookW + (holding ? 1 : -1) * dt * 8, 0, 1);
+      const grip = gripW(), holding = phase !== null ? phase < .68 : carries >= 1 || grips >= 1, mi = skin.morphTargetInfluences;
       // the free hand too: in the set-up its fused scan hand tucks away under a modelled one at rest (separate fingers)
-      const relaxed = !holding || heroW > .5, cheering = mood?.name.startsWith('celebrate');
-      mi[lefty ? 1 : 0] = grip || relaxed ? 1 : 0; mi[lefty ? 0 : 1] = 1;
-      mi[lefty ? 3 : 2] = grip || relaxed ? 0 : Math.max(.35, hookW); mi[lefty ? 2 : 3] = 0;
-      gripHands.elR.visible = grip && !lefty; gripHands.elL.visible = grip && lefty;
-      restHands.elL.visible = !cheering && (!lefty || relaxed && !grip); restHands.elR.visible = !cheering && (lefty || relaxed && !grip);
-      openHands.elL.visible = openHands.elR.visible = !!cheering;
+      const throwing = phase !== null, cheering = mood?.name.startsWith('celebrate'), held = holding || throwing || cheering;
+      mi[0] = mi[1] = 1; mi[2] = mi[3] = 0;
+      for (const side of ['elR', 'elL']) {
+        const throwingHand = side === forearm.name;
+        holdHands[side].visible = throwingHand && held;
+        holdHands[side].morphTargetInfluences[0] = (throwing ? smooth(.62, .80, phase) : 0) * (1 - grip);
+        holdHands[side].morphTargetInfluences[1] = grip;
+        restHands[side].visible = !throwingHand || !held;
+      }
       overlay();
+      motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase);
+      placeSocket();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
     dispose() { mixer.stopAllAction(); mixer.uncacheRoot(actor); body.dispose(); headwear.dispose(); cuffGeometry.dispose(); for (const m of owned) m.dispose(); actor.traverse(o => { if (o.isSkinnedMesh) o.skeleton.dispose(); }); }

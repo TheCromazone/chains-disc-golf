@@ -226,7 +226,7 @@ try {
     writeFileSync(join(out, clip + '.json'), JSON.stringify(meta, null, 2).replace('"track": 0', `"track": [\n${r.track.map(t => '    ' + JSON.stringify(t)).join(',\n')}\n  ]`));   // [frame, phase, camera xyz, disc xyz | null]
     const ff = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(fps), '-start_number', '0', '-i', join(r.dir, '%04d.jpg'), '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', join(out, clip + '.mp4')], { encoding: 'utf8' });
     if (ff.status !== 0) errors.push({ stage, text: `ffmpeg ${clip}: ${ff.error || ff.stderr}` });
-    const py = spawnSync('python', ['-c', SHEET, join(out, clip + '-sheet.jpg'), ...Array.from({ length: 8 }, (_, i) => Math.round(i * (r.n - 1) / 7)).map(i => `${join(r.dir, pad(i) + '.jpg')}|${at(i)}  #${i}`)], { encoding: 'utf8' });
+    const py = spawnSync(process.env.PYTHON || 'python3', ['-c', SHEET, join(out, clip + '-sheet.jpg'), ...Array.from({ length: 8 }, (_, i) => Math.round(i * (r.n - 1) / 7)).map(i => `${join(r.dir, pad(i) + '.jpg')}|${at(i)}  #${i}`)], { encoding: 'utf8' });
     if (py.status !== 0) errors.push({ stage, text: `sheet ${clip}: ${py.error || py.stderr}` });
     stats.clips[clip] = { frames: r.n, seconds: meta.seconds, realMsPerFrame: meta.realMsPerFrame, events: r.events.map(e => `${e.name}@${e.frame}`).join(' ') };
     console.log(`${clip}: ${r.n} frames (${meta.seconds} s)  ${r.throw ? r.throw.throwType + '/' + r.throw.discId + '  ' : ''}${stats.clips[clip].events}  ${meta.realMsPerFrame.mean} ms/frame  ${join(out, clip + '.mp4')}`);

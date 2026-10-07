@@ -58,6 +58,19 @@ export function setHud({ hole, par, len, dist, holed, playerName, throwNo, toPar
   if (windDeg !== undefined) $('windArrow').style.transform = `rotate(${windDeg}deg)`;
 }
 // Target tag: the dot at the stem's foot lands on (x, y) in CSS px; written only when it moves, so a still aim frame costs nothing.
+// The aiming estimate (null hides it: putts, the circle and the swipe itself) and the power mark (null hides it).
+export function setShotPlan(plan, suggested = null) {
+  $('shotPlan').classList.toggle('off', !plan); $('power').classList.toggle('suggesting', suggested != null);
+  if (suggested != null) $('power').style.setProperty('--suggested', suggested);
+  if (!plan) return;
+  const { range, left, surface, danger, power } = plan;
+  $('planLabel').textContent = `SUGGESTED · ${Math.round(power * 100)}% POWER`;
+  $('planRange').textContent = `${range.toFixed(range < 20 ? 1 : 0)} m · ${left.toFixed(left < 20 ? 1 : 0)} m ${danger ? 'after drop' : 'left'}`;
+  $('planSurface').textContent = `${surface} · tree-free estimate`;
+  $('shotPlan').classList.toggle('danger', danger);
+  $('shotPlan').title = 'Estimated flight with current wind and terrain. Tree collisions can change the landing.';
+}
+
 let pinAt = '';
 export function placePin(x, y, alpha) {
   const key = alpha > .01 ? `${x.toFixed(1)} ${y.toFixed(1)} ${alpha.toFixed(2)}` : '';
@@ -120,7 +133,7 @@ export function buildDiscChips(onPick) {
 }
 export function selectThrow(id) { for (const b of $('throwRow').children) pressed(b, b.dataset.id === id); setHint(id); $('currentThrow').textContent = THROWS[id].name; $('currentThrowIcon').innerHTML = icon(id); $('btnThrowPicker').setAttribute('aria-label', `Choose throw, current: ${THROWS[id].name}`); }
 export function selectDisc(id) { for (const b of $('discRow').children) pressed(b, b.dataset.id === id); const d = DISCS.find(d => d.id === id); const name = id === 'mid' ? 'Midrange' : id[0].toUpperCase() + id.slice(1); $('currentDisc').textContent = name; $('currentDiscDot').style.background = d?.color || '#fff'; $('btnDiscPicker').setAttribute('aria-label', `Choose disc, current: ${name}`); }
-export function setControlsEnabled(on) { if (!on) closeEquipment(); $('controls').style.opacity = on ? 1 : 0.35; $('controls').style.pointerEvents = on ? 'auto' : 'none'; for (const b of $('controls').querySelectorAll('button')) b.disabled = !on; $('pad').classList.toggle('idle', !on); }
+export function setControlsEnabled(on) { if (!on) closeEquipment(); $('hud').classList.toggle('spectating', !on); $('controls').style.opacity = on ? 1 : 0.35; $('controls').style.pointerEvents = on ? 'auto' : 'none'; for (const b of $('controls').querySelectorAll('button')) b.disabled = !on; $('pad').classList.toggle('idle', !on); }
 export function setSoundMuted(muted) { const b = $('btnMute'); b.classList.toggle('muted-sound', muted); b.setAttribute('aria-pressed', String(muted)); b.title = muted ? 'Unmute sound' : 'Mute sound'; b.setAttribute('aria-label', b.title); }
 export function waiting(text) { if (text) { $('waiting').textContent = text; show('waiting'); } else hide('waiting'); }
 export function seg(id, onChange) { const el = $(id); for (const b of el.children) { pressed(b, b.classList.contains('on')); b.onclick = () => { for (const c of el.children) pressed(c, c === b); onChange(b.dataset.v); }; } return el.querySelector('.on').dataset.v; }

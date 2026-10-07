@@ -51,97 +51,97 @@
     },
     "blade": {
       "file": "assets/models/golfer-blade.glb",
-      "bytes": 20960,
+      "bytes": 21232,
       "duration": 1,
       "meshes": 0
     },
     "blade_left": {
       "file": "assets/models/golfer-blade_left.glb",
-      "bytes": 20828,
+      "bytes": 21228,
       "duration": 1,
       "meshes": 0
     },
     "celebrate": {
       "file": "assets/models/golfer-celebrate.glb",
-      "bytes": 20388,
+      "bytes": 24952,
       "duration": 2.4,
       "meshes": 0
     },
     "celebrate_left": {
       "file": "assets/models/golfer-celebrate_left.glb",
-      "bytes": 20396,
+      "bytes": 24944,
       "duration": 2.4,
       "meshes": 0
     },
     "forehand": {
       "file": "assets/models/golfer-forehand.glb",
-      "bytes": 20948,
+      "bytes": 21216,
       "duration": 1,
       "meshes": 0
     },
     "forehand_io": {
       "file": "assets/models/golfer-forehand_io.glb",
-      "bytes": 20952,
+      "bytes": 21220,
       "duration": 1,
       "meshes": 0
     },
     "forehand_io_left": {
       "file": "assets/models/golfer-forehand_io_left.glb",
-      "bytes": 20824,
+      "bytes": 21224,
       "duration": 1,
       "meshes": 0
     },
     "forehand_left": {
       "file": "assets/models/golfer-forehand_left.glb",
-      "bytes": 20820,
+      "bytes": 21220,
       "duration": 1,
       "meshes": 0
     },
     "forehand_oi": {
       "file": "assets/models/golfer-forehand_oi.glb",
-      "bytes": 20952,
+      "bytes": 21220,
       "duration": 1,
       "meshes": 0
     },
     "forehand_oi_left": {
       "file": "assets/models/golfer-forehand_oi_left.glb",
-      "bytes": 20824,
+      "bytes": 21224,
       "duration": 1,
       "meshes": 0
     },
     "hammer": {
       "file": "assets/models/golfer-hammer.glb",
-      "bytes": 21232,
+      "bytes": 21360,
       "duration": 1,
       "meshes": 0
     },
     "hammer_left": {
       "file": "assets/models/golfer-hammer_left.glb",
-      "bytes": 20964,
+      "bytes": 21364,
       "duration": 1,
       "meshes": 0
     },
     "idle": {
       "file": "assets/models/golfer-idle.glb",
-      "bytes": 23612,
+      "bytes": 31048,
       "duration": 4,
       "meshes": 0
     },
     "idle_left": {
       "file": "assets/models/golfer-idle_left.glb",
-      "bytes": 23616,
+      "bytes": 31056,
       "duration": 4,
       "meshes": 0
     },
     "practice": {
       "file": "assets/models/golfer-practice.glb",
-      "bytes": 17024,
+      "bytes": 19200,
       "duration": 2.4,
       "meshes": 0
     },
     "practice_left": {
       "file": "assets/models/golfer-practice_left.glb",
-      "bytes": 17032,
+      "bytes": 19204,
       "duration": 2.4,
       "meshes": 0
     },
@@ -159,57 +159,57 @@
     },
     "scoober": {
       "file": "assets/models/golfer-scoober.glb",
-      "bytes": 20964,
+      "bytes": 21232,
       "duration": 1,
       "meshes": 0
     },
     "scoober_left": {
       "file": "assets/models/golfer-scoober_left.glb",
-      "bytes": 20964,
+      "bytes": 21232,
       "duration": 1,
       "meshes": 0
     },
     "slump": {
       "file": "assets/models/golfer-slump.glb",
-      "bytes": 18932,
+      "bytes": 23020,
       "duration": 2.4,
       "meshes": 0
     },
     "slump_left": {
       "file": "assets/models/golfer-slump_left.glb",
-      "bytes": 18936,
+      "bytes": 23024,
       "duration": 2.4,
       "meshes": 0
     },
     "tomahawk": {
       "file": "assets/models/golfer-tomahawk.glb",
-      "bytes": 21232,
+      "bytes": 21500,
       "duration": 1,
       "meshes": 0
     },
     "tomahawk_left": {
       "file": "assets/models/golfer-tomahawk_left.glb",
-      "bytes": 21236,
+      "bytes": 21500,
       "duration": 1,
       "meshes": 0
     },
     "walk": {
       "file": "assets/models/golfer-walk.glb",
-      "bytes": 14896,
+      "bytes": 16944,
       "duration": 1,
       "meshes": 0
     },
     "walk_left": {
       "file": "assets/models/golfer-walk_left.glb",
-      "bytes": 14900,
+      "bytes": 16944,
       "duration": 1,
       "meshes": 0
     }
   },
   "golfer.glb": {
-    "bytes": 725176
+    "bytes": 280860
   },
   "golfer-lod.glb": {
-    "bytes": 306940
+    "bytes": 186172
   }
 }

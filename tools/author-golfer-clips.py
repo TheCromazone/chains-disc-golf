@@ -12,11 +12,11 @@ rig=bpy.data.objects['ChainsRig'];rig.animation_data_clear()
 for a in list(bpy.data.actions):bpy.data.actions.remove(a)
 data=json.loads((ROOT/'tools/poses.json').read_text());idle=data['idle'];joints=data['joints'];clips=data['throws']
 def key(t,**kw):return dict(t=t,**kw)
-clips['idle']=[key(0),key(.25,root=[0,0,.025],spine=[.04,0,-.02],rootY=.008),key(.75,root=[0,0,-.025],head=[0,.20,0]),key(1)]
-clips['practice']=[key(0),key(.4,root=[0,-.35,0],shR=[.7,0,.7],elR=[1.2,0,0]),key(.7,root=[0,.2,0],shR=[1.2,0,-.2],elR=[.6,0,0]),key(1)]
-clips['celebrate']=[key(0),key(.25,shR=[2.5,0,.4],elR=[1,0,0],shL=[2.5,0,-.4],elL=[1,0,0],rootY=.07),key(.5,shR=[2.9,0,.4],elR=[.4,0,0],shL=[2.9,0,-.4],elL=[.4,0,0],rootY=.12),key(.8,shR=[1.8,0,.4],elR=[1.5,0,0]),key(1)]
-clips['slump']=[key(0),key(.25,spine=[.28,0,0],head=[.35,0,0],shR=[.1,0,.15],elR=[.1,0,0]),key(.75,spine=[.28,0,0],head=[.35,-.2,0]),key(1)]
-clips['walk']=[key(0,hipR=[.45,0,0],hipL=[-.45,0,0],shR=[-.4,0,.2],shL=[.4,0,-.2]),key(.5,hipR=[-.45,0,0],hipL=[.45,0,0],shR=[.4,0,.2],shL=[-.4,0,-.2],rootY=.015),key(1,hipR=[.45,0,0],hipL=[-.45,0,0],shR=[-.4,0,.2],shL=[.4,0,-.2])]
+clips['idle']=[key(0),key(.16,root=[0,0,.008],spine=[.052,-.01,-.008],elR=[.52,0,0]),key(.32,head=[.01,.06,0],shL=[.17,0,-.2]),key(.5,root=[0,0,-.008],spine=[.03,.012,.008],head=[-.008,.04,0]),key(.68,head=[.006,-.05,0],elL=[.42,0,0]),key(.84,spine=[.052,0,-.005]),key(1)]
+clips['practice']=[key(0),key(.18,root=[-.04,.18,0],spine=[-.06,.2,0],shR=[.65,.25,.15],elR=[1.25,0,0]),key(.38,root=[-.06,.5,0],spine=[-.08,.4,.03],shR=[.4,1.2,.65],elR=[.5,0,0]),key(.55,root=[-.04,.24,0],spine=[-.08,.3,0],shR=[.9,.5,.8],elR=[1.45,0,0]),key(.7,root=[-.04,-.2,0],spine=[-.04,-.15,0],shR=[1.2,.7,.75],elR=[.35,0,0]),key(.85,root=[0,-.18,0],shR=[.8,.6,.4],elR=[.6,0,0]),key(1)]
+clips['celebrate']=[key(0),key(.13,spine=[-.06,0,0],shR=[.65,0,.15],elR=[1.8,0,0],shL=[.12,0,-.15],elL=[.35,0,0]),key(.3,root=[0,-.10,-.025],spine=[-.02,-.12,.035],head=[.05,.10,0],shR=[1.65,0,.25],elR=[1.65,0,0],shL=[.15,0,-.18],elL=[.3,0,0]),key(.45,shR=[1.95,0,.25],elR=[1.1,0,0],shL=[.12,0,-.12],elL=[.3,0,0]),key(.62,root=[0,-.1,0],shR=[1.4,0,.2],elR=[1.7,0,0]),key(.82,shR=[.6,0,.15],elR=[1.0,0,0]),key(1)]
+clips['slump']=[key(0),key(.2,spine=[-.14,0,0],head=[-.22,0,0],shR=[.06,0,.08],elR=[.22,0,0],shL=[.04,0,-.08],elL=[.2,0,0]),key(.55,spine=[-.18,0,0],head=[-.26,-.12,0]),key(.8,spine=[-.09,0,0],head=[-.1,-.04,0]),key(1)]
+clips['walk']=[key(0,root=[0,.04,.015],hipR=[.32,0,0],knR=[-.18,0,0],hipL=[-.3,0,0],knL=[-.45,0,0],shR=[-.25,0,.12],shL=[.25,0,-.12]),key(.25,root=[0,0,-.015],hipR=[-.03,0,0],knR=[-.08,0,0],hipL=[.12,0,0],knL=[-.8,0,0],shR=[0,0,.12],shL=[0,0,-.12]),key(.5,root=[0,-.04,-.015],hipR=[-.3,0,0],knR=[-.45,0,0],hipL=[.32,0,0],knL=[-.18,0,0],shR=[.25,0,.12],shL=[-.25,0,-.12]),key(.75,root=[0,0,.015],hipR=[.12,0,0],knR=[-.8,0,0],hipL=[-.03,0,0],knL=[-.08,0,0],shR=[0,0,.12],shL=[0,0,-.12]),key(1,root=[0,.04,.015],hipR=[.32,0,0],knR=[-.18,0,0],hipL=[-.3,0,0],knL=[-.45,0,0],shR=[-.25,0,.12],shL=[.25,0,-.12])]
 mirror={'shR':'shL','shL':'shR','elR':'elL','elL':'elR','hipR':'hipL','hipL':'hipR','knR':'knL','knL':'knR'}
 def sample(keys,t,ground=True):
     n=0

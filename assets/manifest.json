@@ -48,7 +48,8 @@
     "leaves_n": "textures/foliage/leaves_n.webp",
     "bark_birch": "textures/foliage/bark_birch.webp",
     "impostors": "textures/foliage/impostors.webp",
-    "impostors_n": "textures/foliage/impostors_n.webp"
+    "impostors_n": "textures/foliage/impostors_n.webp",
+    "athletic_knit": "textures/athletic-knit-premium.jpg"
   },
   "courses": {
     "pine": "courses/pine_card.jpg",
@@ -91,7 +92,7 @@
     ]
   },
   "models": {
-    "golfer": "models/golfer.glb",
+    "golfer": "models/golfer-premium.glb",
     "disc": "models/disc.glb",
     "basket": "models/basket.glb",
     "tee_sign": "models/tee_sign.glb",
@@ -99,7 +100,7 @@
     "deciduous": "models/deciduous.glb",
     "bush": "models/bush.glb",
     "grass": "models/grass.glb",
-    "golfer_lod": "models/golfer-lod.glb",
+    "golfer_lod": "models/golfer-lod-premium.glb",
     "golfer_idle": "models/golfer-idle.glb",
     "golfer_practice": "models/golfer-practice.glb",
     "golfer_backhand": "models/golfer-backhand.glb",
@@ -132,8 +133,8 @@
     "golfer_walk_left": "models/golfer-walk_left.glb",
     "golfer_hammer": "models/golfer-hammer.glb",
     "golfer_hammer_left": "models/golfer-hammer_left.glb",
-    "golfer_f": "models/golfer-f.glb",
-    "golfer_f_lod": "models/golfer-f-lod.glb",
+    "golfer_f": "models/golfer-f-premium.glb",
+    "golfer_f_lod": "models/golfer-f-lod-premium.glb",
     "headwear": "models/headwear.glb"
   },
   "skies": {

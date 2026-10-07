@@ -1,0 +1,7 @@
+{
+  "mode": "Built-in image_gen",
+  "use_case": "photorealistic-natural",
+  "asset": "assets/textures/athletic-knit-premium.jpg",
+  "master": "$CODEX_HOME/generated_images/01a117fb-28fe-7b63-a147-49f2ebafad0c/exec-52d9b3be-34d9-484b-8d94-97b5e7d6dbe9.png",
+  "prompt": "Use case: photorealistic-natural\nAsset type: seamless grayscale cloth albedo texture for a real-time 3D disc golf athlete's performance shirt\nPrimary request: perfectly seamless tile of fine modern athletic polyester interlock knit, viewed directly from above at macro scale, flat and unstretched.\nStyle/medium: physically plausible textile material scan, subtle fine fibers and tiny irregular stitch pores, premium realistic sportswear.\nLighting/mood: completely even diffuse illumination, no directional shadows, no highlights or vignette.\nColor palette: neutral medium gray, average brightness about 50 percent; very low contrast variations. No colored fibers.\nComposition/framing: square, texture fills every pixel, pattern continuous at opposite edges. Approximately 40 tiny rows of tightly woven stitches across the image.\nConstraints: no clothing silhouette, no seams, no folds, no buttons, no labels, no lettering or logos, no large checks, no decorative print, no watermark. Avoid perfectly mechanical dots or cross shapes. Intended to repeat on a small fabric area without visible grid artifacts."
+}

@@ -90,7 +90,7 @@ try {
     const result = await js(`(async()=>{${auditSource}})()`);
     for (const r of result.res) {
       // The transparent throw pad intentionally sits beneath the gauge and equipment.
-      r.actionableOverlaps = r.overlaps.filter(s => !s.includes('#pad x ') && !s.includes(' x #pad') && !s.includes('#power x #powerLabel'));
+      r.actionableOverlaps = r.overlaps.filter(s => !s.startsWith('pad x ') && !s.includes(' x pad (') && !s.startsWith('power x powerLabel ('));
     }
     layouts.push(result);
     console.log(`${width}x${height}: ${result.res.length} UI states, ${result.res.reduce((n,r)=>n+r.actionableOverlaps.length+r.offscreen.length+r.clippedLabels.length,0)} findings`);
