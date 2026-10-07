@@ -10,7 +10,7 @@ import { CHROME } from './chrome-path.mjs';
 const port = 8150, debugPort = 9150, peerPort = 8151;
 const external = process.argv.includes('--url') ? process.argv[process.argv.indexOf('--url') + 1] : null;
 const base = external || `http://localhost:${port}`;
-const root = resolve(import.meta.dirname, '..'), out = join(root, 'docs/qa/playability'); mkdirSync(out, { recursive: true });
+const root = resolve(import.meta.dirname, '..'), out = process.argv.includes('--out') ? resolve(process.argv[process.argv.indexOf('--out') + 1]) : join(root, 'docs/qa/playability'); mkdirSync(out, { recursive: true });
 const report = { timestamp: new Date().toISOString(), url: base, checks: [], errors: [], transport: process.argv.includes('--public-signal') ? 'PeerJS public signaling + real WebRTC' : 'local signaling + real WebRTC', physicalPhoneFPS: 'unverified' };
 const profile = mkdtempSync(join(tmpdir(), 'chains-verify-'));
 const server = spawn(process.execPath, ['serve.mjs', ...(process.argv.includes('--dist') ? ['--dist'] : [])], { cwd: root, env: { ...process.env, PORT: '' + port }, stdio: 'ignore' });

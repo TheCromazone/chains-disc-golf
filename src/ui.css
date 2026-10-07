@@ -496,3 +496,17 @@ body[data-phase='intro'] #pin i { height: 46px; }   /* the establishing shot see
 }
 /* opened from a room invite link: joining is the only thing on offer (Create moves behind "Host my own room instead") */
 #online.invited #btnCreate { display: none; }
+
+/* The landing estimate shows while aiming, outside the circle, for throws other than putts. */
+#shotPlan { position: absolute; left: 24px; top: calc(112px + var(--sat)); display: none; padding: 8px 10px; border-left: 2px solid var(--mint); background: #0c1114b5; border-radius: 0 6px 6px 0; color: #fff; pointer-events: none; font-variant-numeric: tabular-nums; }
+#shotPlan small { display: block; color: #d0e0da; font: 700 10px/1.4 var(--display); letter-spacing: 1px; }
+#shotPlan b { display: block; font: 700 17px/1.4 var(--display); }
+#shotPlan > span { display: block; color: var(--mint); font-size: 10px; }
+#shotPlan.danger { border-color: #ff9275; }
+#shotPlan.danger > span { color: #ffb19d; }
+#power .power-target { display: none; position: absolute; inset: -4px; border-radius: 50%; background: conic-gradient(transparent calc(var(--suggested, .72) * 1turn - 2deg), #ffd23f 0 calc(var(--suggested, .72) * 1turn + 2deg), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); }
+#power.suggesting .power-target { display: block; }
+body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: block; }   /* aiming only: the swipe itself runs on feel */
+#hud.equipment-open #shotPlan, #hud:has(#btnUtilities[aria-expanded='true']) #shotPlan { visibility: hidden; }
+@media (max-width: 700px) { #shotPlan { left: 12px; top: calc(102px + var(--sat)); padding: 6px 8px; } }
+@media (max-height: 520px) { #shotPlan { top: calc(12px + var(--sat)); left: auto; right: 74px; } }

@@ -1,0 +1,34 @@
+{
+  "golfer-premium": {
+    "source": "golfer-v3-source.blend",
+    "vertices": 6162,
+    "triangles": 12400,
+    "maxDisplacementM": 0.004000053162733761,
+    "meanDisplacementM": 0.0004951160041858416,
+    "bytes": 280876
+  },
+  "golfer-lod-premium": {
+    "source": "golfer-v3-lod-source.blend",
+    "vertices": 3062,
+    "triangles": 6200,
+    "maxDisplacementM": 0.004000053516224058,
+    "meanDisplacementM": 0.0006350013698802272,
+    "bytes": 174612
+  },
+  "golfer-f-premium": {
+    "source": "golfer-v3-f-source.blend",
+    "vertices": 5824,
+    "triangles": 12369,
+    "maxDisplacementM": 0.004000056137646733,
+    "meanDisplacementM": 0.0005912935881130773,
+    "bytes": 344796
+  },
+  "golfer-f-lod-premium": {
+    "source": "golfer-v3-f-source.blend",
+    "vertices": 5824,
+    "triangles": 12369,
+    "maxDisplacementM": 0.004000056137646733,
+    "meanDisplacementM": 0.0005912935881130773,
+    "bytes": 318768
+  }
+}

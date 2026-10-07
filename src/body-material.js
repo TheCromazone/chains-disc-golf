@@ -104,13 +104,13 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   // normal map: the male bake carries clean folds; the female bake caught stray scan surfaces (her mesh keeps holes and
   // folded faces) and glints as crumpled foil at any strength, so she shades from her geometry alone, like the LOD
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .74, metalness: 0, map: tex('albedo' + suffix), normalMap: lod || prefix === 'body_f_' ? null : tex('normal', { ...opts, srgb: false }) });
-  if (material.normalMap) material.normalScale.set(1, 1);   // full-strength baked folds and pores
+  if (material.normalMap) material.normalScale.set(.65, .65);   // preserve folds while softening scan pinholes
   const u = {
     uMask1: { value: tex('mask1' + suffix, { ...opts, srgb: false }) }, uMask2: { value: tex('mask2' + suffix, { ...opts, srgb: false }) },
     uPal: { value: REGIONS.map(() => new THREE.Color()) }, uMean: { value: new Float32Array(REGIONS.map((r, i) => Math.max(.004, MEAN_FIX[prefix]?.[i] ?? (Array.isArray(spec.regionLum) ? spec.regionLum[i] : spec.regionLum?.[r]) ?? .5))) },
     uDetail: { value: new Float32Array(DETAIL) }, uBeard: { value: new THREE.Vector3() }, uHair: { value: new THREE.Color() }, uEye: { value: new THREE.Vector2(spec.eyeY ?? 1.68, spec.faceZ ?? -.12) },
     uSkinMean: { value: new THREE.Color().setRGB(...(SKIN_FIX[prefix] || spec.skinMean || [.35, .22, .16]), THREE.LinearSRGBColorSpace) },   // the scan's own skin colour (linear)
-    uKnit: { value: texture('jersey_pattern', { srgb: false }) },   // athletic mesh knit (mean .49): the cloth reads as fabric up close and mips to nothing far away
+    uKnit: { value: texture('athletic_knit', { srgb: false }) || texture('jersey_pattern', { srgb: false }) },
     uPrint: { value: printTexture(avatar.number) },
     uArm: { value: new THREE.Vector4(-1, -1, -1, -1) },   // skeleton indices of the four arm bones (gltf-player.js): the 'pro' shirt's panels need arm vs torso
     uPanelN: { value: prefix === 'body_f_' ? 0 : 1 }, uStrands: { value: 1 }, uSleeve: { value: 1e3 },
@@ -118,7 +118,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   };
   const chestY = spec.chestY || 1.3, box = (PRINT[prefix] || PRINT.body_);
   u.uPrintF = { value: new THREE.Vector4(chestY + box.front[0], ...box.front.slice(1)) }; u.uPrintB = { value: new THREE.Vector4(chestY + box.back[0], ...box.back.slice(1)) };
-  const knitAmp = u.uKnit.value ? 1.2 : 0, hemY = spec.shirtHem || chestY - .4;
+  const knitAmp = u.uKnit.value ? .32 : 0, hemY = spec.shirtHem || chestY - .4;
   u.uFold = { value: new THREE.Vector4(hemY, chestY + .01, chestY + .17, .145) };   // FOLD_GLSL landmarks from the rig extras
   material.onBeforeCompile = s => {
     Object.assign(s.uniforms, u);
@@ -149,7 +149,9 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec2 uEye; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve; uniform vec4 uTuckC; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5, chainsCloth = 0.; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + FOLD_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { vec3 j = vJerseyPos; bool back = j.z > 0.; vec4 b = back ? uPrintB : uPrintF;   // after the jersey style, so the print sits on its panels; seen from its own side, the print reads left to right
         vec2 q = vec2((back ? j.x : -j.x) / b.y + .5, (j.y - b.x) / b.z + .5);
-        if (q.x > 0. && q.x < 1. && q.y > 0. && q.y < 1.) diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * chainsJersey); }
+        // fetched outside the box test: a mipmapped read inside the branch picks a coarse mip along the box edge, which drew a faint outline round the print
+        float ink = texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * step(0., q.x) * step(q.x, 1.) * step(0., q.y) * step(q.y, 1.);
+        diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, ink * chainsJersey); }
       diffuseColor.rgb *= 1. + chainsKnit;   // the knit runs under the print too`).replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Chains', 'chainsSkin')}
       // cloth sheen (Charlie distribution, fibre-tinted): the knit's loose fibres scatter light back toward grazing views, so

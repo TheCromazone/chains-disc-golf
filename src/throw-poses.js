@@ -181,9 +181,9 @@ export const STANCE = {
   putt: { root: [-.12, .2, 0], spine: [-.16, -.17, 0], head: [.14, -.05, 0], shR: [.1, .65, -.05], elR: [1.5, 0, 0], shL: [-.1, -.1, -.3], elL: [1.6, 0, 0], hipR: [.76, 0, .1], knR: [-.54, 0, 0], hipL: [.72, 0, -.12], knL: [-.66, 0, 0] },
 };
 // Cover-shot idle for the menu tee and bystanders: weight over the right leg, the left knee soft with its toe still on the
-// ground, disc hand raised beside the head with the forearm upright (main.js spins the disc flat on it), off hand on the
-// hip, head level. Right-handed; callers mirror. Absolute joint values, breathing sway added per frame.
-const HERO = { root: [0, .08, -.03], spine: [.02, -.06, .05], head: [.02, .12, -.02], shR: [.45, -.4, .2], elR: [2.6, 0, 0], shL: [-.15, 0, -.5], elL: [.36, 0, .96], hipR: [.02, 0, .04], knR: [-.03, 0, 0], hipL: [.02, 0, -.1], knL: [-.26, 0, 0] };
+// ground, disc carried beside the thigh, shoulders loose and head level.
+// Right-handed; callers mirror. Absolute joint values, breathing sway added per frame.
+const HERO = { root: [0, .08, -.02], spine: [.02, -.06, .03], head: [.02, .12, -.02], shR: [.12, -.10, .12], elR: [.30, 0, 0], shL: [.08, .08, -.14], elL: [.24, 0, 0], hipR: [.02, 0, .04], knR: [-.03, 0, 0], hipL: [.02, 0, -.08], knL: [-.22, 0, 0] };
 export function heroPose(time, rig = RIGS.lite) {
   const pose = { rootY: 0 }; for (const j of JOINTS) pose[j] = [...(HERO[j] || IDLE[j])];
   const breath = Math.sin(time * 1.2);

@@ -1,0 +1,89 @@
+
+> chains-disc-golf@1.0.0 test
+> node --test test/*.test.mjs
+
+Animation contract OK: 22 distinct RH/LH throw clips, 1210 authored joint samples; positive scales; exact .62 release.
+All eleven release poses preserve nonzero, continuous angular momentum.
+All eleven throws and both hands: 2,222 support samples stay on the floor, visible knee loading, braced lead and lifted trailing foot.
+Aim stances and cover-shot idle keep both feet planted for either hand.
+✔ test/animation.test.mjs (180.059958ms)
+golfer 28615 triangles 280876 bytes
+disc 6000 triangles 151632 bytes
+basket 12960 triangles 145076 bytes
+tee_sign 204 triangles 34960 bytes
+pine 6688 triangles 111696 bytes
+deciduous 7266 triangles 106956 bytes
+bush 346 triangles 12480 bytes
+grass 80 triangles 40156 bytes
+golfer_lod 14713 triangles 174612 bytes
+golfer_idle 0 triangles 31048 bytes
+golfer_practice 0 triangles 19200 bytes
+golfer_backhand 0 triangles 21372 bytes
+golfer_forehand 0 triangles 21216 bytes
+golfer_tomahawk 0 triangles 21500 bytes
+golfer_scoober 0 triangles 21232 bytes
+golfer_putt 0 triangles 20164 bytes
+golfer_celebrate 0 triangles 24952 bytes
+golfer_slump 0 triangles 23020 bytes
+golfer_walk 0 triangles 16944 bytes
+golfer_backhand_io 0 triangles 21372 bytes
+golfer_backhand_io_left 0 triangles 21368 bytes
+golfer_backhand_left 0 triangles 21368 bytes
+golfer_backhand_oi 0 triangles 21372 bytes
+golfer_backhand_oi_left 0 triangles 21368 bytes
+golfer_blade 0 triangles 21232 bytes
+golfer_blade_left 0 triangles 21228 bytes
+golfer_celebrate_left 0 triangles 24944 bytes
+golfer_forehand_io 0 triangles 21220 bytes
+golfer_forehand_io_left 0 triangles 21224 bytes
+golfer_forehand_left 0 triangles 21220 bytes
+golfer_forehand_oi 0 triangles 21220 bytes
+golfer_forehand_oi_left 0 triangles 21224 bytes
+golfer_idle_left 0 triangles 31056 bytes
+golfer_practice_left 0 triangles 19204 bytes
+golfer_putt_left 0 triangles 20168 bytes
+golfer_scoober_left 0 triangles 21232 bytes
+golfer_slump_left 0 triangles 23024 bytes
+golfer_tomahawk_left 0 triangles 21500 bytes
+golfer_walk_left 0 triangles 16944 bytes
+golfer_hammer 0 triangles 21360 bytes
+golfer_hammer_left 0 triangles 21364 bytes
+golfer_f 27803 triangles 344796 bytes
+golfer_f_lod 27803 triangles 318768 bytes
+headwear 65856 triangles 278744 bytes
+Asset manifest OK: 124 entries, 13181576 bytes (initial load uses a subset)
+✔ test/assets.test.mjs (147.713083ms)
+Canopy geometry OK: six variants, 18 closed shells, 3312 total triangles; bounded radius, vertex AO and Lite budgets.
+✔ test/canopies.test.mjs (133.091125ms)
+Feedback event outcomes OK
+✔ test/feedback.test.mjs (116.967166ms)
+Invite matches OK: catch-up turns, honours, away/back, validation, secrets and racing writes.
+✔ test/match.test.mjs (272.3765ms)
+driver 106.2 m, rest x -8.5 maxH 5.1 air 5.6
+forehand 86.9 m, rest x 11.7
+lefty backhand 106.2 m, rest x 8.5
+backhand io / oi rest x -17.2 / 14.7
+blade 62.9 m, rest x -12.6 maxH 7.9
+half putt 5.0 m
+putt holed at power 0.70
+mid max right 9.8 final x 9.8 thrown 71.6
+tomahawk 79.3 m, x -2.2 maxH 7.0
+scoober 34.4 m, x -8.5 maxH 6.7
+hammer 47.0 m, x -2.3 maxH 13.1
+hammer 47.0 m, x -2.3 maxH 13.1 apex n.y -0.92
+wind calm/head/tail maxH 5.1 6.8 3.0 thrown 106.2 103.4 82.4
+arch: under 106.2 m; lob 25.5 m arch,land,skip ; leg rest z -25.3 arch,land,skip,skip
+physics OK — eleven throws, both hands, two powers, the arch
+✔ test/physics.test.mjs (166.383792ms)
+Premium motion OK: exact release, smooth recovery, terrain contact, bounded gaze, physics-backed power suggestions, and terrain/water landing guidance.
+✔ test/premium.test.mjs (163.931167ms)
+Protocol OK: names are cleaned and repeats numbered.
+✔ test/protocol.test.mjs (127.714167ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 279.330042

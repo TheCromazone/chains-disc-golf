@@ -1,0 +1,31 @@
+{
+  "size": "430x932",
+  "dpr": 1,
+  "mobile": true,
+  "moments": {
+    "menu": {
+      "calls": 93,
+      "tris": 2082579,
+      "frameMs": 9.22,
+      "textures": 51,
+      "geometries": 45
+    },
+    "tee": {
+      "calls": 152,
+      "tris": 2132484,
+      "frameMs": 8.19,
+      "textures": 67,
+      "geometries": 71
+    },
+    "putt": {
+      "calls": 151,
+      "tris": 2207162,
+      "frameMs": 11.09,
+      "textures": 68,
+      "geometries": 72
+    }
+  },
+  "quality": "high",
+  "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M6, Unspecified Version)",
+  "errors": []
+}

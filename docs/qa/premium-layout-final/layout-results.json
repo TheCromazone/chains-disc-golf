@@ -1,0 +1,745 @@
+{
+  "layouts": [
+    {
+      "vw": 360,
+      "vh": 740,
+      "res": [
+        {
+          "name": "hub",
+          "n": 15,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "courses",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "locker",
+          "n": 17,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "setup",
+          "n": 9,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "friends",
+          "n": 4,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "online",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help",
+          "n": 1,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help-bottom",
+          "n": 2,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "hud",
+          "n": 0,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "eleven-throw-sheet",
+          "n": 0,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "leave-dialog",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "score",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        }
+      ]
+    },
+    {
+      "vw": 430,
+      "vh": 932,
+      "res": [
+        {
+          "name": "hub",
+          "n": 15,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "courses",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "locker",
+          "n": 17,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "setup",
+          "n": 9,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "friends",
+          "n": 4,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "online",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help",
+          "n": 2,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help-bottom",
+          "n": 2,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "hud",
+          "n": 6,
+          "overlaps": [
+            "power x pad (76x76)",
+            "waiting x pad (132x32)",
+            "btnThrowPicker x pad (110x40)",
+            "btnDiscPicker x pad (110x40)"
+          ],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "eleven-throw-sheet",
+          "n": 15,
+          "overlaps": [
+            "btnThrowPicker x pad (110x40)",
+            "btnDiscPicker x pad (110x40)",
+            ".on:Backhand x pad (74x54)",
+            "BUTTON:Backhand IO x pad (74x54)",
+            "BUTTON:Backhand OI x pad (74x54)",
+            "BUTTON:Forehand x pad (74x54)",
+            "BUTTON:Forehand IO x pad (74x54)",
+            "BUTTON:Forehand OI x pad (74x54)",
+            "BUTTON:Blade x pad (74x54)",
+            "BUTTON:Tomahawk x pad (74x54)",
+            "BUTTON:Scoober x pad (74x54)",
+            "BUTTON:Hammer x pad (74x54)",
+            "BUTTON:Putt x pad (74x54)"
+          ],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "leave-dialog",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "score",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        }
+      ]
+    },
+    {
+      "vw": 812,
+      "vh": 375,
+      "res": [
+        {
+          "name": "hub",
+          "n": 15,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "courses",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "courses-bottom",
+          "n": 5,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "locker",
+          "n": 16,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "locker-bottom",
+          "n": 17,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "setup",
+          "n": 9,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "setup-bottom",
+          "n": 9,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "friends",
+          "n": 2,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "friends-bottom",
+          "n": 4,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "online",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "online-bottom",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help",
+          "n": 1,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help-bottom",
+          "n": 2,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "hud",
+          "n": 0,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "eleven-throw-sheet",
+          "n": 0,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "leave-dialog",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "score",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        }
+      ]
+    },
+    {
+      "vw": 568,
+      "vh": 320,
+      "res": [
+        {
+          "name": "hub",
+          "n": 14,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "hub-bottom",
+          "n": 15,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "courses",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "courses-bottom",
+          "n": 4,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "locker",
+          "n": 10,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "locker-bottom",
+          "n": 16,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "setup",
+          "n": 7,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "setup-bottom",
+          "n": 9,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "friends",
+          "n": 2,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "friends-bottom",
+          "n": 4,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "online",
+          "n": 5,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "online-bottom",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help",
+          "n": 1,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help-bottom",
+          "n": 2,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "hud",
+          "n": 0,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "eleven-throw-sheet",
+          "n": 0,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "leave-dialog",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "score",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "score-bottom",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        }
+      ]
+    },
+    {
+      "vw": 768,
+      "vh": 1024,
+      "res": [
+        {
+          "name": "hub",
+          "n": 15,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "courses",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "locker",
+          "n": 17,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "setup",
+          "n": 9,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "friends",
+          "n": 4,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "online",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help",
+          "n": 2,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "hud",
+          "n": 6,
+          "overlaps": [
+            "power x pad (76x76)",
+            "waiting x pad (132x32)",
+            "btnThrowPicker x pad (110x40)",
+            "btnDiscPicker x pad (110x40)"
+          ],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "eleven-throw-sheet",
+          "n": 15,
+          "overlaps": [
+            "btnThrowPicker x pad (110x40)",
+            "btnDiscPicker x pad (110x40)",
+            ".on:Backhand x pad (81x54)",
+            "BUTTON:Backhand IO x pad (81x54)",
+            "BUTTON:Backhand OI x pad (81x54)",
+            "BUTTON:Forehand x pad (81x54)",
+            "BUTTON:Forehand IO x pad (81x54)",
+            "BUTTON:Forehand OI x pad (81x54)",
+            "BUTTON:Blade x pad (81x54)",
+            "BUTTON:Tomahawk x pad (81x54)",
+            "BUTTON:Scoober x pad (81x54)",
+            "BUTTON:Hammer x pad (81x54)",
+            "BUTTON:Putt x pad (81x54)"
+          ],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "leave-dialog",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "score",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        }
+      ]
+    },
+    {
+      "vw": 1366,
+      "vh": 768,
+      "res": [
+        {
+          "name": "hub",
+          "n": 15,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "courses",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "locker",
+          "n": 17,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "setup",
+          "n": 9,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "friends",
+          "n": 4,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "online",
+          "n": 6,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help",
+          "n": 1,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "help-bottom",
+          "n": 2,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "hud",
+          "n": 0,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "eleven-throw-sheet",
+          "n": 0,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "leave-dialog",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        },
+        {
+          "name": "score",
+          "n": 3,
+          "overlaps": [],
+          "offscreen": [],
+          "clippedLabels": [],
+          "actionableOverlaps": []
+        }
+      ]
+    }
+  ],
+  "findings": [],
+  "errors": [],
+  "passed": true
+}

@@ -39,3 +39,6 @@ art/qa/
 .vercel
 .env*
 dist/
+
+# headwear previews from tools/build-headwear.py --preview
+art/qa-headwear/

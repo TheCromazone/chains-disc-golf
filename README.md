@@ -128,9 +128,9 @@ Development serves ES modules; production uses the build above. Optional art can
 
 ## Graphics and animation
 
-- **Lite:** the 6.2k-triangle athlete LODs (male and female) with their own 1024/512 bakes and no normal map, embedded low-poly crowns, gradient sky, cartoon clouds and real shadows. Full-only texture/decoder requests are skipped at startup; the procedural round-headed golfer remains as the fallback when no model loads.
+- **Lite:** a 6.2k-triangle male athlete and 12.4k-triangle female athlete with compressed 1024/512 bakes and no normal map, embedded low-poly crowns, gradient sky, cartoon clouds and real shadows. The female preserves the Full body's UV atlas to keep wardrobe textures aligned. Full-only texture/decoder requests are skipped at startup; the procedural golfer remains as the fallback when no model loads.
 - **Full:** the 12.4k Draco athletes with 2048 albedo and normal maps, 32 mesh-free animation files, photo-leaf trees, course HDRI ambient, bloom and grade.
-- Five Blender throws use phase **0–0.5 for swipe windup**, **0.62 for release**, and **0.5–1 for follow-through**. Idle weight shifts, practice swings, fairway looks and score reactions use separate clips.
+- Eleven Blender throws, authored for both hands, use phase **0–0.5 for swipe windup**, **0.62 for release**, and **0.5–1 for follow-through**. Idle weight shifts, practice swings, walking and score reactions use separate clips.
 - A basket-to-tee camera introduces each hole. Chain-hit slow motion changes playback speed only; physics and network trajectory data stay unchanged.
 - Graphics switching rebuilds and disposes course resources. Foliage uses spatial groups; resolution can scale down during sustained slow frames. Lite never exceeds its original pixel-ratio cap.
 
@@ -188,12 +188,13 @@ python tools/split-golfer-clips.py
 # Rebuild the current authored motion set after rebuilding the body:
 node tools/extract-poses.mjs
 blender --background --python tools/author-golfer-clips.py
+blender --background --python tools/refine-athletes.py   # volume-preserving surface pass -> versioned premium bodies
 blender --background --python tools/author-canopies.py
 python tools/texture-pack.py
 node tools/build-face-atlas.mjs
 ```
 
-The male body is **271 KB / 12,399 body triangles** (28k with every hidden hair, headwear and glasses variant, Draco) and its phone LOD **183 KB / 6,198**; the female is **347 KB / 12,400** and **303 KB / 9,924**. Body textures are about 1.1 MB per figure on Full and 300 KB on Lite; the three tree files total 53 KB plus 380 KB of leaf textures. Thirty-two independent animation GLBs contain no mesh, material or texture payload: ten throws and five shared actions for each hand. Left-handed clips use positive scales, so jersey numbers stay readable. The eleven bone names remain unchanged. `tools/build-face-atlas.mjs` builds deterministic flat face parts and compresses them with Khronos `toktx`; the runtime retains its generated atlas fallback. Legacy model and Unity authoring tools remain in the repository.
+The current male body is **281 KB / 12,400 body triangles** (28k with every hidden hair, headwear and glasses variant, Draco) and its phone LOD **175 KB / 6,200**; the female is **345 KB / 12,369** and **319 KB / 12,369**. Body textures are about 1.1 MB per figure on Full and 300 KB on Lite; the three tree files total 53 KB plus 380 KB of leaf textures. Thirty-two independent animation GLBs contain no mesh, material or texture payload: eleven throws and five shared actions for each hand. Left-handed clips use positive scales, so jersey numbers stay readable. The eleven bone names remain unchanged. `tools/build-face-atlas.mjs` builds deterministic flat face parts and compresses them with Khronos `toktx`; the runtime retains its generated atlas fallback. Legacy model and Unity authoring tools remain in the repository.
 
 Twelve original 256px painted JPEG detail tiles add 147.6 KB across all materials. The toon ramp and palette remain; skin and fabric follow the actor, while terrain blends fairway, rough, green and sand. See [texture provenance](art/textures/r3/prompts.json) and [motion authoring](docs/qa/r3/animation-authoring.md).
 
@@ -223,3 +224,15 @@ node tools/verify-browser.mjs --public-signal --url https://chains-disc-golf.ver
 ```
 
 See [the current report](docs/qa/playability/REPORT.md). Desktop Chrome emulation verifies layout and interaction, not actual iPhone/Android GPU performance; physical-phone fps remains unverified. The current visual polish does not establish a universal AAA-quality rating.
+
+## Athlete realism and shot planning
+
+All four production athletes now use a Blender surface refinement that preserves facial detail, UVs, clothing, rig weights and shoe soles. Subtle generated athletic-knit fabric and gentler skin normals replace the conspicuous printed grid. Modeled hands blend from the seated grip through release, with separate relaxed fingers on the free hand.
+
+Idle, practice, walking, celebration and disappointment clips have new motion for both hands. Runtime recovery keeps the outgoing pose and blends smoothly into the next stance; bounded head tracking follows the basket or flying disc. Ground support samples the actual skinned shoes on the course slope. A short swipe completes its remaining windup before the authored release, instead of jumping directly to phase .5.
+
+While aiming a throw from outside the circle, the full flight preview includes a terrain-following landing reticle, predicted travel and distance left, surface and water/OB warnings. A physics search suggests starting power and marks it on the gauge. Trees can change the real landing, so the guide labels its open-flight estimate. The guide plans a shot but never solves one: putts and anything inside 10 m get no reticle, readout or power mark, and once the swipe starts the ribbon returns to 70% of the flight and the estimate hides, so the release is the player's feel.
+
+Sound: the mute button is remembered between visits, and `?mute=1` starts silent (for test browsers and the iOS Simulator) without saving.
+
+See [screenshots, motion recordings, asset provenance and validation](docs/qa/premium/REPORT.md). Run `node tools/verify-premium.mjs` with the dev server running to check the guide at six viewport sizes and exercise a real touch release. The [athlete review viewer](http://localhost:8093/docs/qa/player-review.html) exposes both bodies, detail tiers, hands and every motion for inspection.

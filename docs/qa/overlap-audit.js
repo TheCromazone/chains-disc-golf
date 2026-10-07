@@ -2,7 +2,7 @@ const C = window.__chains; const $ = id => document.getElementById(id);
 const idOf = e => e.id || (typeof e.className === 'string' && e.className ? '.' + e.className.split(' ')[0] : e.tagName) + ':' + (e.textContent || '').trim().slice(0, 12);
 const audit = name => {
   const sel = 'button, input, .panel, #pad, #power, #powerLabel, #waiting, .brand';
-  const vis = e => { let n = e; while (n && n !== document.body) { const cs = getComputedStyle(n); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return false; n = n.parentElement; } return true; };
+  const vis = e => { const closed = e.closest('details:not([open])'); if (closed && !closed.querySelector(':scope > summary')?.contains(e)) return false; let n = e; while (n && n !== document.body) { const cs = getComputedStyle(n); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return false; n = n.parentElement; } return true; };
   // Compare painted bounds: scroll-panel children outside its clip are not visible controls.
   const R = e => { const b=e.getBoundingClientRect(),r={left:b.left,right:b.right,top:b.top,bottom:b.bottom};
     for(let p=e.parentElement;p&&p!==document.body;p=p.parentElement){const s=getComputedStyle(p),b=p.getBoundingClientRect();
@@ -25,7 +25,7 @@ sweep('hub','menu');
 $('btnCourses').click(); sweep('courses','courses'); $('btnCoursesBack').click();
 $('btnLocker').click(); sweep('locker','locker'); $('btnLockerDone').click();
 $('btnLocal').click(); sweep('setup','setup'); $('btnSetupBack').click();
-$('btnOnline').click(); sweep('online','online'); $('btnOnlineBack').click();
+$('btnOnline').click(); sweep('friends','matches'); $('btnLive').click(); sweep('online','online'); $('btnOnlineBack').click();
 $('btnHelp').click(); sweep('help','help'); $('btnHelpClose').click();
 C.G.maxDt = 0.7; C.startGame({ mode: 'solo', holeCount: 3, players: [{ name: 'You' }, { name: 'Ricky', isBot: true }, { name: 'Paige', isBot: true }] });
 const skip = setInterval(() => { if (C.G.phase === 'intro') { C.G.introT = 10; C.nextTurn(); } }, 50);   // the frame loop may be throttled in a hidden pane, so end the intro directly   // the intro may start after the course and body textures land
