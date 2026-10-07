@@ -184,6 +184,10 @@ def clean(alb, m1, m2, maps, rig, lines):
     lo = old[side] - .06; aw = B[..., bi['sh' + side]] + B[..., bi['el' + side]]   # by skin weight, so the fold strength fades out across the shoulder rather than stepping at the bone boundary
     bared = hit & arm_side(side) & np.isin(C1, [SKIN, JERSEY]) & (y > lo) & (aw > .2); lb = lo[bared]
     bare[bared] = np.maximum(bare[bared], ss(lb, lb + .03, y[bared]) * ss(.2, .8, aw[bared]) * (1 - .33 * ss(h - .002, h + .006, y[bared])))
+  if VARIANT == 'm':   # his sideburns to hair and his ear creases back to skin: tools/patch-hair-mask.py (which says why)
+    import importlib.util; spec = importlib.util.spec_from_file_location('patch_hair_mask', ROOT / 'tools/patch-hair-mask.py'); hm = importlib.util.module_from_spec(spec); spec.loader.exec_module(hm)
+    Hh = B[..., bi['head']]; speck = hm.ear_specks(W[..., :4], P, Hh, hit, head)
+    add = np.minimum(np.maximum(hm.sideburns(P, Hh, Nn, hit, lum, head) - W[..., HAIR], 0), W[..., SKIN]) - np.where(speck, W[..., HAIR], 0); W[..., HAIR] += add; W[..., SKIN] -= add
   idx = ndimage.distance_transform_edt(~hit, return_distances=False, return_indices=True)   # gutters copy their nearest island texel
   out, W, beard, bare = out[idx[0], idx[1]], W[idx[0], idx[1]], m2[..., 3][idx[0], idx[1]], bare[idx[0], idx[1]]
   return out, np.concatenate([W[..., :4]], -1), np.concatenate([W[..., 4:], beard[..., None]], -1), bare
