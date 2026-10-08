@@ -31,7 +31,7 @@ export async function POST(request) {
   const text = await request.text();
   if (text.length > 24000) return json({ error: 'That request is too large.' }, 413);
   let body; try { body = JSON.parse(text); } catch { return json({ error: 'Bad request.' }, 400); }
-  const origin = new URL(request.url).origin, id = body?.id;
+  const id = body?.id;
   try {
     switch (body?.action) {
       case 'create': {
@@ -43,21 +43,21 @@ export async function POST(request) {
         if (!idOk(id)) return json(NOT_FOUND, 404);
         const r = await updateMatch(id, m => joinMatch(m, body)); if (!r) return json(NOT_FOUND, 404);
         const { seat, player } = r.result, host = r.match.players.find(p => p.id === r.match.hostId);
-        if (host && host.id !== player.id) await alert(id, host, { title: `${player.name} joined your match`, body: `${r.match.players.length} players at ${r.match.courseName}. Turns go in order — you'll get a ping when you're up.`, url: link(origin, id), tag: `chains-${id}-join` });
+        if (host && host.id !== player.id) await alert(id, host, { title: `${player.name} joined your match`, body: `${r.match.players.length} players at ${r.match.courseName}. Turns go in order — you'll get a ping when you're up.`, url: link(id), tag: `chains-${id}-join` });
         return json({ match: publicMatch(r.match, player), seat });
       }
       case 'turn': {
         if (!idOk(id)) return json(NOT_FOUND, 404);
         const r = await updateMatch(id, m => { const p = seatPlayer(m, body.pid, body.token); return { p, entry: playTurn(m, p, { hole: body.hole, strokes: body.strokes, throws: body.throws }) }; });
         if (!r) return json(NOT_FOUND, 404);
-        await afterTurn(origin, r.match, r.result.p, r.result.entry);
+        await afterTurn(r.match, r.result.p, r.result.entry);
         return json({ match: publicMatch(r.match, r.result.p) });
       }
       case 'away': case 'back': {
         if (!idOk(id)) return json(NOT_FOUND, 404);
         const r = await updateMatch(id, m => { const actor = seatPlayer(m, body.pid, body.token); if (body.action === 'away') markAway(m, actor, body.target); else markBack(m, actor); return actor; });
         if (!r) return json(NOT_FOUND, 404);
-        if (body.action === 'away') await pingTurn(origin, r.match, `It moved on to you while another player was away.`);
+        if (body.action === 'away') await pingTurn(r.match, `It moved on to you while another player was away.`);
         return json({ match: publicMatch(r.match, r.result) });
       }
       case 'nudge': {   // "Remind them": one push to whoever is up, at most every 10 minutes
@@ -66,7 +66,7 @@ export async function POST(request) {
         const r = await updateMatch(id, m => { const actor = seatPlayer(m, body.pid, body.token); ok = false;
           if (m.turn && m.turn.pid !== actor.id && Date.now() - (m.turn.nudgedAt || 0) > 10 * 60 * 1000) { m.turn.nudgedAt = Date.now(); ok = true; } return actor; });
         if (!r) return json(NOT_FOUND, 404);
-        if (ok) await pingTurn(origin, r.match, `${r.result.name} is waiting on you.`);
+        if (ok) await pingTurn(r.match, `${r.result.name} is waiting on you.`);
         return json({ match: publicMatch(r.match, r.result), nudged: ok });
       }
       case 'push': {
@@ -84,20 +84,22 @@ export async function POST(request) {
   }
 }
 
-const link = (origin, id) => `${origin}/?match=${id}`;
-async function afterTurn(origin, match, p, entry) {
+// Relative on purpose: the service worker resolves it against its own scope, so a device that plays from Huck Yeah
+// (/discgolf/) opens the match there and one on chains-disc-golf.vercel.app opens it at the root.
+const link = id => `./?match=${id}`;
+async function afterTurn(match, p, entry) {
   const name = p.name, par = match.pars[entry.hole] || 3, word = scoreWord(entry.strokes, par);
   if (isFinished(match)) {
     const board = [...match.players].filter(q => q.scores.length).map(q => ({ q, t: q.scores.reduce((s, v, i) => s + v - (match.pars[i] || 3), 0) })).sort((a, b) => a.t - b.t);
     const lead = board[0], text = lead ? `${lead.q.name} wins at ${fmt(lead.t)}.` : 'Final scores are in.';
-    for (const q of match.players) if (q.id !== p.id) await alert(match.id, q, { title: 'Match over ⛳', body: `${text} Tap for the final scorecard.`, url: link(origin, match.id), tag: `chains-${match.id}` });
+    for (const q of match.players) if (q.id !== p.id) await alert(match.id, q, { title: 'Match over ⛳', body: `${text} Tap for the final scorecard.`, url: link(match.id), tag: `chains-${match.id}` });
     return;
   }
-  if (match.turn && match.turn.pid !== p.id) await pingTurn(origin, match, `${name} made ${word} on ${holeWord(entry.hole)}.`);
+  if (match.turn && match.turn.pid !== p.id) await pingTurn(match, `${name} made ${word} on ${holeWord(entry.hole)}.`);
 }
-async function pingTurn(origin, match, why) {
+async function pingTurn(match, why) {
   const next = match.players.find(q => q.id === match.turn?.pid); if (!next) return;
-  await alert(match.id, next, { title: 'Your turn in Chains ⛳', body: `${why} You're up on ${holeWord(next.scores.length)} at ${match.courseName}.`, url: link(origin, match.id), tag: `chains-${match.id}` });
+  await alert(match.id, next, { title: 'Your turn in Chains ⛳', body: `${why} You're up on ${holeWord(next.scores.length)} at ${match.courseName}.`, url: link(match.id), tag: `chains-${match.id}` });
 }
 async function alert(id, player, payload) {
   try {
@@ -116,9 +118,11 @@ function scoreWord(s, par) {
 function manifest(url) {
   const SEAT = /^[A-HJ-NP-Z2-9]{8}\.p[0-9a-f]{8}\.[A-Za-z0-9_-]{20,40}$/;
   const seats = (url.searchParams.get('seats') || url.searchParams.get('seat') || '').split(',').filter(s => SEAT.test(s)).slice(0, 8);
-  const start = seats.length ? `/#seats=${seats.join(',')}` : '/';
-  return new Response(JSON.stringify({ name: 'Chains — Disc Golf', short_name: 'Chains', id: '/', start_url: start, scope: '/', display: 'standalone', orientation: 'any',
+  // base: the path the game is served from, '/' here and '/discgolf/' inside Huck Yeah
+  const b = url.searchParams.get('base') || '/', base = /^\/(?:[a-z0-9-]{1,32}\/)?$/.test(b) ? b : '/';
+  const start = seats.length ? `${base}#seats=${seats.join(',')}` : base;
+  return new Response(JSON.stringify({ name: 'Chains — Disc Golf', short_name: 'Chains', id: base, start_url: start, scope: base, display: 'standalone', orientation: 'any',
     background_color: '#0e2a1f', theme_color: '#65c8ee', description: 'Find your line. Play 3D disc golf with friends on your phone or desktop.',
-    icons: [{ src: '/assets/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' }, { src: '/assets/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: '/assets/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }] }),
+    icons: [{ src: `${base}assets/icons/icon-192.png`, sizes: '192x192', type: 'image/png', purpose: 'any' }, { src: `${base}assets/icons/icon-512.png`, sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: `${base}assets/icons/icon-512.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' }] }),
   { headers: { 'content-type': 'application/manifest+json', 'cache-control': 'no-store' } });
 }
