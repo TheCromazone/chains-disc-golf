@@ -29,7 +29,7 @@
 <link rel="preload" href="assets/fonts/barlow-condensed-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="src/ui.css">
 <script type="importmap">
-{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }
 </script>
 <script src="node_modules/peerjs/dist/peerjs.min.js" defer></script>
 </head>
@@ -80,7 +80,7 @@
 
 <div id="menu" class="overlay hub">
   <div class="hub-top">
-    <div class="brand"><small>DISC GOLF CLUB</small>Chains</div>
+    <div class="hub-brand"><a id="hostHome" class="host-home hidden" href="../"><span data-icon="back"></span><span>Back to <b id="hostName">Huck Yeah</b></span></a><div class="brand"><small id="brandSmall">DISC GOLF CLUB</small>Chains</div></div>
     <button class="pcard" id="btnLocker"><i class="sw" id="hubSwatch"><span data-icon="jersey"></span></i><div><b id="hubName">You</b><span class="muted">Locker room</span></div></button>
   </div>
   <div class="panel stack hub-main">

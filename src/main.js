@@ -952,6 +952,21 @@ $('btnOverview').onclick = () => { if (G.phase !== 'aim') return; G.overview = !
 $('btnMute').onclick = () => { setMuted(!isMuted()); UI.setSoundMuted(isMuted()); saveLocal('chains.muted', isMuted() ? '1' : '0'); };
 // The mute choice persists; ?mute=1 starts silent for test browsers and simulators (it is not saved).
 { let m = new URLSearchParams(location.search).has('mute'); try { m ||= localStorage.getItem('chains.muted') === '1'; } catch { /* private mode */ } if (m) { setMuted(true); UI.setSoundMuted(true); } }
+// Hosted: Huck Yeah serves Chains as its disc golf (huckyeah.vercel.app/discgolf/, opened with ?host=huckyeah). The clubhouse
+// then wears the host's colours and offers the way back to its menu. The host is kept for the tab: invite links and reloads
+// drop the query. `home` may name the host's menu on another of its origins (its GitHub Pages copy); anything else is ignored.
+{
+  const HOSTS = { huckyeah: { name: 'Huck Yeah', home: '../', origins: /^https:\/\/(huckyeah(-[a-z0-9-]+)?\.vercel\.app|thecromazone\.github\.io)$|^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/ } };
+  const q = new URLSearchParams(location.search), keep = (k, v) => { try { if (v) sessionStorage.setItem(k, v); else v = sessionStorage.getItem(k); } catch { /* private mode */ } return v; };
+  const id = keep('chains.host', q.get('host')) || (location.pathname.startsWith('/discgolf/') ? 'huckyeah' : null), host = HOSTS[id];
+  if (host) {
+    let home = new URL(host.home, location.href); try { const h = new URL(keep('chains.hostHome', q.get('home')) || ''); if (host.origins.test(h.origin)) home = h; } catch { /* no home given */ }
+    const named = keep('chains.hostName', q.get('name')), name = /^[\p{L}\p{N} .'-]{1,24}$/u.test(named || '') ? named : host.name;   // the host's current brand
+    document.documentElement.dataset.host = id;
+    $('hostName').textContent = name; $('brandSmall').textContent = `${name} · disc golf`;
+    $('hostHome').href = home.href; $('hostHome').classList.remove('hidden');
+  }
+}
 $('btnMenu').onclick = async () => { if (!(await UI.confirmLeave())) return; const match = G.mode === 'async' ? G.matchId : null; toMenu(); if (match) matches.openMatch(match); };   // leaving an invite turn returns to its scorecard; the hole is not recorded
 $('btnHelp').onclick = () => { UI.hide('menu'); UI.show('help'); }; $('btnHelpClose').onclick = () => { UI.hide('help'); UI.show('menu'); };
 $('btnScoreNext').onclick = () => { if (G.mode === 'online' && !G.net?.isHost) return; netSend({ t: 'next', sessionId: G.sessionId, holeIdx: G.holeIdx }); advanceHole(); };
@@ -1214,7 +1229,8 @@ setTimeout(async () => {
   UI.hide('loading'); loop();
   window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
-  else matches.boot();
+  else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
+  if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage
   } catch (error) {
     const loading = $('loading'); loading.replaceChildren();
     const message = document.createElement('p'); message.textContent = 'The course could not load. Check your connection, then try again.';

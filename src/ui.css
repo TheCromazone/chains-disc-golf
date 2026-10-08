@@ -67,6 +67,17 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 .brand { color: #fff; padding: 0 0 5px; font-family: var(--display); font-size: 50px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; line-height: .9; text-shadow: 0 2px 0 #0c111433, 0 6px 18px #0c628840; }
 .brand small { display: block; margin: 0 0 6px 3px; font-size: 11px; font-weight: 700; letter-spacing: 3.5px; color: #fff; }
 .brand::after { content: ''; display: block; width: 42px; height: 4px; background: var(--mint); margin: 7px 0 0 2px; transform: skewX(-24deg); }
+/* Hosted by Huck Yeah (main.js): its way back sits above the brand, and the clubhouse takes the host's amber for the one
+   thing to do next and its field green for labels. The glass stays: it reads over the course. */
+.hub-brand { display: flex; flex-direction: column; align-items: flex-start; }
+.host-home { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 4px 12px 4px 8px; min-height: 30px; border-radius: 999px; border: 1px solid #e8a33d; background: #0a0f0bcc; color: #f2f7f1; font-family: var(--display); font-size: 13px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; text-decoration: none; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.host-home b { color: #e8a33d; font-weight: 800; }
+.host-home .icon { width: 15px; height: 15px; }
+.host-home:focus-visible { outline: 3px solid #e8a33d; outline-offset: 3px; }
+@media (pointer: coarse) { .host-home { min-height: 36px; } }
+:root[data-host="huckyeah"] { --mint: #e8a33d; --accent: #145e2e; }
+:root[data-host="huckyeah"] button.primary { background: linear-gradient(135deg, #f2bb6de8, #e8a33dde); color: #0a0f0b; border-color: #f7d19a; box-shadow: inset 1px 1px 1px #f7d19a, inset -1px -1px 1px #b8751655, 0 3px 0 #7a4a0e55, 0 7px 20px #b8751625; }
+:root[data-host="huckyeah"] button.on { color: #0d431f; border-color: #3fbf6a; box-shadow: inset 0 -2px #145e2e; }
 .pcard { gap: 9px; max-width: 48%; padding: 7px 10px; text-align: left; border-radius: 12px; background: linear-gradient(140deg, #ffffffbb, #d9f4ff80); }
 .pcard .sw { display: grid; place-items: center; width: 34px; height: 38px; flex: none; border-radius: 7px; box-shadow: inset 0 1px #fff5, inset 0 -8px 12px #0004; }
 .pcard .sw .icon { width: 23px; height: 23px; }
@@ -366,6 +377,8 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .overlay.locker .panel { width: min(400px, 55%); max-height: 100%; }
   .brand { font-size: 33px; }
   .hub-top { top: calc(10px + var(--sat)); }
+  .hub-brand { flex-direction: row; align-items: center; gap: 14px; }   /* the host's pill beside the brand: no height to stack it */
+  .host-home { order: 2; margin: 0; }
   body[data-phase='result'] #toast, body.result-mode #toast { top: 23%; }
   body[data-phase='result'] #toast b, body.result-mode #toast b { font-size: 42px; }
   #score .panel { --gutter: 20px; width: min(620px, 100%); }

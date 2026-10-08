@@ -9,7 +9,9 @@ if (relative(root, out) !== 'dist') throw new Error('Invalid build output');
 await rm(out, { recursive: true, force: true });
 await mkdir(resolve(out, 'vendor'), { recursive: true });
 await cp(resolve(root, 'assets'), resolve(out, 'assets'), { recursive: true });
-await cp(resolve(root, 'src/ui.css'), resolve(out, 'ui.css'));
+// ui.css moves from src/ to the root of dist, so its '../assets/' urls become 'assets/' (a '../' at the site root only
+// worked because the root clamps it; one level down, as Huck Yeah's /discgolf/, it would leave the game)
+await writeFile(resolve(out, 'ui.css'), (await readFile(resolve(root, 'src/ui.css'), 'utf8')).replaceAll("url('../assets/", "url('assets/"));
 await cp(resolve(root, 'node_modules/peerjs/dist/peerjs.min.js'), resolve(out, 'vendor/peerjs.min.js'));
 await cp(resolve(root, 'node_modules/three/examples/jsm/libs/draco/gltf'), resolve(out, 'vendor/draco'), { recursive: true });
 await cp(resolve(root, 'node_modules/three/examples/jsm/libs/basis'), resolve(out, 'vendor/basis'), { recursive: true });

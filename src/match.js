@@ -1,7 +1,7 @@
 // Invite matches, client side: the GamePigeon-style mode. Start a match, send the link to the group chat, everyone plays
 // their hole when they can, and the next player gets a push (or a one-tap Messages nudge). The server (api/match.js)
 // keeps the scorecard and decides whose turn it is; this module keeps each seat's key on the device and draws the screens.
-const API = '/api/match';
+const API = 'api/match';   // relative: Chains also runs one level down, as Huck Yeah's disc golf (huckyeah.vercel.app/discgolf/)
 const SEATS = 'chains.seats', PENDING = 'chains.pendingTurns';
 const ID = /^[A-HJ-NP-Z2-9]{8}$/, SEAT = /^([A-HJ-NP-Z2-9]{8})\.(p[0-9a-f]{8})\.([A-Za-z0-9_-]{20,40})$/;
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -13,7 +13,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const fmt = v => v === 0 ? 'E' : v > 0 ? `+${v}` : `−${-v}`;
 const ago = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
 const scoreWord = (s, par) => s === 1 ? 'an ace' : s - par <= -2 ? 'an eagle' : s - par === -1 ? 'a birdie' : s === par ? 'par' : s - par === 1 ? 'a bogey' : `+${s - par}`;
-const link = id => `${location.origin}/?match=${id}`;
+const link = id => new URL(`./?match=${id}`, location.href).href;
 
 export function createMatches(d) {
   const $ = id => document.getElementById(id);
@@ -254,7 +254,7 @@ export function createMatches(d) {
   function seatManifest(id) {
     if (!isIOS || standalone()) return;
     const list = [id, ...Object.keys(seats).filter(x => x !== id)].slice(0, 8).map(x => seatOf(x) && `${x}.${seatOf(x).pid}.${seatOf(x).token}`).filter(Boolean);
-    const linkEl = document.querySelector('link[rel="manifest"]'); if (linkEl && list.length) linkEl.href = `${API}?action=manifest&seat=${encodeURIComponent(list[0])}&seats=${encodeURIComponent(list.join(','))}`;
+    const linkEl = document.querySelector('link[rel="manifest"]'); if (linkEl && list.length) linkEl.href = `${API}?action=manifest&base=${encodeURIComponent(new URL('./', location.href).pathname)}&seat=${encodeURIComponent(list[0])}&seats=${encodeURIComponent(list.join(','))}`;
   }
 
   async function refreshBadge() {
@@ -298,7 +298,7 @@ export function createMatches(d) {
   $('btnMatchBack2').onclick = () => act('back');
   $('btnMatchAlerts').onclick = enableAlerts;
   $('btnMatchBack').onclick = () => openHome();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { /* no alerts on this browser */ });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* no alerts on this browser */ });
 
   return { open: openHome, openMatch, boot, holeDone, refreshBadge, isOpen: () => !$('matches').classList.contains('hidden') };
 }

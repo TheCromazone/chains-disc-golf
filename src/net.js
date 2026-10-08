@@ -11,7 +11,7 @@ export function createNet() {
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
   const options = () => ({ debug: 0, ...(net.ice ? { config: { iceServers: net.ice } } : {}), ...(globalThis.CHAINS_PEER_CONFIG || {}) });
   // Relay (TURN) servers from /api/ice when the deployment has credentials: phones on cellular can't always reach a peer on Wi-Fi directly.
-  const loadIce = async () => { if (net.ice !== undefined) return; net.ice = null; try { const r = await fetch('/api/ice', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); if (Array.isArray(j.iceServers) && j.iceServers.length) net.ice = j.iceServers; } } catch { /* static host or offline: PeerJS defaults */ } };
+  const loadIce = async () => { if (net.ice !== undefined) return; net.ice = null; try { const r = await fetch('api/ice', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); if (Array.isArray(j.iceServers) && j.iceServers.length) net.ice = j.iceServers; } } catch { /* static host or offline: PeerJS defaults */ } };
   const ready = () => new Promise((res, rej) => {
     if (!window.Peer) return rej(new Error('PeerJS failed to load'));
     const peer = net.peer, gen = generation;
