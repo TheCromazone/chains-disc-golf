@@ -16,6 +16,21 @@ Reference: the nine store screenshots of [Disc Golf Masters](https://store.steam
 - **Flight ribbon** (`src/flight-trail.js`): a camera-facing ribbon in the disc's colour over the last .8 s of flight, a fixed ~7 px wide at the disc on a 1080p screen at any distance, fading toward the tail and within a few metres of the lens. Local rendering only; nothing on the network changes. [Frames](flight-trail.jpg), [drive](drive.mp4), [putt](putt.mp4).
 - `tools/capture.mjs --course pine|meadow|lake|bluff` picks the course for a capture.
 
+## Round 2: tee glare and treeline
+
+| Area | Before | After | Named problems |
+|---|---:|---:|---|
+| Tee | 6 | 7.5 | A cream veil over the canopy within ~35° of the sun (the upper left of every tee, the left half on Lakeshore, Meadows and Bluffs); the far treeline olive-yellow and pale, not green |
+| Flyover | 6.5 | 7 | Milky ground under an in-frame sun on Meadows and Bluffs |
+
+Live A/B on frozen tee frames (fog off, bloom off, shafts off, then each lever alone) showed the fog itself, not the glare, washed the treeline: the air is near-white, so even a quarter of it over dark trunks 80 m out reads as a grey wall. The veiling glare (the light-shaft pass's lens flood round a hidden sun) made Pine Hollow's cream disc.
+
+- `TEE_AIR` (`src/course.js`): the density scale away from the pin 2.25 -> .9, .4x the optical depth (~11% at 80 m, 31% at 150). The putt keeps `PUTT_AIR`.
+- Veiling glare .5 -> .2 (`src/effects.js`). The light shafts and the sun disc stay: the backlight is still the key-art look.
+- Share of the tee's top half where green leads: Pine .20 -> .25, Meadows .29 -> .36, Lakeshore .35 -> .44, Bluffs .35 -> .39. [Four tees, before and after](tee-glare.jpg).
+- Tried and dropped: bloom .35 -> .2, the fog's forward-scatter glow and its warm lobe at half each moved the flyover by under .01 on every measure; what remains round an in-frame sun is the sun and its shafts.
+- `__chains.post.passes` (shafts, bloom, grade) is exposed for this kind of live A/B.
+
 ## Kept on purpose
 
 The low golden sun and its glare on the tee are the key-art look (`art/keyart/chatgpt-keyart-wide.jpg`); their clean midday was not copied. Characters already read as more realistic than theirs and were left alone. Lite is unchanged apart from the gold tray and links (it has no grade pass; its saturation was already .43).
