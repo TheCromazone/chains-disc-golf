@@ -1212,7 +1212,7 @@ setTimeout(async () => {
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await warmShaders();
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, get hero() { return hero; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
   else matches.boot();
   } catch (error) {

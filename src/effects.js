@@ -42,7 +42,7 @@ const QUAD_VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatri
 const _sun = new THREE.Vector3(), _fwd = new THREE.Vector3();
 class LightShafts extends Pass {
   constructor(scene, camera) {
-    super(); this.needsSwap = false; this.scene = scene; this.camera = camera; this.strength = 2.5; this.glare = .5;
+    super(); this.needsSwap = false; this.scene = scene; this.camera = camera; this.strength = 2.5; this.glare = .2;   // glare round: .5 left a cream disc over the tee's upper-left canopy with no leaf edges in it; the shafts and the sun disc carry the backlight
     this.a = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false }); this.b = this.a.clone();
     const u = this.u = { tDepth: { value: null }, tColor: { value: null }, tMask: { value: null }, uSun: { value: new THREE.Vector2() }, uAspect: { value: 1 }, uTint: { value: new THREE.Color() }, uGlow: { value: new THREE.Color() } };
     const quad = (fragmentShader, extra = {}) => new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: u, vertexShader: QUAD_VS, fragmentShader, depthTest: false, depthWrite: false, ...extra }));
@@ -99,11 +99,11 @@ export function postprocessing(renderer, scene, camera, { photographic = false }
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType }));
   Object.assign(composer.renderTarget2, { samples: 4, depthTexture: new THREE.DepthTexture(size.x, size.y) });
   composer.addPass(new RenderPass(scene, camera));
-  composer.addPass(new LightShafts(scene, camera));
+  const shafts = new LightShafts(scene, camera); composer.addPass(shafts);
   const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), .35, .6, 2); composer.addPass(bloom);   // wide enough that the 20x sun disc spreads into a halo; the threshold sits above lit turf and the haze
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(GRADE); composer.addPass(grade);
-  return { render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); }, dispose() {
+  return { passes: { shafts, bloom, grade }, render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); }, dispose() {
     for (const p of composer.passes) p.dispose?.(); composer.dispose();   // disposing a target frees its depth texture too
   } };
 }
