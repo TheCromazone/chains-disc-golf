@@ -55,6 +55,34 @@ Whole-frame saturation went from .31-.39 to .35-.45 (the reference: .39-.54). To
 
 Still short of the reference: Bluffs (the haziest air and the most sky) at .32-.36 foliage saturation, and the reference's woods are denser, with near-black shade under them, where ours show more open, lit floor.
 
+## Round 4: canopy density and woods shade
+
+| Area | Before | After | Named problems |
+|---|---:|---:|---|
+| Putt | 8 | 8.5 | The woods behind the pin read as a park: tall trunks over bare floor, nothing between knee and crown, so every gap ran on to lit ground 50-100 m back; those far stands lifted to a pale yellow-grey |
+| Tee, flyover | 8, 7.5 | unchanged | (the stands either side of a tee are the fairway's edge rank, which the shrubs keep clear of) |
+
+The reference's woods are green down to the ground and dark inside. A live A/B on the Meadows and Bluffs putts (sun off, air off, sky fill off, crown shadows solid) found the air was what lifted the far stands. With it off they went deep green; the sun and the crowns' shadows barely changed them.
+
+- **Woods shrubs** (`src/course.js`): a shrub layer 1.7-3.6 m tall under the canopy, in clumps, only where a tree stands within 8 m. They start 4 m outside the fairway's edge, with none within 18 m of a basket or 24 m of a tee, and none on a prop (checked against the dressing's colliders). Scenery only: the disc passes through them as it does the existing edge bushes. They draw in 3D near the eye and as impostor cards beyond, so the cost is 5 draws and ~15k triangles on Full and one draw on Lite, with frame time unchanged. About 1,600 on Meadows and 2,100 on Pine Hollow.
+- **Putt air** density .4 -> .25.
+- Measured on the putt's top half (foliage only), before -> after:
+
+| Putt, top half | Pine | Meadows | Lakeshore | Bluffs |
+|---|---|---|---|---|
+| Green-lead | .29 -> .33 | .42 -> .55 | .58 -> .64 | .45 -> .58 |
+| Foliage value | .44 -> .42 | .41 -> .36 | .38 -> .36 | .47 -> .43 |
+| Foliage saturation | .47 -> .50 | .38 -> .43 | .42 -> .47 | .32 -> .36 |
+
+[Putts, before and after on each course](woods.jpg).
+
+**Tried and dropped:**
+- A fuller crown shadow (the course-wide shadow cut .95 -> .6 or .35) laid one even shade over Pine Hollow's whole tee and lost its sun dapple, and changed nothing on the other courses.
+- A shadow box of 280 m instead of 120 m changed nothing.
+- Darkening the floor under crowns (albedo 20% -> 45%) moved no measure: the floor you see near a pin is lawn by design.
+
+Still open: from the tee the side stands are trunks on lit grass, and Meadows and Bluffs are thin by design (tree density .3 and .22). Making them read as woods means more trees, and trees are colliders, so that would change play.
+
 ## Kept on purpose
 
 The low golden sun and its glare on the tee are the key-art look (`art/keyart/chatgpt-keyart-wide.jpg`); their clean midday was not copied. Characters already read as more realistic than theirs and were left alone. Lite is unchanged apart from the gold tray and links (it has no grade pass; its saturation was already .43).
