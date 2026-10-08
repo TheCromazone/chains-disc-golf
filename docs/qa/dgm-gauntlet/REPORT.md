@@ -129,6 +129,28 @@ In the right-hand stand from the tee, green foliage in the lower band went from 
 
 Still open: the bare 0-6 m band near the fairway. Filling it means low foliage where discs land, so it needs either collision for shrubs (a play change) or low-branching species in the front rank (new colliders); either should go through `fairness.mjs`.
 
+## Round 7: low-branching front row, fairness checked
+
+| Area | Before | After | Named problem |
+|---|---:|---:|---|
+| Fairway edges (flyover, tee) | 7 | 7.5 | The trees beside a fairway carry their crowns 8 m up (broadleaf, birch, Scots pine), so the edge reads as bare trunks on lit grass |
+
+Spruce is the one species whose boughs reach the ground. `src/course.js` swaps the species inside `plant()`, in place: same spots, same rng streams, the props' colliders identical (checked). Only a tree's collider changes, its trunk and crown sphere. Each variant went through `tools/qa/fairness.mjs` (medium bot, 120 plays a hole, seeded, calm) against master, side by side:
+
+| Strokes over par a hole | Pine | Meadows | Lakeshore | Bluffs |
+|---|---:|---:|---:|---:|
+| Master | +.54 | +.42 | +.47 | +.69 |
+| Every front-row species -> spruce (tried) | +.56 | +.43 | +.43 | **+.75** |
+| Broadleaves only -> spruce (shipped) | +.55 | +.45 | +.41 | +.67 |
+
+- **Every species, dropped.** As spruce a birch's or Scots pine's crown sphere drops 3-5 m, into the low flights along the edge. Bluffs 9 played half a stroke harder (4.61 -> 5.15, OB 38 -> 102). A new spruce turned the bot's best tee line from a straight forehand to a backhand 18° right, which finds the fairway but leaves the approach over the water.
+- **Broadleaves only, shipped.** A broadleaf's crown sphere is only .8 m higher than a spruce's and its trunk 8 cm thicker, so the collider barely moves. Every course total is within .06 of master, and each hole within ±.23 both ways, as noisy as the last round's holes with no tree on the line. Out of bounds 68/3/156/38 -> 68/3/129/42.
+- Spruce within 22 m of a fairway's centre line: Pine 162 -> 275, Meadows 41 -> 147, Lakeshore 89 -> 207, Bluffs 103 -> 130. Each tee's framing broadleaf stays.
+
+[Flyovers, before and after](front-row.jpg): spruce now stands either side of each arch on Meadows, Lakeshore and Bluffs. From the tee the change is smaller: the near right-hand crown is the framing tree, and the trunks behind it stand more than 6 m out.
+
+`tools/qa/fairness.mjs` now checks the course it loaded: under eight parallel runs one page booted the default course and reported Pine Hollow as Bluffs. Every result above was re-run with the check.
+
 ## Kept on purpose
 
 The low golden sun and its glare on the tee are the key-art look (`art/keyart/chatgpt-keyart-wide.jpg`); their clean midday was not copied. Characters already read as more realistic than theirs and were left alone. Lite is unchanged apart from the gold tray and links (it has no grade pass; its saturation was already .43).

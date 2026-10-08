@@ -303,7 +303,17 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const VARIANTS = {}; for (const v in IMPOSTOR) VARIANTS[v.replace(/\d+$/, '')] = (VARIANTS[v.replace(/\d+$/, '')] || 0) + 1;   // how many each species has
   // wide: an open-side or clearing stand tree varies twice as much, no taller or stouter than the most (w6: the pines behind
   // the arch read as cloned straight poles of one girth); the rest keep the narrow range
-  const plant = (x, z, s, rot, kind, pine, wide = 0) => {
+  // Front row (front-row round, 2026-10-08): from the tee the trees beside a fairway stood as bare trunks on lit grass with
+  // their crowns 8 m up (broadleaf, birch and Scots pine all carry them high); the reference's woods are foliage at every
+  // height. Within 6 m of a fairway's edge about two broadleaves in three (hashed by position) are spruce, the one species
+  // whose boughs reach the ground. Same places, same rng: only the species, and the collider barely moves (a broadleaf's
+  // crown sphere sits .8 m higher, its trunk 8 cm thicker). Birch and Scots pine stay: as spruce their crown sphere drops
+  // 3-5 m into the low flights along the edge, and tools/qa/fairness.mjs (medium bot, 120 plays a hole) put Bluffs 9 half a
+  // stroke harder. Broadleaves only, strokes over par a hole: Pine +.54 -> +.55, Meadows +.42 -> +.45, Lakeshore +.47 ->
+  // +.41, Bluffs +.69 -> +.67, each hole within +-.23 both ways. Not the framing tree (`fixed`).
+  const FRONT = 6, frontRow = (x, z) => fairwayInfo(holes, x, z).d < (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW + FRONT && noise(x * .83 + 5, z * .83 + 71) < .62;
+  const plant = (x, z, s, rot, kind, pine, wide = 0, fixed = false) => {
+    if (!fixed && kind === 'broad' && frontRow(x, z)) { kind = 'spruce'; pine = true; }
     const y = height(x, z), D = DIMS[kind], sy = 1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16), g = 1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36), lean = wide ? .22 : .12;
     (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.min(VARIANTS[kind] - 1, Math.floor(noise(x * .37 + 13, z * .37 + 5) * VARIANTS[kind])), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * lean, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * lean, sy, g });
     const t = { x, y, z, r: D[0] * s * g, h: D[1] * s * sy, fy: D[2] * s * sy, fr: D[3] * s * (g + sy) / 2 }; trees.push(t); return t;
@@ -359,7 +369,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const x = h.tee[0] + dx / L * FRAME_TREE[0] - dz / L * os * FRAME_TREE[1], z = h.tee[1] + dz / L * FRAME_TREE[0] + dx / L * os * FRAME_TREE[1];
     const { fi, halfW } = stand(x, z);   // not in another hole's fairway, a pond, a pad or another crown
     if (fi.hole !== h && fi.d < halfW || treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < 4) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7)) continue;
-    const t = plant(x, z, FRAME_TREE[2], noise(x, z) * 6.28, 'broad', false), k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null; }
+    const t = plant(x, z, FRAME_TREE[2], noise(x, z) * 6.28, 'broad', false, 0, true), k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null; }
   // Edge stand: the tree line's front rank. The main stands keep 7.5-12.5 m off the line, so from the tee the far half of a
   // hole was a bare slope under one hazy row 100 m out. This pass fills the gap between the mown edge and that line, on the
   // guardian side from 40% of the way out and beyond the open side's walking trail from halfway: young trees and mature ones
