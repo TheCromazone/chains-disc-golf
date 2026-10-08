@@ -105,6 +105,30 @@ Per hole the change is within ±.16 strokes and goes both ways. Bluffs 4 is the 
 
 [Flyover and tee, before and after](back-woods.jpg). Meadows' menu blurb no longer says "few trees".
 
+## Round 6: the stands beside the tee
+
+| Area | Before | After | Named problems |
+|---|---:|---:|---|
+| Tee-side stands | 6.5 | 7 | No shade: the open side's trees, the young edge trees, the clearing groves and the back woods skipped the shadow pass, so they stood as trunks on evenly sunlit grass. The floor under them was a pale sandy tan that read as sunlit even in shade. Nothing grew between the floor and the crowns, 8 m up |
+
+The reference's tee shots stand in woods: foliage at every height, a dark floor with sun patches.
+
+- **Every tree casts** (`src/course.js`, the `quiet` flag is gone). Cost: ~90k triangles and ~.5 ms a frame on Pine Hollow's tee and flyover (12.25 -> 12.75 ms and 11.0 -> 11.7 ms, Full at 1600x900, measured alone, twice each). Draw calls fall by 10, because the quiet trees no longer need their own batch. Lite is unchanged (its trees are impostors).
+- **Floor under crowns** up to 40% darker (was 20%), with less of the pale dry grass (.15, was .4).
+- **Shrubs** now grow under the tee clearing's groves and from 14 m of a tee (was 24), but 6 m off the fairway's edge (was 4).
+
+**Fair play.** No collider moved, and the bot plays every course stroke for stroke as before. A shrub is scenery: a disc resting in one leaves the player standing in a bush. So `tools/qa/fairness.mjs` now also counts throws that rest inside an edge bush or a woods shrub. With shrubs right up to the fairway edge that count doubled, so they were held back:
+
+| Rests in a shrub, ~2,000 bot throws a course | Pine | Meadows | Lakeshore | Bluffs |
+|---|---:|---:|---:|---:|
+| Before (round 4 rules) | 29 | 15 | 10 | 28 |
+| Shrubs 1.5 m off the edge, denser (tried) | 60 | 35 | 33 | 53 |
+| Shipped | 28 | 12 | 10 | 6 |
+
+In the right-hand stand from the tee, green foliage in the lower band went from 3% to 5% on Pine Hollow and 4% to 6% on Lakeshore, and the floor darkened slightly. Meadows and Bluffs barely move: the trunks seen there stand within a few metres of the fairway, where shrubs would catch discs. [Right-hand stands, before and after](tee-stands.jpg) (top: Pine, Meadows; bottom: Lakeshore, Bluffs).
+
+Still open: the bare 0-6 m band near the fairway. Filling it means low foliage where discs land, so it needs either collision for shrubs (a play change) or low-branching species in the front rank (new colliders); either should go through `fairness.mjs`.
+
 ## Kept on purpose
 
 The low golden sun and its glare on the tee are the key-art look (`art/keyart/chatgpt-keyart-wide.jpg`); their clean midday was not copied. Characters already read as more realistic than theirs and were left alone. Lite is unchanged apart from the gold tray and links (it has no grade pass; its saturation was already .43).

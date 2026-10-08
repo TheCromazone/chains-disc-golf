@@ -301,8 +301,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // per-instance tilt, height and girth (a stout or a slender tree: trunk and crown width together) so one variant never
   // tiles; hashed from position, so the rng stream (and the layout) stays put. The record scales with the drawn tree.
   const VARIANTS = {}; for (const v in IMPOSTOR) VARIANTS[v.replace(/\d+$/, '')] = (VARIANTS[v.replace(/\d+$/, '')] || 0) + 1;   // how many each species has
-  // wide: a quiet (shadowless) stand tree varies twice as much, no taller or stouter than the most (w6: the pines behind the
-  // arch read as cloned straight poles of one girth); shadow casters keep the narrow range, so the light on the floor stays put
+  // wide: an open-side or clearing stand tree varies twice as much, no taller or stouter than the most (w6: the pines behind
+  // the arch read as cloned straight poles of one girth); the rest keep the narrow range
   const plant = (x, z, s, rot, kind, pine, wide = 0) => {
     const y = height(x, z), D = DIMS[kind], sy = 1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16), g = 1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36), lean = wide ? .22 : .12;
     (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.min(VARIANTS[kind] - 1, Math.floor(noise(x * .37 + 13, z * .37 + 5) * VARIANTS[kind])), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * lean, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * lean, sy, g });
@@ -376,14 +376,14 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 12 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 40) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || inLane({ x, z })) continue;
     if (treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < (young ? 2.2 : 3))) continue;
     const front = fi.d < inner + 2.5, pine = front ? noise(x / 13 + 9, z / 13 + 4) > .55 : noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine;
-    const t = Object.assign(plant(x, z, (young || front ? s : s + .22) * (young && !guard && fi.t > .6 ? 2 : 1), rot, pine ? (front ? 'spruce' : kindOf(x, z, true)) : front ? 'broad' : kindOf(x, z, false), pine, young || !guard), { edge: 1 }); if (young || !guard) (pine ? pineSpots : decSpots).at(-1).quiet = 1;
+    const t = Object.assign(plant(x, z, (young || front ? s : s + .22) * (young && !guard && fi.t > .6 ? 2 : 1), rot, pine ? (front ? 'spruce' : kindOf(x, z, true)) : front ? 'broad' : kindOf(x, z, false), pine, young || !guard), { edge: 1 });
     const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
   }
   // Clearing stand (w2 verdict: past the arch the tee looked onto a bare, evenly lit grass hill with a few crowns on its
   // crest): the open side's clearing, from past the edge stand out to where the main stands begin, gets an open wood of
   // broadleaves with a pine or a birch among them, in groves, so the slope right of the arch reads as trees and trunks at
-  // 25-60 m, rows behind rows. Own rng, flagged edge (the dressing and the main layout stay put) and quiet (no shadow
-  // pass: the slope's light stays as it was). None within 28 m of a tee or 16 m of a basket.
+  // 25-60 m, rows behind rows. Own rng and flagged edge (the dressing and the main layout stay put). None within 28 m
+  // of a tee or 16 m of a basket.
   const crng = makeRng(seed * 211 + 43);
   for (let gx = -W / 2 + 12; gx < W / 2 - 12; gx += 4) for (let gz = -H / 2 + 12; gz < H / 2 - 12; gz += 4) {
     const x = gx + (crng() - .5) * 3.6, z = gz + (crng() - .5) * 3.6, pick = crng(), s = .72 + crng() * .5, rot = crng() * Math.PI * 2;
@@ -392,7 +392,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 16 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 26) || ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7) || inLane({ x, z })) continue;
     if (treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < 3.6)) continue;
     const pine = noise(x / 23 + 7, z / 23 + 61) > .66, kind = pine ? kindOf(x, z, true) : noise(x / 11 + 5, z / 11 + 3) > .72 ? 'birch' : 'broad';
-    const t = Object.assign(plant(x, z, s, rot, kind, pine, 1), { edge: 1 }); (pine ? pineSpots : decSpots).at(-1).quiet = 1;
+    const t = Object.assign(plant(x, z, s, rot, kind, pine, 1), { edge: 1 });
     const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
   }
   // Back woods (woods round 2, 2026-10-07): Meadows and Bluffs (trees .3 and .22) read as a park, a few trunks on lit grass
@@ -401,35 +401,40 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // the tee clearings and the greens play as they did (tools/qa/fairness.mjs: the medium bot's strokes and tee-shot tree
   // hits, run for run, before and after: at 120 plays a hole, Meadows +.43 -> +.42 strokes over par a hole and Bluffs +.69
   // -> +.69, throws touching a tree 352 -> 348 and 357 -> 360, with 600 and 820 more trees). Own rng: every other layout
-  // stays put. Flagged edge (the dressing is laid out without them) and quiet (no shadow pass): they stand back from the
-  // play, where the haze carries their shade.
+  // stays put. Flagged edge: the dressing is laid out without them.
   if (def.woods) { const wrng = makeRng(seed * 223 + 59);
     for (let gx = -W / 2 + 10; gx < W / 2 - 10; gx += 5) for (let gz = -H / 2 + 10; gz < H / 2 - 10; gz += 5) {
       const x = gx + (wrng() - .5) * 4.5, z = gz + (wrng() - .5) * 4.5, pick = wrng(), s = .8 + wrng() * .55, rot = wrng() * Math.PI * 2;
       const { fi, halfW, skip } = stand(x, z);
       if (skip || fi.d < halfW + 12 || pick > .62 * def.woods * (.12 + 1.35 * smooth(.32, .7, noise(x / 21 + 3, z / 21 + 11)))) continue;
       if (holes.some(h => Math.hypot(x - h.tee[0], z - h.tee[1]) < 45 || Math.hypot(x - h.basket[0], z - h.basket[1]) < 28) || inLane({ x, z }) || treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < 4)) continue;
-      const pine = noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine, t = Object.assign(plant(x, z, s, rot, kindOf(x, z, pine), pine), { edge: 1 }); (pine ? pineSpots : decSpots).at(-1).quiet = 1;
+      const pine = noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine, t = Object.assign(plant(x, z, s, rot, kindOf(x, z, pine), pine), { edge: 1 });
       const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
     } }
   // Woods shrubs (woods round, 2026-10-07, Disc Golf Masters as the reference): their stands read as woods, green down to
   // the ground; ours read as a park, tall trunks over bare floor with nothing between knee and crown, so through every gap
   // the eye ran on to lit ground 50-100 m back. Shrubs 1.7-3.6 m tall in clumps (their own noise) under the canopy: only
-  // where a tree stands within 8 m, from 4 m outside the fairway's edge back, none within 18 m of a basket or 24 m of a tee,
-  // and (planted after the dressing) none on a prop. Scenery only: not in `trees`, so the disc passes through them as it
-  // does the edge bushes, and not handed to the dressing, so the props stay put. Own rng: every other layout stays where it
-  // was. 3D near the eye, impostors beyond.
+  // where a tree stands within 8 m, none within 18 m of a basket and (planted after the dressing) none on a prop. Scenery
+  // only: not in `trees`, so the disc passes through them as it does the edge bushes, and not handed to the dressing, so the
+  // props stay put. Own rng: every other layout stays where it was. 3D near the eye, impostors beyond. Tee-stands round:
+  // they now grow under the tee clearing's groves too and from 14 m of a tee (was 24), so the stands beside a tee get
+  // undergrowth, but 6 m off the fairway's edge (was 4), where errant throws land: a disc resting in one leaves the player
+  // standing in a bush, and tools/qa/fairness.mjs counts it. With these rules 6-28 of ~2,000 bot throws a course rest in a
+  // shrub, against 10-29 before (Bluffs 6, Lakeshore 10, Meadows 12, Pine Hollow 28).
   const srng = makeRng(seed * 157 + 41), shrubs = [];
   for (let gx = -W / 2 + 10; gx < W / 2 - 10; gx += 4) for (let gz = -H / 2 + 10; gz < H / 2 - 10; gz += 4) {
     const x = gx + (srng() - .5) * 3.6, z = gz + (srng() - .5) * 3.6, pick = srng(), s = .45 + srng() * .5, rot = srng() * Math.PI * 2;
-    const { fi, halfW, skip } = stand(x, z);
-    if (skip || fi.d < halfW + 4 || pick > .6 * smooth(.3, .62, noise(x / 13 + 37, z / 13 + 53))) continue;
-    if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 18 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 24)) continue;
+    const { fi, halfW } = stand(x, z);   // stand()'s own skip, less the tee's open clearing
+    if (fi.d < halfW + 6 || fi.t < .16 && fi.d < halfW + 15 || pick > .6 * smooth(.3, .62, noise(x / 13 + 37, z / 13 + 53))) continue;
+    if (ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7)) continue;
+    if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 18 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 14)) continue;
     const near = treesNear(x, z); if (!near.some(t => Math.hypot(t.x - x, t.z - z) < 8) || near.some(t => Math.hypot(t.x - x, t.z - z) < t.r + 1.2)) continue;
     shrubs.push({ x, y: height(x, z), z, s, rot });
   }
-  // Under crowns the turf goes thin, pale and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
+  // Under crowns the turf goes thin and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
   // earth shows at the trunk base. Colour and splat weights only: no height change.
+  // Tee-stands round: up to 40% darker under a crown (was 20%) and less of the pale dry grass (.15, was .4): from the tee the
+  // floor under the side stands was a sandy tan that read as sunlit even in their shade.
   // w7 putt: round each pin the ground is a mown green, not forest floor. The reference's midground past the basket is a
   // sunlit lawn crossed by long trunk shadows (w7-1 verdicts: our duff-brown floor "reads flat overcast, nothing lit by a
   // sun"): within ~24 m of a basket (frayed out to ~34) the crowns' duff, shade-dry and tint give way to the fairway's
@@ -439,11 +444,11 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     for (const h of holes) { const bx = x - h.basket[0], bz = z - h.basket[1], bd = Math.hypot(bx, bz), L = Math.hypot(h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]), past = (bx * (h.basket[0] - h.tee[0]) + bz * (h.basket[1] - h.tee[1])) / L;
       if (bd < 70) lawn = Math.max(lawn, 1 - smooth(22, 34, bd - Math.min(Math.max(past, 0), 50) * .55 + (noise(x / 6 + 13, z / 6 + 41) - .5) * 8)); }   // drawn out past the pin, so the putt looks down a green to the far tree line
     for (const t of treesNear(x, z)) { const d = Math.hypot(x - t.x, z - t.z); shade += smooth(t.fr * 1.7, t.fr * .3, d); duff += smooth(t.fr * 1.4, t.fr * .4, d); bare += smooth(t.r * 5 + .6, t.r * 1.5, d); }
-    const k = 1 - Math.min(1, shade) * .2 * (1 - lawn); colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
+    const k = 1 - Math.min(1, shade) * .4 * (1 - lawn); colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
     if (lawn > 0) { tmp.setRGB(colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]).lerp(cFair, lawn * .85); colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
       turf[i * 4] = Math.max(turf[i * 4], lawn * .9); splats[i * 4 + 3] *= 1 - lawn * .85; }
     splats[i * 4 + 2] = Math.max(splats[i * 4 + 2], Math.min(1, duff) * .9 * (1 - lawn)); splats[i * 4] = Math.max(splats[i * 4], Math.min(1, bare) * .7);
-    splats[i * 4 + 3] = Math.max(splats[i * 4 + 3], Math.min(1, shade) * .4 * (1 - lawn));
+    splats[i * 4 + 3] = Math.max(splats[i * 4 + 3], Math.min(1, shade) * .15 * (1 - lawn));
   }
 
   const bark = texture('bark', { repeat: [1, 3] });
@@ -767,10 +772,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     src.scene.updateMatrixWorld(true);
     src.scene.traverse(o => { if (!o.isMesh) return;
       const variant = o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
-      const mat = key === 'leaves' ? leafFull(g) : woodMats[key] || trunkMat, tint = key === 'leaves' ? leafTint : barkTint, cast = mine.filter(s => !s.quiet), quiet = mine.filter(s => s.quiet);
-      if (cast.length) inst(g, mat, cast, tint, shadow, lod);
-      if (quiet.length) inst(g, mat, quiet, tint, false, lod); });   // quiet trees cast no shadow (a shadow pass triples a tree's triangles): the edge stand's young trees and its open side. Its
-      // guardian-side mature trees still throw the long shadows that dapple the fairway slope.
+      const mat = key === 'leaves' ? leafFull(g) : woodMats[key] || trunkMat, tint = key === 'leaves' ? leafTint : barkTint;
+      if (mine.length) inst(g, mat, mine, tint, shadow, lod); });
+      // Every tree casts. The edge stand's open side and young trees, the clearing groves and the back woods used to skip the
+      // shadow pass (it triples a tree's triangles), so from the tee they stood as trunks on evenly sunlit grass (tee-stands
+      // round, 2026-10-07). Casting costs ~.5 ms a frame on Pine Hollow's tee and flyover (11-12 ms, Full, 1600x900).
     return true;
   };
   // Impostors: tools/build-trees.py renders every variant side-on into a 256 x 512 cell (albedo, then the crown normals'
@@ -852,8 +858,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   group.add(...dressing.meshes);
   { // the woods shrubs, clear of every prop (its colliders and the camera's tent canopies, each a capsule; distance in plan to its axis): 3D within treeNear on Full, cards beyond (and everywhere on Lite)
     const props = [...dressing.capsules, ...(dressing.camCapsules || [])], off = (s, c) => { const ax = c.b[0] - c.a[0], az = c.b[2] - c.a[2], L = ax * ax + az * az, t = L ? clamp(((s.x - c.a[0]) * ax + (s.z - c.a[2]) * az) / L, 0, 1) : 0; return Math.hypot(s.x - c.a[0] - ax * t, s.z - c.a[2] - az * t) - c.r; };
-    const clear = shrubs.filter(s => props.every(c => off(s, c) > 2.6 * s.s + .5));
-    planted('bush', clear, false); impostors(clear, false); }
+    shrubs.splice(0, Infinity, ...shrubs.filter(s => props.every(c => off(s, c) > 2.6 * s.s + .5)));
+    planted('bush', shrubs, false); impostors(shrubs, false); }
   const baskets = holes.map(h => new THREE.Group().translateX(h.basket[0]).translateY(h.basketY).translateZ(h.basket[1]));   // positions only: the geometry is merged; the pin's distance tag is HUD (#pin, placed by main.js)
 
   // --- grass tufts ---
@@ -1029,7 +1035,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
-  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose };
+  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs } };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one)
 }
 
 // Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 8 m (not
