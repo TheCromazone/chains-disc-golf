@@ -1,7 +1,8 @@
 // Fair-play check for a course layout: the game's own medium bot (src/bot.js, the real physics and its execution error)
 // plays every hole N times in a headless page, nothing rendered, wind calm. Math.random is seeded per hole and run, so two
 // layouts compared run for run throw identically until a tree changes a flight. Prints, per hole and for the course:
-// mean strokes against par, tee shots that touch a tree, tee shots resting on the fairway, throws that touch a tree, OB.
+// mean strokes against par, tee shots that touch a tree, tee shots resting on the fairway, throws that touch a tree, OB,
+// and throws that come to rest inside a plant the disc passes through (the edge bushes, the woods shrubs: course.scenery).
 //   node tools/qa/fairness.mjs <pine|meadow|lake|bluff> [--runs 40] [--port 8460] [--json out.json]
 import { launch, pause } from './cdp.mjs';
 import { spawn } from 'node:child_process';
@@ -21,10 +22,11 @@ try {
     const C = __chains, world = C.world, holes = C.holes, real = Math.random; let seed = 1;
     Math.random = () => (seed = Math.imul(seed ^ (seed >>> 15), 2246822519) + 0x6d2b79f5 >>> 0) / 4294967296;
     const calm = [0, 0]; Object.defineProperty(world, 'wind', { get: () => calm, set: () => {}, configurable: true });
+    const sc = C.course.scenery || { bushes: [], shrubs: [] }, inside = (list, p) => list.some(b => Math.hypot(b.x - p[0], b.z - p[2]) < 2.2 * b.s);   // a bush card is ~5 m across at scale 1
     const rows = [];
     for (const [i, h] of holes.entries()) {
       C.course.setHole(i);
-      const row = { hole: i + 1, par: h.par, strokes: 0, teeTree: 0, teeFair: 0, throws: 0, tree: 0, ob: 0 };
+      const row = { hole: i + 1, par: h.par, strokes: 0, teeTree: 0, teeFair: 0, throws: 0, tree: 0, ob: 0, bush: 0, shrub: 0 };
       for (let run = 0; run < ${runs}; run++) {
         seed = (i + 1) * 7919 + run * 104729 + 1;
         let pos = [h.tee[0], world.height(h.tee[0], h.tee[1]), h.tee[1]], n = 0;
@@ -35,6 +37,7 @@ try {
           if (n === 0) { row.teeTree += hit; row.teeFair += !r.ob && !r.holed && world.rough(r.rest[0], r.rest[2]) < .5; }
           n++; row.throws++; row.tree += hit;
           if (r.holed) break;
+          if (!r.ob) { row.bush += inside(sc.bushes, r.rest); row.shrub += inside(sc.shrubs, r.rest); }
           if (r.ob) { n++; row.ob++; pos = r.lie; } else pos = r.rest;
           if (n >= h.par + 5) { n = h.par + 6; break; }
         }
@@ -45,12 +48,12 @@ try {
     Math.random = real; delete world.wind;
     return rows;
   })()`, 3600000);
-  const pct = (a, n) => (100 * a / n).toFixed(0).padStart(3) + '%', tot = { par: 0, strokes: 0, teeTree: 0, teeFair: 0, throws: 0, tree: 0, ob: 0 };
-  console.log(`${course}, ${runs} medium-bot plays a hole, calm\nhole par  mean  tee:tree fairway  throws:tree  OB`);
+  const pct = (a, n) => (100 * a / n).toFixed(0).padStart(3) + '%', tot = { par: 0, strokes: 0, teeTree: 0, teeFair: 0, throws: 0, tree: 0, ob: 0, bush: 0, shrub: 0 };
+  console.log(`${course}, ${runs} medium-bot plays a hole, calm\nhole par  mean  tee:tree fairway  throws:tree  OB  rest in bush/shrub`);
   for (const r of res) { for (const k in tot) tot[k] += r[k] * (k === 'par' ? runs : 1);
-    console.log(`${String(r.hole).padStart(4)} ${String(r.par).padStart(3)} ${(r.strokes / runs).toFixed(2).padStart(5)}      ${pct(r.teeTree, runs)}    ${pct(r.teeFair, runs)}         ${pct(r.tree, r.throws)} ${String(r.ob).padStart(3)}`); }
+    console.log(`${String(r.hole).padStart(4)} ${String(r.par).padStart(3)} ${(r.strokes / runs).toFixed(2).padStart(5)}      ${pct(r.teeTree, runs)}    ${pct(r.teeFair, runs)}         ${pct(r.tree, r.throws)} ${String(r.ob).padStart(3)}  ${r.bush}/${r.shrub}`); }
   const n = runs * res.length;
-  console.log(` all ${(tot.par / n).toFixed(2)} ${(tot.strokes / n).toFixed(2).padStart(5)}      ${pct(tot.teeTree, n)}    ${pct(tot.teeFair, n)}         ${pct(tot.tree, tot.throws)} ${String(tot.ob).padStart(3)}   (over par per hole ${((tot.strokes - tot.par) / n).toFixed(2)})`);
+  console.log(` all ${(tot.par / n).toFixed(2)} ${(tot.strokes / n).toFixed(2).padStart(5)}      ${pct(tot.teeTree, n)}    ${pct(tot.teeFair, n)}         ${pct(tot.tree, tot.throws)} ${String(tot.ob).padStart(3)}  ${tot.bush}/${tot.shrub} of ${tot.throws} throws   (over par per hole ${((tot.strokes - tot.par) / n).toFixed(2)})`);
   if (out) writeFileSync(out, JSON.stringify({ course, runs, holes: res }, null, 2));
   if (page.errors.length) console.log('errors', page.errors);
 } finally { await page.close(); b.close(); server.kill(); }
