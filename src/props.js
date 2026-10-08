@@ -273,6 +273,21 @@ float wNoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
     .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,1.,grime*.8);')
     .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor*=1.-grime*.8;');
 };
+// Basket metal, per pixel. Saturated steel-list parts (the gold tray; Lite's folded-in vehicle paint) are paint, not
+// metal. Chains (lift >= 150, see addBasket's hang) become galvanised links 2.8 cm long: a dark pinch where two links
+// meet, every other link turned face-on with its hole showing where the tube faces the eye, a per-chain phase so the
+// 36 chains never band into rings, and the inner set a shade darker for the occlusion of the outer one.
+const CHAIN_GLSL = `{ float sat = max(vColor.r, max(vColor.g, vColor.b)) - min(vColor.r, min(vColor.g, vColor.b));
+  if (sat > .25) { metalnessFactor = 0.; roughnessFactor = max(roughnessFactor, .48); }
+  if (vLift > 150.) {
+    float inner = step(15000., vLift), id = floor((vLift - mix(200., 20000., inner)) / 10.);
+    float s = vWp.y / .028 + fract(id * .6180339) * 7., f = fract(s), odd = mod(floor(s), 2.);
+    float joint = smoothstep(0., .15, f) * smoothstep(1., .85, f);
+    float face = abs(dot(normalize(normal), normalize(vViewPosition)));
+    float hole = odd * smoothstep(.55, .85, face) * smoothstep(.2, .34, f) * smoothstep(.8, .66, f);
+    diffuseColor.rgb *= mix(.42, 1., joint) * (1. - .7 * hole) * mix(1., .68, inner);
+    metalnessFactor = .5 * joint * (1. - hole); roughnessFactor = mix(.62, .24 + .1 * odd, joint);   // half metal: bright zinc in shade, glints in sun
+  } }`;
 // Soft contact shade where props meet the turf, the occlusion the sun's shadow map is too coarse to draw: one
 // ground-hugging 5x5 grid per foot, dark in a rounded-rect core (`core` of the half-extents) and fading to nothing at
 // the edge, faded out with distance like course.js's canopy pools. blobs: [x, z, yaw, half x, half z, core, strength].
@@ -331,29 +346,33 @@ function tyreGeometry(full) {
 // Basket: galvanised pole, tray of rim rings and bars over a pressed dish, outer and inner chain sets hanging in
 // catenaries from the rings inside the band to a collar over the tray, the printed band with rolled edges, and a
 // number flag on a mast. Full hangs 24 + 12 chains of 10 and 8 segments; Lite 10 chains of 3 and drops hidden parts.
+// The tray is powder-coated in the band's gold (DGM-reference round: an all-white basket read as one pale cage at putt
+// range, its chains as plastic rods); chains are galvanised links, shaded per pixel by CHAIN_GLSL below.
+const TRAY = '#d9a514', DISH = '#c99712', CHAIN = '#e4e8ea';
 function addBasket(K, world, n, full) {
-  const S = (g, c) => K.steel(g.applyMatrix4(world), c), Pr = (g, region, c) => K.print(g.applyMatrix4(world), region, c);
-  const GALV = '#d5d9db', DARK = '#8c9296';
+  const S = (g, c, clean) => K.steel(g.applyMatrix4(world), c, clean), Pr = (g, region, c) => K.print(g.applyMatrix4(world), region, c);
+  const GALV = '#c4c9cc', DARK = '#8c9296';
   S(cyl(.029, .029, 1.52, full ? 12 : 6, !full).translate(0, .71, 0), GALV);
   S(cyl(.008, .008, .62, 5, !full).translate(0, 1.77, 0), GALV);   // flag mast
   S(cyl(.075, .075, .05, full ? 12 : 6).translate(0, .845, 0), DARK);   // chain collar
   if (full) S(cyl(.045, .045, .12, 8).translate(0, 0, 0), DARK);   // ground sleeve
-  S(ring(.34, .012, full ? 40 : 14, full ? 5 : 3).translate(0, .8, 0), GALV);
-  S(ring(.33, .009, full ? 40 : 14, full ? 5 : 3).translate(0, .6, 0), GALV);
-  if (full) { S(ring(.34, .006, 40, 4).translate(0, .7, 0), GALV); S(ring(.29, .008, 40, 5).translate(0, 1.33, 0), GALV); S(ring(.29, .008, 40, 5).translate(0, 1.46, 0), GALV); S(ring(.255, .006, 32, 4).translate(0, 1.37, 0), DARK); S(ring(.16, .006, 24, 4).translate(0, 1.37, 0), DARK); }
-  S(cyl(.33, .06, .035, full ? 24 : 10).translate(0, .59, 0), '#aab0b3');   // pressed dish
+  S(ring(.34, .012, full ? 40 : 14, full ? 5 : 3).translate(0, .8, 0), TRAY);
+  S(ring(.33, .009, full ? 40 : 14, full ? 5 : 3).translate(0, .6, 0), TRAY);
+  if (full) { S(ring(.34, .006, 40, 4).translate(0, .7, 0), TRAY); S(ring(.29, .008, 40, 5).translate(0, 1.33, 0), GALV); S(ring(.29, .008, 40, 5).translate(0, 1.46, 0), GALV); S(ring(.255, .006, 32, 4).translate(0, 1.37, 0), DARK); S(ring(.16, .006, 24, 4).translate(0, 1.37, 0), DARK); }
+  S(cyl(.33, .06, .035, full ? 24 : 10).translate(0, .59, 0), DISH);   // pressed dish
   const bars = full ? 24 : 10;
-  for (let i = 0; i < bars; i++) { const a = i / bars * Math.PI * 2; S(cyl(.005, .005, .2, 3, true).translate(Math.cos(a) * .337, .7, Math.sin(a) * .337), GALV); }
+  for (let i = 0; i < bars; i++) { const a = i / bars * Math.PI * 2; S(cyl(.005, .005, .2, 3, true).translate(Math.cos(a) * .337, .7, Math.sin(a) * .337), TRAY); }
   if (full) for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + .4; S(cyl(.006, .006, .26, 3).rotateZ(Math.PI / 2).rotateY(-a).translate(Math.cos(a) * .15, 1.455, Math.sin(a) * .15), GALV); }   // cap spokes
-  const hang = (r0, r1, y0, y1, count, bulge, off, seg, sides) => {
+  // lift tags each chain for CHAIN_GLSL: 200 + 10 x chain id for the outer set, 20000 + for the inner one
+  const hang = (r0, r1, y0, y1, count, bulge, off, seg, sides, tag) => {
     for (let i = 0; i < count; i++) {
       const a = off + i / count * Math.PI * 2 + (hash2(i, n, 3) - .5) * .08, b = bulge * (.85 + hash2(i, n, 4) * .3), twist = (hash2(i, n, 5) - .5) * .12, pts = [];
       for (let k = 0; k <= 6; k++) { const t = k / 6, r = r0 + (r1 - r0) * t + b * Math.sin(Math.PI * t) * (1 - t * .35), aa = a + twist * Math.sin(Math.PI * t); pts.push(new THREE.Vector3(Math.cos(aa) * r, y0 + (y1 - y0) * t - .018 * Math.sin(Math.PI * t), Math.sin(aa) * r)); }
-      S(tube(pts, .007, seg, sides), '#f2f4f5');
+      S(tube(pts, .007, seg, sides), CHAIN, tag + 10 * (n * 40 + i));
     }
   };
-  hang(.255, .068, 1.37, .87, full ? 24 : 10, .055, 0, full ? 10 : 3, full ? 4 : 3);
-  if (full) hang(.16, .05, 1.37, .87, 12, .035, .13, 8, 3);
+  hang(.255, .068, 1.37, .87, full ? 24 : 10, .055, 0, full ? 10 : 3, full ? 6 : 3, 200);
+  if (full) hang(.16, .05, 1.37, .87, 12, .035, .13, 8, 4, 20000);
   Pr(cyl(.29, .29, .13, full ? 40 : 16, true).translate(0, 1.395, 0), 'band');
   const flag = new THREE.PlaneGeometry(.38, .26, full ? 8 : 2, 1), fp = flag.attributes.position;   // 38 x 26 cm, flying from the mast top
   const sway = new Float32Array(fp.count);
@@ -709,13 +728,13 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // Galvanised steel is a matte zinc skin: mostly diffuse so a back-lit basket stays silver-white under the dim ambient,
   // with enough metal and a tight enough lobe that chains still glint. The UTV's cage (and on Lite its paint) share it.
   const steel = new THREE.Mesh(mergeGeometries(K.lists.steel), toonMaterial({ vertexColors: true, metalness: .35, roughness: .38 }));
-  steel.material.onBeforeCompile = s => { GRIME_V(s); GRIME_F(s, !full); };
+  steel.material.onBeforeCompile = s => { GRIME_V(s); GRIME_F(s, !full); s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', CHAIN_GLSL + '\n#include <lights_physical_fragment>'); };
   steel.material.customProgramCacheKey = () => 'chains-props-steel' + full;
   // w10 putt verdicts (5/6: 'a dark featureless oval ~1.4 m right of the basket, detached from the pole'): under the 24°
   // key the solid pressed dish threw one dark ellipse. In the shadow pass alone the dish (picked out by its tint) is a
   // wire grid, 1 cm wires on a 5 cm pitch (~36% cover: 5 mm, ~19%, cast almost nothing at 640x360; 1.4 cm, ~48%, blurred back to a grey oval), so
   // the tray casts an open cage: its rim and bars a hoop round a faint lattice, hung on the pole's shadow line. Looks unchanged.
-  const tray = new THREE.Color('#aab0b3'), steelDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+  const tray = new THREE.Color(DISH), steelDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
   steelDepth.onBeforeCompile = s => {
     s.vertexShader = 'attribute vec3 color;varying float vTray;varying vec2 vGrid;\n' + s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vTray = step(length(color - vec3(${tray.r.toFixed(5)}, ${tray.g.toFixed(5)}, ${tray.b.toFixed(5)})), .003); vGrid = (modelMatrix * vec4(transformed, 1.)).xz / .05;`);

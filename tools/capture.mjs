@@ -2,7 +2,7 @@
 // built-in WebSocket speaks the Chrome DevTools Protocol to a private headless Chrome. Parallel-safe: each run owns
 // its static-server port, its debugging port (port + 1000) and a throwaway profile, so worktrees never share a tab.
 //   node tools/capture.mjs --out art/qa/r4 [--port 8101] [--size 1280x720] [--dpr 1] [--quality high|low]
-//                          [--moments menu,flyover,tee,putt,scorecard] [--mobile]
+//                          [--moments menu,flyover,tee,putt,scorecard] [--mobile] [--course pine|meadow|lake|bluff]
 // Writes <moment>.jpeg per requested moment and stats.json: draw calls and triangles for one full frame (shadow map
 // and post passes included), mean rAF interval, GPU string, and every console error / exception (shader failures).
 import { spawn } from 'node:child_process';
@@ -18,7 +18,7 @@ const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/capture' }, port: { type: 'string', default: '8101' },
   size: { type: 'string', default: '1280x720' }, dpr: { type: 'string', default: '1' }, quality: { type: 'string' },
   moments: { type: 'string', default: 'menu,flyover,tee,putt,scorecard' }, mobile: { type: 'boolean', default: false },
-  url: { type: 'string' },
+  url: { type: 'string' }, course: { type: 'string' },
   chrome: { type: 'string', default: CHROME },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -74,6 +74,7 @@ try {
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: +o.dpr, mobile: o.mobile });
   if (o.mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  if (o.course) await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.course', ${JSON.stringify(o.course)}); } catch {}` });   // pine | meadow | lake | bluff
   await send('Page.navigate', { url: o.url || `http://localhost:${port}/` });
   await until(`!!(window.__chains && __chains.course && __chains.hero)`, 120000);
   const q = { full: 'high', lite: 'low' }[o.quality] || o.quality;

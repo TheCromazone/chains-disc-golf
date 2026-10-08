@@ -11,6 +11,7 @@ import { createCelebration } from './celebration.js';
 import { createWindFx } from './wind.js';
 import { createShotGuide } from './shot-guide.js';
 import { suggestPower } from './shot-planning.js';
+import { createFlightTrail } from './flight-trail.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -66,6 +67,7 @@ const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: t
 const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .42, depthTest: false, depthWrite: false });
 const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();
 const shotGuide = createShotGuide(preview);
+const trail = createFlightTrail(scene);
 const previewLines = [previewEdge, previewMat].map((m, i) => { const l = new Line2(new LineGeometry(), m); l.frustumCulled = false; l.renderOrder = 5 + i; preview.add(l); return l; });
 const aimArrow = (() => {
   const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(.34, -.42); shape.lineTo(.12, -.36); shape.lineTo(.12, -1.15); shape.lineTo(-.12, -1.15); shape.lineTo(-.12, -.36); shape.lineTo(-.34, -.42); shape.closePath();
@@ -411,6 +413,7 @@ function launchNow() {
   }
   ensureDisc(p, params.discId); p.discMesh.visible = true; G.lastParams = params;
   G.flight = { pi, params, traj: sim.traj, events: sim.events, result: sim.result, t: 0, ei: 0, spin: 0, spinRate: 4 + speedFor(params.throwType, params.power) * 3 };
+  trail.start(discById(params.discId)?.color || "#ffffff");
   G.phase = 'flight'; cam.mode = 'flight'; sfx.whoosh(params.power);
   UI.setHud({ throwNo: `Throw ${p.strokes + 1}` });
 }
@@ -425,7 +428,7 @@ function updateFlight(dt) {
   if (a.length > 6) f.spinRate = a[6] + (b[6] - a[6]) * u; else f.spinRate *= (1 - 0.12 * dt);   // older peers send six-wide records
   f.spin += f.spinRate * dt;
   setDiscPose(p.discMesh, pos, nn, f.spin * THROWS[f.params.throwType].spin * (f.params.lefty ? -1 : 1));
-  f.pos = pos; f.hv = [b[0] - a[0], 0, b[2] - a[2]];
+  f.pos = pos; f.hv = [b[0] - a[0], 0, b[2] - a[2]]; trail.push(pos, f.t);
   while (f.ei < f.events.length && f.events[f.ei][0] <= f.t) { onFlightEvent(f.events[f.ei][1]); f.ei++; }
   UI.setHud({ dist: Math.hypot(basketPos()[0] - pos[0], basketPos()[1] - pos[2]) });
   if (i >= n - 1 && f.t > n / 60 + 0.6) { G.flight = null; resolveThrow(f.pi, f.result); }
@@ -936,6 +939,7 @@ function frame(dt, rawDt, background) {
   previewMat.dashOffset -= dt * 1.6; previewEdge.dashOffset = previewMat.dashOffset;
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
+  trail.update(camera, !!G.flight);
   if(post && postEnabled) post.render(); else renderer.render(scene, camera);
 }
 
