@@ -83,6 +83,28 @@ The reference's woods are green down to the ground and dark inside. A live A/B o
 
 Still open: from the tee the side stands are trunks on lit grass, and Meadows and Bluffs are thin by design (tree density .3 and .22). Making them read as woods means more trees, and trees are colliders, so that would change play.
 
+## Round 5: woods on Meadows and Bluffs, play kept fair
+
+Meadows and Bluffs (tree density .3 and .22) read as a park from the flyover and tee: a few trunks on lit grass either side of each hole. The ask was more trees with fair play, and trees are colliders. So the new ones go only where play does not:
+
+- 12 m or more outside the fairway's edge;
+- none within 45 m of a tee or 28 m of a basket, none in a putt lane, 4 m from any other trunk.
+
+They come from a separate pass with its own rng (`def.woods`, 1 on both courses), so every existing tree, prop and bush stays where it was. They cast no shadow and are kept out of the dressing, and a check found no trunk inside any prop's collider. Meadows gains 600 trees (1,891 -> 2,490) and Bluffs 820 (1,699 -> 2,519). Lite adds ~30k triangles on Bluffs with no new draws; frame time is unchanged.
+
+**Fair play, measured** (`tools/qa/fairness.mjs`, new): the game's own medium bot plays every hole 120 times through the real physics and its execution error, wind calm. Math.random is seeded per hole and run, so the two layouts throw identically until a tree changes something.
+
+| 120 plays a hole | Meadows before | after | Bluffs before | after |
+|---|---:|---:|---:|---:|
+| Strokes over par a hole | +.43 | +.42 | +.69 | +.69 |
+| Tee shots touching a tree | 166 | 158 | 192 | 192 |
+| Throws touching a tree | 352 | 348 | 357 | 360 |
+| Tee shots resting on the fairway | 83% | 83% | 59% | 60% |
+
+Per hole the change is within ±.16 strokes and goes both ways. Bluffs 4 is the largest at +.16, with no throw there touching a tree: the bot's best tee lines are the same, so the change builds up in later shots. For scale, Pine Hollow and Lakeshore play +.61 and +.48 with 31% and 22% of tee shots touching a tree.
+
+[Flyover and tee, before and after](back-woods.jpg). Meadows' menu blurb no longer says "few trees".
+
 ## Kept on purpose
 
 The low golden sun and its glare on the tee are the key-art look (`art/keyart/chatgpt-keyart-wide.jpg`); their clean midday was not copied. Characters already read as more realistic than theirs and were left alone. Lite is unchanged apart from the gold tray and links (it has no grade pass; its saturation was already .43).

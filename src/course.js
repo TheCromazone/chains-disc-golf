@@ -23,9 +23,9 @@ export const COURSES = [
     len: [85, 108, 76, 128, 96, 68, 122, 90, 104], dog: { 1: -1, 3: 1, 6: -1 }, ponds: { 2: 'front', 5: 'right', 8: 'carry' },
     hills: 1, trees: 1, pine: 0.5, fairwayW: 1, wind: 1, grass: ['#689a3c', '#588a38', '#446f33', '#e3cf9a'], leafHue: 0.29,
     sun: [24, 38, 12, 10, 5.6], sky: [.52, 1.2, '#3a7cd4', '#8fbdea'], sunColor: '#ffe4cc', fog: ['#bdd3e8', .0045], hemi: ['#a5c6ee', '#e8d0a0'], water: '#2d6f95' },
-  { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour. Few trees, a lot of wind, drivers all day.', seed: 23,
+  { id: 'meadow', name: 'Cedar Meadows', tag: 'Open · long · windy', blurb: 'Big rolling meadow holes at golden hour, woods all round. Open fairways, a lot of wind, drivers all day.', seed: 23,
     len: [112, 138, 96, 165, 121, 88, 150, 104, 132], dog: { 3: 1, 6: 1 }, ponds: { 4: 'right' },
-    hills: 1.7, trees: 0.3, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#74a03e', '#65933a', '#4f7434', '#e6d29c'], leafHue: 0.265,
+    hills: 1.7, trees: 0.3, woods: 1, pine: 0.15, fairwayW: 1.6, wind: 1.8, grass: ['#74a03e', '#65933a', '#4f7434', '#e6d29c'], leafHue: 0.265,
     sun: [24, 42, 10, 22, 3.8], sky: [.48, 1.1, '#4a82cc', '#b4cbe4'], sunColor: '#ffdcae', fog: ['#d3d9df', .0042], hemi: ['#b2c7e6', '#6e6a3a'], water: '#4a7f8f' },
   { id: 'lake', name: 'Lakeshore Links', tag: 'Water on five holes', blurb: 'Morning light off the lake. Carries, wraps and island greens; every pond is out of bounds.', seed: 41,
     len: [92, 118, 80, 134, 100, 74, 126, 96, 110], dog: { 2: 1, 5: -1, 7: 1 }, ponds: { 0: 'right', 2: 'front', 4: 'carry', 6: 'right', 8: 'front' },
@@ -33,7 +33,7 @@ export const COURSES = [
     sun: [31, 40, 11, 26, 4.4], sky: [.56, 1.35, '#3b80d6', '#a6cbee'], sunColor: '#fff2e0', fog: ['#c2d8ea', .0052], hemi: ['#a9caf0', '#4f6a42'], water: '#2a7fa8' },
   { id: 'bluff', name: 'Gull Point Bluffs', tag: 'Coastal · exposed · gusty', blurb: 'Headland links above the surf. Nothing stops the wind up here: read the socks, throw low into it and ride it home.', seed: 59,
     len: [98, 124, 88, 142, 110, 80, 156, 96, 118], dog: { 1: 1, 4: -1, 7: 1 }, ponds: { 2: 'right', 5: 'carry', 8: 'front' },
-    hills: 2.1, trees: 0.22, pine: 0.7, fairwayW: 1.4, wind: 2.8, grass: ['#7fa144', '#709540', '#577a3c', '#e0d2a4'], leafHue: 0.25,
+    hills: 2.1, trees: 0.22, woods: 1, pine: 0.7, fairwayW: 1.4, wind: 2.8, grass: ['#7fa144', '#709540', '#577a3c', '#e0d2a4'], leafHue: 0.25,
     sun: [40, 44, 12, 24, 3.6], sky: [.45, 1.2, '#3576d0', '#a2c6ea'], sunColor: '#fff4e4', fog: ['#c6d8e6', .004], hemi: ['#a8c8ee', '#6a7446'], water: '#3f8fb0' },
 ];
 export const courseById = id => COURSES.find(c => c.id === id) || COURSES[0];
@@ -395,6 +395,23 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const t = Object.assign(plant(x, z, s, rot, kind, pine, 1), { edge: 1 }); (pine ? pineSpots : decSpots).at(-1).quiet = 1;
     const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
   }
+  // Back woods (woods round 2, 2026-10-07): Meadows and Bluffs (trees .3 and .22) read as a park, a few trunks on lit grass
+  // either side of every hole. def.woods thickens the stands only where play does not go: from 12 m outside the fairway's
+  // edge back, none within 45 m of a tee or 28 m of a basket, none in a putt lane, 4 m from any other trunk. So the fairways,
+  // the tee clearings and the greens play as they did (tools/qa/fairness.mjs: the medium bot's strokes and tee-shot tree
+  // hits, run for run, before and after: at 120 plays a hole, Meadows +.43 -> +.42 strokes over par a hole and Bluffs +.69
+  // -> +.69, throws touching a tree 352 -> 348 and 357 -> 360, with 600 and 820 more trees). Own rng: every other layout
+  // stays put. Flagged edge (the dressing is laid out without them) and quiet (no shadow pass): they stand back from the
+  // play, where the haze carries their shade.
+  if (def.woods) { const wrng = makeRng(seed * 223 + 59);
+    for (let gx = -W / 2 + 10; gx < W / 2 - 10; gx += 5) for (let gz = -H / 2 + 10; gz < H / 2 - 10; gz += 5) {
+      const x = gx + (wrng() - .5) * 4.5, z = gz + (wrng() - .5) * 4.5, pick = wrng(), s = .8 + wrng() * .55, rot = wrng() * Math.PI * 2;
+      const { fi, halfW, skip } = stand(x, z);
+      if (skip || fi.d < halfW + 12 || pick > .62 * def.woods * (.12 + 1.35 * smooth(.32, .7, noise(x / 21 + 3, z / 21 + 11)))) continue;
+      if (holes.some(h => Math.hypot(x - h.tee[0], z - h.tee[1]) < 45 || Math.hypot(x - h.basket[0], z - h.basket[1]) < 28) || inLane({ x, z }) || treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < 4)) continue;
+      const pine = noise(x / 90 + 500, z / 90 + 500) > 1 - def.pine, t = Object.assign(plant(x, z, s, rot, kindOf(x, z, pine), pine), { edge: 1 }); (pine ? pineSpots : decSpots).at(-1).quiet = 1;
+      const k = key(Math.floor(x / CELL), Math.floor(z / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); lastK = null;
+    } }
   // Woods shrubs (woods round, 2026-10-07, Disc Golf Masters as the reference): their stands read as woods, green down to
   // the ground; ours read as a park, tall trunks over bare floor with nothing between knee and crown, so through every gap
   // the eye ran on to lit ground 50-100 m back. Shrubs 1.7-3.6 m tall in clumps (their own noise) under the canopy: only
