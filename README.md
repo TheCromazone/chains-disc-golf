@@ -132,6 +132,7 @@ Development serves ES modules; production uses the build above. Optional art can
 - **Full:** the 12.4k Draco athletes with 2048 albedo and normal maps, 32 mesh-free animation files, photo-leaf trees, course HDRI ambient, bloom and grade.
 - Eleven Blender throws, authored for both hands, use phase **0–0.5 for swipe windup**, **0.62 for release**, and **0.5–1 for follow-through**. Idle weight shifts, practice swings, walking and score reactions use separate clips.
 - A basket-to-tee camera introduces each hole. Chain-hit slow motion changes playback speed only; physics and network trajectory data stay unchanged.
+- Every throw draws a ribbon in the disc's colour over its last .8 s of flight, a fixed angular width so a drive reads at 80 m (`src/flight-trail.js`). Baskets have a gold powder-coated tray and galvanised chain links shaded per pixel. The putt's air is thin enough that the woods behind the pin stay green ([gauntlet against Disc Golf Masters](docs/qa/dgm-gauntlet/REPORT.md)).
 - Graphics switching rebuilds and disposes course resources. Foliage uses spatial groups; resolution can scale down during sustained slow frames. Lite never exceeds its original pixel-ratio cap.
 
 ## Validation and budgets
