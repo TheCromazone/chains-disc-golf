@@ -1,4 +1,5 @@
 import { PROTOCOL_VERSION, safeName } from './protocol.js';
+import { openRelay } from './relay.js';
 const SERIALIZATION = 'binary';   // PeerJS chunks binary messages; its JSON mode refuses anything over ~16 KB (a long throw's replay)
 // One reliable connection per guest. Host owns scores and sends the authoritative replay.
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -56,16 +57,31 @@ export function createNet() {
       try { await connectHost(); retry = null; lostSince = 0; net.onEvent({ type: 'reconnected' }); } catch { retry = null; scheduleReconnect(); }
     }, 1500);
   }
-  const connectHost = () => new Promise((res, rej) => {
+  // A guest reaches the host directly when it can, and through the encrypted MQTT relay (relay.js) when it cannot: cellular
+  // carrier NAT and strict Wi-Fi often block a data channel when there is no TURN server. A missing room is not retried there.
+  const connectHost = async () => {
+    if (net.via === 'relay') { try { await connectRelay(); return; } catch { /* the relay is gone too: try direct */ } }   // a reconnect starts where it last worked
+    try { await connectDirect(); }
+    catch (e) { if (e.noRoom) throw e; try { await connectRelay(); } catch { throw e; } }   // the relay could not help either: say why direct failed
+  };
+  const connectRelay = async () => {
+    net.relay?.close(); net.relay = null;
+    const gen = generation, relay = await openRelay({ code: net.code, role: 'guest', selfId: net.relayId });
+    if (gen !== generation || closing) { relay.close(); throw new Error('Left the room.'); }
+    net.relay = relay;
+    const conn = await relay.connect({ name: net.name, avatar: net.avatar, token: net.token, version: PROTOCOL_VERSION });
+    lastHost = Date.now(); net.via = 'relay'; wire(conn);
+  };
+  const connectDirect = () => new Promise((res, rej) => {
     const peer = net.peer;
     const conn = peer && !peer.disconnected ? peer.connect(roomId(net.code), { reliable: true, serialization: SERIALIZATION, metadata: { name: net.name, avatar: net.avatar, token: net.token, version: PROTOCOL_VERSION } }) : null;
     if (!conn) return rej(new Error('Still reaching the room service. Try again in a moment.'));   // connect() returns nothing while signalling is down
     joining = true;
     let settled = false;
-    const done = (err) => { if (settled) return; settled = true; clearTimeout(t); timers.delete(t); peer.off('error', onPeerError); joining = false; if (err) { try { conn.close(); } catch {} rej(err); } else { lastHost = Date.now(); wire(conn); res(); } };
-    const onPeerError = e => { if (e?.type === 'peer-unavailable') done(new Error('No room with that code. Check it, or ask the host to make a new room.')); };
+    const done = (err) => { if (settled) return; settled = true; clearTimeout(t); timers.delete(t); peer.off('error', onPeerError); joining = false; if (err) { try { conn.close(); } catch {} rej(err); } else { lastHost = Date.now(); net.via = 'direct'; wire(conn); res(); } };
+    const onPeerError = e => { if (e?.type === 'peer-unavailable') done(Object.assign(new Error('No room with that code. Check it, or ask the host to make a new room.'), { noRoom: true })); };
     peer.on('error', onPeerError);
-    const t = later(() => done(new Error("Couldn't reach the host. On different networks (cellular and Wi-Fi) direct play can be blocked: try the same Wi-Fi, or start an invite match.")), 15000);
+    const t = later(() => done(new Error("Couldn't reach the host. Check the code and your connection, or start an invite match.")), 10000);
     conn.once('open', () => done());
     conn.once('error', e => done(e));
   });
@@ -93,7 +109,14 @@ export function createNet() {
       net.peer = new window.Peer(roomId(code), options());
       // Listen before readiness so the first guest cannot arrive between callbacks.
       net.peer.on('connection', conn => { conn.once('open', () => wire(conn, conn.metadata || {})); });
-      try { await ready(); startHostWatch(); return code; } catch (e) { net.peer.destroy(); if (e.type !== 'unavailable-id' || attempt === 3) throw e; }
+      try {
+        await ready(); startHostWatch();
+        // the relay side of the room, for guests whose data channel cannot open; the room plays without it if no broker answers
+        const gen = generation;
+        openRelay({ code, role: 'host', selfId: roomId(code), onConn: conn => { if (gen === generation && !closing) wire(conn, conn.metadata || {}); } })
+          .then(r => { if (gen === generation && !closing) net.relay = r; else r.close(); }, () => { /* direct play only */ });
+        return code;
+      } catch (e) { net.peer.destroy(); if (e.type !== 'unavailable-id' || attempt === 3) throw e; }
     }
   };
   net.join = async (code, name, onEvent, avatar = null) => {
@@ -101,15 +124,18 @@ export function createNet() {
     if (!/^[A-Z2-9]{4}$/.test(net.code)) throw new Error('Enter a four-character room code.');
     const tokenKey = `chains.room.${net.code}`; net.token = crypto.randomUUID();
     try { net.token = sessionStorage.getItem(tokenKey) || net.token; sessionStorage.setItem(tokenKey, net.token); } catch {}
+    net.relayId ||= `r-${crypto.randomUUID()}`;
     await loadIce(); net.peer = new window.Peer(options());
-    await ready();
-    await connectHost(); startHeartbeat();
+    let direct = true; try { await ready(); } catch { direct = false; }   // the room service is unreachable from here: the relay may not be
+    await (direct ? connectHost() : connectRelay()); startHeartbeat();
   };
   net.send = (id, data) => { const c = net.conns.get(id); if (c && c.open) c.send(data); };
   net.broadcast = (data, except = null) => { for (const [id, c] of net.conns) if (id !== except && c.open) c.send(data); };
   net.toHost = data => { for (const c of net.conns.values()) if (c.open) c.send(data); };
   net.disconnect = id => later(() => net.conns.get(id)?.close(), 250);
-  net.close = () => { closing = true; generation++; for (const t of timers) clearTimeout(t); timers.clear(); clearInterval(heartbeat); retry = null; try { net.peer?.destroy(); } catch {} net.conns.clear(); net.peer = null; };
-  net.id = () => net.peer?.id || net.myId;   // the cached id: during a signalling reconnect peer.id reads null and every turn looked like someone else's
+  net.close = () => { closing = true; generation++; for (const t of timers) clearTimeout(t); timers.clear(); clearInterval(heartbeat); retry = null; try { net.peer?.destroy(); } catch {} try { net.relay?.close(); } catch {} net.relay = null; net.conns.clear(); net.peer = null; };
+  // the cached id: during a signalling reconnect peer.id reads null and every turn looked like someone else's. Through the relay
+  // the host knows this guest by its relay id, so that is who it is.
+  net.id = () => (!net.isHost && net.via === 'relay' ? net.relayId : net.peer?.id || net.myId);
   return net;
 }
