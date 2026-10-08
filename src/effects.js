@@ -14,13 +14,15 @@ export async function loadSky() { return null; }
 
 // Broadcast finish for Full: render -> light shafts -> bloom (the sun's halo, lit cloud tops, chalk, glossy plastic)
 // -> output (ACES) -> grade. The grade is one fullscreen pass in display space: gain and lift, a gentle S-curve (at .5
-// it sank dark mulch in shade under the toe), saturation about luma with greens eased toward summer olive (the lawn and
-// leaves were a neon lime), a split tone (shade toward the sky's blue, sunlit tones toward the key's warmth, so sun and
-// shade read apart at a glance), a thin cool veil over the deepest darks, film grain, corner vignette.
+// it sank dark mulch in shade under the toe), saturation about luma (1.12) with greens' hue eased toward summer olive (the
+// lawn and leaves were a neon lime; uOlive, which also took saturation off greens, is 0 since the saturation round: the
+// foliage sat at .24-.41 against Disc Golf Masters' .40-.54), a split tone (shade toward the sky's blue, sunlit tones
+// toward the key's warmth, so sun and shade read apart at a glance), a thin cool veil over the deepest darks, film grain,
+// corner vignette.
 // Screen-space AO was tried and dropped (r5): too faint at thin contacts, grime in the lawn; the contact rings under trunks
 // and baskets (course.js) and the canopy's baked occlusion carry it.
 const GRADE = {
-  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.03, 1, .96) }, uLift: { value: new THREE.Vector3(0, .003, .01) }, uSat: { value: 1.06 }, uOlive: { value: .25 },
+  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.03, 1, .96) }, uLift: { value: new THREE.Vector3(0, .003, .01) }, uSat: { value: 1.12 }, uOlive: { value: 0 },
     uCool: { value: new THREE.Vector3(.94, .99, 1.06) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uVeil: { value: new THREE.Vector3(.018, .022, .03) }, uCurve: { value: .4 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
   vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift,uCool,uWarm,uVeil;uniform float uSat,uOlive,uCurve,uGrain,uVignette,uTime;varying vec2 vUv;
