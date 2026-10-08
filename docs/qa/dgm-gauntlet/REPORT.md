@@ -31,6 +31,30 @@ Live A/B on frozen tee frames (fog off, bloom off, shafts off, then each lever a
 - Tried and dropped: bloom .35 -> .2, the fog's forward-scatter glow and its warm lobe at half each moved the flyover by under .01 on every measure; what remains round an in-frame sun is the sun and its shafts.
 - `__chains.post.passes` (shafts, bloom, grade) is exposed for this kind of live A/B.
 
+## Round 3: saturation and far trees
+
+| Area | Before | After | Named problems |
+|---|---:|---:|---|
+| Tee | 7.5 | 8 | Crowns grey-olive near and far; Bluffs' far spruce blue-grey |
+| Putt | 7.5 | 8 | A milky wall past ~40 m on Meadows; Bluffs' woods behind the pin blue-grey |
+| Flyover | 7 | 7.5 | Every canopy dusty olive under a pale sky |
+
+A new measure: foliage pixels only (hue 35-170°, with some chroma), top half of the frame. On the reference stills those leaves sit at saturation .40-.54 and value .21-.39: dark, rich greens. Ours sat at .24-.41 and .37-.60, too pale and too grey. The leaves were losing colour in five places at once: the albedo (45%), a further 10% on the lit result, the fog, the far squeeze and the grade's olive pull. Live A/B on frozen frames found the albedo and the air did almost all of it; the far squeeze barely moved anything and stays.
+
+- Leaves (`src/course.js`): the albedo keeps 80% of its colour on Full (was 55%), and the extra 10% on the lit leaf is gone. Lite keeps 55%: it has no grade pass, and on the phone its crowns went lime (.64).
+- Grade (`src/effects.js`): saturation 1.06 -> 1.12 and the olive pull's desaturation off (`uOlive` .25 -> 0); greens still lean olive in hue.
+- Putt air: density .7 -> .4 and a darker air away from the sun (haze .6/.72/1.05 -> .42/.52/.78), so the far rows sit darker inside it instead of lifting to white. The rows still step back. Tee air: `TEE_AIR` .9 -> .55.
+
+| Top half, foliage saturation | Pine | Meadows | Lakeshore | Bluffs |
+|---|---|---|---|---|
+| Tee | .41 -> .51 | .35 -> .41 | .28 -> .36 | .30 -> .36 |
+| Putt | .37 -> .47 | .31 -> .38 | .31 -> .42 | .28 -> .32 |
+| Flyover | .39 -> .51 | .33 -> .43 | .27 -> .39 | .24 -> .32 |
+
+Whole-frame saturation went from .31-.39 to .35-.45 (the reference: .39-.54). Top-half green-lead on the putt: Pine .19 -> .29, Meadows .21 -> .42, Lakeshore .44 -> .58, Bluffs .26 -> .45. Phone Lite on Pine and Lakeshore: top-half foliage saturation .34-.49 -> .37-.55. [Tees and putts, before and after on each course](saturation.jpg).
+
+Still short of the reference: Bluffs (the haziest air and the most sky) at .32-.36 foliage saturation, and the reference's woods are denser, with near-black shade under them, where ours show more open, lit floor.
+
 ## Kept on purpose
 
 The low golden sun and its glare on the tee are the key-art look (`art/keyart/chatgpt-keyart-wide.jpg`); their clean midday was not copied. Characters already read as more realistic than theirs and were left alone. Lite is unchanged apart from the gold tray and links (it has no grade pass; its saturation was already .43).
