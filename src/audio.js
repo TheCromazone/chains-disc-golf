@@ -10,9 +10,9 @@ const VOL = 0.22;
 // old trigger, so on phones the context was born suspended and stayed so). main.js calls this on each of them, which also wakes a
 // context iOS 'interrupted' for a call or an app switch. The silent one-sample buffer is what older iOS needs to really start.
 export function unlock() {
-  if (ctx) { if (ctx.state !== 'running') { ctx.resume().catch(() => {}); prime(); } return; }
+  if (ctx) { if (ctx.state !== 'running') { session(); ctx.resume().catch(() => {}); prime(); } return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-  ctx = new AC(); prime();
+  session(); ctx = new AC(); prime();
   master = ctx.createGain(); master.gain.value = muted ? 0 : VOL;
   const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -20; lim.knee.value = 10; lim.ratio.value = 12; lim.attack.value = 0.002; lim.release.value = 0.12;
   master.connect(lim); lim.connect(ctx.destination);
@@ -26,9 +26,12 @@ export function unlock() {
   const vg = ctx.createGain(); vg.gain.value = 0.28; verb.connect(vf); vf.connect(vg); vg.connect(master);
   ambient(); loadSamples();
 }
+// iOS ties Web Audio to the ring/silent switch unless the page asks for a 'playback' session (Safari 17+), as music and video
+// apps do: unmuted, the game asks for it so it is heard on silent. Muted, it drops to 'ambient', which leaves other apps' music alone.
+function session() { try { if (navigator.audioSession) navigator.audioSession.type = muted ? 'ambient' : 'playback'; } catch { /* not settable here */ } }
 function prime() { try { const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, 22050); s.connect(ctx.destination); s.start(0); } catch { /* closed */ } }
-export const audioState = () => ctx?.state || 'off';
-export function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : VOL, ctx.currentTime, 0.02); }
+export const audioState = () => `${ctx?.state || 'off'}${navigator.audioSession ? ` · ${navigator.audioSession.type}` : ''}`;
+export function setMuted(m) { muted = m; session(); if (master) master.gain.setTargetAtTime(m ? 0 : VOL, ctx.currentTime, 0.02); }
 export const isMuted = () => muted;
 
 const now = () => ctx.currentTime;

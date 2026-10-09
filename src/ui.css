@@ -147,17 +147,34 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 #wind { display: inline-flex; align-items: center; gap: 4px; }
 #windArrow { display: inline-flex; color: var(--mint); transition: transform 150ms; }
 #windArrow .icon { width: 13px; height: 13px; }
-#utilities { position: absolute; right: 12px; top: calc(12px + var(--sat)); z-index: 4; }
-#btnUtilities { width: 46px; height: 46px; padding: 0; border-radius: 10px; border-color: #ffffff2e; background: #0c1114c4; color: #fff; box-shadow: 0 2px 8px #0006; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+#utilities { position: absolute; right: 12px; top: calc(12px + var(--sat)); z-index: 4; display: flex; gap: 8px; }
+/* Sound is one tap away everywhere: beside the course tools in a round, beside the locker card in the clubhouse. */
+.sound-toggle .icon { width: 22px; height: 22px; }
+.sound-toggle.muted-sound { opacity: .8; }
+/* Clubhouse corner: a narrow column on the right edge, so the locker tile and sound never sit over the athlete's face (a phone's
+   browser bars shorten the view and frame him higher, which put his face under the old wide locker card). */
+.hub-tools { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.hub-tools .pcard { flex-direction: column; gap: 3px; width: 58px; max-width: none; padding: 6px 4px 5px; text-align: center; }
+.hub-tools .pcard > div { width: 100%; }
+.hub-tools .pcard b { font-size: 12px; line-height: 1.1; }
+.hub-tools .pcard .muted { display: block; font-size: 9px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; }
+.hub-sound { width: 58px; height: 46px; min-height: 46px; flex: none; padding: 0; border-radius: 12px; background: linear-gradient(140deg, #ffffffbb, #d9f4ff80); color: var(--ink); }
+@media (orientation: portrait) and (max-height: 640px) {   /* the clubhouse panel starts ~90px down: no room for the column */
+  .hub-tools { flex-direction: row; }
+  .hub-tools .pcard { width: 46px; height: 46px; padding: 0; justify-content: center; }
+  .hub-tools .pcard > div { display: none; }
+  .hub-sound { width: 46px; }
+}
+#btnMute, #btnUtilities { width: 46px; height: 46px; padding: 0; border-radius: 10px; border-color: #ffffff2e; background: #0c1114c4; color: #fff; box-shadow: 0 2px 8px #0006; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 #btnUtilities[aria-expanded=true] { color: var(--black); background: var(--mint); border-color: var(--mint); }
 #sideBtns { position: absolute; top: 54px; right: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 224px; padding: 8px; border: 1px solid #ffffff2a; border-radius: 12px; background: #0c1114e6; color: #fff; box-shadow: 0 8px 26px #0008; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 #sideBtns button { width: auto; height: 46px; min-height: 46px; padding: 7px; gap: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; justify-content: flex-start; border-radius: 8px; border-color: transparent; background: #ffffff10; color: #fff; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 #sideBtns button .icon { width: 18px; height: 18px; }
 #sideBtns button.on { background: var(--mint); color: var(--black); border-color: var(--mint); }
-#btnMute .sound-icons { display: grid; place-items: center; }
-#btnMute .sound-icons > span { grid-area: 1/1; transition: opacity 150ms var(--ease), transform 150ms var(--ease), filter 150ms var(--ease); }
-#btnMute:not(.muted-sound) .sound-off, #btnMute.muted-sound .sound-on { opacity: 0; transform: scale(.25); filter: blur(4px); }
-#btnMute:not(.muted-sound) .sound-on, #btnMute.muted-sound .sound-off { opacity: 1; transform: scale(1); filter: blur(0); }
+.sound-toggle .sound-icons { display: grid; place-items: center; }
+.sound-toggle .sound-icons > span { grid-area: 1/1; transition: opacity 150ms var(--ease), transform 150ms var(--ease), filter 150ms var(--ease); }
+.sound-toggle:not(.muted-sound) .sound-off, .sound-toggle.muted-sound .sound-on { opacity: 0; transform: scale(.25); filter: blur(4px); }
+.sound-toggle:not(.muted-sound) .sound-on, .sound-toggle.muted-sound .sound-off { opacity: 1; transform: scale(1); filter: blur(0); }
 /* Equipment: two compact chips in the bottom corners; their pickers pop up above them. */
 #hud > #controls { position: absolute; left: 12px; right: 12px; bottom: calc(12px + var(--sab)); z-index: 3; pointer-events: none; }
 .equipment-summary { display: flex; justify-content: space-between; }
@@ -358,7 +375,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #playerName { font-size: 21px; }
   #toPar { font-size: 19px; min-width: 42px; }
   #holeInfo, #throwNo { font-size: 11px; }
-  #btnUtilities { width: 40px; height: 40px; }
+  #btnMute, #btnUtilities { width: 40px; height: 40px; min-height: 40px; }
   #sideBtns { top: 48px; }
   #power { width: 60px; height: 60px; margin-left: -30px; }
   #powerLabel { bottom: calc(44px + var(--sab)); font-size: 13px; }
@@ -406,7 +423,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #score .score-actions button { min-height: 40px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  button, #toast, #fade, #windArrow, #btnMute .sound-icons > span, #pad .hint, #powerFill { transition: none; }
+  button, #toast, #fade, #windArrow, .sound-toggle .sound-icons > span, #pad .hint, #powerFill { transition: none; }
   button:active:not(:disabled) { transform: none; }
   #pad.bad .hint { animation: none; }
 }
@@ -529,7 +546,7 @@ body[data-phase='intro'] #pin i { height: 46px; }   /* the establishing shot see
 body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: block; }   /* aiming only: the swipe itself runs on feel */
 #hud.equipment-open #shotPlan, #hud:has(#btnUtilities[aria-expanded='true']) #shotPlan { visibility: hidden; }
 @media (max-width: 700px) { #shotPlan { left: 12px; top: calc(102px + var(--sat)); padding: 6px 8px; } }
-@media (max-height: 520px) { #shotPlan { top: calc(12px + var(--sat)); left: auto; right: 74px; } }
+@media (max-height: 520px) { #shotPlan { top: calc(12px + var(--sat)); left: auto; right: 128px; } }   /* clear of the sound and tools buttons */
 
 /* Two thumbs on a wide touch screen: the left ~40% drags the aim, the right ~60% (under the score strip) takes the swipe,
    with the power ring under the swipe hand. One finger still works: drag on the left, swipe on the right. */
