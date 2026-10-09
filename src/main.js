@@ -16,6 +16,7 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { setupInput } from './input.js';
+import { createCoach } from './coach.js';
 import { planBotThrow } from './bot.js';
 import { createNet } from './net.js';
 import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, uniqueName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor } from './protocol.js';
@@ -571,6 +572,7 @@ function onAim({ dx, dy, speed = 0, touch = false }) {
   const k = G.overview ? 0.0025 : touch ? .0016 + .0022 * Math.min(1, speed / 1.2) : 0.0038;
   G.aim.yaw += dx * k;
   G.aim.pitch = Math.max(-6, Math.min(16, G.aim.pitch - dy * (touch ? .045 : 0.06)));
+  if (touch) coach.aimed(Math.hypot(dx, dy), G.phase === 'windup');
   G.planDirty = true; G.planChangedAt = performance.now();
   G.previewDirty = true; updateWindHud();
 }
@@ -592,7 +594,7 @@ function onGesture(g) {
   const o = { power: g.progress, hyzer: 0, yawOffset: (Math.random() - 0.5) * 6 * wob, launchOffset: G.aim.pitch };
   if (th.latMode === 'hyzer') o.hyzer = Math.max(-35, Math.min(35, g.lateral * 80)); else o.yawOffset += Math.max(-25, Math.min(25, g.lateral * 50));
   UI.setHint(G.throwType, 'longer swipe = more power');
-  buzz(15);
+  buzz(15); coach.thrown();
   doThrow(G.cur, o);
   document.body.classList.add('thrown');   // the swipe hint fades after the first real throw (ui.css)
 }
@@ -964,6 +966,7 @@ function frame(dt, rawDt, background) {
     if (slowTime > 6 && post && postEnabled) { postEnabled = false; slowTime = 0; UI.toast('Graphics adjusted', 'Keeping your round smooth', 1600); }
   }
   if (!course) return;
+  coach.update(dt, { on: cam.mode === 'aim' && (G.phase === 'aim' || G.phase === 'windup') && !G.overview && playable() && !document.body.classList.contains('result-mode'), throwType: G.throwType, windup: G.phase === 'windup' });
   if (G.phase === 'intro') { G.introT += dt; if (G.introT > introDur(holes[G.holeIdx]) || G.inbox.length) { nextTurn(); cam.snap = true; } }   // the cut from the basket back to the tee, under the flash
   { const a = G.phase === 'intro' ? .7 * THREE.MathUtils.smoothstep(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH, introDur(holes[G.holeIdx])) : Math.max(0, flashA - dt / .2);   // the broadcast's white flash: up over the held basket, down over the tee
     if (a !== flashA) flashEl.style.opacity = flashA = a; }
@@ -1056,7 +1059,8 @@ $('btnMute').onclick = () => { setMuted(!isMuted()); UI.setSoundMuted(isMuted())
   }
 }
 $('btnMenu').onclick = async () => { if (!(await UI.confirmLeave())) return; const match = G.mode === 'async' ? G.matchId : null; toMenu(); if (match) matches.openMatch(match); };   // leaving an invite turn returns to its scorecard; the hole is not recorded
-$('btnHelp').onclick = () => { UI.hide('menu'); UI.show('help'); }; $('btnHelpClose').onclick = () => { UI.hide('help'); UI.show('menu'); };
+$('btnHelp').onclick = () => { UI.hide('menu'); UI.show('help'); $('btnCoachReplay').disabled = false; $('btnCoachReplay').lastElementChild.textContent = 'Replay the thumb tutorial'; };
+$('btnCoachReplay').onclick = e => { coach.replay(); e.currentTarget.disabled = true; e.currentTarget.lastElementChild.textContent = 'It starts on your next throw'; sfx.click(); }; $('btnHelpClose').onclick = () => { UI.hide('help'); UI.show('menu'); };
 $('btnScoreNext').onclick = () => { if (G.mode === 'online' && !G.net?.isHost) return; netSend({ t: 'next', sessionId: G.sessionId, holeIdx: G.holeIdx }); advanceHole(); };
 $('btnScoreMenu').onclick = toMenu;
 UI.seg('holesSeg', v => G.settings.holes = v); UI.seg('diffSeg', v => G.settings.difficulty = v);
@@ -1299,6 +1303,7 @@ const input = setupInput({ sceneEl: canvas, padEl: $('pad'), getThrow: () => G.t
     else $({ KeyT: 'btnTarget', KeyO: 'btnOverview', KeyM: 'btnMute' }[code])?.click();
   }
 });
+const coach = createCoach({ hud: $('hud'), pad: $('pad') });
 document.addEventListener('keydown', unlock, { once: true, capture: true });
 for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, e => e.preventDefault(), { passive: false });   // iOS Safari: a stray two-finger pinch would zoom the whole game
 let contextLost = false;
@@ -1315,7 +1320,7 @@ setTimeout(async () => {
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await warmShaders();
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage
