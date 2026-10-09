@@ -594,7 +594,8 @@ body.gfx-mobile #vignette { display: block; }
 #coach .coach-sub { display: block; margin-top: 3px; color: #ffffffc4; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; line-height: 1.35; }
 #coach.done .coach-card { border-color: #5cf0a880; }
 @keyframes coachIn { from { opacity: 0; } to { opacity: 1; } }
-body.coaching #aimZone, body.coaching[data-phase='aim'] #pad .hint { visibility: hidden; }
+body.coaching #aimZone { visibility: hidden; }
+body.coaching[data-phase='aim'] #pad .hint { opacity: 0; }   /* faded, not hidden: after the first throw body.thrown keeps it at 0 with no flash */
 #hud.equipment-open #coach, #hud:has(#btnUtilities[aria-expanded='true']) #coach { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   #coach .thumb, #coach .trail, #coach .coach-card { animation: none; opacity: 1; }
