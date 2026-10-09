@@ -84,9 +84,16 @@ try {
   for (const [i, g] of [g1, g2].entries()) {
     await g.send('Page.navigate', { url: `${base}/?room=${code}&mute=1` }); await g.wait('!!window.__chains && !!window.__chains.G', 'game boot', 90000);
     await g.wait(visible('btnJoin'), 'invite opens Join');
+    await g.js(`window.__notes=[];new MutationObserver(()=>{const t=document.getElementById('onlineNote').textContent;if(t&&__notes.at(-1)!==t)__notes.push(t)}).observe(document.getElementById('onlineNote'),{childList:true,characterData:true,subtree:true});true`);
     await g.js(`document.getElementById('onlineName').value='${g.name}';document.getElementById('btnJoin').click()`);
     await g.wait(`__chains.G.lobby.length===${i + 2}`, 'joined', 45000); await host.wait(`__chains.G.lobby.length===${i + 2}`, `host sees ${g.name}`);
   }
+  // A slow join explains itself: the relay guest (a 10 s direct try first, like cellular) is told it is still connecting, then that it
+  // is switching to the backup connection; the direct guest joins before any note; the note is gone once in the lobby.
+  const notes = await Promise.all([g1, g2].map(g => g.js(`JSON.stringify({seen:__notes,hidden:document.getElementById('onlineNote').classList.contains('hidden')})`).then(JSON.parse)));
+  if (!notes[0].seen.length && /^Still connecting/.test(notes[1].seen[0] || '') && /backup connection/.test(notes[1].seen.at(-1) || '') && notes.every(n => n.hidden))
+    pass('A slow join says what it is doing', notes[1].seen.join(' → '));
+  else fail('A slow join says what it is doing', JSON.stringify(notes));
   const vias = await Promise.all([g1, g2].map(g => g.js('__chains.G.net.via')));
   assert.deepEqual(vias, ['direct', 'relay'], 'transports: ' + vias);
   pass('Host, a direct guest and a relay guest share a room', `room ${code}; Guest2 joined through the relay`);

@@ -69,6 +69,7 @@ export function createNet() {
     catch (e) { if (e.noRoom) throw e; try { await connectRelay(); } catch { throw e; } }   // the relay could not help either: say why direct failed
   };
   const connectRelay = async (ms = 8000) => {
+    net.onStatus?.('relay');   // the join screen says so: this leg is what makes a cellular join take ~10 s
     net.relay?.close(); net.relay = null;
     const gen = generation, relay = await openRelay({ code: net.code, role: 'guest', selfId: net.relayId });
     if (gen !== generation || closing) { relay.close(); throw new Error('Left the room.'); }

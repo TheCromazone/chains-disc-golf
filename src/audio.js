@@ -6,10 +6,13 @@ let ctx = null, master = null, verb = null, noiseBuf = null, muted = false;
 const samples = {};
 const VOL = 0.22;
 
+// Phones only let audio start inside a gesture that counts as one: touchend, pointerup or click, never a touch's pointerdown (the
+// old trigger, so on phones the context was born suspended and stayed so). main.js calls this on each of them, which also wakes a
+// context iOS 'interrupted' for a call or an app switch. The silent one-sample buffer is what older iOS needs to really start.
 export function unlock() {
-  if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+  if (ctx) { if (ctx.state !== 'running') { ctx.resume().catch(() => {}); prime(); } return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-  ctx = new AC();
+  ctx = new AC(); prime();
   master = ctx.createGain(); master.gain.value = muted ? 0 : VOL;
   const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -20; lim.knee.value = 10; lim.ratio.value = 12; lim.attack.value = 0.002; lim.release.value = 0.12;
   master.connect(lim); lim.connect(ctx.destination);
@@ -23,6 +26,8 @@ export function unlock() {
   const vg = ctx.createGain(); vg.gain.value = 0.28; verb.connect(vf); vf.connect(vg); vg.connect(master);
   ambient(); loadSamples();
 }
+function prime() { try { const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, 22050); s.connect(ctx.destination); s.start(0); } catch { /* closed */ } }
+export const audioState = () => ctx?.state || 'off';
 export function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : VOL, ctx.currentTime, 0.02); }
 export const isMuted = () => muted;
 
