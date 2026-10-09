@@ -22,7 +22,7 @@ import { createNet } from './net.js';
 import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, uniqueName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor } from './protocol.js';
 import * as UI from './ui.js';
 import { createMatches } from './match.js';
-import { unlock, sfx, setMuted, isMuted } from './audio.js';
+import { unlock, sfx, setMuted, isMuted, audioState } from './audio.js';
 
 const $ = UI.$;
 const COLORS = ['#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#ff7ad9', '#9b6bff'];
@@ -955,7 +955,7 @@ function frame(dt, rawDt, background) {
   if ((contextLost && !G.net?.isHost) || G.syncing || G.phase === 'loading') return;
   time += dt; input.update(dt);
   // Ignore background/paused frames; resolution changes never alter simulation time.
-  if(fpsTag&&performance.now()>fpsNext){fpsNext=performance.now()+500;fpsTag.textContent=`${Math.round(1/frameAverage)} fps · ${G.settings.quality==='low'?'Mobile':'Desktop'} · ${Math.round(renderer.getPixelRatio()*100)/100}x · ${innerWidth}×${innerHeight}`;}
+  if(fpsTag&&performance.now()>fpsNext){fpsNext=performance.now()+500;fpsTag.textContent=`${Math.round(1/frameAverage)} fps · ${G.settings.quality==='low'?'Mobile':'Desktop'} · ${Math.round(renderer.getPixelRatio()*100)/100}x · ${innerWidth}×${innerHeight} · sound ${audioState()}${isMuted() ? ' (muted)' : ''}`;}
   if(!document.hidden && rawDt>.004 && rawDt<.25){frameAverage=frameAverage*.96+rawDt*.04;frameSamples++;
     if(frameSamples>90 && time-lastResolutionChange>2){const budget=1/60;const old=resolutionScale;
       if(frameAverage>budget*1.15)resolutionScale=Math.max(.5,resolutionScale-.08);
@@ -1066,7 +1066,7 @@ $('btnScoreMenu').onclick = toMenu;
 UI.seg('holesSeg', v => G.settings.holes = v); UI.seg('diffSeg', v => G.settings.difficulty = v);
 $('qualSeg').querySelector(`[data-v="${G.settings.quality}"]`)?.classList.add('on'); $('qualSeg').querySelector(`[data-v="${G.settings.quality === 'low' ? 'high' : 'low'}"]`)?.classList.remove('on');
 UI.seg('qualSeg', async v => { G.settings.quality = v; resize(); await loadModels(renderer, v); await loadCourse(G.courseId); makeHero(); });
-document.addEventListener('pointerdown', unlock, { once: true, capture: true });
+for (const type of ['touchend', 'pointerup', 'click']) document.addEventListener(type, unlock, { capture: true, passive: true });   // audio.js: which gestures can start sound
 
 const me = () => ({ name: G.avatar.name.trim() || 'You', avatar: G.avatar });
 $('btnSolo').onclick = () => startGame({ mode: 'solo', holeCount: +G.settings.holes, players: [me(), { name: BOT_NAMES[0], isBot: true, difficulty: G.settings.difficulty }, { name: BOT_NAMES[1], isBot: true, difficulty: G.settings.difficulty }] });
@@ -1264,12 +1264,17 @@ $('btnJoin').onclick = async () => {
   const name = safeName($('onlineName').value || 'Guest'), code = $('joinCode').value.trim().toUpperCase(); UI.onlineError();
   if (!/^[A-Z2-9]{4}$/.test(code)) { UI.onlineError('Enter the four-character room code.'); $('joinCode').focus(); return; }
   UI.setConnecting('btnJoin', true); $('btnCreate').disabled = true;
+  // A network that blocks a direct link (cellular, strict Wi-Fi) costs a 10 s try before the relay takes over. Past 4 s, say what is
+  // happening, or "Connecting…" looks stuck and people reload.
+  let note = 'Still connecting… on cellular this can take about 10 seconds.', late = false;
+  const slow = setTimeout(() => { late = true; UI.onlineNote(note); }, 4000);
   try {
     G.net?.close(); G.net = createNet(); G.lobby = [];
-    const room = G.net; await room.join(code, name, onNet, { ...G.avatar, name }); if (G.net !== room) return;
+    const room = G.net; room.onStatus = s => { if (s === 'relay') { note = 'Switching to the backup connection…'; if (late) UI.onlineNote(note); } };
+    await room.join(code, name, onNet, { ...G.avatar, name }); room.onStatus = null; if (G.net !== room) return;
     $('roomCode').textContent = code; renderLobby(); UI.hide('onlineChoice'); UI.show('lobby');
   } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
-  finally { UI.setConnecting('btnJoin', false); $('btnCreate').disabled = false; }
+  finally { clearTimeout(slow); UI.onlineNote(); UI.setConnecting('btnJoin', false); $('btnCreate').disabled = false; }
 };
 $('btnLobbyBot').onclick = () => { if (G.lobby.length < MAX_PLAYERS && !G.net.locked) { G.lobby.push({ name: uniqueName(BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], G.lobby.map(p => p.name)), isBot: true }); publishLobby(); } };
 $('btnLobbyStart').onclick = () => {
@@ -1304,7 +1309,7 @@ const input = setupInput({ sceneEl: canvas, padEl: $('pad'), getThrow: () => G.t
   }
 });
 const coach = createCoach({ hud: $('hud'), pad: $('pad') });
-document.addEventListener('keydown', unlock, { once: true, capture: true });
+document.addEventListener('keydown', unlock, { capture: true });
 for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, e => e.preventDefault(), { passive: false });   // iOS Safari: a stray two-finger pinch would zoom the whole game
 let contextLost = false;
 canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); contextLost = true; input.cancel(); UI.waiting('Restoring graphics…'); });

@@ -15,6 +15,7 @@ export function confirmLeave() {
   return new Promise(resolve => { dialog.returnValue = 'cancel'; dialog.addEventListener('close', () => resolve(dialog.returnValue === 'leave'), { once: true }); dialog.showModal(); });
 }
 export function onlineError(text = '') { $('onlineError').textContent = text; $('onlineError').classList.toggle('hidden', !text); }
+export function onlineNote(text = '') { $('onlineNote').textContent = text; $('onlineNote').classList.toggle('hidden', !text); }
 export function setConnecting(id, busy) {
   const b = $(id), label = b.querySelector('span:last-child');
   b.disabled = busy; b.setAttribute('aria-busy', String(busy));
