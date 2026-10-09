@@ -2,6 +2,8 @@
 const paths = {
   play: '<path d="m9 5 11 7-11 7z"/>',
   arrow: '<path d="M4 12h16m-6-6 6 6-6 6"/>',
+  expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5m11-5v5h-5"/>',
+  pan: '<path d="M3 12h18M7 8l-4 4 4 4m10-8 4 4-4 4"/>',
   back: '<path d="M20 12H4m6-6-6 6 6 6"/>',
   chevron: '<path d="m9 5 7 7-7 7"/>',
   check: '<path d="m5 12 4 4L19 6"/>',

@@ -24,7 +24,7 @@ Four courses, three or nine holes each:
 
 **Locker room** — a Blender-authored athlete (`tools/build-golfer-v2.py`) with Face / Hair / Outfit / Body tabs. Face: eyes, eye colour, brows, nose, mouth, facial hair and glasses are atlas decals on the head. Hair: twelve styles, seven kinds of headwear, colours for both. Outfit: shirt colour and style (hoops, stripes, sash, sleeves, split, chevron), trim, number, shorts, socks, shoes, wristbands. Body: skin, build, height and throwing hand (left-handers get mirrored clips and physics). Each player's appearance travels with them in online rooms.
 
-Works on phones (touch) and desktop (mouse or keyboard). Hold Space for power and release to throw, arrows / WASD aim, Escape cancels, 1–4 select discs, Q / E cycle throws, T targets the basket and O opens overview. Add it to your home screen for a full-screen app.
+Works on phones (touch) and desktop (mouse or keyboard). On a phone, two thumbs: one drags the aim while the other swipes (on its side the screen splits, aim on the left and swipe on the right), and full power is one thumb stroke from wherever it starts. Hold Space for power and release to throw, arrows / WASD aim, Escape cancels, 1–4 select discs, Q / E cycle throws, T targets the basket and O opens overview. Add it to your home screen for a full-screen app.
 
 ### Look
 
@@ -128,8 +128,8 @@ Development serves ES modules; production uses the build above. Optional art can
 
 ## Graphics and animation
 
-- **Lite:** a 6.2k-triangle male athlete and 12.4k-triangle female athlete with compressed 1024/512 bakes and no normal map, embedded low-poly crowns, gradient sky, cartoon clouds and real shadows. The female preserves the Full body's UV atlas to keep wardrobe textures aligned. Full-only texture/decoder requests are skipped at startup; the procedural golfer remains as the fallback when no model loads.
-- **Full:** the 12.4k Draco athletes with 2048 albedo and normal maps, 32 mesh-free animation files, photo-leaf trees, course HDRI ambient, bloom and grade.
+- **Mobile** (was Lite): a 6.2k-triangle male athlete and 12.4k-triangle female athlete with compressed 1024/512 bakes and no normal map, embedded low-poly crowns, gradient sky, cartoon clouds and real shadows. The female preserves the Full body's UV atlas to keep wardrobe textures aligned. Full-only texture/decoder requests are skipped at startup; the procedural golfer remains as the fallback when no model loads.
+- **Desktop** (was Full): the 12.4k Draco athletes with 2048 albedo and normal maps, 32 mesh-free animation files, photo-leaf trees, course HDRI ambient, bloom and grade.
 - Eleven Blender throws, authored for both hands, use phase **0–0.5 for swipe windup**, **0.62 for release**, and **0.5–1 for follow-through**. Idle weight shifts, practice swings, walking and score reactions use separate clips.
 - A basket-to-tee camera introduces each hole. Chain-hit slow motion changes playback speed only; physics and network trajectory data stay unchanged.
 - Every throw draws a ribbon in the disc's colour over its last .8 s of flight, a fixed angular width so a drive reads at 80 m (`src/flight-trail.js`). Baskets have a gold powder-coated tray and galvanised chain links shaded per pixel. The putt's air is thin enough that the woods behind the pin stay green ([gauntlet against Disc Golf Masters](docs/qa/dgm-gauntlet/REPORT.md)).

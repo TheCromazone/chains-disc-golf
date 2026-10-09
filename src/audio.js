@@ -50,6 +50,23 @@ function burst(dur, { f0 = 800, f1 = f0, q = 1, gain = 0.5, type = 'bandpass', a
 function ring(base, ratios, gains, dur, gain, { t0 = now(), send = 0.3, detune = 0.012 } = {}) {
   ratios.forEach((r, i) => partial(base * r * rnd(1 - detune, 1 + detune), dur * (1 - i * 0.18), gain * gains[i], { t0, send }));
 }
+// a hand clap: the palms meet in a quick flam of micro-transients, then the cupped air rings briefly in a band
+function clap(t0, f, gain, send) {
+  for (let i = 0; i < 3; i++) burst(.012, { f0: f * rnd(.95, 1.35), q: 1, gain: gain * (i === 2 ? 1 : .5), t0: t0 + i * rnd(.003, .008), attack: .0008 });
+  burst(rnd(.05, .085), { f0: f, f1: f * .78, q: 1.5, gain: gain * .9, t0: t0 + .016, attack: .001, send });
+}
+// a muted brass note: sawtooth and square through a resonant low-pass that opens and closes like a plunger ("wah")
+function brass(f0, t0, dur, { f1 = f0, vib = 0, gain = .15 } = {}) {
+  const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(); o1.type = 'sawtooth'; o2.type = 'square';
+  for (const [o, k] of [[o1, 1], [o2, 1.004]]) { o.frequency.setValueAtTime(f0 * k, t0); o.frequency.setValueAtTime(f0 * k, t0 + dur * .4); o.frequency.exponentialRampToValueAtTime(f1 * k, t0 + dur); }
+  if (vib) { const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 5.2; lg.gain.setValueAtTime(0, t0); lg.gain.linearRampToValueAtTime(f0 * .018 * vib, t0 + dur * .5); l.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency); l.start(t0); l.stop(t0 + dur + .05); }
+  const m2 = ctx.createGain(); m2.gain.value = .3; o2.connect(m2);
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 5;
+  lp.frequency.setValueAtTime(280, t0); lp.frequency.exponentialRampToValueAtTime(1500, t0 + .09); lp.frequency.exponentialRampToValueAtTime(800, t0 + dur * .55); lp.frequency.exponentialRampToValueAtTime(300, t0 + dur);
+  const g = ctx.createGain(); g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(gain, t0 + .05); g.gain.setValueAtTime(gain, t0 + dur * .6); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+  o1.connect(lp); m2.connect(lp); lp.connect(g); out(g, .25);
+  for (const o of [o1, o2]) { o.start(t0); o.stop(t0 + dur + .05); }
+}
 const CHAIN = { r: [1, 1.47, 2.09, 2.86], g: [1, 0.55, 0.32, 0.16] };
 const trayDrop = (t0, k = 1) => {  // disc settling on the basket tray: dull steel pan clank + two smaller bounces
   ring(rnd(300, 360), [1, 1.83, 2.71], [1, 0.4, 0.2], 0.22, 0.2 * k, { t0, send: 0.4 });
@@ -93,8 +110,18 @@ export const sfx = {
     for (let i = 0; i < 6; i++) partial(rnd(1400, 3600), 0.03, 0.04, { f1: 900, t0: t0 + rnd(0.12, 0.55) }); },
   roll() { if (!ctx) return; if (play('roll')) return; burst(0.9, { f0: 320, f1: 140, q: 0.5, gain: 0.2, type: 'lowpass', attack: 0.03, lfo: [rnd(4, 7), 0.6] }); },
   click() { if (!ctx) return; if (play('click', { gain: 0.6 })) return; partial(2300, 0.03, 0.05, { f1: 1600 }); burst(0.012, { f0: 4200, q: 1.5, gain: 0.04 }); },
-  applause() { if (!ctx) return; if (play('applause')) return;
-    for (let i=0;i<24;i++) burst(.065, {f0:rnd(900,1900),gain:rnd(.04,.11),t0:now()+i*.055+rnd(0,.035),send:.3}); },
+  // the group on the tee claps: a few people, each at their own rate and hand size, starting raggedly and tailing off
+  applause(people = 6, dur = 2.3) { if (!ctx) return; if (play('applause')) return;
+    const t0 = now() + .04;
+    for (let p = 0; p < people; p++) {
+      const rate = rnd(3.3, 4.8), f = rnd(1050, 2300), level = rnd(.05, .1);
+      for (let t = rnd(0, .3); t < dur; t += rnd(.85, 1.15) / rate) clap(t0 + t, f, level * Math.min(1, (dur - t) / (dur * .35)), .32);
+    }
+  },
+  claps() { this.applause(3, 1.5); },
+  // womp womp: two sagging muted-trombone notes, the second leaning on a slow vibrato
+  womp() { if (!ctx) return; if (play('womp')) return;
+    const t0 = now() + .05; brass(233, t0, .42, { f1: 220 }); brass(207, t0 + .5, 1.15, { f1: 182, vib: 1 }); },
   ohh() { if (!ctx) return; if (play('ohh')) return;
     // Wordless descending vowel fallback; never represented as a recording.
     for (const f of [190,238,285]) partial(f,1.3,.035,{f1:f*.66,type:'triangle',send:.45,attack:.12}); },

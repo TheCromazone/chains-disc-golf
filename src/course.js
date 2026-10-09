@@ -1005,7 +1005,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough, capsules: dressing.capsules, camBlockers: [...dressing.capsules, ...(dressing.camCapsules || [])] };
   const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; gapHole.value.set(h.basket[0], h.basket[1], gapHole.value.z, h.basketY); const L = Math.hypot(h.tee[0] - h.basket[0], h.tee[1] - h.basket[1]) || 1; gapAim.value.set((h.tee[0] - h.basket[0]) / L, (h.tee[1] - h.basket[1]) / L, gapAim.value.z, gapAim.value.w); };
-  const update = (dt, t, focus, view) => {
+  const update = (dt, t, focus, view, nearFocus = focus) => {   // nearFocus: where the near cascade sits (main.js holds it still through a flight)
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
     if (view) treeLod(view, t, focus);   // trees: 3D near the eye, impostors beyond (the trees section)
     if (view) FOG.shape.w = height(view.x, view.z);   // the haze thins with height above the ground, not above the eye: the flyover drone looks through thinner air
@@ -1027,7 +1027,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
-      if (near) { aim.set(focus.x - (view?.x ?? focus.x), 0, focus.z - (view?.z ?? focus.z)); const l = aim.length(); [FLECK.x, FLECK.y] = place(near, aim.multiplyScalar(l > .1 ? 5 / l : 0).add(focus), nearTexel); } }
+      if (near) { aim.set(nearFocus.x - (view?.x ?? nearFocus.x), 0, nearFocus.z - (view?.z ?? nearFocus.z)); const l = aim.length(); [FLECK.x, FLECK.y] = place(near, aim.multiplyScalar(l > .1 ? 5 / l : 0).add(nearFocus), nearTexel); } }
   };
   const dispose = () => {   // tear down so another course can be built into the same scene
     for(const w of waters)w.userData.dispose?.();

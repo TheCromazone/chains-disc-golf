@@ -192,6 +192,18 @@ export function heroPose(time, rig = RIGS.lite) {
   pose.rootY = -Math.min(...soleHeights(pose, false, rig));
   return pose;
 }
+// Applause for a playing partner's good throw (the clap overlay in gltf-player.js): forearms up before the chest, the hands
+// meeting and parting about four times a second, the head nodding along. CLAP holds the tuned arm angles.
+export const CLAP = { sh: [.62, 0, -.5], el: 1.45, open: .5, rate: 3.8 };
+export function clapPose(time, rig = RIGS.lite) {
+  const pose = { rootY: 0 }; for (const j of JOINTS) pose[j] = [...IDLE[j]];
+  const beat = .5 + .5 * Math.sin(time * Math.PI * 2 * CLAP.rate), open = CLAP.open * beat, [x, y, z] = CLAP.sh;
+  pose.shR = [x, y, z + open]; pose.elR = [CLAP.el, 0, 0];
+  pose.shL = [x, -y, -z - open]; pose.elL = [CLAP.el, 0, 0];
+  pose.spine[0] += .05; pose.head[0] += .05 + .03 * beat;
+  pose.rootY = -Math.min(...soleHeights(pose, false, rig));
+  return pose;
+}
 // The swipe morphs the stance into the clip across most of the windup rather than its first few percent: the coiled,
 // knee-loaded set-up and the clip's reach-back share their shape, and a short fade bobbed the athlete upright between them.
 export const STANCE_FADE = .4;

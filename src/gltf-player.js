@@ -9,7 +9,7 @@ import { repairPlayerSkinning } from './player-skinning.js';
 import { createPlayerHeadwear } from './player-headwear.js';
 import { createAthleteMotion } from './athlete-motion.js';
 import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL } from './body-material.js';
-import { JOINTS, RIGS, readyPose, heroPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
+import { JOINTS, RIGS, readyPose, heroPose, clapPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
 const SLOT = { hair: { roughness: .7, rim: .22 }, headwear: { roughness: .8 }, trim: { roughness: .78 }, frame: { roughness: .42, color: '#1a1c22' }, lens: { roughness: .15, color: '#14171c', metalness: .3, opacity: .86 } };
@@ -443,7 +443,18 @@ export function createGLTFCharacter(avatar) {
   // The menu hero, whose disc holdDisc carries outside any throw (carry()), gets the cover-shot pose instead; bystanders,
   // who hold no visible disc, keep the relaxed idle clip rather than raising an empty hand. ponytail: inferred rather than
   // a setStance() call because main.js is shared; add the call if a second consumer needs the state.
-  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand';
+  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand', clapFor = 0, clapW = 0;
+  // The mixer writes a bone only when its sampled value differs from the last one it wrote (PropertyMixer.apply), so while a
+  // swipe holds still every bone keeps last frame's overlays and the overlays land on top of them again: the backhand's
+  // quarter-turn forearm roll spun the hand 90° a frame late in the windup, the gaze and the leg scale crept. Each update
+  // first puts the clip's own value back on any bone the mixer left alone (it still holds exactly what was shown).
+  const rigBones = skin.skeleton.bones, clipQ = rigBones.map(b => b.quaternion.clone()), clipP = rigBones.map(b => b.position.clone());
+  const shownQ = rigBones.map(() => new THREE.Quaternion(NaN, 0, 0, 0)), shownP = rigBones.map(() => new THREE.Vector3(NaN, 0, 0));
+  function unstale() { rigBones.forEach((b, i) => {
+    if (b.quaternion.equals(shownQ[i])) b.quaternion.copy(clipQ[i]); else clipQ[i].copy(b.quaternion);
+    if (b.position.equals(shownP[i])) b.position.copy(clipP[i]); else clipP[i].copy(b.position);
+  }); }
+  const remember = () => rigBones.forEach((b, i) => { shownQ[i].copy(b.quaternion); shownP[i].copy(b.position); });
   function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; group.updateMatrixWorld(true); }
   function blendTo(pose, w, base = null) {   // slerp the bones toward a shared-contract pose: over the mixer output, or over the windup pose the clip was baked from
     // (the mixer skips bones whose value did not change, so a held windup phase is rebuilt from the shared keys instead of read back)
@@ -463,6 +474,7 @@ export function createGLTFCharacter(avatar) {
       blendTo(pose, cw, base);
     }
     if (heroW > 0) { let pose = heroPose(time, RIGS.glb); if (lefty) pose = mirrorPose(pose); blendTo(pose, heroW); }
+    if (clapW > 0) { blendTo(clapPose(time, RIGS.glb), clapW); }   // symmetric: no mirror for lefties
     // Backhand grip roll through the windup. The scan's palms face forward, so the clip's bent elbow turns the palm up and the
     // disc would sit on it like a tray; rolling the forearm a quarter turn puts the palm against the rim with the thumb on
     // top. The clip's release hand is already thumb-up with the palm trailing, so the roll unwinds through the pull. The set-up
@@ -497,7 +509,7 @@ export function createGLTFCharacter(avatar) {
     dir.y += .015; dir.divideScalar(.075);
     if (!wasRunning) action.stop();
     for (const s of snap) { s.a.setEffectiveWeight(s.w); s.a.time = s.time; }
-    mixer.update(0); settle(); overlay();
+    mixer.update(0); unstale(); settle(); overlay(); remember();
     const frame = { qInv: q.invert(), dir }; frames.set(name, frame); return frame;
   }
   const coilW = () => phase === null ? readyW : readyW * stanceFade(phase);
@@ -513,7 +525,7 @@ export function createGLTFCharacter(avatar) {
     carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
     setGround: fn => motion.setGround(fn),
     lookAt: value => motion.lookAt(value),
-    react(kind) { mood = { name: handed(kind), t: 0 }; phase = null; },
+    react(kind) { if (kind === 'clap') { clapFor = 2.6; return; } mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
     update(dt) {
       frameDt = dt; time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false; carries = carryHit ? carries + 1 : 0; carryHit = false;
@@ -522,9 +534,12 @@ export function createGLTFCharacter(avatar) {
       if (phase !== null) { const a = actions.get(throwType); sample(throwType, phase * (a?.getClip().duration || 1)); }
       else if (mood) { mood.t += dt; sample(mood.name, mood.t); if (mood.t >= (actions.get(mood.name)?.getClip().duration || 2.4)) mood = null; }
       else { name = handed(locomotion || 'idle'); sample(name, time % (actions.get(name)?.getClip().duration || 4)); }   // ponytail: no more practice-swing cycle; the cover-shot pose holds, play('practice') still works
-      settle();
-      readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase < STANCE_FADE ? readyW : Math.max(0, readyW - dt / .22);
+      unstale(); settle();
+      // the stance weight holds through the whole windup (a swipe pulled back under STANCE_FADE eases back into the coil
+      // instead of popping onto the bare clip) and lets go once the release starts
+      readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase <= .5 ? readyW : Math.max(0, readyW - dt / .22);
       heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
+      clapFor = Math.max(0, clapFor - dt); clapW = clapFor > 0 && phase === null && !mood && !aiming ? Math.min(1, clapW + dt / .25) : Math.max(0, clapW - dt / .3);
       // the disc hand hooks round the rim while it holds one (a bystander's hands hang open) and lets go just after release;
       // the free hand keeps half the curl (straight scanned fingers, and a third of the curl, read as a flat paddle; the female scan's mitten shards past a third). In the set-up the
       // modelled grip hand takes over from the tucked scan hand (a crossfade would show two hands); it hands
@@ -542,7 +557,7 @@ export function createGLTFCharacter(avatar) {
       }
       overlay();
       motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase);
-      placeSocket();
+      placeSocket(); remember();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
     dispose() { mixer.stopAllAction(); mixer.uncacheRoot(actor); body.dispose(); headwear.dispose(); cuffGeometry.dispose(); for (const m of owned) m.dispose(); actor.traverse(o => { if (o.isSkinnedMesh) o.skeleton.dispose(); }); }

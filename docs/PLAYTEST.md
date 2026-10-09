@@ -20,11 +20,13 @@ On a phone, add it to your Home Screen for full screen: Safari → Share → *Ad
 
 ## Controls
 
-**Phone:** drag the view to aim, then swipe in the lower pad. The swipe direction has to match the throw (backhand →, forehand ←, tomahawk ↓, putt ↑ and so on, shown on screen). A longer swipe throws harder; finishing a little low or high adds hyzer or anhyzer. Tap *Throw* / *Disc* to change equipment.
+**Phone:** two thumbs. One finger drags the view to aim (on its side, the left part of the screen is the aim side), the other swipes the throw (the lower pad, or the right part of the screen on its side). Either can go first, and you can keep fine-tuning the aim while you swipe. The swipe direction has to match the throw (backhand →, forehand ←, tomahawk ↓, putt ↑ and so on, shown on screen). A longer swipe throws harder: full power is one comfortable thumb stroke, and it is always reachable from wherever you start. Slow drags aim finely, quick ones turn fast. Finishing a little low or high adds hyzer or anhyzer. Tap *Throw* / *Disc* to change equipment. A good throw gets the group clapping; a bad one gets a *womp womp*.
 
 **Desktop:** the same mouse swipes work, or hold **Space** to charge and release to throw, **arrows / WASD** to aim, **1–4** for discs, **Q / E** to cycle throws, **T** to aim at the basket, **O** for the overview, **Esc** to cancel.
 
-**Graphics:** *Lite* (default on phones) or *Full* (default on desktop) in the clubhouse. If a phone runs hot or stutters, stay on Lite.
+**Graphics:** *Mobile* (default on phones) or *Desktop* (default on computers) in the clubhouse. Phones should stay on Mobile: Desktop draws several times as much and stutters on a phone.
+
+**Full screen on iPhone:** Safari can't hide its bars for a web game. Add Chains to the Home Screen (Share → *Add to Home Screen*) and open it from the icon for true full screen, in portrait or on its side. On Android, the course tools menu (☰) has a *Full screen* button.
 
 ## What to report
 
@@ -34,7 +36,7 @@ Send it to the group chat with:
 2. Which mode (solo, live room, invite match, pass & play) and which course/hole
 3. What happened and what you expected; a screenshot or screen recording helps a lot
 
-**Frame rate:** open https://chains-disc-golf.vercel.app/?fps=1 and play Pine Hollow hole 1 in Lite and in Full. The counter sits bottom-left. Note the numbers with your phone model.
+**Frame rate:** open https://chains-disc-golf.vercel.app/?fps=1 and play Pine Hollow hole 1 in Mobile and in Desktop. The counter sits bottom-left. Note the numbers with your phone model.
 
 ## Setup still needed (host/owner)
 
