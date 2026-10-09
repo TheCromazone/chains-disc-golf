@@ -148,7 +148,7 @@ node test/match.test.mjs
 python test/sfx-normalization.py
 ```
 
-Browser checks (real headless Chrome; set `CHROME` to its path): `node tools/verify-browser.mjs --dist` (live room: four rendered players plus nine extra peers over real WebRTC), `node tools/verify-matches.mjs` (invite match: two isolated phones play a whole 3-hole match through the UI and API), `node tools/verify-rounds.mjs` (bots play 3-hole rounds on every course). Each also takes `--url https://chains-disc-golf.vercel.app`; `verify-browser` adds `--public-signal` there.
+Browser checks (real headless Chrome; set `CHROME` to its path): `node tools/verify-browser.mjs --dist` (live room: four rendered players plus nine extra peers over real WebRTC), `node tools/verify-matches.mjs` (invite match: two isolated phones play a whole 3-hole match through the UI and API), `node tools/verify-rounds.mjs` (bots play 3-hole rounds on every course). Each also takes `--url https://chains-disc-golf.vercel.app`; `verify-browser` adds `--public-signal` there. `node tools/verify-relay.mjs --dist` (`npm run test:relay`) (local only) plays a live room with a guest whose WebRTC cannot open, through the MQTT relay, while phones lock: a relay guest locked 10 s throws on return, the host locks 15 s while that guest throws, and a throw request held back 9 s hands the turn back and still counts once.
 
 The asset test checks manifest files, GLB structure, Draco/KTX2 extensions, the golfer triangle budget, bone/material names and animation clips.
 

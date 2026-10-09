@@ -410,6 +410,19 @@ function runSim(params) {
   traj.push([rnd(s.p[0]), rnd(s.p[1]), rnd(s.p[2]), rnd(s.n[0]), rnd(s.n[1]), rnd(s.n[2]), rnd(s.spinRate)]);
   return { traj, events, result: resultOf(s, world) };
 }
+// A guest's throw request (or the host's replay of it) can be lost, e.g. over a relay link that dropped while a phone was locked,
+// and the round then waited forever on "Confirming your throw…". Still waiting on the same turn after 7 s, the guest asks for a
+// snapshot, which puts it back to aiming; it asks again every 12 s while the host is unreachable. A late confirmation cannot count
+// twice: the host accepts one throw per turn key, and a replay older than the snapshot's shot number is ignored.
+let confirmTimer = null;
+function watchConfirm(turn, ms = 7000) {
+  clearTimeout(confirmTimer);
+  const room = G.net;
+  confirmTimer = setTimeout(() => {
+    if (G.net !== room || G.phase !== 'awaitThrow' || turnKey(G) !== turn || G.inbox.length) return;
+    room.toHost({ t: 'sync-request' }); watchConfirm(turn, 12000);
+  }, ms);
+}
 function launchNow() {
   G.remoteShot = null;
   const { pi, o, sim: given } = G.pending; const p = G.players[pi];
@@ -420,7 +433,7 @@ function launchNow() {
     params = { throwType: G.throwType, discId: G.discId, power: o.power, hyzer: o.hyzer || 0, yawOffset: o.yawOffset || 0, launchOffset: o.launchOffset ?? G.aim.pitch, dir: d, pos, lefty: p.appearance?.hand === 'left' };
     if (G.mode === 'online' && !G.net.isHost) {
       G.net.toHost({ t: 'throw-request', turn: turnKey(G), params });
-      G.phase = 'awaitThrow'; G.pending = null; UI.waiting('Confirming your throw…'); return;
+      G.phase = 'awaitThrow'; G.pending = null; UI.waiting('Confirming your throw…'); watchConfirm(turnKey(G)); return;
     }
     sim = runSim(params);
     const seq = ++G.shotSeq; G.lastShotSeq = seq;
