@@ -10,6 +10,7 @@
     "test": "node --test test/*.test.mjs",
     "test:browser": "node tools/verify-browser.mjs",
     "test:matches": "node tools/verify-matches.mjs",
+    "test:relay": "node tools/verify-relay.mjs",
     "test:rounds": "node tools/verify-rounds.mjs"
   },
   "dependencies": {

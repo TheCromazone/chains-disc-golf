@@ -1,5 +1,6 @@
 import { PROTOCOL_VERSION, safeName } from './protocol.js';
 import { openRelay } from './relay.js';
+import { keepAwake } from './wake.js';
 const SERIALIZATION = 'binary';   // PeerJS chunks binary messages; its JSON mode refuses anything over ~16 KB (a long throw's replay)
 // One reliable connection per guest. Host owns scores and sends the authoritative replay.
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -7,7 +8,7 @@ const roomId = code => `chains-dg-${code}`;
 
 export function createNet() {
   const net = { peer: null, conns: new Map(), isHost: false, code: null, name: '', onEvent: () => {}, locked: false, myId: null };
-  let generation = 0, closing = false, retry = null, heartbeat = null, lastHost = Date.now(), joining = false, lostSince = 0;
+  let generation = 0, closing = false, retry = null, heartbeat = null, lastHost = Date.now(), joining = false, lostSince = 0, relayTries = 0;
   const timers = new Set();
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
   const options = () => ({ debug: 0, ...(net.ice ? { config: { iceServers: net.ice } } : {}), ...(globalThis.CHAINS_PEER_CONFIG || {}) });
@@ -59,17 +60,20 @@ export function createNet() {
   }
   // A guest reaches the host directly when it can, and through the encrypted MQTT relay (relay.js) when it cannot: cellular
   // carrier NAT and strict Wi-Fi often block a data channel when there is no TURN server. A missing room is not retried there.
+  // A reconnect starts where it last worked. A relay guest retries the relay alone, with a shorter wait for the host's answer, so it
+  // gets five or six tries before the 45 s give-up instead of two (the direct attempt costs 10 s and could not open before);
+  // every third try still checks the direct path too.
   const connectHost = async () => {
-    if (net.via === 'relay') { try { await connectRelay(); return; } catch { /* the relay is gone too: try direct */ } }   // a reconnect starts where it last worked
+    if (net.via === 'relay') { try { await connectRelay(5000); return; } catch (e) { if (++relayTries % 3) throw e; } }
     try { await connectDirect(); }
     catch (e) { if (e.noRoom) throw e; try { await connectRelay(); } catch { throw e; } }   // the relay could not help either: say why direct failed
   };
-  const connectRelay = async () => {
+  const connectRelay = async (ms = 8000) => {
     net.relay?.close(); net.relay = null;
     const gen = generation, relay = await openRelay({ code: net.code, role: 'guest', selfId: net.relayId });
     if (gen !== generation || closing) { relay.close(); throw new Error('Left the room.'); }
     net.relay = relay;
-    const conn = await relay.connect({ name: net.name, avatar: net.avatar, token: net.token, version: PROTOCOL_VERSION });
+    const conn = await relay.connect({ name: net.name, avatar: net.avatar, token: net.token, version: PROTOCOL_VERSION }, ms);
     lastHost = Date.now(); net.via = 'relay'; wire(conn);
   };
   const connectDirect = () => new Promise((res, rej) => {
@@ -115,6 +119,7 @@ export function createNet() {
         const gen = generation;
         openRelay({ code, role: 'host', selfId: roomId(code), onConn: conn => { if (gen === generation && !closing) wire(conn, conn.metadata || {}); } })
           .then(r => { if (gen === generation && !closing) net.relay = r; else r.close(); }, () => { /* direct play only */ });
+        keepAwake(true);
         return code;
       } catch (e) { net.peer.destroy(); if (e.type !== 'unavailable-id' || attempt === 3) throw e; }
     }
@@ -127,13 +132,13 @@ export function createNet() {
     net.relayId ||= `r-${crypto.randomUUID()}`;
     await loadIce(); net.peer = new window.Peer(options());
     let direct = true; try { await ready(); } catch { direct = false; }   // the room service is unreachable from here: the relay may not be
-    await (direct ? connectHost() : connectRelay()); startHeartbeat();
+    await (direct ? connectHost() : connectRelay()); startHeartbeat(); keepAwake(true);
   };
   net.send = (id, data) => { const c = net.conns.get(id); if (c && c.open) c.send(data); };
   net.broadcast = (data, except = null) => { for (const [id, c] of net.conns) if (id !== except && c.open) c.send(data); };
   net.toHost = data => { for (const c of net.conns.values()) if (c.open) c.send(data); };
   net.disconnect = id => later(() => net.conns.get(id)?.close(), 250);
-  net.close = () => { closing = true; generation++; for (const t of timers) clearTimeout(t); timers.clear(); clearInterval(heartbeat); retry = null; try { net.peer?.destroy(); } catch {} try { net.relay?.close(); } catch {} net.relay = null; net.conns.clear(); net.peer = null; };
+  net.close = () => { closing = true; generation++; keepAwake(false); for (const t of timers) clearTimeout(t); timers.clear(); clearInterval(heartbeat); retry = null; try { net.peer?.destroy(); } catch {} try { net.relay?.close(); } catch {} net.relay = null; net.conns.clear(); net.peer = null; };
   // the cached id: during a signalling reconnect peer.id reads null and every turn looked like someone else's. Through the relay
   // the host knows this guest by its relay id, so that is who it is.
   net.id = () => (!net.isHost && net.via === 'relay' ? net.relayId : net.peer?.id || net.myId);
