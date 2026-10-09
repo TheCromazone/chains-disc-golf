@@ -45,6 +45,13 @@ export function setHint(throwType, sub) {
   $('pad').classList.remove('bad'); const hint = `${t.hint[0].toUpperCase()}${t.hint.slice(1)} to throw`; if ($('hintText').textContent !== hint) $('hintText').textContent = hint;
   if (sub !== undefined && $('hintSub').textContent !== sub) $('hintSub').textContent = sub;
 }
+// The verdict over the result: clapping hands for a good throw, a drooping "womp womp" for a bad one.
+export function react(kind) {
+  const el = $('react'); if (!el) return;
+  el.className = ''; void el.offsetWidth;
+  el.innerHTML = kind === 'good' ? '<span>👏</span>' : [...'WOMP WOMP'].map((c, i) => c === ' ' ? '<b></b>' : `<i style="--i:${i}">${c}</i>`).join('');
+  el.className = kind;
+}
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
 export function setHud({ hole, par, len, dist, holed, playerName, throwNo, toPar, windText, windDeg, circle, elev }) {
   if (toPar !== undefined) $('toPar').textContent = toPar === 0 ? 'E' : toPar > 0 ? `+${toPar}` : `−${-toPar}`;

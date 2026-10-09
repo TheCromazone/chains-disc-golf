@@ -118,26 +118,10 @@ export function step(s, w, dt = DT) {
     if (s.mode !== 'fly') return;
     groundContact(s, w);
   } else if (s.mode === 'roll') {
-    const gy = w.height(s.p[0], s.p[2]);
-    const sp = Math.hypot(s.v[0], s.v[2]);
-    const side = s.rollSide || 1;
-    s.lean += 0.32 * dt;                                    // slowly lays over
-    const curve = side * 0.55 * s.lean;
-    s.v = rotAxis([s.v[0], 0, s.v[2]], [0, 1, 0], curve * dt);
-    const rough = w.rough ? w.rough(s.p[0], s.p[2]) : 0;
-    const dec = (1.7 + 0.15 * sp) * (1 + 1.6 * rough);
-    const ns = Math.max(0, sp - dec * dt);
-    s.v = sp > 1e-3 ? scale(s.v, ns / sp) : [0, 0, 0];
-    s.p = [s.p[0] + s.v[0] * dt, gy + R_DISC * Math.cos(s.lean * 0.9), s.p[2] + s.v[2] * dt];
-    const vh = norm([s.v[0], 0, s.v[2]]);
-    const rightOf = cross(vh, [0, 1, 0]);
-    s.n = rotAxis(scale(rightOf, side), vh, -side * s.lean * 0.9);
-    s.spinRate = ns / R_DISC;
-    hitTrees(s, w, dt);
-    hitCapsules(s, w);
-    if (s.lean > 1.05 || ns < 1.2) { s.mode = 'ground'; s.v = scale(s.v, 0.5); s.events.push('flop'); s.wobble = 0.55; s.wobbleA = Math.atan2(s.n[2], s.n[0]); }
+    rollStep(s, w, dt);
+    if (s.mode === 'holed') return;
   } else if (s.mode === 'ground') {
-    const gy = w.height(s.p[0], s.p[2]), N = w.normal(s.p[0], s.p[2]);
+    const gy = w.height(s.p[0], s.p[2]), N = w.normal(s.p[0], s.p[2]), F = s.face || 1;   // a roller that toppled onto its top settles upside down
     const vn = dot(s.v, N);
     s.v = [s.v[0] - vn * N[0], s.v[1] - vn * N[1], s.v[2] - vn * N[2]];
     const gt = [G * N[1] * N[0], -G + G * N[1] * N[1], G * N[1] * N[2]];
@@ -151,8 +135,8 @@ export function step(s, w, dt = DT) {
     if (s.wobble > 0.01) {   // settling like a dropped coin: the rim rings around faster as the tilt dies
       s.wobbleA += (7 + 22 * (1 - s.wobble / 0.55)) * dt; s.wobble *= 1 - 3.2 * dt;
       const tilt = s.wobble, cx = Math.cos(s.wobbleA), sx = Math.sin(s.wobbleA);
-      s.n = norm([N[0] + cx * tilt, N[1], N[2] + sx * tilt]);
-    } else s.n = norm([s.n[0] + (N[0] - s.n[0]) * 6 * dt, s.n[1] + (N[1] - s.n[1]) * 6 * dt, s.n[2] + (N[2] - s.n[2]) * 6 * dt]);
+      s.n = norm([F * N[0] + cx * tilt, F * N[1], F * N[2] + sx * tilt]);
+    } else s.n = norm([s.n[0] + (F * N[0] - s.n[0]) * 6 * dt, s.n[1] + (F * N[1] - s.n[1]) * 6 * dt, s.n[2] + (F * N[2] - s.n[2]) * 6 * dt]);
     s.p[1] = w.height(s.p[0], s.p[2]) + 0.015 + 0.03 * (s.wobble || 0);
     s.spinRate *= (1 - (s.wobble > 0.05 ? 1.5 : 4) * dt);
     if (len(s.v) < 0.08) { s.restT += dt; if (s.restT > 0.25) s.mode = 'rest'; } else s.restT = 0;
@@ -175,13 +159,8 @@ function groundContact(s, w) {
   s.p[1] = low;
   if (vn >= 0) return;
   const vt = [s.v[0] - vn * N[0], s.v[1] - vn * N[1], s.v[2] - vn * N[2]];
-  const vts = len(vt), spd = len(s.v), steep = -vn / (spd || 1), rough = w.rough ? w.rough(s.p[0], s.p[2]) : 0;
-  if (Math.abs(s.n[1]) < 0.45 && vts > 3 + 2.5 * rough) {
-    s.mode = 'roll'; s.v = scale(vt, 0.85); s.p[1] = gy + R_DISC; s.lean = 0.15;
-    const vh = norm([s.v[0], 0, s.v[2]]);
-    s.rollSide = dot(s.n, cross(vh, [0, 1, 0])) >= 0 ? 1 : -1;
-    s.events.push('roll'); return;
-  }
+  const spd = len(s.v), steep = -vn / (spd || 1), rough = w.rough ? w.rough(s.p[0], s.p[2]) : 0;
+  if (startRoll(s, N, vn, vt, gy, rough)) return;
   const shallow = steep < 0.42;
   const e = (shallow ? 0.38 : 0.1) * (1 - 0.65 * rough), keep = (shallow ? 0.7 : 0.35) * (1 - 0.4 * rough);
   s.v = [vt[0] * keep - vn * e * N[0], vt[1] * keep - vn * e * N[1], vt[2] * keep - vn * e * N[2]];
@@ -189,6 +168,92 @@ function groundContact(s, w) {
   s.contacts++;
   s.events.push(s.contacts === 1 ? 'land' : 'skip');
   if (len(s.v) < 1.5 || s.contacts > 5) { s.mode = 'ground'; s.v = scale(vt, keep); const tilt = Math.sqrt(Math.max(0, 1 - s.n[1] * s.n[1])); if (tilt > 0.12) { s.wobble = Math.min(0.55, tilt * 0.9); s.wobbleA = Math.atan2(s.n[2], s.n[0]); } }
+}
+
+// Rollers. A disc that meets the ground on its rim, banked 41°+ from the turf, rolls along the line its rim meets the
+// ground. Whether it does depends on the spin: the side a disc turns over to (anhyzer: s.spin * f > 0) is the side whose
+// rim spins backwards at the contact, so the spin rolls it forward (why rollers are thrown on anhyzer); a hyzer landing's
+// rim spins forwards against the turf, so it skips and skids unless it comes down almost vertical. The roll state is
+// a heading on the ground plane (rollH), a speed (rollV) and a signed lean of the disc plane from the ground normal
+// (lean, + toward r = heading x normal) with f = which face looks toward r; the disc normal is n = f(cos lean r - sin lean N).
+// Lean steers it the way a coin steers: steady rolling at lean L needs a curve of radius 3v^2 / (2 g tan L), so it
+// curves toward the low side, tighter as it slows, while the lean grows (fastest when slow) until it topples ('flop').
+const ROLL_BANK = 0.75, ROLL_VERTICAL = 0.4;                      // |n.N| below: banked enough to roll / vertical enough to roll against its spin
+const ROLL_MIN = 4, ROLL_MIN_ROUGH = 4;                           // speed along the rim needed to roll, m/s (+ in full rough)
+const ROLL_I = 0.5;                                               // spin inertia / (m R^2) of a plate: rolling takes g sin / (1 + 0.5) = 2/3 of the slope
+const ROLL_DEC = [1.0, 0.05], ROLL_DEC_ROUGH = 1.5;               // rolling resistance a = c0 + c2 v^2 on fairway (a fast rim bounces and scrubs), x(1 + 1.5 rough)
+const ROLL_FALL = 1.15;                                           // lean (rad from upright) where it topples
+
+function startRoll(s, N, vn, vt, gy, rough) {
+  const nN = dot(s.n, N), bank = Math.abs(nN);
+  if (bank >= ROLL_BANK) return false;
+  let h = norm(cross(N, s.n)), along = dot(vt, h);              // the disc's own heading: its plane meets the ground along h
+  if (along < 0) { h = scale(h, -1); along = -along; }
+  if (along < ROLL_MIN + ROLL_MIN_ROUGH * rough) return false;      // too slow, or landing crossways to its plane
+  const r = cross(h, N), f = dot(s.n, r) >= 0 ? 1 : -1, match = f * s.spin;
+  if (match < 0 && bank >= ROLL_VERTICAL) return false;            // hyzer landing: the spin fights the roll, so it skips instead
+  // The rim strike scrubs speed in proportion to how hard it comes down, then the rim trades speed with the spin until it
+  // rolls without slipping: v = (v_in + k wR) / (1 + k), wR signed by whether the spin rolls it forward or back.
+  const wR = Math.min(Math.abs(s.spinRate) * R_DISC, along);
+  const v0 = (along + 0.5 * vn + match * ROLL_I * wR) / (1 + ROLL_I) * (1 - 0.2 * rough);
+  if (v0 < 2.5) return false;
+  const lean = Math.asin(clamp(-f * nN, -1, 1));                  // the landing tilt, so the disc doesn't pop upright
+  s.mode = 'roll'; s.rollH = h; s.rollV = v0; s.rollFace = f; s.rollSide = f; s.rollT = 0;
+  s.lean = lean; s.leanTgt = lean * clamp(0.6 - 0.03 * v0, 0.25, 0.55);   // the strike stands it part way up, more when fast
+  s.v = scale(h, v0); s.p[1] = gy + 0.015 + R_DISC * Math.cos(lean);
+  s.spinRate = -f * s.spin * v0 / R_DISC;
+  s.events.push('roll');
+  return true;
+}
+
+function rollStep(s, w, dt) {
+  s.rollT += dt;
+  const x = s.p[0], z = s.p[2], N = w.normal(x, z), rough = w.rough ? w.rough(x, z) : 0;
+  let h = s.rollH; const hN = dot(h, N);
+  h = norm([h[0] - hN * N[0], h[1] - hN * N[1], h[2] - hN * N[2]]);         // follow the turf as it tilts
+  const g = [G * N[1] * N[0], -G + G * N[1] * N[1], G * N[1] * N[2]];        // gravity along the ground plane (downhill)
+  const gUp = G * N[1], v = s.rollV, lean = s.lean;
+  // a cross slope tips it toward downhill: lean is judged against gravity, not the turf
+  const eff = lean + Math.atan2(dot(g, cross(h, N)), gUp);
+  // speed: a disc rolling on its rim takes 2/3 of the slope's pull (a = g sin / (1 + ROLL_I)); grass, rough and lean drag
+  const dec = (ROLL_DEC[0] + ROLL_DEC[1] * v * v) * (1 + ROLL_DEC_ROUGH * rough) * (1 + 0.3 * Math.abs(Math.sin(lean)));
+  const nv = Math.max(0, v + (dot(g, h) / (1 + ROLL_I) - dec) * dt);
+  // steer toward the low side: yaw rate = v / radius = (2/3) g tan(lean) / v
+  const yaw = clamp((2 / 3) * gUp * Math.tan(clamp(eff, -1.3, 1.3)) / Math.max(nv, 1.5), -1.4, 1.4);
+  h = rotAxis(h, N, -yaw * dt);
+  const r = cross(h, N);
+  // lean grows the way it already leans, faster as the roll dies; the first moments stand it part way up
+  const fall = eff > 0 ? 1 : eff < 0 ? -1 : -s.rollFace;
+  let dl = fall * (0.05 + 0.55 * Math.abs(Math.sin(eff))) * (3 / (nv + 0.4)) * (1 + 0.8 * rough);
+  if (s.rollT < 0.5) dl += (s.leanTgt - lean) * 6;
+  s.lean = lean + dl * dt; s.rollH = h; s.rollV = nv;
+  s.v = scale(h, nv);
+  const px = x + s.v[0] * dt, pz = z + s.v[2] * dt;
+  s.p = [px, w.height(px, pz) + 0.015 + R_DISC * Math.cos(s.lean), pz];
+  const f = s.rollFace, c = Math.cos(s.lean), sn = Math.sin(s.lean);
+  s.n = [f * (c * r[0] - sn * N[0]), f * (c * r[1] - sn * N[1]), f * (c * r[2] - sn * N[2])];
+  // rolling without slipping: the rim at the contact is still, so v = w x (R u) (u: contact to centre). main.js turns
+  // the disc about n at spinRate * s.spin, which puts that w along -f r: forward.
+  s.spinRate = -f * s.spin * nv / R_DISC;
+  const ne = s.events.length;
+  hitTrees(s, w, dt);
+  hitCapsules(s, w);
+  hitBasket(s, w);
+  if (s.mode !== 'roll') return;
+  if (s.events.length > ne || Math.abs(s.lean) > ROLL_FALL || s.rollT > 12) fallOver(s, N);   // knocked over, or toppled
+}
+
+// Down it goes: the coin-like settle in 'ground' takes over from the tilt it falls with, face up or (rolled past
+// upright) face down.
+function fallOver(s, N) {
+  const F = dot(s.n, N) >= 0 ? 1 : -1;
+  s.mode = 'ground'; s.face = F; s.v = scale(s.v, 0.5);
+  // 'ground' draws the settle as n = F N + wobble (cos A, 0, sin A): solve for the offset that is today's n, so a roll that
+  // topples on a slope doesn't jump
+  let ex = s.n[0], ez = s.n[2];
+  if (F * s.n[1] > 0.05) { const a = F * N[1] / s.n[1]; ex = s.n[0] * a - F * N[0]; ez = s.n[2] * a - F * N[2]; }
+  s.wobble = Math.min(0.55, Math.hypot(ex, ez)); s.wobbleA = Math.atan2(ez, ex);
+  s.events.push('flop');
 }
 
 function hitTrees(s, w, dt) {

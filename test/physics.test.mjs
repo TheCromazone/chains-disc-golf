@@ -1,6 +1,6 @@
 // Run: node test/physics.test.mjs
 import assert from 'node:assert/strict';
-import { simulate, flatWorld, discById, THROWS } from '../src/physics.js';
+import { simulate, flatWorld, discById, THROWS, launch, step, isDone, DT } from '../src/physics.js';
 
 const w = flatWorld({ x: 0, y: 0, z: -100 });
 const throwIt = (o) => simulate({ pos: [0, 1.2, 0], dir: [0, -1], power: 1, throwType: 'backhand', disc: discById('driver'), ...o }, w, { record: true }).result;
@@ -106,4 +106,83 @@ console.log('arch: under', under.result.thrown.toFixed(1), 'm; lob', lob.result.
 assert(!under.state.events.includes('arch') && Math.abs(under.result.thrown - drive.thrown) < 1e-9, 'a drive passes under the arch untouched');
 assert(lob.state.events[0] === 'arch' && lob.result.rest[2] > -31, 'a lofted drive clips the beam and drops short of it');
 assert(leg.state.events[0] === 'arch' && leg.result.rest[2] > -31, 'a throw at a leg bounces back off it');
-console.log('physics OK — eleven throws, both hands, two powers, the arch');
+
+// Rollers. A disc that comes down on its rim, banked well over, rolls when its spin rolls it forward: the side it turns
+// over to (anhyzer). landOn sets a midrange down right at the turf at a given bank, speed and descent; side +1 banks it
+// toward its turn-over side, -1 toward its fade (hyzer) side.
+const R_DISC = 0.105, up = [0, 1, 0];
+const vdot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const vcross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+function landOn(world, { bank = 50, speed = 12, descent = 12, side = 1, lefty = false, throwType = 'backhand' } = {}) {
+  const s = launch({ pos: [0, 1, 0], dir: [0, -1], power: 0.5, throwType, disc: discById('mid'), lefty });
+  const b = bank * Math.PI / 180, d = descent * Math.PI / 180;
+  s.n = [side * s.spin * Math.sin(b), Math.cos(b), 0];
+  s.v = [0, -speed * Math.sin(d), -speed * Math.cos(d)];
+  s.p = [0, world.height(0, 0) + 0.02 + R_DISC * Math.sin(b), 0];
+  let start = null, end = null, maxTurn = 0, prevN = s.n;
+  const rolling = [];
+  while (!isDone(s) && s.t < 25) {
+    step(s, world, DT);
+    maxTurn = Math.max(maxTurn, Math.acos(Math.min(1, vdot(prevN, s.n)))); prevN = s.n;
+    if (s.mode === 'roll') { start ??= { t: s.t, p: [...s.p] }; rolling.push({ p: [...s.p], v: [...s.v], n: [...s.n], spinRate: s.spinRate, spin: s.spin }); }
+    else if (start && !end) end = { t: s.t, p: [...s.p] };
+  }
+  return { s, rolling, maxTurn, roll: end ? Math.hypot(end.p[0] - start.p[0], end.p[2] - start.p[2]) : 0, time: end ? end.t - start.t : 0 };
+}
+const roller = landOn(w);
+console.log('roller 50° bank at 12 m/s: rolls', roller.roll.toFixed(1), 'm in', roller.time.toFixed(1), 's, rest x', roller.s.p[0].toFixed(1), '·', roller.s.events.join(','));
+assert.deepEqual(roller.s.events, ['roll', 'flop'], 'a 50° anhyzer landing rolls, then falls over');
+assert(roller.roll > 6 && roller.roll < 20 && roller.time > 2 && roller.time < 6, `a believable roll (${roller.roll.toFixed(1)} m, ${roller.time.toFixed(1)} s)`);
+assert(roller.s.p[0] < -1, 'it leans over its contact edge (left of it) and curves that way');
+assert(roller.s.n[1] > 0.9 && roller.s.mode === 'rest', 'and settles face up');
+assert(roller.maxTurn < 2 * Math.PI / 180, `no pop in the disc's tilt through landing, roll and fall (${(roller.maxTurn * 180 / Math.PI).toFixed(1)}° in a step)`);
+// Flat landings skip and skid as before; so does a banked hyzer landing (its spin fights a roll) unless it comes down on edge.
+const flatLand = landOn(w, { bank: 15 }), hyzerLand = landOn(w, { bank: 50, side: -1 }), bladeLand = landOn(w, { bank: 85, side: -1 });
+console.log('flat landing', flatLand.s.events.join(','), '· hyzer 50°', hyzerLand.s.events.join(','), '· hyzer on edge', bladeLand.roll.toFixed(1), 'm');
+assert(!flatLand.s.events.includes('roll') && flatLand.s.events[0] === 'land', 'a flat landing does not roll');
+assert(!hyzerLand.s.events.includes('roll'), 'a hyzer landing skips instead of rolling');
+assert(bladeLand.s.events.includes('roll') && bladeLand.roll < roller.roll, 'on edge it rolls even against its spin, but shorter');
+// Rolling without slipping, the way main.js draws it (the disc turned about n at spinRate * spin): the rim at the contact
+// is still, so the centre moves with w x (R u), u running from the contact up to the centre, for every hand and face.
+const pastVertical = landOn(w, { bank: 100 }), lefty = landOn(w, { lefty: true });
+assert.equal(pastVertical.s.face, -1, 'banked past vertical it leans the other way and lands on its top');
+assert(pastVertical.s.p[0] > 1 && pastVertical.s.n[1] < -0.9, 'curving right and settling face down');
+for (const [name, r] of [['backhand', roller], ['lefty', lefty], ['forehand', landOn(w, { throwType: 'forehand' })], ['past vertical', pastVertical], ['against its spin', bladeLand]]) {
+  assert(r.rolling.length > 100, `${name}: rolls`);
+  for (let i = 0; i < r.rolling.length; i += 25) {
+    const { v, n, spinRate, spin } = r.rolling[i];
+    if (Math.hypot(...v) < 0.05) continue;
+    const ny = vdot(n, up), u = [up[0] - n[0] * ny, up[1] - n[1] * ny, up[2] - n[2] * ny], ul = Math.hypot(...u);
+    const rim = vcross(n.map(x => x * spinRate * spin), u.map(x => x * R_DISC / ul));
+    assert(vdot(rim, v) > 0, `${name}: the drawn disc rolls forward (sample ${i})`);
+    assert(Math.abs(Math.hypot(...rim) - Math.hypot(...v)) < 0.02 * Math.hypot(...v) + 1e-6, `${name}: at the speed it travels (sample ${i})`);
+  }
+}
+assert(Math.abs(lefty.s.p[0] + roller.s.p[0]) < 1e-6 && Math.abs(lefty.s.p[2] - roller.s.p[2]) < 1e-6, 'a left-hander rolls the mirror image');
+// Slope: a disc on its rim takes 2/3 g sin(slope) along its path, so downhill runs on and uphill dies; rough grass kills it.
+const slope = (k, c = 0) => ({ ...flatWorld({ x: 0, y: 0, z: -100 }), height: (x, z) => k * z + c * x, normal: () => { const l = Math.hypot(1, k, c); return [-c / l, 1 / l, -k / l]; } });
+const downhill = landOn(slope(0.1)), uphill = landOn(slope(-0.1)), roughRoll = landOn({ ...w, rough: () => 1 });
+const leftLow = landOn(slope(0, 0.1)), rightLow = landOn(slope(0, -0.1));
+console.log('roll down 10%', downhill.roll.toFixed(1), 'm · flat', roller.roll.toFixed(1), '· up 10%', uphill.roll.toFixed(1), '· rough', roughRoll.roll.toFixed(1), '· cross slope rest x low-left/low-right', leftLow.s.p[0].toFixed(1), rightLow.s.p[0].toFixed(1));
+assert(downhill.roll > roller.roll + 1.5 && uphill.roll < roller.roll - 1.5, 'downhill rolls further, uphill shorter');
+assert(roughRoll.roll < roller.roll * 0.6, 'rough grass slows the roll');
+assert(leftLow.s.p[0] < roller.s.p[0] - 0.5 && rightLow.s.p[0] > roller.s.p[0] + 0.5, 'a cross slope bends the roll downhill');
+// Rollers still meet the course: a trunk knocks one over, the pole stops it, out of bounds ends it.
+const treeWorld = { ...w, treesNear: () => [{ x: 0, z: -3, y: 0, r: 0.2, h: 8, fy: 5, fr: 2 }] };
+const intoTree = landOn(treeWorld);
+assert.deepEqual(intoTree.s.events, ['roll', 'tree', 'flop'], `a trunk knocks the roller over (${intoTree.s.events})`);
+assert(intoTree.s.p[2] > -3, 'and it stops short of the tree');
+const pass = roller.rolling.find(r => Math.hypot(r.p[0], r.p[2]) > 2.5).p;   // stand a basket where the roller passes 2.5 m out
+const atPole = landOn(flatWorld({ x: pass[0], y: 0, z: pass[2] }));
+assert(atPole.s.events.includes('pole') && atPole.s.events.at(-1) === 'flop', `a roller into the pole bounces off it and falls (${atPole.s.events})`);
+const roll2ob = landOn({ ...w, inBounds: (x, z) => z > -4 });
+assert(roll2ob.s.mode === 'ob' && roll2ob.s.events.join() === 'roll,ob', 'rolling out of bounds is OB');
+// In play: a hard outside-in drive turns over, lands on its rim and rolls; and every roll is deterministic (the online
+// host simulates, the guests replay, the bots and the aim preview simulate too).
+const oiDrive = () => simulate({ pos: [0, 1.2, 0], dir: [0, -1], power: 1, throwType: 'backhand_oi', disc: discById('driver'), hyzer: -30 }, w, { record: true });
+const oiA = oiDrive(), oiB = oiDrive();
+console.log('OI drive', oiA.result.thrown.toFixed(1), 'm', oiA.state.events.join(','));
+assert(oiA.state.events.includes('roll'), 'a hard outside-in drive rolls');
+assert.deepEqual(oiA.traj, oiB.traj, 'identical throws replay identically'); assert.deepEqual(oiA.result, oiB.result);
+assert(oiA.traj.every(p => p.length === 7 && p.every(Number.isFinite)), 'seven numbers per sample');
+console.log('physics OK — eleven throws, both hands, two powers, the arch, rollers');

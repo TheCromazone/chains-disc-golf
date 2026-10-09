@@ -35,6 +35,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="vignette" aria-hidden="true"></div>
 <div id="loading"><div class="load-brand"><small>Disc golf club</small>Chains</div><div class="spin"></div><div class="muted">Growing the course…</div></div>
 <div id="fade"></div>
 <!-- target tag over the basket: placed every frame by the camera section of src/main.js, text by UI.setHud's dist -->
@@ -58,10 +59,12 @@
     <div id="sideBtns" class="hidden" role="group" aria-label="Course tools">
       <button id="btnTarget" title="Aim at basket" aria-label="Aim at basket"><span data-icon="target"></span><span>Aim</span></button>
       <button id="btnOverview" title="Overview" aria-label="Overview"><span data-icon="map"></span><span>Overview</span></button>
+      <button id="btnFull" class="hidden" title="Full screen" aria-label="Full screen" aria-pressed="false"><span data-icon="expand"></span><span>Full screen</span></button>
       <button id="btnMute" title="Mute sound" aria-label="Mute sound" aria-pressed="false"><span class="sound-icons"><span class="sound-on" data-icon="sound"></span><span class="sound-off" data-icon="mute"></span></span><span>Sound</span></button>
       <button id="btnMenu" title="Menu" aria-label="Menu"><span data-icon="back"></span><span>Clubhouse</span></button>
     </div>
   </div>
+  <div id="react" aria-hidden="true"></div>
   <div id="toast" role="status" aria-live="polite"><b id="toastTitle"></b><span id="toastSub"></span></div>
   <div id="waiting" class="panel hidden" role="status">Waiting…</div>
   <div id="controls">
@@ -72,9 +75,10 @@
     <div id="throwRow" class="equipment-picker hidden" role="group" aria-label="Choose throw"></div>
     <div id="discRow" class="equipment-picker hidden" role="group" aria-label="Choose disc"></div>
   </div>
+  <div id="aimZone" aria-hidden="true"><span><span data-icon="pan"></span>Drag to aim</span></div>
   <div id="pad">
     <svg id="gestureTrace" aria-hidden="true"><polyline class="trace-edge"/><polyline class="trace-line"/><circle class="trace-start" r="5"/><circle class="trace-end" r="9"/></svg>
-    <div class="hint"><span id="hintArrow" data-icon="arrow"></span><span id="hintText">BACKHAND · swipe right</span><span id="hintSub">swipe further for power · drag the view to aim</span></div>
+    <div class="hint"><span id="hintArrow" data-icon="arrow"></span><span id="hintText">BACKHAND · swipe right</span><span id="hintSub">longer swipe = more power</span></div>
   </div>
 </div>
 
@@ -91,7 +95,7 @@
     <div class="round-settings">
       <div class="f"><span id="holesLabel">Holes</span><div class="seg" id="holesSeg" role="group" aria-labelledby="holesLabel"><button data-v="3">3</button><button data-v="9" class="on">9</button></div></div>
       <div class="f"><span id="botsLabel">Bots</span><div class="seg" id="diffSeg" role="group" aria-labelledby="botsLabel"><button data-v="easy">Easy</button><button data-v="medium" class="on">Medium</button><button data-v="hard">Hard</button></div></div>
-      <div class="f"><span id="graphicsLabel">Graphics</span><div class="seg" id="qualSeg" role="group" aria-labelledby="graphicsLabel"><button data-v="low">Lite</button><button data-v="high" class="on">Full</button></div></div>
+      <div class="f"><span id="graphicsLabel">Graphics</span><div class="seg" id="qualSeg" role="group" aria-labelledby="graphicsLabel"><button data-v="low">Mobile</button><button data-v="high" class="on">Desktop</button></div></div>
     </div>
     <button id="btnHelp" class="quiet" style="width:100%"><span data-icon="help"></span><span>Field guide &amp; rules</span></button>
   </div>

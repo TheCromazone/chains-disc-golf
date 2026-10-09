@@ -45,7 +45,7 @@ export function randomAvatar(rng = Math.random, overrides = {}) {
   return { ...DEFAULT_AVATAR, ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([k,v])=>[k,pick(v)])), facialHair, eyeColor: pick(EYE_COLORS), skin: pick(AVATAR_OPTIONS.skin), hair: pick(AVATAR_OPTIONS.hair), hairColor: pick(AVATAR_OPTIONS.hairColor), jersey, jerseyStyle: rng() < 0.55 ? 'solid' : pick(JERSEY_STYLES), accent: pick(AVATAR_OPTIONS.accent.filter(c => c !== jersey)), shorts: pick(AVATAR_OPTIONS.shorts), socks: pick(AVATAR_OPTIONS.socks), shoes: pick(AVATAR_OPTIONS.shoes), wristband: rng() < 0.3 ? pick(AVATAR_OPTIONS.wristband) : 'none', headwear: pick(AVATAR_OPTIONS.headwear), headwearColor: pick(AVATAR_OPTIONS.headwearColor), number: Math.floor(rng() * 99) + 1, shades: rng() < 0.5, build: pick(AVATAR_OPTIONS.build), height: pick(AVATAR_OPTIONS.height), hand: rng() < 0.12 ? 'left' : 'right', figure, ...overrides };
 }
 
-import { JOINTS, IDLE, K, mirrorPose, keysFor, poseAt, readyPose, heroPose, STANCE_FADE, stanceFade } from './throw-poses.js';
+import { JOINTS, IDLE, K, mirrorPose, keysFor, poseAt, readyPose, heroPose, clapPose, STANCE_FADE, stanceFade } from './throw-poses.js';
 
 export function createCharacter(opts = {}) {
   const a = normalizeAvatar({ ...(opts.color ? { jersey: opts.color } : {}), ...(opts.cap ? { headwearColor: opts.cap } : {}), ...opts });
@@ -130,7 +130,8 @@ export function createCharacter(opts = {}) {
         if(!mood&&!locomotion) target=aimFrames>=2&&grips>=1?readyPose(aimType,time):carries>=1?heroPose(time):target;
         if(locomotion==='walk') { const step=Math.sin(time*Math.PI*2);target.hipR[0]=step*.45;target.hipL[0]=-step*.45;target.shR[0]=-step*.4;target.shL[0]=step*.4; }
         if(locomotion==='practice') { const swing=(Math.sin(time*Math.PI/1.2)+1)*.5;target.root[1]=-.35+swing*.55;target.shR[0]=.7+swing*.5;target.elR[0]=1.2-swing*.6; }
-        if(mood) { mood.t+=dt;const strength=Math.sin(Math.min(1,mood.t/2.4)*Math.PI);if(mood.name==='celebrate'){target.shR[0]=2.9*strength;target.shL[0]=2.9*strength;target.elR[0]=.4;target.elL[0]=.4;target.rootY=.1*strength;}else{target.spine[0]=.28*strength;target.head[0]=.35*strength;target.shR[0]=.1;}if(mood.t>=2.4)mood=null; }
+        if(mood?.name==='clap') { mood.t+=dt; if(mood.t<2.6) target=clapPose(time); else mood=null; }
+        else if(mood) { mood.t+=dt;const strength=Math.sin(Math.min(1,mood.t/2.4)*Math.PI);if(mood.name==='celebrate'){target.shR[0]=2.9*strength;target.shL[0]=2.9*strength;target.elR[0]=.4;target.elL[0]=.4;target.rootY=.1*strength;}else{target.spine[0]=.28*strength;target.head[0]=.35*strength;target.shR[0]=.1;}if(mood.t>=2.4)mood=null; }
       } else target = poseAt(keysFor(throwType), phase);
       if (lefty) target = mirrorPose(target);
       const k = phase === null ? 1 - Math.exp(-7 * dt) : 1; // phase is already eased by the shared key sampler
