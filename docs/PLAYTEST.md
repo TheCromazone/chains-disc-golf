@@ -14,9 +14,10 @@ On a phone, add it to your Home Screen for full screen: Safari → Share → *Ad
 
 **Live room rules of thumb**
 
-- The host's game must stay open and on screen for the whole round. If the host closes it, the room ends.
+- The host's game must stay open and on screen for the whole round. If the host closes it, the room ends. The game asks the phone to keep its screen on while a room is open; if a screen still dims (Low Power Mode, or an older iPhone running Chains from the Home Screen), set *Settings → Display & Brightness → Auto-Lock* to *Never* for the round, the host above all.
+- Any network works. Players connect straight to the host when their networks allow it; when they don't (a phone on cellular data, a strict or guest Wi-Fi), the game switches to an encrypted relay by itself after about 10 seconds. A slow join is that switch: wait for it rather than tapping *Join* again.
+- A quick screen lock or app switch mid-round is fine: on your return you see *Reconnecting to the host…*, then *Back in the round* with the scores restored. If a throw you made right then shows *Confirming your throw…*, give it a few seconds: either it lands, or the game hands you the turn back to throw again. A throw never counts twice.
 - A player who drops keeps their seat for 30 seconds, then a bot takes over; reopening the link reclaims it.
-- Players on different networks connect directly to the host. Home Wi-Fi to home Wi-Fi usually works. If a friend on cellular data sees *"Couldn't reach the host"*, have them switch to Wi-Fi, or play an **invite match** instead (it works on any network). A relay server fixes this permanently; see *Setup still needed* below.
 
 ## Controls
 
@@ -38,7 +39,7 @@ Send it to the group chat with:
 
 **Frame rate:** open https://chains-disc-golf.vercel.app/?fps=1 and play Pine Hollow hole 1 in Mobile and in Desktop. The counter sits bottom-left. Note the numbers with your phone model.
 
-## Setup still needed (host/owner)
+## Setup (host/owner)
 
-- **Relay for live rooms on cellular (TURN):** add Cloudflare Realtime TURN keys (`CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_KEY_API_TOKEN`) or any TURN service (`TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL`) in the Vercel project's environment variables, then redeploy. `https://chains-disc-golf.vercel.app/api/ice` should then return `"relay": true`.
+- **TURN for live rooms (optional):** players whose networks block a direct connection already play through the built-in MQTT relay (`src/relay.js`: public brokers, AES-GCM with a key derived from the room code, so the brokers never see the game). TURN would let more of them connect directly instead: add Cloudflare Realtime TURN keys (`CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_KEY_API_TOKEN`) or any TURN service (`TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL`) in the Vercel project's environment variables, then redeploy. `https://chains-disc-golf.vercel.app/api/ice` should then return `"relay": true`.
 - **Invite-match storage budget:** matches live in a Vercel Blob store. On the Hobby plan Blob allows 10,000 reads a month and locks the store for 30 days if that runs out. Polling now asks a CDN-cached "anything new?" question (cached 8 s, shared by everyone in the match) and backs off when a match sits idle, so an open match costs at most about 450 reads an hour, and far fewer while idle. Keep an eye on *Vercel → Storage → Blob → Usage* during big playtests.

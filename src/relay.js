@@ -5,8 +5,12 @@
 // broker sees neither. Ported from SfUltiMobile's src/net/relay.js (huckyeah), which has carried its online matches since 2026-09.
 //   <prefix>/h            every relay guest -> the host
 //   <prefix>/p/<guestId>  the host -> one guest
-// A frame is JSON {k, from, ...}: 'hello' (the guest's metadata), 'welcome', 'd' (one game message) or 'bye'.
+// A frame is JSON {k, from, s, n, ...}: 'hello' (the guest's metadata), 'welcome', 'd' (one game message) or 'bye'; s names the
+// sending link and n counts its frames, so a QoS 1 redelivery after a reconnect is dropped instead of handled twice.
 // Chains' messages are turn-sized (a throw's replay at most), so one reliable stream per pair is all it needs: JSON over QoS 1.
+// A locked phone drops its socket. Frames sent meanwhile wait in mqtt.js and go out, in order, on its reconnect; the host's
+// sessions are persistent, so the broker also holds what guests send it while the host is away; and a guest whose own socket
+// drops ends its room link, so net.js reconnects and the host answers with a snapshot.
 export const BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'];
 const SALT = 'chains/relay/v1', enc = new TextEncoder(), dec = new TextDecoder();
 const hex = buf => Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
@@ -24,12 +28,16 @@ async function unseal(key, bytes) {   // null for anything that is not ours
   try { const u = new Uint8Array(bytes); if (u.length < 29) return null; return JSON.parse(dec.decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: u.subarray(0, 12) }, key, u.subarray(12)))); }
   catch { return null; }
 }
-async function connectBroker(mqtt, url, ms) {
+// persist: the broker keeps this client's subscription and holds QoS 1 frames for it while it is offline (emqx and HiveMQ do;
+// the client id stays the same across mqtt.js's own reconnects).
+async function connectBroker(mqtt, url, ms, persist = false) {
   return new Promise((res, rej) => {
-    const c = mqtt.connect(url, { clientId: `chdg_${hex(crypto.getRandomValues(new Uint8Array(6)))}`, clean: true, reconnectPeriod: 2000, connectTimeout: ms, keepalive: 30, resubscribe: true });
-    const t = setTimeout(() => { c.end(true); rej(new Error(`${url}: no answer`)); }, ms);
-    c.once('connect', () => { clearTimeout(t); res(c); });
-    c.once('error', e => { clearTimeout(t); c.end(true); rej(e); });
+    const c = mqtt.connect(url, { clientId: `chdg_${hex(crypto.getRandomValues(new Uint8Array(6)))}`, clean: !persist, reconnectPeriod: 2000, connectTimeout: ms, keepalive: 30, resubscribe: true });
+    let settled = false;
+    const fail = e => { if (settled) return; settled = true; clearTimeout(t); c.end(true); rej(e); };
+    const t = setTimeout(() => fail(new Error(`${url}: no answer`)), ms);
+    c.once('connect', () => { if (settled) return; settled = true; clearTimeout(t); res(c); });
+    c.on('error', fail);   // stays attached: a later error (mqtt.js reconnects by itself) must neither end the client nor go unheard and throw
   });
 }
 
@@ -53,11 +61,21 @@ export async function openRelay({ code, role, selfId, onConn = () => {}, brokers
   const [mod, { key, prefix }] = await Promise.all([import('mqtt'), secrets(code)]);
   const mqtt = mod?.connect ? mod : mod?.default ?? mod, hostTopic = `${prefix}/h`, peerTopic = id => `${prefix}/p/${id}`;
   const clients = [], conns = new Map();
-  const poster = (client, topic) => { let chain = Promise.resolve(); return obj => { chain = chain.then(() => seal(key, { ...obj, from: selfId })).then(b => { if (client.connected) client.publish(topic, b, { qos: 1 }); }).catch(() => {}); }; };
+  // Publish even while the socket is down: mqtt.js keeps QoS 1 frames and sends them once it reconnects (the old guard dropped them).
+  // The callback takes any error, so a publish on a closed client never surfaces as an unheard 'error' event.
+  const poster = (client, topic) => {
+    const s = hex(crypto.getRandomValues(new Uint8Array(4))); let n = 0, chain = Promise.resolve();
+    return obj => { const frame = { ...obj, from: selfId, s, n: ++n }; chain = chain.then(() => seal(key, frame)).then(b => client.publish(topic, b, { qos: 1 }, () => {})).catch(() => {}); };
+  };
+  const seen = new Map();   // `${from}/${link}` -> the last frame number handled
+  const fresh = m => { if (typeof m.s !== 'string' || !Number.isInteger(m.n)) return true; const k = `${m.from}/${m.s}`; if (m.n <= (seen.get(k) || 0)) return false; seen.set(k, m.n); return true; };
   let rx = Promise.resolve();   // decryption is asynchronous; keep each pair's messages in the order they arrived
-  const listen = (client, handle) => client.on('message', (_topic, payload) => { rx = rx.then(async () => { const m = await unseal(key, payload); if (m && m.from !== selfId) handle(client, m); }); });
+  const listen = (client, handle) => client.on('message', (_topic, payload) => {
+    rx = rx.then(async () => { const m = await unseal(key, payload); if (m && m.from !== selfId && fresh(m)) handle(client, m); })
+      .catch(e => console.error('Relay message failed:', e));   // one failure must not stop every message after it
+  });
   if (role === 'host') {
-    const ok = (await Promise.allSettled(brokers.slice(0, 2).map(u => connectBroker(mqtt, u, connectTimeoutMs)))).filter(r => r.status === 'fulfilled').map(r => r.value);
+    const ok = (await Promise.allSettled(brokers.slice(0, 2).map(u => connectBroker(mqtt, u, connectTimeoutMs, true)))).filter(r => r.status === 'fulfilled').map(r => r.value);
     if (!ok.length) throw new Error('no relay broker answered');
     for (const c of ok) {
       clients.push(c);
@@ -80,6 +98,7 @@ export async function openRelay({ code, role, selfId, onConn = () => {}, brokers
     if (!client) throw new Error(`no relay broker answered (${last?.message ?? last})`);
     clients.push(client);
     await client.subscribeAsync(peerTopic(selfId), { qos: 1 });
+    client.on('close', () => { for (const c of conns.values()) c._end(); });   // the socket dropped: end the room link so net.js reconnects and resyncs
   }
   return {
     // guest: hello the host and wait for its welcome
