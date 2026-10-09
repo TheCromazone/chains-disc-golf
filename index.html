@@ -55,12 +55,12 @@
   <div id="powerLabel">POWER</div>
   <div id="shotPlan" aria-label="Estimated shot"><small id="planLabel">OPEN FLIGHT · 72% POWER</small><b id="planRange"></b><span id="planSurface"></span></div>
   <div id="utilities">
+    <button id="btnMute" class="sound-toggle" title="Mute sound" aria-label="Mute sound" aria-pressed="false"><span class="sound-icons"><span class="sound-on" data-icon="sound"></span><span class="sound-off" data-icon="mute"></span></span></button>
     <button id="btnUtilities" aria-label="Course tools" aria-expanded="false" aria-controls="sideBtns"><span data-icon="menu"></span></button>
     <div id="sideBtns" class="hidden" role="group" aria-label="Course tools">
       <button id="btnTarget" title="Aim at basket" aria-label="Aim at basket"><span data-icon="target"></span><span>Aim</span></button>
       <button id="btnOverview" title="Overview" aria-label="Overview"><span data-icon="map"></span><span>Overview</span></button>
       <button id="btnFull" class="hidden" title="Full screen" aria-label="Full screen" aria-pressed="false"><span data-icon="expand"></span><span>Full screen</span></button>
-      <button id="btnMute" title="Mute sound" aria-label="Mute sound" aria-pressed="false"><span class="sound-icons"><span class="sound-on" data-icon="sound"></span><span class="sound-off" data-icon="mute"></span></span><span>Sound</span></button>
       <button id="btnMenu" title="Menu" aria-label="Menu"><span data-icon="back"></span><span>Clubhouse</span></button>
     </div>
   </div>
@@ -85,7 +85,7 @@
 <div id="menu" class="overlay hub">
   <div class="hub-top">
     <div class="hub-brand"><a id="hostHome" class="host-home hidden" href="../"><span data-icon="back"></span><span>Back to <b id="hostName">Huck Yeah</b></span></a><div class="brand"><small id="brandSmall">DISC GOLF CLUB</small>Chains</div></div>
-    <button class="pcard" id="btnLocker"><i class="sw" id="hubSwatch"><span data-icon="jersey"></span></i><div><b id="hubName">You</b><span class="muted">Locker room</span></div></button>
+    <div class="hub-tools"><button class="pcard" id="btnLocker" title="Locker room" aria-label="Locker room"><i class="sw" id="hubSwatch"><span data-icon="jersey"></span></i><div><b id="hubName">You</b><span class="muted">Locker</span></div></button><button id="btnHubSound" class="sound-toggle hub-sound" title="Mute sound" aria-label="Mute sound" aria-pressed="false"><span class="sound-icons"><span class="sound-on" data-icon="sound"></span><span class="sound-off" data-icon="mute"></span></span></button></div>
   </div>
   <div class="panel stack hub-main">
     <div class="hub-caption"><span class="eyebrow">Your next round</span><span class="muted">Find your line.</span></div>

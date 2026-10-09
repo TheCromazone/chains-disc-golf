@@ -1040,7 +1040,7 @@ $('btnOverview').onclick = () => { if (G.phase !== 'aim') return; G.overview = !
     });
   }
 }
-$('btnMute').onclick = () => { setMuted(!isMuted()); UI.setSoundMuted(isMuted()); saveLocal('chains.muted', isMuted() ? '1' : '0'); };
+$('btnMute').onclick = $('btnHubSound').onclick = () => { setMuted(!isMuted()); UI.setSoundMuted(isMuted()); saveLocal('chains.muted', isMuted() ? '1' : '0'); if (!isMuted()) sfx.click(); };   // turning sound on answers, so you know it works
 // The mute choice persists; ?mute=1 starts silent for test browsers and simulators (it is not saved).
 { let m = new URLSearchParams(location.search).has('mute'); try { m ||= localStorage.getItem('chains.muted') === '1'; } catch { /* private mode */ } if (m) { setMuted(true); UI.setSoundMuted(true); } }
 // Hosted: Huck Yeah serves Chains as its disc golf (huckyeah.vercel.app/discgolf/, opened with ?host=huckyeah). The clubhouse
