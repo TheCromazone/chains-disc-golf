@@ -561,3 +561,6 @@ body[data-phase='result'] #react, body.result-mode #react { top: auto; bottom: c
 @keyframes clapping { from { transform: scale(.82) rotate(-9deg); } to { transform: scale(1.1) rotate(7deg); } }
 @keyframes womp { 0% { transform: none; } 22% { transform: translateY(-4px); } 40% { transform: translateY(2px) rotate(-3deg); } 100% { transform: translateY(16px) rotate(calc((var(--i) - 4) * 3deg)); } }
 @media (prefers-reduced-motion: reduce) { #react.good span, #react.bad i { animation: none; } }
+/* Mobile's vignette (Desktop's is in its grade pass): a static layer the compositor blends, no GPU pass of the game's own. */
+#vignette { position: fixed; inset: 0; z-index: 0; display: none; pointer-events: none; background: radial-gradient(ellipse farthest-corner at 50% 48%, #0000 48%, #0000000f 68%, #00000040 100%); }
+body.gfx-mobile #vignette { display: block; }

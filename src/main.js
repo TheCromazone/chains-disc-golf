@@ -50,6 +50,20 @@ const strHash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ 
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .74;   // sunlit turf lands mid-high and shade keeps a real dark; ACES rolls the sun's haze and aureole off instead of clipping them
+// Mobile's finish: Desktop grades the frame in a full-screen pass after ACES (effects.js GRADE: gain and lift, a gentle
+// S-curve, saturation about luma, greens toward olive, a cool-shade/warm-sun split tone, a cool veil in the deepest darks).
+// Mobile folds the same grade, minus grain and vignette, into the tone-mapping step every material already runs, so the
+// broadcast colour costs a few ALU ops a pixel and no render target; the vignette is a CSS layer (ui.css #vignette).
+THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace('vec3 CustomToneMapping( vec3 color ) { return color; }', `vec3 CustomToneMapping( vec3 color ) {
+  vec3 c = sqrt( clamp( ACESFilmicToneMapping( color ), 0., 1. ) );   // a gamma-2 display space: sqrt and a square instead of two pows a pixel
+  c = clamp( c * vec3( 1.13, 1.08, 1. ) + vec3( 0., .003, .01 ), 0., 1. );   // brighter and warmer than Desktop's gain: no bloom or sun shafts lift it
+  c = mix( c, c * c * ( 3. - 2. * c ), .28 );
+  float l = dot( c, vec3( .2126, .7152, .0722 ) ), lead = clamp( ( c.g - max( c.r, c.b ) ) * 3., 0., 1. );
+  c = mix( vec3( l ), c, 1.04 ); c.r += ( c.g - c.r ) * lead * .25;
+  c *= mix( vec3( .94, .99, 1.06 ), vec3( 1.04, 1., .92 ), smoothstep( .06, .5, l ) );
+  c = mix( vec3( l ), c, mix( .9, 1., smoothstep( .04, .3, l ) ) ) + vec3( .018, .022, .03 ) * ( 1. - l ) * ( 1. - l ) * ( 1. - l );
+  c = max( c, 0. ); return c * c; }`);
+const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
@@ -253,6 +267,7 @@ async function applyCourse(id) {
   const def = courseById(id); if (course && course.def.id === def.id && course.quality === G.settings.quality) return;
   const first = !course; if (!first) { UI.fade(true); await sleep(340); }
   course?.dispose(); post?.dispose(); post = null; postEnabled = true; resolutionScale = 1; slowTime = 0; resize();
+  renderer.toneMapping = toneFor(G.settings.quality); document.body.classList.toggle('gfx-mobile', G.settings.quality === 'low');
   // Full: HDRI ambient, reflective water and a bloom + grade pass. Lite: same textures, no render targets.
   effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
   const hdri = effects ? await effects.loadSky(renderer, asset('skies', def.id) || asset('skies', 'lake')) : null;
@@ -794,7 +809,7 @@ function flightPlan(f) {
   if (bd > 2 && bd < 45) { _v.set(R[0], ry, R[2]).sub(LP).normalize(); _v2.set(...T).sub(LP).normalize();
     const pin = _v.dot(_v2) > .72 ? .5 : _v.dot(_v2) > .55 ? .3 : 0;   // the pin shares the frame only while it stands near the disc's bearing; the disc stays in it
     LL.copy(LP).addScaledVector(_v.multiplyScalar(1 - pin).addScaledVector(_v2, pin).normalize(), 10); }
-  return { H: cam.pos.clone(), HL: cam.look.clone(), F0: cam.fov, dir: new THREE.Vector3(f.params.dir[0], 0, f.params.dir[1]).normalize(), pull: 1, tLand, LP, LL };
+  return { H: cam.pos.clone(), HL: cam.look.clone(), F0: cam.fov, S0: cam.shift, dir: new THREE.Vector3(f.params.dir[0], 0, f.params.dir[1]).normalize(), pull: 1, tLand, LP, LL };
 }
 function flightCam(f, dt) {
   const D = f.pos, c = f.cam || (f.cam = flightPlan(f)), S = THREE.MathUtils.smoothstep;
@@ -820,6 +835,7 @@ function flightCam(f, dt) {
   cam.tPos.copy(c.p);
   cam.tLook.lerpVectors(c.HL, _v2.set(D[0] + hv.x * CHASE.lead, D[1] + lift, D[2] + hv.z * CHASE.lead), wl);   // a little over the disc: the fairway ahead and the tree line, not a wall of hillside
   if (wg > 0) { cam.tPos.lerp(c.LP, wg); cam.tLook.lerp(c.LL, wg); }
+  cam.tShift = (c.S0 || 0) * (1 - w);   // a long putt leaving its locked frame lets the lens shift go with the move, not in one frame
   return c.F0 + (CHASE.fov - c.F0) * w;   // the aim lens eases out with the move: no zoom-out snap at release
 }
 function puttDodge(lie, P) {
@@ -1002,7 +1018,7 @@ $('btnOverview').onclick = () => { if (G.phase !== 'aim') return; G.overview = !
   } else if (!standalone && /iPhone|iPod/.test(navigator.userAgent)) {
     let told = false; try { told = sessionStorage.getItem('chains.fullTip') === '1'; } catch { /* private mode */ }
     addEventListener('resize', () => {
-      if (told || innerWidth <= innerHeight || !['aim', 'intro'].includes(G.phase)) return;
+      if (told || innerWidth <= innerHeight || G.phase !== 'aim') return;   // not over the flyover: the HUD (and its toast) is hidden then
       told = true; try { sessionStorage.setItem('chains.fullTip', '1'); } catch { /* private mode */ }
       setTimeout(() => UI.toast('Want it full screen?', 'Safari: Share → Add to Home Screen, then play from the icon', 4200), 600);
     });

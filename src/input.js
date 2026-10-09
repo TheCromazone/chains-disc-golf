@@ -14,7 +14,7 @@ export function setupInput({ sceneEl, padEl, getThrow, onAim, onGesture, onTapSc
   const analyze = a => {
     const dx = a.x - a.x0, dy = a.y - a.y0, d = Math.hypot(dx, dy);
     const along = dx * a.th.swipe[0] + dy * a.th.swipe[1];
-    return { progress: Math.max(0, Math.min(1, along / a.length)), lateral: (dx * a.th.lat[0] + dy * a.th.lat[1]) / a.length,
+    return { progress: Math.max(0, Math.min(1, along / a.length)), lateral: (dx * a.th.lat[0] + dy * a.th.lat[1]) / a.base,   // hyzer reads against the full stroke, not the shortened one near an edge
       valid: d < 18 || along / d > .62, dist: d, dir: [dx / (d || 1), dy / (d || 1)] };
   };
   // Full power is one comfortable thumb stroke, and always reachable from wherever the stroke starts: the length shrinks to
@@ -27,7 +27,7 @@ export function setupInput({ sceneEl, padEl, getThrow, onAim, onGesture, onTapSc
     const base = touch ? Math.max(96, Math.min(span * .42, 190)) : Math.max(120, Math.min(span * .6, 320));
     const edge = 6, room = Math.min(...[[th.swipe[0], e.clientX, innerWidth], [th.swipe[1], e.clientY, innerHeight]]
       .filter(([s]) => Math.abs(s) > .05).map(([s, p, max]) => (s > 0 ? max - edge - p : p - edge) / Math.abs(s)));
-    return Math.max(touch ? 64 : 80, Math.min(base, room * .94));
+    return [Math.max(40, Math.min(base, room * .94)), base];
   }
   function release(a) { if (a) { try { a.el.releasePointerCapture?.(a.id); } catch {} } }
   function cancelSwipe() {
@@ -42,9 +42,9 @@ export function setupInput({ sceneEl, padEl, getThrow, onAim, onGesture, onTapSc
     if (swipe?.id === e.pointerId || aim?.id === e.pointerId) return;
     const inPad = padEl.contains(e.target);
     if (inPad && !swipe && !charge && throwOK()) {
-      const r = padEl.getBoundingClientRect(), th = THROWS[getThrow()];
+      const r = padEl.getBoundingClientRect(), th = THROWS[getThrow()], [length, base] = swipeLength(e, th, r);
       swipe = { id: e.pointerId, el: padEl, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, lastLat: 0, wobble: 0,
-        t0: performance.now(), th, length: swipeLength(e, th, r), r, trace: [[e.clientX - r.left, e.clientY - r.top]] };
+        t0: performance.now(), th, length, base, r, trace: [[e.clientX - r.left, e.clientY - r.top]] };
       try { padEl.setPointerCapture?.(e.pointerId); } catch {}
       onGesture({ state: 'start', progress: 0, lateral: 0, valid: true }); onTrace({ points: swipe.trace, valid: true });
     } else if (!aim && aimOK() && (!inPad || swipe || charge)) {
@@ -111,7 +111,7 @@ export function setupInput({ sceneEl, padEl, getThrow, onAim, onGesture, onTapSc
   const resized = () => { const [w, h] = size; size = [innerWidth, innerHeight]; if ((w > h) !== (innerWidth > innerHeight) || Math.abs(w - innerWidth) > 120) cancel(); };
   listen(window, 'keydown', keydown); listen(window, 'keyup', keyup); listen(window, 'blur', cancel); listen(window, 'resize', resized);
   listen(document, 'visibilitychange', () => { if (document.hidden) cancel(); });
-  return Object.assign(st, { cancel, get aiming() { return !!aim; }, update(dt) {
+  return Object.assign(st, { cancel, update(dt) {
     if (charge) { if (!throwOK()) return cancelSwipe(); charge.power = Math.min(1, charge.power + dt * .8); onGesture({ state: 'move', progress: charge.power, lateral: 0, valid: true, wobble: 0 }); }
     if (keys.size && aimOK()) {
       const x = Number(keys.has('ArrowRight') || keys.has('KeyD')) - Number(keys.has('ArrowLeft') || keys.has('KeyA'));
