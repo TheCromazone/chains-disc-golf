@@ -7,7 +7,11 @@ const pressed = (button, on) => { button.classList.toggle('on', on); button.setA
 export const escapeText = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const $ = id => document.getElementById(id);
-export const show = id => $(id)?.classList.remove('hidden');
+// A double tap on a button that swaps screens lands its second tap on whatever the new screen has there (Leave round →
+// Graphics: Desktop on a phone on its side). Clicks inside a screen in its first 350 ms are dropped.
+let shownAt = 0;
+export const show = id => { const el = $(id); if (el?.classList.contains('overlay') && el.classList.contains('hidden')) shownAt = performance.now(); el?.classList.remove('hidden'); };
+document.addEventListener('click', e => { if (performance.now() - shownAt < 350 && e.isTrusted && e.target.closest?.('.overlay')) { e.stopPropagation(); e.preventDefault(); } }, true);
 export const hide = id => $(id)?.classList.add('hidden');
 export function confirmLeave() {
   const dialog = $('leaveDialog');

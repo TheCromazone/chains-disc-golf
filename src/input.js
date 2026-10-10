@@ -79,7 +79,7 @@ export function setupInput({ sceneEl, padEl, getThrow, onAim, onGesture, onTapSc
     if (swipe?.id !== e.pointerId) return;
     sample(e, false); const a = swipe, g = analyze(a); swipe = null;
     release(a); onTrace(null);
-    onGesture({ state: g.progress < .1 || !throwOK() ? 'cancel' : 'end', ...g, wobble: a.wobble, duration: (performance.now() - a.t0) / 1000 });
+    onGesture({ state: (g.progress < .1 && g.valid) || !throwOK() ? 'cancel' : 'end', ...g, wobble: a.wobble, duration: (performance.now() - a.t0) / 1000 });
   }
   function lost(e) { if (swipe?.id === e.pointerId) cancelSwipe(); else if (aim?.id === e.pointerId) cancelAim(); }
   const editing = e => e.target?.closest?.('input,textarea,select,button,[contenteditable="true"],dialog[open]');
