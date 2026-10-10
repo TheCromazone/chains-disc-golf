@@ -211,7 +211,7 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 #aimZone > span { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 9px; border-radius: 999px; background: #0c1114a6; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 #aimZone .icon { width: 18px; height: 18px; color: var(--mint); stroke-width: 2.4; }
 @media (pointer: coarse) { body[data-phase='aim'] #aimZone, body[data-phase='windup'] #aimZone { display: block; } }
-body.thrown #aimZone, #hud.equipment-open #aimZone { opacity: 0; }
+body.thrown #aimZone, #hud.equipment-open #aimZone, #hud.spectating #aimZone { opacity: 0; }   /* nothing to aim while someone else is up */
 #hintArrow { display: inline-flex; width: 18px; height: 18px; flex: none; color: var(--mint); }
 #hintArrow .icon { width: 18px; height: 18px; stroke-width: 2.4; }
 #hintSub { display: none; }

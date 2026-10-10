@@ -559,12 +559,16 @@ function applyRemoteThrow(m) {   // only called when this client is idle in 'aim
   if (G.cur !== m.pi) setupTurn(m.pi);
   G.throwType = m.params.throwType; G.discId = m.params.discId; UI.selectThrow(G.throwType); UI.selectDisc(G.discId);
   G.aim.yaw = Math.atan2(m.params.dir[1], m.params.dir[0]);
-  const p = G.players[m.pi]; ensureDisc(p, G.discId); p.discMesh.visible = true; UI.waiting(null); preview.visible = false;
-  G.tween = { t: 0, dur: 0.7, fn: u => p.char.setPhase(u * 0.5), done: () => doThrow(m.pi, {}, { traj: m.traj, events: m.events, result: m.result, params: m.params }) };
+  const p = G.players[m.pi], sim = { traj: m.traj, events: m.events, result: m.result, params: m.params }; ensureDisc(p, G.discId); p.discMesh.visible = true; UI.waiting(null); preview.visible = false;
+  // Our own throw, confirmed: the athlete already swung to the release point while the request went out. Let it fly from there;
+  // winding up again from the start showed every guest its own throw twice. (.17 s into the release is the .62 launch point.)
+  if (G.phase === 'awaitThrow' && isMine(p)) { doThrow(m.pi, {}, sim); G.releaseT = .17; return; }
+  G.tween = { t: 0, dur: 0.7, fn: u => p.char.setPhase(u * 0.5), done: () => doThrow(m.pi, {}, sim) };
   G.phase = 'windup'; p.char.setThrow(G.throwType); cam.mode = 'aim';
 }
 function toMenu() {
   if (G.net?.isHost) try { G.net.broadcast({ t: 'closed' }); } catch { /* best effort */ }
+  else if (G.net) try { G.net.toHost({ t: 'bye' }); } catch { /* best effort */ }   // left on purpose: the host need not hold the place
   celebration.clear();
   input.cancel(); for (const t of disconnectTimers.values()) clearTimeout(t); disconnectTimers.clear(); deferredNet = [];
   G.sessionId = ''; G.cur = -1; G.nextRequested = null; G.syncing = false;
@@ -978,7 +982,8 @@ function frame(dt, rawDt, background) {
     if (slowTime > 6 && post && postEnabled) { postEnabled = false; slowTime = 0; UI.toast('Graphics adjusted', 'Keeping your round smooth', 1600); }
   }
   if (!course) return;
-  coach.update(dt, { on: cam.mode === 'aim' && (G.phase === 'aim' || G.phase === 'windup') && !G.overview && playable() && !document.body.classList.contains('result-mode'), throwType: G.throwType, windup: G.phase === 'windup' });
+  // the coach waits for the turn's toast: in pass & play its card covered most of "Ben's throw"
+  coach.update(dt, { on: cam.mode === 'aim' && (G.phase === 'aim' || G.phase === 'windup') && !G.overview && playable() && !document.body.classList.contains('result-mode') && !$('toast').classList.contains('show'), throwType: G.throwType, windup: G.phase === 'windup' });
   if (G.phase === 'intro') { G.introT += dt; if (G.introT > introDur(holes[G.holeIdx]) || G.inbox.length) { nextTurn(); cam.snap = true; } }   // the cut from the basket back to the tee, under the flash
   { const a = G.phase === 'intro' ? .7 * THREE.MathUtils.smoothstep(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH, introDur(holes[G.holeIdx])) : Math.max(0, flashA - dt / .2);   // the broadcast's white flash: up over the held basket, down over the tee
     if (a !== flashA) flashEl.style.opacity = flashA = a; }
@@ -1184,19 +1189,23 @@ function onNet(ev) {
       if (oldId !== ev.id) G.net.disconnect(oldId);
       publishLobby(); return;
     }
-    if (G.net.locked) return rejectGuest(ev.id, 'This round has started. Join the next round with your friends.');
+    if (G.net.locked) return rejectGuest(ev.id, 'This round has started, and the room stays closed to new players. Ask the host to make a new room for the next round.');
     if (G.lobby.length >= MAX_PLAYERS) return rejectGuest(ev.id, `This room is full (${MAX_PLAYERS} players).`);
     G.lobby.push({ name: uniqueName(ev.name, G.lobby.map(p => p.name)), peerId: ev.id, avatar: sanitizeAvatar(ev.avatar), token: ev.token }); publishLobby(); sfx.click();
   } else if (ev.type === 'leave') {
     if (G.net.isHost) {
       const li = G.lobby.findIndex(p => p.peerId === ev.id); if (li < 0) return;
       const member = G.lobby[li];
-      if (!G.net.locked) { G.lobby.splice(li, 1); publishLobby(); return; }
+      // In the lobby too: a guest who steps out to text the code (a suspended page) for 25 s was dropped at once, and if the host
+      // started meanwhile it came back to "This round has started". Its place is held; still gone after 30 s, it is let go.
       member.disconnected = true; publishLobby();
       UI.toast(`${member.name} disconnected`, 'Holding their place for 30 seconds', 2500);
       const room = G.net;
+      clearTimeout(disconnectTimers.get(member.token));
       disconnectTimers.set(member.token, setTimeout(() => {
         disconnectTimers.delete(member.token); if (G.net !== room || !member.disconnected) return;
+        const li = G.lobby.indexOf(member); if (li < 0) return;
+        if (!G.net.locked) { G.lobby.splice(li, 1); publishLobby(); return; }
         const p = G.players[li]; if (!p) return;
         p.isBot = true; p.peerId = null; p.difficulty = 'medium'; member.isBot = true;
         G.net.broadcast({ t: 'botify', pi: li });
@@ -1211,6 +1220,11 @@ function onNet(ev) {
   } else if (ev.type === 'msg') {
     const m = ev.data; if (!m || typeof m.t !== 'string') return;
     if (G.net.isHost) {
+      if (m.t === 'bye') {   // a guest left the lobby on purpose: free its place now (a dropped one is held for 30 s)
+        const member = G.lobby.find(p => p.peerId === ev.from);
+        if (member && !G.net.locked) { clearTimeout(disconnectTimers.get(member.token)); disconnectTimers.delete(member.token); G.lobby.splice(G.lobby.indexOf(member), 1); publishLobby(); }
+        return;
+      }
       if (m.t === 'sync-request') { G.net.send(ev.from, G.net.locked ? { t: 'snapshot', state: snapshot() } : { t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code }); return; }
       // Guests send input only: never accept a client's trajectory, result, next-hole or lobby message.
       if (m.t === 'throw-request') {
@@ -1293,8 +1307,13 @@ $('btnLobbyBot').onclick = () => { if (G.lobby.length < MAX_PLAYERS && !G.net.lo
 $('btnLobbyStart').onclick = () => {
   if (!G.net?.isHost || G.net.locked || !G.lobby.length) return;
   G.net.locked = true; renderLobby();
+  const taken = new Set(), colorFor = (p, i) => {   // everyone who skipped the locker wears the default red: repeats get a free colour
+    let c = safeColor(p.avatar?.jersey, '').toLowerCase();
+    if (!c || taken.has(c)) c = COLORS.find(k => !taken.has(k)) || COLORS[i % COLORS.length];
+    taken.add(c); return c;
+  };
   const config = { mode: 'online', sessionId: crypto.randomUUID(), courseId: G.courseId, holeCount: +G.settings.holes,
-    players: G.lobby.map((p, i) => ({ name: safeName(p.name), isBot: !!p.isBot, difficulty: G.settings.difficulty, peerId: p.peerId || null, avatar: p.avatar || null, color: p.avatar?.jersey || COLORS[i % COLORS.length] })) };
+    players: G.lobby.map((p, i) => ({ name: safeName(p.name), isBot: !!p.isBot, difficulty: G.settings.difficulty, peerId: p.peerId || null, avatar: p.avatar || null, color: colorFor(p, i) })) };
   G.net.broadcast({ t: 'start', config }); startGame(config);
 };
 // Phones open the share sheet (Messages, WhatsApp…) with the link; desktops copy it. Either way the code stays on screen.

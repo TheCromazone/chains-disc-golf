@@ -1,10 +1,11 @@
 import { PROTOCOL_VERSION, safeName } from './protocol.js';
-import { openRelay } from './relay.js';
+import { openRelay, BROKERS } from './relay.js';
 import { keepAwake } from './wake.js';
 const SERIALIZATION = 'binary';   // PeerJS chunks binary messages; its JSON mode refuses anything over ~16 KB (a long throw's replay)
 // One reliable connection per guest. Host owns scores and sends the authoritative replay.
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const roomId = code => `chains-dg-${code}`;
+let brokerTurn = 0;   // which of the host's two brokers a relay guest says hello on first; moves on after a hello nobody answered
 
 export function createNet() {
   const net = { peer: null, conns: new Map(), isHost: false, code: null, name: '', onEvent: () => {}, locked: false, myId: null };
@@ -68,14 +69,23 @@ export function createNet() {
     try { await connectDirect(); }
     catch (e) { if (e.noRoom) throw e; try { await connectRelay(); } catch { throw e; } }   // the relay could not help either: say why direct failed
   };
+  // The host listens on the first two brokers that answer it, a guest on the first that answers it: on a network that blocks
+  // one of them the two never met and the join failed. A hello nobody answered is said again on the other broker.
   const connectRelay = async (ms = 8000) => {
     net.onStatus?.('relay');   // the join screen says so: this leg is what makes a cellular join take ~10 s
-    net.relay?.close(); net.relay = null;
-    const gen = generation, relay = await openRelay({ code: net.code, role: 'guest', selfId: net.relayId });
-    if (gen !== generation || closing) { relay.close(); throw new Error('Left the room.'); }
-    net.relay = relay;
-    const conn = await relay.connect({ name: net.name, avatar: net.avatar, token: net.token, version: PROTOCOL_VERSION }, ms);
-    lastHost = Date.now(); net.via = 'relay'; wire(conn);
+    let err;
+    for (let k = 0; k < 2; k++) {
+      net.relay?.close(); net.relay = null;
+      const first = BROKERS[brokerTurn % 2], gen = generation;
+      try {
+        const relay = await openRelay({ code: net.code, role: 'guest', selfId: net.relayId, brokers: [first, ...BROKERS.filter(u => u !== first)] });
+        if (gen !== generation || closing) { relay.close(); throw Object.assign(new Error('Left the room.'), { left: true }); }
+        net.relay = relay;
+        const conn = await relay.connect({ name: net.name, avatar: net.avatar, token: net.token, version: PROTOCOL_VERSION }, ms);
+        lastHost = Date.now(); net.via = 'relay'; wire(conn); return;
+      } catch (e) { if (e.left) throw e; err = e; brokerTurn++; }
+    }
+    throw err;
   };
   const connectDirect = () => new Promise((res, rej) => {
     const peer = net.peer;
@@ -117,9 +127,10 @@ export function createNet() {
       try {
         await ready(); startHostWatch();
         // the relay side of the room, for guests whose data channel cannot open; the room plays without it if no broker answers
-        const gen = generation;
-        openRelay({ code, role: 'host', selfId: roomId(code), onConn: conn => { if (gen === generation && !closing) wire(conn, conn.metadata || {}); } })
-          .then(r => { if (gen === generation && !closing) net.relay = r; else r.close(); }, () => { /* direct play only */ });
+        // no broker answering now (a blip, a blocked port) used to leave the room without a relay for good: keep asking
+        const gen = generation, listen = (tries = 0) => openRelay({ code, role: 'host', selfId: roomId(code), onConn: conn => { if (gen === generation && !closing) wire(conn, conn.metadata || {}); } })
+          .then(r => { if (gen === generation && !closing) net.relay = r; else r.close(); }, () => { if (gen === generation && !closing && tries < 40) later(() => listen(tries + 1), 15000); });
+        listen();
         keepAwake(true);
         return code;
       } catch (e) { net.peer.destroy(); if (e.type !== 'unavailable-id' || attempt === 3) throw e; }
