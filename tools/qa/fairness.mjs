@@ -15,8 +15,13 @@ const server = spawn(process.execPath, ['serve.mjs'], { cwd: resolve(import.meta
 const b = await launch({ port: port + 1000 }), page = await b.newPage(), url = `http://localhost:${port}/?mute=1`;
 try {
   await pause(800); await page.device({ width: 640, height: 360 });
-  await page.goto(url); await page.eval(`localStorage.setItem('chains.course', '${course}')`); await page.goto(url);
-  await page.waitFor('!!window.__chains && !!__chains.course && !!__chains.holes', 120000);
+  // the course comes from localStorage; under load the first page's boot can write its default back over it, so check and retry
+  for (let tries = 0; ; tries++) {
+    await page.goto(url); await page.eval(`localStorage.setItem('chains.course', '${course}')`); await page.goto(url);
+    await page.waitFor('!!window.__chains && !!__chains.course && !!__chains.holes', 120000);
+    if (await page.eval('__chains.course.def.id') === course) break;
+    if (tries === 4) throw new Error(`loaded ${await page.eval('__chains.course.def.id')}, not ${course}`);
+  }
   const res = await page.eval(`(async () => {
     const { planBotThrow } = await import('/src/bot.js'), { simulate, discById, releasePos } = await import('/src/physics.js');
     const C = __chains, world = C.world, holes = C.holes, real = Math.random; let seed = 1;
