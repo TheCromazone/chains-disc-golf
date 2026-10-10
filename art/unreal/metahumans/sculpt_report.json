@@ -1,0 +1,249 @@
+{
+ "Chains_M1": {
+  "residual_cm": 0.102,
+  "mean_landmark_shift_cm": 0.266,
+  "saved": true,
+  "lods": [
+   {
+    "lod": 0,
+    "verts": 34659
+   },
+   {
+    "lod": 1,
+    "verts": 19283
+   },
+   {
+    "lod": 2,
+    "verts": 9716
+   },
+   {
+    "lod": 3,
+    "verts": 4065
+   },
+   {
+    "lod": 4,
+    "verts": 1967
+   },
+   {
+    "lod": 5,
+    "verts": 903
+   },
+   {
+    "lod": 6,
+    "verts": 460
+   },
+   {
+    "lod": 7,
+    "verts": 243
+   }
+  ],
+  "files": [
+   "Chains_M1_head_lod0.glb",
+   "Chains_M1_head_lod2.glb",
+   "Chains_M1_head_lod3.glb",
+   "Chains_M1_head_lod4.glb"
+  ],
+  "spec": {
+   "seed": 11,
+   "noise": 0.8,
+   "feats": {
+    "jaw_width": 1.4,
+    "chin_width": 0.5,
+    "chin_proj": 0.5,
+    "nose_width": 0.8,
+    "nose_proj": -0.2,
+    "lips_full": 0.6,
+    "mouth_width": 0.3,
+    "brow_ridge": 0.6,
+    "cheekbones": 0.4,
+    "face_length": -0.04
+   }
+  }
+ },
+ "Chains_M2": {
+  "residual_cm": 0.079,
+  "mean_landmark_shift_cm": 0.28,
+  "saved": true,
+  "lods": [
+   {
+    "lod": 0,
+    "verts": 34657
+   },
+   {
+    "lod": 1,
+    "verts": 19283
+   },
+   {
+    "lod": 2,
+    "verts": 9714
+   },
+   {
+    "lod": 3,
+    "verts": 4067
+   },
+   {
+    "lod": 4,
+    "verts": 1969
+   },
+   {
+    "lod": 5,
+    "verts": 903
+   },
+   {
+    "lod": 6,
+    "verts": 460
+   },
+   {
+    "lod": 7,
+    "verts": 243
+   }
+  ],
+  "files": [
+   "Chains_M2_head_lod0.glb",
+   "Chains_M2_head_lod2.glb",
+   "Chains_M2_head_lod3.glb",
+   "Chains_M2_head_lod4.glb"
+  ],
+  "spec": {
+   "seed": 23,
+   "noise": 0.6,
+   "feats": {
+    "face_length": 0.1,
+    "jaw_width": 0.5,
+    "chin_proj": 1.0,
+    "jaw_drop": 0.5,
+    "nose_proj": 1.0,
+    "nose_drop": 0.4,
+    "nose_width": -0.3,
+    "lips_full": -0.5,
+    "brow_ridge": 0.55,
+    "cheekbones": -0.4
+   }
+  }
+ },
+ "Chains_F1": {
+  "residual_cm": 0.072,
+  "mean_landmark_shift_cm": 0.201,
+  "saved": true,
+  "lods": [
+   {
+    "lod": 0,
+    "verts": 34657
+   },
+   {
+    "lod": 1,
+    "verts": 19283
+   },
+   {
+    "lod": 2,
+    "verts": 9718
+   },
+   {
+    "lod": 3,
+    "verts": 4067
+   },
+   {
+    "lod": 4,
+    "verts": 1967
+   },
+   {
+    "lod": 5,
+    "verts": 903
+   },
+   {
+    "lod": 6,
+    "verts": 460
+   },
+   {
+    "lod": 7,
+    "verts": 243
+   }
+  ],
+  "files": [
+   "Chains_F1_head_lod0.glb",
+   "Chains_F1_head_lod2.glb",
+   "Chains_F1_head_lod3.glb",
+   "Chains_F1_head_lod4.glb"
+  ],
+  "spec": {
+   "seed": 37,
+   "noise": 0.3,
+   "feats": {
+    "jaw_width": -1.0,
+    "chin_width": -0.4,
+    "chin_proj": -0.1,
+    "nose_proj": -0.4,
+    "nose_width": -0.35,
+    "brow_ridge": -0.6,
+    "brow_raise": 0.4,
+    "lips_full": 0.35,
+    "cheekbones": 0.3,
+    "forehead": 0.25,
+    "face_length": -0.04
+   }
+  }
+ },
+ "Chains_F2": {
+  "residual_cm": 0.054,
+  "mean_landmark_shift_cm": 0.234,
+  "saved": true,
+  "lods": [
+   {
+    "lod": 0,
+    "verts": 34657
+   },
+   {
+    "lod": 1,
+    "verts": 19283
+   },
+   {
+    "lod": 2,
+    "verts": 9714
+   },
+   {
+    "lod": 3,
+    "verts": 4065
+   },
+   {
+    "lod": 4,
+    "verts": 1967
+   },
+   {
+    "lod": 5,
+    "verts": 905
+   },
+   {
+    "lod": 6,
+    "verts": 460
+   },
+   {
+    "lod": 7,
+    "verts": 243
+   }
+  ],
+  "files": [
+   "Chains_F2_head_lod0.glb",
+   "Chains_F2_head_lod2.glb",
+   "Chains_F2_head_lod3.glb",
+   "Chains_F2_head_lod4.glb"
+  ],
+  "spec": {
+   "seed": 41,
+   "noise": 0.3,
+   "feats": {
+    "jaw_width": -0.7,
+    "chin_width": -0.6,
+    "chin_proj": 0.45,
+    "cheekbones": 0.8,
+    "lips_full": 0.7,
+    "mouth_width": 0.35,
+    "nose_width": -0.45,
+    "nose_proj": 0.3,
+    "brow_ridge": -0.4,
+    "brow_raise": 0.6,
+    "face_length": 0.05,
+    "eye_spacing": 0.15
+   }
+  }
+ }
+}

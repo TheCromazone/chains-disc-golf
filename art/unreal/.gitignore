@@ -1,0 +1,13 @@
+# Calibration scratch (regenerable with the scripts in scripts/ and blender/); not meant for the repo.
+work/
+# Big binaries stay on the Mac mini (regenerable with scripts/ and blender/): head and morph models, the baked body normal map and
+# full-size previews. The repo keeps the scripts, reports, small captures and JPEG copies of the two summary images.
+*.glb
+bake/body_normal_mh_M1.png
+bake/compare_M1*.png
+metahumans/preview_all_lod0.png
+metahumans/preview_lods_M2.png
+metahumans/*/preview_3q_lod0.png
+evidence/conform_headonly_to_game_scans.png
+evidence/landmark_sculpt_iterative.png
+evidence/pca_noise_scales_3_6_10.png

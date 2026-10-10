@@ -1,0 +1,21 @@
+# GUI launch of Unity 6000.6.5f1 on ~/Documents/ChainsUnity (2026-10-10 12:17 PDT), main-thread stack via 'sample <pid>' after ~8 min at 100% CPU:
+994 -[EditorApplication applicationDidFinishLaunching:]  (in Unity) + 96  [0x10138529c]
+994 SoftwareTermsWindow::EnsureTheUserHasAcceptedSoftwareTerms()  (in Unity) + 436  [0x1013cdd50]
+798 SoftwareTermsWindow::Display(core::basic_string_ref<char>)  (in Unity) + 212  [0x10139b038]
+796 -[NSApplication runModalSession:]  (in AppKit) + 148  [0x1957bef14]
+
+# Dialog strings in the Unity binary (Contents/MacOS/Unity) for that window:
+To continue, review and accept the Unity Editor Software Terms for this version.
+I have read and agree to the Unity Editor Software Terms.
+Unity Editor Software Terms
+
+# Editor log (GUI and batch) licensing lines:
+  Product: Unity Personal
+[Licensing::Module] Error: Access token is unavailable; failed to update
+
+# Unity Hub renderer startup flag (ps):
+--hub-startup-signed-in=false
+
+# Local entitlement groups (~/Library/Unity/licenses/UnityEntitlementLicense.xml):
+Product="Unity Personal"
+Product="Asset Store"
