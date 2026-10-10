@@ -1,7 +1,7 @@
 import { THROWS, DISCS } from './physics.js';
 
 export const MAX_PLAYERS = 12;
-export const PROTOCOL_VERSION = 3;   // 3: binary serialization (PeerJS chunks big messages; JSON mode silently dropped any over 16 KB)
+export const PROTOCOL_VERSION = 4;   // 3: binary serialization (PeerJS chunks big messages; JSON mode silently dropped any over 16 KB); 4: waiting room (ready, look, room settings, turn order)
 export const safeName = value => String(value || 'Player').replace(/[\u0000-\u001f]/g, '').slice(0, 14).trim() || 'Player';
 // Four friends who never changed the default name all arrive as "You": number the repeats ("You 2") so the lobby,
 // the scorecard and whose-turn toasts can tell them apart.
@@ -11,7 +11,16 @@ export const uniqueName = (value, taken) => {
   for (let i = 2; ; i++) { const tag = ` ${i}`, name = base.slice(0, 14 - tag.length).trim() + tag; if (!used.has(name.toLowerCase())) return name; }
 };
 export const turnKey = g => `${g.sessionId}:${g.holeIdx}:${g.cur}:${g.players[g.cur]?.strokes ?? 0}`;
-export const lobbyPublic = players => players.map(({ token, ...p }) => p);
+// Turn order. 'away': a real round, honours on the tee, then whoever lies farthest from the basket. 'through': each player
+// plays out the whole hole before the next one tees off (the honours order still sets who goes first).
+export const ORDERS = ['away', 'through'];
+export const safeOrder = v => ORDERS.includes(v) ? v : 'away';
+// A guest's public tag: a short hash of its session token, so a phone can find its own card in the waiting room (names are
+// renumbered by the host and peer ids differ on the relay) without the token itself, which reclaims a seat, leaving the host.
+export const tokenTag = token => { let h = 0x811c9dc5; for (const c of String(token || '')) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193); return (h >>> 0).toString(36); };
+export const lobbyPublic = players => players.map(({ token, ...p }) => token ? { ...p, tag: tokenTag(token) } : p);
+// The host's round settings as the waiting room shows them; a guest renders whatever arrives, so keep it to known values.
+export const safeRoom = (r, courseIds) => ({ courseId: courseIds.includes(r?.courseId) ? r.courseId : courseIds[0], holes: r?.holes === 3 ? 3 : 9, order: safeOrder(r?.order) });
 export const safeColor = (c, fallback = '#ff4d3d') => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c : fallback;
 // A peer's avatar reaches every client's DOM and the host's messages: plain keys, short plain values, no markup or CSS.
 export function sanitizeAvatar(a) {
