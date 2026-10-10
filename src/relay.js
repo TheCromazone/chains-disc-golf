@@ -60,12 +60,15 @@ function relayConn(peer, metadata, post) {
 export async function openRelay({ code, role, selfId, onConn = () => {}, brokers = BROKERS, connectTimeoutMs = 6000 }) {
   const [mod, { key, prefix }] = await Promise.all([import('mqtt'), secrets(code)]);
   const mqtt = mod?.connect ? mod : mod?.default ?? mod, hostTopic = `${prefix}/h`, peerTopic = id => `${prefix}/p/${id}`;
-  const clients = [], conns = new Map();
+  const clients = [], conns = new Map(), unsent = new Set();   // unsent: frames the broker has not acknowledged yet
   // Publish even while the socket is down: mqtt.js keeps QoS 1 frames and sends them once it reconnects (the old guard dropped them).
   // The callback takes any error, so a publish on a closed client never surfaces as an unheard 'error' event.
   const poster = (client, topic) => {
     const s = hex(crypto.getRandomValues(new Uint8Array(4))); let n = 0, chain = Promise.resolve();
-    return obj => { const frame = { ...obj, from: selfId, s, n: ++n }; chain = chain.then(() => seal(key, frame)).then(b => client.publish(topic, b, { qos: 1 }, () => {})).catch(() => {}); };
+    return obj => {
+      const frame = { ...obj, from: selfId, s, n: ++n }; let done; const sent = new Promise(r => done = r); unsent.add(sent); sent.then(() => unsent.delete(sent));
+      chain = chain.then(() => seal(key, frame)).then(b => client.publish(topic, b, { qos: 1 }, () => done())).catch(() => done());
+    };
   };
   const seen = new Map();   // `${from}/${link}` -> the last frame number handled
   const fresh = m => { if (typeof m.s !== 'string' || !Number.isInteger(m.n)) return true; const k = `${m.from}/${m.s}`; if (m.n <= (seen.get(k) || 0)) return false; seen.set(k, m.n); return true; };
@@ -84,10 +87,10 @@ export async function openRelay({ code, role, selfId, onConn = () => {}, brokers
         if (m.k === 'hello') {
           if (conn?.open) conn._end();   // a guest saying hello again has reconnected: a fresh connection, as PeerJS would give
           const post = poster(client, peerTopic(m.from));
-          conn = relayConn(m.from, m.meta || {}, post); conns.set(m.from, conn);
+          conn = relayConn(m.from, m.meta || {}, post); conn.link = m.s; conns.set(m.from, conn);
           post({ k: 'welcome' }); onConn(conn); return;
         }
-        if (!conn?.open) return;
+        if (!conn?.open || m.s !== conn.link) return;   // a straggler from a link this guest has since replaced (its 'bye' must not end the new one)
         if (m.k === 'd') conn._data(m.d); else if (m.k === 'bye') { conns.delete(m.from); conn._end(); }
       });
       await c.subscribeAsync(hostTopic, { qos: 1 });
@@ -106,11 +109,19 @@ export async function openRelay({ code, role, selfId, onConn = () => {}, brokers
       const client = clients[0], post = poster(client, hostTopic), conn = relayConn(null, {}, post);
       const t = setTimeout(() => rej(new Error('The host did not answer through the relay.')), ms);
       listen(client, (_c, m) => {
-        if (m.k === 'welcome') { clearTimeout(t); conn.peer = m.from; conns.set(m.from, conn); res(conn); }   // the host's own id: messages are trusted by it
+        if (m.k === 'welcome') { if (conn.link) return; clearTimeout(t); conn.peer = m.from; conn.link = m.s; conns.set(m.from, conn); res(conn); }   // the host's own id: messages are trusted by it
+        else if (!conn.link || m.s !== conn.link) return;   // the host's frames for an earlier link of this guest
         else if (m.k === 'd') conn._data(m.d); else if (m.k === 'bye') conn._end();
       });
       post({ k: 'hello', meta });
     }),
-    close: () => { for (const c of conns.values()) c.close(); conns.clear(); for (const c of clients) try { c.end(); } catch { /* already closed */ } clients.length = 0; },
+    // A last message (the host's 'closed', a guest's 'bye') was still being encrypted when the page left the room, and end() at
+    // once dropped it: the other side only noticed a minute later. Queued frames get up to 1.5 s to reach the broker.
+    close: async () => {
+      for (const c of conns.values()) c.close(); conns.clear();
+      const ending = clients.splice(0);
+      if (unsent.size) await Promise.race([Promise.all([...unsent]), new Promise(r => setTimeout(r, 1500))]);
+      for (const c of ending) try { c.end(); } catch { /* already closed */ }
+    },
   };
 }

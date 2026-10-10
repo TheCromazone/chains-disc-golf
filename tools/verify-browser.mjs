@@ -78,7 +78,7 @@ try {
   }
   assert.equal(await host.js('__chains.G.lobby.length'), 12); record('12-player real WebRTC room admits 12 and rejects player 13'); await host.screenshot('twelve-player-lobby');
   for (const p of thinPeers) { await p.js('peer.destroy()'); await fetch(`http://127.0.0.1:${debugPort}/json/close/${p.id}`); }
-  await host.wait('__chains.G.lobby.length===4');
+  await host.wait('__chains.G.lobby.length===4', 60000);   // a dropped lobby member keeps its place for 30 s
   await host.js(`__chains.G.settings.holes='3';document.getElementById('btnLobbyStart').click()`);
   const all = [host, ...guests]; for (const p of all) await p.wait('__chains.G.players.length===4 && __chains.G.phase===\'aim\'', 30000);
   record('Host starts the same four-player course on all clients');
