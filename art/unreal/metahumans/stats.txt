@@ -1,0 +1,20 @@
+Chains_F1
+   lod0 {"tris_total": 64094, "tris_skin": 48004, "tris_eyes": 3072, "tris_teeth": 8350, "tris_hidden_parts": 4668, "verts_skin_gltf": 24416, "glb_kb": 3043, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod2 {"tris_total": 17274, "tris_skin": 11950, "tris_eyes": 880, "tris_teeth": 3092, "tris_hidden_parts": 1352, "verts_skin_gltf": 6185, "glb_kb": 1301, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod3 {"tris_total": 6872, "tris_skin": 5048, "tris_eyes": 412, "tris_teeth": 796, "tris_hidden_parts": 616, "verts_skin_gltf": 2654, "glb_kb": 911, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod4 {"tris_total": 3504, "tris_skin": 2558, "tris_eyes": 316, "tris_teeth": 414, "tris_hidden_parts": 216, "verts_skin_gltf": 1354, "glb_kb": 768, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+Chains_F2
+   lod0 {"tris_total": 64094, "tris_skin": 48004, "tris_eyes": 3072, "tris_teeth": 8350, "tris_hidden_parts": 4668, "verts_skin_gltf": 24414, "glb_kb": 3043, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod2 {"tris_total": 17274, "tris_skin": 11950, "tris_eyes": 880, "tris_teeth": 3092, "tris_hidden_parts": 1352, "verts_skin_gltf": 6185, "glb_kb": 1301, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod3 {"tris_total": 6872, "tris_skin": 5048, "tris_eyes": 412, "tris_teeth": 796, "tris_hidden_parts": 616, "verts_skin_gltf": 2654, "glb_kb": 911, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod4 {"tris_total": 3504, "tris_skin": 2558, "tris_eyes": 316, "tris_teeth": 414, "tris_hidden_parts": 216, "verts_skin_gltf": 1354, "glb_kb": 768, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+Chains_M1
+   lod0 {"tris_total": 64094, "tris_skin": 48004, "tris_eyes": 3072, "tris_teeth": 8350, "tris_hidden_parts": 4668, "verts_skin_gltf": 24414, "glb_kb": 3043, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod2 {"tris_total": 17274, "tris_skin": 11950, "tris_eyes": 880, "tris_teeth": 3092, "tris_hidden_parts": 1352, "verts_skin_gltf": 6185, "glb_kb": 1301, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod3 {"tris_total": 6872, "tris_skin": 5048, "tris_eyes": 412, "tris_teeth": 796, "tris_hidden_parts": 616, "verts_skin_gltf": 2654, "glb_kb": 911, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod4 {"tris_total": 3504, "tris_skin": 2558, "tris_eyes": 316, "tris_teeth": 414, "tris_hidden_parts": 216, "verts_skin_gltf": 1354, "glb_kb": 768, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+Chains_M2
+   lod0 {"tris_total": 64094, "tris_skin": 48004, "tris_eyes": 3072, "tris_teeth": 8350, "tris_hidden_parts": 4668, "verts_skin_gltf": 24414, "glb_kb": 3043, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod2 {"tris_total": 17274, "tris_skin": 11950, "tris_eyes": 880, "tris_teeth": 3092, "tris_hidden_parts": 1352, "verts_skin_gltf": 6187, "glb_kb": 1302, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod3 {"tris_total": 6872, "tris_skin": 5048, "tris_eyes": 412, "tris_teeth": 796, "tris_hidden_parts": 616, "verts_skin_gltf": 2654, "glb_kb": 911, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
+   lod4 {"tris_total": 3504, "tris_skin": 2558, "tris_eyes": 316, "tris_teeth": 414, "tris_hidden_parts": 216, "verts_skin_gltf": 1354, "glb_kb": 768, "images": ["T_Gray_Teeth_D 1024x1024", "T_Gray_Eyes_D 1024x1024"]}
