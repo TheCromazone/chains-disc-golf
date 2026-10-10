@@ -12,7 +12,7 @@ const VOL = 0.22;
 export function unlock() {
   if (ctx) { if (ctx.state !== 'running') { session(); ctx.resume().catch(() => {}); prime(); } return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-  session(); ctx = new AC(); prime();
+  session(); try { ctx = new AC(); } catch { return; } prime();   // refused (a locked-down browser): no sound, and no error on every tap
   master = ctx.createGain(); master.gain.value = muted ? 0 : VOL;
   const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -20; lim.knee.value = 10; lim.ratio.value = 12; lim.attack.value = 0.002; lim.release.value = 0.12;
   master.connect(lim); lim.connect(ctx.destination);

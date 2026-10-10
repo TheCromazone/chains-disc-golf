@@ -163,10 +163,18 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     return relief*landformGain+def.hills*(2.2*noise(x/70+100,z/70+100)+.9*noise(x/24+50,z/24+50)+3.5*noise(x/230+7,z/230+7)-3.3);
   };
   for (const p of ponds) p.level = baseH(p.x, p.z) - 0.3;
+  // The level comes from the pond's centre, so on a slope its downhill bank fell away up to ~6 m below the water: the sheet floated over
+  // dry sand and a lie on that bank splashed on every throw (Pine Hollow 3 picked players up). Past the drawn water's edge the bank is
+  // now built up to just above the waterline, like a dam, and only the drawn sheet counts as water.
+  const WATER_R = 1.25, WATER_E = WATER_R ** 2;
   const flats = holes.flatMap(h => [h.tee, h.basket]).map(p => ({ x: p[0], z: p[1], h: baseH(p[0], p[1]) }));
   const height = (x, z) => {
     let h = baseH(x, z);
-    for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 1.8) h -= 1.9 * smooth(1.8, 0.5, e); }
+    for (const p of ponds) {
+      const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2;
+      if (e < 1.8) h -= 1.9 * smooth(1.8, 0.5, e);
+      if (e > WATER_E && e < 3.2) h = Math.max(h, lerp(p.level + .15, h, smooth(WATER_E, 3.2, e)));
+    }
     for (const f of flats) { const d = Math.hypot(x - f.x, z - f.z); if (d < 7) h = lerp(f.h, h, smooth(2.5, 7, d)); }
     return h;
   };
@@ -175,7 +183,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const n = [-hx / (2 * e), 1, -hz / (2 * e)], l = Math.hypot(n[0], n[1], n[2]);
     return [n[0] / l, n[1] / l, n[2] / l];
   };
-  const inWater = (x, z) => { for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < 1.7 && height(x, z) < p.level - 0.02) return true; } return false; };
+  const inWater = (x, z) => { for (const p of ponds) { const e = ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2; if (e < WATER_E && height(x, z) < p.level - 0.02) return true; } return false; };
   const waterLevel = (x, z) => { let best = ponds[0], bd = 1e9; for (const p of ponds) { const d = Math.hypot(x - p.x, z - p.z); if (d < bd) { bd = d; best = p; } } return best ? best.level : -100; };
   const inBounds = (x, z) => Math.abs(x) < W / 2 - 6 && Math.abs(z) < H / 2 - 6;
   for (const h of holes) { h.teeY = height(h.tee[0], h.tee[1]); h.basketY = height(h.basket[0], h.basket[1]); h.yaw = Math.atan2(-(h.way[1][0] - h.tee[0]), -(h.way[1][1] - h.tee[1])); }   // pad heading: local +z points behind the pad
@@ -840,7 +848,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const rippleMat = new THREE.MeshBasicMaterial({ color: '#d9fbff', transparent: true, opacity: .65, depthWrite: false });
   for (const p of ponds) {
     const wm = new THREE.Mesh(new THREE.CircleGeometry(1, 56), waterMat);
-    wm.rotation.x = -Math.PI / 2; wm.scale.set(p.rx * 1.25, p.rz * 1.25, 1); wm.position.set(p.x, p.level, p.z); group.add(wm);
+    wm.rotation.x = -Math.PI / 2; wm.scale.set(p.rx * WATER_R, p.rz * WATER_R, 1); wm.position.set(p.x, p.level, p.z); group.add(wm);
     for (let i = 0; i < 3; i++) {
       const ripple = new THREE.Mesh(new THREE.RingGeometry(1.9 + i * .2, 1.96 + i * .2, 28, 1, .2, 1.8), rippleMat);
       ripple.rotation.x = -Math.PI / 2; ripple.scale.set(1.6, .6, 1);

@@ -344,7 +344,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .brand { font-size: 40px; }
   .panel { padding: 16px; }
   .hub-main { padding: 12px; border-radius: 24px; }
-  #top { width: min(236px, calc(100% - 84px)); }
+  #top { width: min(236px, calc(100% - 136px)); }   /* room for the sound and tools buttons beside it */
   #score .panel { --gutter: 18px; }
   #score th { font-size: 14px; } #score th .muted { font-size: 12px; } #score th.key { font-size: 10px; letter-spacing: .8px; }
   #score .mk { width: 20px; height: 20px; }
@@ -555,7 +555,7 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
   #pad::before { content: ''; position: absolute; left: 0; top: 10%; bottom: 22%; width: 1px; background: linear-gradient(#ffffff00, #ffffff38, #ffffff00); pointer-events: none; }
   body.thrown #pad::before { opacity: .5; }
   #aimZone { top: auto; left: 16px; bottom: calc(76px + var(--sab)); }
-  #power, #powerLabel, #waiting { left: 70%; }
+  #power, #powerLabel, #waiting { left: 63%; }   /* clear of the wind plate on a 390-430 pt tall phone on its side */
   #pad { padding-bottom: calc(108px + var(--sab)); }   /* the hint rides over the wind plate, not into it */
 }
 /* A phone on its side: the notch or Dynamic Island takes ~50 px of one long edge (viewport-fit=cover), where the score plate
@@ -563,7 +563,8 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
 @media (pointer: coarse) and (orientation: landscape) {
   #hud { left: var(--sal); right: var(--sar); }
   .overlay { padding-left: calc(16px + var(--sal)); padding-right: calc(16px + var(--sar)); }
-  .overlay.hub { padding-left: calc(12px + var(--sal)); }
+  .overlay.hub, .overlay.locker { padding-left: calc(12px + var(--sal)); }
+  #matches { padding-left: calc(24px + var(--sal)); padding-right: calc(24px + var(--sar)); }
   .hub-top { left: calc(14px + var(--sal)); right: calc(14px + var(--sar)); }
 }
 /* The verdict (UI.react): clapping hands over a good result, a drooping "womp womp" under a bad one. */
@@ -612,7 +613,7 @@ body.gfx-mobile #vignette { display: block; }
 #coach.done .coach-card { border-color: #5cf0a880; }
 @keyframes coachIn { from { opacity: 0; } to { opacity: 1; } }
 body.coaching #aimZone { visibility: hidden; }
-body.coaching[data-phase='aim'] #pad .hint { opacity: 0; }   /* faded, not hidden: after the first throw body.thrown keeps it at 0 with no flash */
+body[data-coach='throw'][data-phase='aim'] #pad:not(.bad) .hint { opacity: 0; }   /* faded, not hidden: after the first throw body.thrown keeps it at 0 with no flash */
 #hud.equipment-open #coach, #hud:has(#btnUtilities[aria-expanded='true']) #coach { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   #coach .thumb, #coach .trail, #coach .coach-card { animation: none; opacity: 1; }
@@ -623,3 +624,6 @@ body.coaching[data-phase='aim'] #pad .hint { opacity: 0; }   /* faded, not hidde
 }
 .touch-only { display: none !important; }
 @media (pointer: coarse) { .touch-only { display: inline-flex !important; } }
+/* A GPU reset (context lost): the HUD's waiting line is hidden in the clubhouse, so the notice sits over every screen. */
+body.gfx-lost::after { content: 'Restoring graphics…'; position: fixed; left: 50%; top: 50%; z-index: 60; transform: translate(-50%, -50%); padding: 10px 18px; border-radius: 999px; background: #0c1114e0; color: #fff; font-family: var(--display); font-size: 15px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+.round-settings #holesSeg button { min-width: 40px; }   /* a thumb-sized target (was 22 px wide) */

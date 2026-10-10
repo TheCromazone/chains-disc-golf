@@ -7,7 +7,7 @@ import { icon } from './icons.js';
 const STEPS = ['aim', 'throw', 'both'], KEY = 'chains.coach';
 const COPY = {
   aim: () => ['Drag to aim', 'Slide a thumb across the view. Up or down tilts the launch.'],
-  throw: (t, held) => held ? ['Let go to throw', 'Longer swipe, more power'] : [`Swipe ${THROWS[t].hint.split('·')[0].replace('swipe ', '').trim()} to throw`, 'Start in the lower pad. Longer swipe, more power.'],
+  throw: (t, held, wide) => held ? ['Let go to throw', 'Longer swipe, more power'] : [`Swipe ${THROWS[t].hint.split('·')[0].replace('swipe ', '').trim()} to throw`, `Start ${wide ? 'on the right side' : 'in the lower pad'}. Longer swipe, more power.`],
   both: (t, held) => held ? ['Now steer with your other thumb', 'Let go of the swipe to throw'] : ['Use both thumbs', 'Start a swipe and hold it. Your other thumb keeps aiming.'],
 };
 
@@ -23,7 +23,7 @@ export function createCoach({ hud, pad }) {
     <b class="coach-title"></b><span class="coach-sub"></span></div>`;
   hud.appendChild(el);
   const $ = s => el.querySelector(s), card = $('.coach-card');
-  let shown = null, wait = 0, doneT = 0, aimPx = 0, bothPx = 0, key = '', held = false, throwType = 'backhand';
+  let shown = null, wait = 0, doneT = 0, aimPx = 0, bothPx = 0, key = '', held = false, throwType = 'backhand', unaimed = 0;
   $('.coach-skip').onclick = () => { for (const s of STEPS) learned.add(s); save(); hide(); };
 
   const next = () => STEPS.find(s => !learned.has(s)) || null;
@@ -33,10 +33,10 @@ export function createCoach({ hud, pad }) {
     save();
     if (before && learned.has(shown)) { doneT = .9; el.classList.add('done'); $('.coach-title').innerHTML = `${icon('check')}Nice!`; $('.coach-sub').textContent = next() ? 'Next up…' : 'That\'s everything. Have a great round.'; }
   }
-  function hide() { if (!shown && el.hidden) return; shown = null; el.hidden = true; doneT = 0; el.classList.remove('done'); document.body.classList.remove('coaching'); key = ''; }
+  function hide() { if (!shown && el.hidden) return; shown = null; el.hidden = true; doneT = 0; el.classList.remove('done'); document.body.classList.remove('coaching'); delete document.body.dataset.coach; key = ''; }
   function render() {
-    const i = STEPS.indexOf(shown), [title, sub] = COPY[shown](throwType, held);
-    el.dataset.step = shown; el.classList.toggle('held', held); el.classList.remove('done');
+    const i = STEPS.indexOf(shown), [title, sub] = COPY[shown](throwType, held, pad.getBoundingClientRect().left > innerWidth * .2);
+    el.dataset.step = document.body.dataset.coach = shown; el.classList.toggle('held', held); el.classList.remove('done');
     $('.coach-step').textContent = `${i + 1} of ${STEPS.length}`;
     el.querySelectorAll('.coach-dots i').forEach((d, j) => d.classList.toggle('on', j <= i));
     $('.coach-title').textContent = title; $('.coach-sub').textContent = sub;
@@ -58,7 +58,9 @@ export function createCoach({ hud, pad }) {
     const [bl, bt, br, bb] = shown === 'throw' ? [Math.min(x0, x1) - 30, Math.min(y0, y1) - 30, Math.max(x0, x1) + 30, Math.max(y0, y1) + 30] : [ax - swing - 30, ay - 30, ax + swing + 30, ay + 30];
     const fit = ([x, y]) => [Math.max(12, Math.min(innerWidth - 12 - w, x)), Math.max(ceiling, Math.min(floor - h, y))];
     const clear = ([x, y]) => x + w <= bl || x >= br || y + h <= bt || y >= bb;
-    const spots = [[(bl + br - w) / 2, bt - 10 - h], [(bl + br - w) / 2, bb + 10], [br + 10, (bt + bb - h) / 2], [bl - 10 - w, (bt + bb - h) / 2]].map(fit);
+    // the swipe step's card stays off the pad (a stroke starting on Skip skipped the tutorial): over the view above it, or on the aim side
+    const offPad = shown === 'throw' ? [wide ? [(r.left - w) / 2, (bt + bb - h) / 2] : [(innerWidth - w) / 2, r.top - h - 12]] : [];
+    const spots = [...offPad, [(bl + br - w) / 2, bt - 10 - h], [(bl + br - w) / 2, bb + 10], [br + 10, (bt + bb - h) / 2], [bl - 10 - w, (bt + bb - h) / 2]].map(fit);
     const [x, y] = spots.find(clear) || spots[0];
     card.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
   }
@@ -80,7 +82,7 @@ export function createCoach({ hud, pad }) {
       aimPx += px; if (windup) bothPx += px;
       if (bothPx >= 40 && !learned.has('both')) learn('aim', 'both'); else if (aimPx >= 80 && !learned.has('aim')) learn('aim');
     },
-    thrown() { learn(...(shown === 'both' ? ['throw', 'both'] : ['throw'])); },
-    replay() { learned.clear(); save(); aimPx = bothPx = 0; hide(); },
+    thrown() { const skipAim = !learned.has('aim') && ++unaimed >= 2; learn(...(shown === 'both' ? ['throw', 'both'] : skipAim ? ['aim', 'throw'] : ['throw'])); },   // two throws without aiming: stop asking, move on
+    replay() { learned.clear(); save(); aimPx = bothPx = unaimed = 0; hide(); },
   };
 }
