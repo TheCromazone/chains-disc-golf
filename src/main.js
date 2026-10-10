@@ -19,7 +19,8 @@ import { setupInput } from './input.js';
 import { createCoach } from './coach.js';
 import { planBotThrow } from './bot.js';
 import { createNet } from './net.js';
-import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, uniqueName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor } from './protocol.js';
+import { icon } from './icons.js';
+import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, uniqueName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor, safeOrder, safeRoom, tokenTag } from './protocol.js';
 import * as UI from './ui.js';
 import { createMatches } from './match.js';
 import { unlock, sfx, setMuted, isMuted, audioState } from './audio.js';
@@ -46,7 +47,7 @@ const G = {
   phase: 'menu', mode: 'solo', players: [], holeIdx: 0, holeCount: 9, cur: -1, seed: 7,
   aim: { yaw: 0, pitch: 0 }, throwType: 'backhand', discId: 'driver', overview: false,
   flight: null, pending: null, releaseT: 0, tween: null, introT: 0,
-  settings: { holes: '9', difficulty: 'medium', quality: isMobile ? 'low' : 'high' },
+  settings: { holes: '9', difficulty: 'medium', quality: isMobile ? 'low' : 'high', order: 'away' },
   net: null, lobby: [], gesture: { power: 0, lateral: 0 }, previewDirty: true, lastPreview: 0, inbox: [],
   avatar: { ...DEFAULT_AVATAR }, courseId: 'pine',
   sessionId: '', shotSeq: 0, lastShotSeq: 0, syncing: false,
@@ -176,7 +177,8 @@ function applyViewOffset() {   // the portrait panel's offset plus the putt's le
   const offset=Math.round((panelOffset+cam.shift*innerHeight/2)*2)/2,key=`${innerWidth}:${innerHeight}:${offset}`;
   if(cameraOffset!==key){cameraOffset=key;if(offset)camera.setViewOffset(innerWidth,innerHeight,0,offset,innerWidth,innerHeight);else camera.clearViewOffset();}
 }
-const LAYOUTS = COURSES.map(courseLayout);
+const LAYOUTS = COURSES.map(courseLayout), COURSE_IDS = COURSES.map(c => c.id);
+const ORDER_COPY = { away: ['Real order', 'Farthest from the basket throws next, like a real round.'], through: ['All at once', 'Each player plays out the whole hole, then the next one tees off.'] };
 // Clubhouse stage (the DGM title screen): the athlete on the approach to a green, its basket a few metres behind his
 // off-shoulder and the woods past it closing the top of the frame. Trees inside ~25 m keep 95% of their contrast
 // through the haze, so staging close is what clears the fog. Of the greens whose approach runs away from the sun (the
@@ -300,7 +302,7 @@ async function startGame(config) {
   if (run !== startRun || G.phase !== 'loading') return false;   // left (or restarted) while the course loaded: no ghost round
   hero.group.visible = false;
   G.sessionId = config.sessionId || crypto.randomUUID(); G.shotSeq = 0; G.lastShotSeq = 0;
-  G.seed = course.def.seed; G.holeCount = config.holeCount; G.holeIdx = 0; G.mode = config.mode; G.matchId = config.matchId || null; G.asyncThrows = [];
+  G.seed = course.def.seed; G.holeCount = config.holeCount; G.holeIdx = 0; G.mode = config.mode; G.matchId = config.matchId || null; G.asyncThrows = []; G.order = safeOrder(config.order);
   const players = G.players = config.players.map((p, i) => createPlayer({ ...p, color: p.color || p.avatar?.jersey || COLORS[i % COLORS.length] }, i));
   await warmShaders();
   if (run !== startRun || G.phase !== 'loading') { if (G.players === players) clearPlayers(); return false; }   // a newer start owns G.players now: leave its players alone
@@ -344,7 +346,9 @@ function nextTurn() {
   if (G.phase === 'menu') return;
   const alive = G.players.filter(p => !p.done);
   if (!alive.length) return endHole();
-  let next = honorsOrder().find(p => !p.done && p.strokes === 0);
+  // Play-through: the player on the tee keeps the disc until it is in the chains, then the next in honours order tees off.
+  const cur = curP();
+  let next = G.order === 'through' ? (cur && !cur.done && cur.strokes > 0 ? cur : honorsOrder().find(p => !p.done)) : honorsOrder().find(p => !p.done && p.strokes === 0);
   if (!next) next = alive.reduce((a, b) => (b.lieDist > a.lieDist ? b : a));
   setupTurn(G.players.indexOf(next));
 }
@@ -571,7 +575,7 @@ function toMenu() {
   else if (G.net) try { G.net.toHost({ t: 'bye' }); } catch { /* best effort */ }   // left on purpose: the host need not hold the place
   celebration.clear();
   input.cancel(); for (const t of disconnectTimers.values()) clearTimeout(t); disconnectTimers.clear(); deferredNet = [];
-  G.sessionId = ''; G.cur = -1; G.nextRequested = null; G.syncing = false;
+  G.sessionId = ''; G.cur = -1; G.nextRequested = null; G.syncing = false; G.room = null; $('online').classList.remove('in-room');
   G.phase = 'menu'; G.flight = null; G.pending = null; G.tween = null; cam.mode = 'menu'; G.inbox = [];
   clearPlayers(); preview.visible = false; for (const id of ['hud', 'score', 'online', 'setup', 'courses', 'locker']) UI.hide(id); UI.show('menu');
   hero.group.visible = true; course.setHole(0); placeHero();
@@ -1081,23 +1085,36 @@ $('btnCoachReplay').onclick = e => { coach.replay(); e.currentTarget.disabled = 
 $('btnScoreNext').onclick = () => { if (G.mode === 'online' && !G.net?.isHost) return; netSend({ t: 'next', sessionId: G.sessionId, holeIdx: G.holeIdx }); advanceHole(); };
 $('btnScoreMenu').onclick = toMenu;
 UI.seg('holesSeg', v => G.settings.holes = v); UI.seg('diffSeg', v => G.settings.difficulty = v);
+// Turn order for Solo, Pass & play and new rooms (the clubhouse and the Pass & play sheet share it); remembered on this device.
+function setOrder(v) { G.settings.order = safeOrder(v); saveLocal('chains.order', G.settings.order); UI.setSeg('orderSeg', G.settings.order); UI.setSeg('setupOrderSeg', G.settings.order); $('setupOrderHint').textContent = ORDER_COPY[G.settings.order][1]; }
+try { G.settings.order = safeOrder(localStorage.getItem('chains.order')); } catch { /* private mode */ }
+UI.seg('orderSeg', setOrder); UI.seg('setupOrderSeg', setOrder); setOrder(G.settings.order);
 $('qualSeg').querySelector(`[data-v="${G.settings.quality}"]`)?.classList.add('on'); $('qualSeg').querySelector(`[data-v="${G.settings.quality === 'low' ? 'high' : 'low'}"]`)?.classList.remove('on');
 let gfxSwitch = Promise.resolve();   // a graphics switch in flight: Play waits for it, and taps in a row apply in order
 UI.seg('qualSeg', v => { G.settings.quality = v; resize(); gfxSwitch = gfxSwitch.catch(() => {}).then(async () => { await loadModels(renderer, v); await loadCourse(G.courseId); makeHero(); }); });
 for (const type of ['touchend', 'pointerup', 'click']) document.addEventListener(type, unlock, { capture: true, passive: true });   // audio.js: which gestures can start sound
 
 const me = () => ({ name: G.avatar.name.trim() || 'You', avatar: G.avatar });
-$('btnSolo').onclick = () => G.phase === 'menu' && startGame({ mode: 'solo', holeCount: +G.settings.holes, players: [me(), { name: BOT_NAMES[0], isBot: true, difficulty: G.settings.difficulty }, { name: BOT_NAMES[1], isBot: true, difficulty: G.settings.difficulty }] });
+$('btnSolo').onclick = () => G.phase === 'menu' && startGame({ mode: 'solo', holeCount: +G.settings.holes, order: G.settings.order, players: [me(), { name: BOT_NAMES[0], isBot: true, difficulty: G.settings.difficulty }, { name: BOT_NAMES[1], isBot: true, difficulty: G.settings.difficulty }] });
 
 // courses + locker room
 $('btnCourses').onclick = () => { UI.hide('menu'); UI.show('courses'); cam.mode = 'courses'; sfx.click(); UI.renderCourseCards(COURSES, LAYOUTS, G.courseId, async id => { sfx.click(); UI.hide('courses'); UI.show('menu'); cam.mode = 'menu'; await loadCourse(id); }, id => asset('courses', id)); };
 $('btnCoursesBack').onclick = () => { UI.hide('courses'); UI.show('menu'); cam.mode = 'menu'; };
 let heroTimer = null;
 const onAvatarChange = (k, v) => { G.avatar[k] = v; saveLocal('chains.avatar', G.avatar); updateHub(); if (k === 'name') return; if (['eyes','eyeColor','brows','nose','mouth','facialHair','glasses','shades'].includes(k)) { hero?.setFace?.(G.avatar); return; } clearTimeout(heroTimer); heroTimer = setTimeout(makeHero, 120); };
-const openLocker = () => { UI.hide('menu'); UI.show('locker'); cam.mode = 'locker'; placeHero(); sfx.click(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); };
-$('btnLocker').onclick = openLocker;
+let lockerFrom = 'menu';   // the clubhouse, or a waiting room (which gets the new look when the locker closes)
+const openLocker = (from = 'menu') => { lockerFrom = from; UI.hide(from); UI.show('locker'); cam.mode = 'locker'; placeHero(); sfx.click(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); };
+$('btnLocker').onclick = () => openLocker('menu');
+$('btnRoomLocker').onclick = () => { if (G.net && !G.net.locked && G.phase === 'menu') openLocker('online'); };
 $('btnRandomAvatar').onclick = () => { G.avatar = randomAvatar(Math.random, { name: G.avatar.name }); saveLocal('chains.avatar', G.avatar); makeHero(); updateHub(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); sfx.click(); };
-$('btnLockerDone').onclick = () => { UI.hide('locker'); UI.show('menu'); cam.mode = 'menu'; placeHero(); sfx.click(); };
+$('btnLockerDone').onclick = () => {
+  const back = lockerFrom === 'online' && G.net && G.phase === 'menu' ? 'online' : 'menu'; lockerFrom = 'menu';
+  UI.hide('locker'); UI.show(back); cam.mode = 'menu'; placeHero(); sfx.click();
+  if (back === 'online' && !G.net.locked) {   // wear the new look in the waiting room (and in the round it starts)
+    if (G.net.isHost) { const host = G.lobby.find(p => p.host); if (host) host.avatar = { ...G.avatar, name: host.name }; publishLobby(); }
+    else G.net.toHost({ t: 'look', avatar: { ...G.avatar } });
+  }
+};
 
 // pass & play setup
 let setupPlayers = [];
@@ -1115,13 +1132,13 @@ $('btnLocal').onclick = () => { setupPlayers = [{ name: 'Player 1' }, { name: 'P
 $('btnAddHuman').onclick = () => { if (setupPlayers.length < MAX_PLAYERS) { setupPlayers.push({ name: `Player ${setupPlayers.length + 1}` }); renderSetup(); } };
 $('btnAddBot').onclick = () => { if (setupPlayers.length < MAX_PLAYERS) { setupPlayers.push({ name: BOT_NAMES[setupPlayers.filter(p => p.isBot).length % BOT_NAMES.length], isBot: true, difficulty: G.settings.difficulty }); renderSetup(); } };
 $('btnSetupBack').onclick = () => { UI.hide('setup'); UI.show('menu'); };
-$('btnSetupStart').onclick = () => { if (!setupPlayers.length || G.phase !== 'menu') return; let mine = false; startGame({ mode: 'local', holeCount: +G.settings.holes, players: setupPlayers.map(p => { const first = !p.isBot && !mine; if (first) mine = true; return { ...p, name: p.name.trim() || 'Player', avatar: first ? { ...G.avatar } : null, hand: p.isBot ? undefined : 'right' }; }) }); };   // a guest's random look never makes them silently left-handed
+$('btnSetupStart').onclick = () => { if (!setupPlayers.length || G.phase !== 'menu') return; let mine = false; startGame({ mode: 'local', holeCount: +G.settings.holes, order: G.settings.order, players: setupPlayers.map(p => { const first = !p.isBot && !mine; if (first) mine = true; return { ...p, name: p.name.trim() || 'Player', avatar: first ? { ...G.avatar } : null, hand: p.isBot ? undefined : 'right' }; }) }); };   // a guest's random look never makes them silently left-handed
 
 // online: the host validates commands, computes flight and owns membership.
 const disconnectTimers = new Map();
 let deferredNet = [];
 function roundConfig() {
-  return { mode: 'online', sessionId: G.sessionId, courseId: G.courseId, holeCount: G.holeCount,
+  return { mode: 'online', sessionId: G.sessionId, courseId: G.courseId, holeCount: G.holeCount, order: G.order,
     players: G.players.map(p => ({ name: p.name, color: p.color, isBot: p.isBot, difficulty: p.difficulty, peerId: p.peerId, avatar: p.appearance })) };
 }
 function snapshot() {
@@ -1151,19 +1168,77 @@ async function restoreRoom(s) {
     UI.toast('Back in the round', 'Scores restored', 1500);
   } finally { G.syncing = false; const queue = deferredNet; deferredNet = []; queue.forEach(onNet); }
 }
-function renderLobby() {
-  const list = $('lobbyList'); list.replaceChildren();
-  for (const p of G.lobby) {
-    const li = document.createElement('li'), name = document.createElement('span'), status = document.createElement('span');
-    name.textContent = p.name; status.className = 'muted'; status.textContent = p.host ? 'host' : p.disconnected ? 'reconnecting' : p.isBot ? 'bot' : 'ready';
-    li.append(name, status); list.append(li);
-  }
-  $('hostControls').classList.toggle('hidden', !G.net?.isHost); $('guestWait').classList.toggle('hidden', !!G.net?.isHost);
-  $('roomStatus').textContent = `${G.lobby.length} / ${MAX_PLAYERS} players`;
-  $('btnLobbyBot').disabled = G.lobby.length >= MAX_PLAYERS;
-  $('btnLobbyStart').disabled = G.lobby.length === 0 || !!G.net?.locked;
+// ---------- waiting room ----------
+// Everyone sees the round (course, holes, turn order) and who is in; guests ready up, the host starts. Starting before
+// everyone is ready takes a second tap, so nobody gets pulled into a round mid-locker.
+const isReady = p => !!(p.host || p.isBot || p.ready);
+const myTag = () => G.net && !G.net.isHost ? tokenTag(G.net.token) : null;
+const isMeInLobby = p => G.net?.isHost ? !!p.host : !!p.tag && p.tag === myTag();
+// Jerseys as the round will dress them: everyone who skipped the locker wears the default red, so repeats get a free colour.
+function lobbyColors(lobby) {
+  const taken = new Set();
+  return lobby.map((p, i) => { let c = safeColor(p.avatar?.jersey, '').toLowerCase(); if (!c || taken.has(c)) c = COLORS.find(k => !taken.has(k)) || COLORS[i % COLORS.length]; taken.add(c); return c; });
 }
-const publishLobby = () => { renderLobby(); G.net?.broadcast({ t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code }); };
+// The number in the trim colour, unless it would vanish on the shirt (white on yellow): then ink or white, whichever reads.
+const lum = hex => { const v = parseInt(hex.slice(1), 16), c = x => { x /= 255; return x <= .04 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4; }; return .2126 * c(v >> 16) + .7152 * c(v >> 8 & 255) + .0722 * c(v & 255); };
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + .05) / (y + .05); };
+const numberInk = (fill, accent) => contrast(fill, accent) >= 2.2 ? accent : contrast(fill, '#12374e') > contrast(fill, '#ffffff') ? '#12374e' : '#ffffff';
+const jerseySVG = (fill, accent, num) => `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M17 5 9 8 3 17l7 5 3-4v25h22V18l3 4 7-5-6-9-8-3c-1 3.6-3.6 5.6-7 5.6S18 8.6 17 5Z" fill="${fill}" stroke="#0c111426" stroke-width="1"/><path d="M17 5c1 3.6 3.6 5.6 7 5.6s6-2 7-5.6M3.6 16.2l6.6 4.6M44.4 16.2l-6.6 4.6" fill="none" stroke="${accent}" stroke-width="2.4" stroke-linecap="round"/><text x="24" y="36" text-anchor="middle" fill="${accent}">${num}</text></svg>`;
+let seenCards = new Set(), readyBefore = new Set(), startArmed = 0, startArmTimer = null, roomShown = '';
+function renderLobby() {
+  const host = !!G.net?.isHost, room = G.room || safeRoom(null, COURSE_IDS), colors = lobbyColors(G.lobby);
+  // the round card
+  const def = courseById(room.courseId), li = COURSES.indexOf(def), [orderName, orderHint] = ORDER_COPY[room.order];
+  if ($('roomCourseArt').dataset.course !== def.id) { const img = asset('courses', def.id); $('roomCourseArt').dataset.course = def.id; $('roomCourseArt').innerHTML = img ? `<img src="${img}" alt="">` : UI.courseMapSVG(def, LAYOUTS[li]); }
+  $('roomCourseName').textContent = def.name; $('roomRoundSub').textContent = `${room.holes} holes · ${orderName}`; $('roomOrderHint').textContent = orderHint;
+  $('roomRoundEyebrow').textContent = host ? 'Your round' : `${G.lobby.find(p => p.host)?.name || 'The host'}'s round`;
+  const shown = JSON.stringify(room); if (roomShown && shown !== roomShown && !host) { const card = $('roomRound'); card.classList.remove('changed'); void card.offsetWidth; card.classList.add('changed'); }
+  roomShown = shown;
+  $('roomSettings').classList.toggle('hidden', !host);
+  if (host) { $('roomCourse').value = room.courseId; UI.setSeg('roomHoles', room.holes); UI.setSeg('roomOrder', room.order); }
+  // the roster: a jersey card per player, then open seats to fill out the grid (tapping one shares the invite)
+  const list = $('lobbyList'), cards = [], now = new Set(), nowReady = new Set();
+  G.lobby.forEach((p, i) => {
+    const key = p.tag || (p.host ? 'host' : `bot:${p.name}`), look = p.avatar || randomAvatar(makeRng(strHash(p.name) + i * 97), { jersey: colors[i], name: p.name });
+    const ready = isReady(p), me = isMeInLobby(p), card = document.createElement('li');
+    now.add(key); if (ready) nowReady.add(key);
+    card.className = ['wr-card', me && 'me', ready && 'ready', p.host && 'host', p.isBot && 'bot', p.disconnected && 'away', !seenCards.has(key) && 'new', ready && !p.host && !p.isBot && !readyBefore.has(key) && seenCards.has(key) && 'pop'].filter(Boolean).join(' ');
+    const status = p.disconnected ? 'Reconnecting…' : p.host ? 'Host' : p.isBot ? 'Bot' : p.ready ? 'Ready' : 'Not ready';
+    const num = Math.max(0, Math.min(99, Math.round(+look.number || 0)));
+    card.innerHTML = `<span class="wr-jersey">${jerseySVG(colors[i], numberInk(colors[i], safeColor(look.accent, '#ffffff')), num)}${ready && !p.host ? `<i class="wr-badge">${icon('check')}</i>` : ''}</span><span class="wr-who"><b>${UI.escapeText(p.name)}</b><span class="wr-pill">${status}${me ? '<em>· you</em>' : ''}</span></span>`;
+    if (host && p.isBot && !G.net.locked) {
+      const x = document.createElement('button'); x.className = 'wr-x'; x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', `Remove ${p.name}`);
+      x.onclick = () => { const at = G.lobby.indexOf(p); if (at >= 0 && !G.net?.locked) { G.lobby.splice(at, 1); publishLobby(); sfx.click(); } };
+      card.append(x);
+    }
+    cards.push(card);
+  });
+  let seats = Math.min(MAX_PLAYERS, Math.max(4, G.lobby.length + 1)); seats = Math.min(MAX_PLAYERS, seats + seats % 2);   // two to a row
+  for (let k = G.lobby.length; k < seats; k++) {
+    const open = document.createElement('li'); open.className = 'wr-card wr-open';
+    open.innerHTML = `<button type="button" class="wr-invite"><span data-icon="share">${icon('share')}</span><span>Open seat</span></button>`;
+    open.querySelector('button').onclick = shareRoom; cards.push(open);
+  }
+  list.replaceChildren(...cards); seenCards = now; readyBefore = nowReady;
+  // counts, the guest's ready button, the host's start button
+  const waiting = G.lobby.filter(p => !isReady(p)), mine = G.lobby.find(isMeInLobby), locked = !!G.net?.locked;
+  $('roomStatus').textContent = `${G.lobby.length} of ${MAX_PLAYERS} · ${waiting.length ? `${waiting.length} not ready` : 'all ready'}`;
+  $('roomStatus').classList.toggle('all', !waiting.length);
+  $('hostControls').classList.toggle('hidden', !host); $('btnReady').classList.toggle('hidden', host);
+  if (!host) {
+    const on = !!mine?.ready, hostName = G.lobby.find(p => p.host)?.name || 'the host';
+    $('btnReady').classList.toggle('on-ready', on); $('btnReady').setAttribute('aria-pressed', String(on)); $('btnReady').disabled = !mine || locked;
+    $('readyLabel').textContent = on ? 'Ready!' : "I'm ready";
+    $('readySub').textContent = locked ? 'Starting…' : on ? `Waiting for ${hostName} to start · tap to undo` : 'Tap when you’re set to play';
+  }
+  $('btnLobbyBot').disabled = G.lobby.length >= MAX_PLAYERS || locked;
+  const armed = waiting.length && performance.now() - startArmed < 3000;
+  $('btnLobbyStart').disabled = G.lobby.length === 0 || locked;
+  $('btnLobbyStart').classList.toggle('armed', !!armed); $('btnLobbyStart').classList.toggle('waiting', !!waiting.length && !armed);
+  $('startLabel').textContent = armed ? 'Tap again to start' : waiting.length ? 'Start anyway' : 'Start round';
+  $('startSub').textContent = armed ? `${waiting.map(p => p.name).join(', ')} ${waiting.length > 1 ? 'aren’t' : 'isn’t'} ready` : waiting.length ? `Waiting on ${waiting.length === 1 ? waiting[0].name : `${waiting.length} players`}` : `${G.lobby.length} ${G.lobby.length === 1 ? 'player' : 'players'} · ${room.holes} holes`;
+}
+const publishLobby = () => { renderLobby(); G.net?.broadcast({ t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code, room: G.room }); };
 function rejectGuest(id, reason) { G.net.send(id, { t: 'rejected', reason }); G.net.disconnect(id); }
 let turnCheck = null;
 function roomGone(title, sub) { if (!G.net || G.net.isHost) return; toMenu(); UI.toast(title, sub, 4000); }
@@ -1225,7 +1300,14 @@ function onNet(ev) {
         if (member && !G.net.locked) { clearTimeout(disconnectTimers.get(member.token)); disconnectTimers.delete(member.token); G.lobby.splice(G.lobby.indexOf(member), 1); publishLobby(); }
         return;
       }
-      if (m.t === 'sync-request') { G.net.send(ev.from, G.net.locked ? { t: 'snapshot', state: snapshot() } : { t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code }); return; }
+      if (m.t === 'ready' || m.t === 'look') {   // waiting room: a guest readies up or changes its look in the locker
+        const member = G.lobby.find(p => p.peerId === ev.from && !p.host);
+        if (!member || G.net.locked) return;
+        if (m.t === 'ready') { const was = !!member.ready; member.ready = m.ready === true; if (member.ready && !was) sfx.click(); }
+        else { const look = sanitizeAvatar(m.avatar); if (!look) return; member.avatar = look; }
+        publishLobby(); return;
+      }
+      if (m.t === 'sync-request') { G.net.send(ev.from, G.net.locked ? { t: 'snapshot', state: snapshot() } : { t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code, room: G.room }); return; }
       // Guests send input only: never accept a client's trajectory, result, next-hole or lobby message.
       if (m.t === 'throw-request') {
         if (G.phase !== 'aim' || !validateThrowRequest(m, G, ev.from)) { G.net.send(ev.from, { t: 'throw-denied', reason: 'Waiting for your turn. Syncing the scorecard…' }); return; }
@@ -1239,7 +1321,7 @@ function onNet(ev) {
       return;
     }
     if (ev.from !== `chains-dg-${G.net.code}`) return;
-    if (m.t === 'lobby') { G.lobby = m.players; $('roomCode').textContent = m.code; renderLobby(); }
+    if (m.t === 'lobby') { G.lobby = Array.isArray(m.players) ? m.players.slice(0, MAX_PLAYERS) : []; G.room = safeRoom(m.room, COURSE_IDS); $('roomCode').textContent = m.code; renderLobby(); }
     else if (m.t === 'start') { G.net.locked = true; G.syncing = true; startGame(m.config).finally(() => { G.syncing = false; const queue = deferredNet; deferredNet = []; queue.forEach(onNet); }); }
     else if (m.t === 'snapshot') restoreRoom(m.state);
     else if (m.t === 'throw' && m.sessionId === G.sessionId && Number.isInteger(m.seq) && m.seq > G.lastShotSeq) { G.lastShotSeq = m.seq; G.inbox.push(m); }
@@ -1247,7 +1329,7 @@ function onNet(ev) {
     else if (m.t === 'botify' && G.players[m.pi]) { const p = G.players[m.pi]; p.isBot = true; p.peerId = null; UI.toast(`${p.name} is away`, 'A bot keeps the round moving', 2000); }
     else if (m.t === 'rejoin' && G.players[m.pi]) { G.players[m.pi].isBot = false; G.players[m.pi].peerId = m.peerId; }
     else if (m.t === 'throw-denied') { UI.toast('Round synchronizing', m.reason, 2000); G.net.toHost({ t: 'sync-request' }); }
-    else if (m.t === 'rejected') { const reason = m.reason; G.net.close(); G.net = null; UI.hide('lobby'); UI.show('onlineChoice'); UI.onlineError(reason); }
+    else if (m.t === 'rejected') { const reason = m.reason; G.net.close(); G.net = null; leaveRoomView(); UI.onlineError(reason); }
     else if (m.t === 'closed') roomGone('The host left', 'The room has closed. Start a new room or an invite match.');
     else if (m.t === 'turn') {   // the host's turn marker: a guest still on an older turn (a lost shot) resyncs instead of waiting forever
       clearTimeout(turnCheck);
@@ -1262,7 +1344,10 @@ const setInvited = code => {
   $('online').classList.toggle('invited', !!code); UI[code ? 'show' : 'hide']('inviteNote'); UI[code ? 'show' : 'hide']('btnHostInstead');
   $('onlineTitle').textContent = code ? `Join room ${code}` : 'Online room'; if (code) $('joinCode').value = code;
 };
-const openLive = (invite = '') => { UI.hide('menu'); UI.show('online'); UI.show('onlineChoice'); UI.hide('lobby'); $('onlineName').value ||= G.avatar.name || 'Player'; setInvited(invite); };
+const openLive = (invite = '') => { UI.hide('menu'); UI.show('online'); leaveRoomView(); $('onlineName').value ||= G.avatar.name || 'Player'; setInvited(invite); };
+// The online panel turns into the waiting room once a room exists, and back into the create/join choice when it is gone.
+function enterRoomView() { seenCards = new Set(); readyBefore = new Set(); roomShown = ''; startArmed = 0; $('online').classList.add('in-room'); $('onlineTitle').textContent = 'Waiting room'; UI.hide('onlineChoice'); UI.show('lobby'); renderLobby(); }
+function leaveRoomView() { $('online').classList.remove('in-room'); UI.hide('lobby'); UI.show('onlineChoice'); G.room = null; setInvited(''); }
 $('btnHostInstead').onclick = () => { setInvited(''); $('joinCode').value = ''; };
 $('onlineName').addEventListener('focus', e => { if (['You', 'Player'].includes(e.target.value)) e.target.select(); });   // the default name is a placeholder: typing replaces it
 // Invite matches (src/match.js): turn-based, over plain HTTPS, so phones on any network can play together.
@@ -1282,8 +1367,9 @@ $('btnCreate').onclick = async () => {
   try {
     G.net?.close(); G.net = createNet();
     const room = G.net, code = await room.host(name, onNet); if (G.net !== room) return;
-    G.lobby = [{ name, peerId: room.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code; renderLobby();
-    UI.hide('onlineChoice'); UI.show('lobby');
+    G.lobby = [{ name, peerId: room.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code;
+    G.room = { courseId: COURSE_IDS.includes(G.courseId) ? G.courseId : COURSE_IDS[0], holes: +G.settings.holes === 3 ? 3 : 9, order: safeOrder(G.settings.order) };
+    enterRoomView();
   } catch (e) { UI.onlineError('Could not create a room: ' + (e.message || e)); G.net?.close(); G.net = null; }
   finally { UI.setConnecting('btnCreate', false); $('btnJoin').disabled = false; }
 };
@@ -1299,35 +1385,45 @@ $('btnJoin').onclick = async () => {
     G.net?.close(); G.net = createNet(); G.lobby = [];
     const room = G.net; room.onStatus = s => { if (s === 'relay') { note = 'Switching to the backup connection…'; if (late) UI.onlineNote(note); } };
     await room.join(code, name, onNet, { ...G.avatar, name }); room.onStatus = null; if (G.net !== room) return;
-    $('roomCode').textContent = code; renderLobby(); UI.hide('onlineChoice'); UI.show('lobby');
+    $('roomCode').textContent = code; enterRoomView();
   } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
   finally { clearTimeout(slow); UI.onlineNote(); UI.setConnecting('btnJoin', false); $('btnCreate').disabled = false; }
 };
-$('btnLobbyBot').onclick = () => { if (G.lobby.length < MAX_PLAYERS && !G.net.locked) { G.lobby.push({ name: uniqueName(BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], G.lobby.map(p => p.name)), isBot: true }); publishLobby(); } };
+$('btnLobbyBot').onclick = () => { if (G.lobby.length < MAX_PLAYERS && !G.net.locked) { G.lobby.push({ name: uniqueName(BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], G.lobby.map(p => p.name)), isBot: true }); publishLobby(); sfx.click(); } };
+$('btnReady').onclick = () => {
+  const mine = G.lobby.find(isMeInLobby); if (!G.net || G.net.isHost || G.net.locked || !mine) return;
+  mine.ready = !mine.ready; renderLobby(); G.net.toHost({ t: 'ready', ready: mine.ready }); sfx.click(); if (mine.ready) buzz(20);
+};
+// The host's round settings: shown to everyone on the round card, changed only here.
+$('roomCourse').innerHTML = COURSES.map(c => `<option value="${c.id}">${UI.escapeText(c.name)}</option>`).join('');
+$('roomCourse').onchange = e => { if (!G.net?.isHost || G.net.locked || !G.room) return; G.room.courseId = safeRoom({ ...G.room, courseId: e.target.value }, COURSE_IDS).courseId; publishLobby(); };
+UI.seg('roomHoles', v => { if (!G.net?.isHost || G.net.locked || !G.room) return; G.room.holes = +v === 3 ? 3 : 9; G.settings.holes = String(G.room.holes); UI.setSeg('holesSeg', G.settings.holes); publishLobby(); });
+UI.seg('roomOrder', v => { if (!G.net?.isHost || G.net.locked || !G.room) return; G.room.order = safeOrder(v); setOrder(G.room.order); publishLobby(); });
 $('btnLobbyStart').onclick = () => {
-  if (!G.net?.isHost || G.net.locked || !G.lobby.length) return;
+  if (!G.net?.isHost || G.net.locked || !G.lobby.length || !G.room) return;
+  // not everyone is ready: the first tap only arms the button and names who is still getting set
+  if (G.lobby.some(p => !isReady(p)) && performance.now() - startArmed > 3000) { startArmed = performance.now(); renderLobby(); clearTimeout(startArmTimer); startArmTimer = setTimeout(renderLobby, 3050); return; }
+  startArmed = 0; clearTimeout(startArmTimer);
   G.net.locked = true; renderLobby();
-  const taken = new Set(), colorFor = (p, i) => {   // everyone who skipped the locker wears the default red: repeats get a free colour
-    let c = safeColor(p.avatar?.jersey, '').toLowerCase();
-    if (!c || taken.has(c)) c = COLORS.find(k => !taken.has(k)) || COLORS[i % COLORS.length];
-    taken.add(c); return c;
-  };
-  const config = { mode: 'online', sessionId: crypto.randomUUID(), courseId: G.courseId, holeCount: +G.settings.holes,
-    players: G.lobby.map((p, i) => ({ name: safeName(p.name), isBot: !!p.isBot, difficulty: G.settings.difficulty, peerId: p.peerId || null, avatar: p.avatar || null, color: colorFor(p, i) })) };
+  const colors = lobbyColors(G.lobby), room = G.room;
+  const config = { mode: 'online', sessionId: crypto.randomUUID(), courseId: room.courseId, holeCount: room.holes, order: room.order,
+    players: G.lobby.map((p, i) => ({ name: safeName(p.name), isBot: !!p.isBot, difficulty: G.settings.difficulty, peerId: p.peerId || null, avatar: p.avatar || null, color: colors[i] })) };
   G.net.broadcast({ t: 'start', config }); startGame(config);
 };
 // Phones open the share sheet (Messages, WhatsApp…) with the link; desktops copy it. Either way the code stays on screen.
 const shareSheet = isMobile && !!navigator.share;
-$('btnShareRoom').textContent = shareSheet ? 'Send invite link' : 'Copy invite link';
-$('btnShareRoom').onclick = async () => {
+$('shareRoomLabel').textContent = shareSheet ? 'Invite' : 'Copy link';
+async function shareRoom() {
+  if (!G.net) return;
   const url = new URL(location.href); url.search = ''; url.searchParams.set('room', G.net.code); url.hash = '';
   if (shareSheet) {
     try { await navigator.share({ title: 'Chains — Disc Golf', text: `Join my disc golf room in Chains — code ${G.net.code}`, url: url.href }); return; }
     catch (e) { if (e?.name === 'AbortError') return; }   // dismissed the sheet: nothing to do
   }
-  try { await navigator.clipboard.writeText(url.href); $('btnShareRoom').textContent = 'Invite link copied'; }
-  catch { $('roomStatus').textContent = url.href; }
-};
+  try { await navigator.clipboard.writeText(url.href); $('shareRoomLabel').textContent = 'Link copied'; UI.toast('Invite link copied', 'Paste it to your friends', 1600); }
+  catch { UI.toast('Room code ' + G.net.code, url.href, 4000); }
+}
+$('btnShareRoom').onclick = shareRoom;
 
 // ---------- boot ----------
 const playable = () => curP() && !curP().isBot && isMine(curP()) && !G.syncing && !contextLost && !document.querySelector('dialog[open]') && (G.mode !== 'online' || G.net?.isHost || G.net?.conns.size > 0);

@@ -49,7 +49,8 @@ Styles live in `src/ui.css`, with no external fonts or UI framework. Keyboard fo
 Standard stroke play, lightly simplified:
 
 - Lowest total throws wins; scores shown relative to par (ace, eagle, birdie, par, bogey…).
-- Tee order is by honors (best score on the previous hole). After the tee, the player farthest from the basket throws next.
+- Turns (clubhouse, Pass & play sheet or the live room's waiting room): **Real order** tees by honors (best score on the previous hole), then the player farthest from the basket throws next; **All at once** has each player play out the whole hole, in honors order, before the next one tees off.
+- Live rooms open on a waiting room: the round card (course, holes, turn order) everyone sees, jersey cards with ready states, **I'm ready** for guests, **Your look** (the locker, sent to the room) and the host's Start, which asks for a second tap while anyone isn't ready.
 - The next throw is played from where the disc came to rest (your lie).
 - Holed when the disc comes to rest in the tray or is caught by the chains. Putts thrown too hard blow through or spit out ("chain out").
 - Water and the course boundary are out of bounds: +1 penalty throw, play from where the disc last was in bounds.

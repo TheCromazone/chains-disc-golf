@@ -101,7 +101,11 @@ try {
   if (wakes.every(w => JSON.parse(w).asked >= 1 && JSON.parse(w).held)) pass('Every player holds the screen wake lock in the room');
   else fail('Every player holds the screen wake lock in the room', wakes.join(' '));
 
-  await host.js(`__chains.G.settings.holes='3';document.getElementById('btnLobbyStart').click()`);
+  await host.js(`document.querySelector('#roomHoles [data-v="3"]').click()`);
+  for (const g of [g1, g2]) { await g.wait(`__chains.G.room?.holes===3`, 'room settings reach the guest', 15000); await g.js(`document.getElementById('btnReady').click()`); }
+  await host.wait(`__chains.G.lobby.every(p=>p.host||p.isBot||p.ready)`, 'everyone ready (relay guest too)', 15000);
+  pass('Both guests ready up, the relay guest included');
+  await host.js(`document.getElementById('btnLobbyStart').click()`);
   for (const p of all) await p.wait(`__chains.G.players.length===3 && __chains.G.phase==='aim'`, 'round at aim', 60000);
   const ids = await Promise.all(all.map(p => p.js('__chains.G.net.id()')));
   const ownerOf = async pi => all[ids.indexOf(await host.js(`__chains.G.players[${pi}].peerId`))];

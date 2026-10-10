@@ -148,6 +148,7 @@ export function selectDisc(id) { for (const b of $('discRow').children) pressed(
 export function setControlsEnabled(on) { if (!on) closeEquipment(); $('hud').classList.toggle('spectating', !on); $('controls').style.opacity = on ? 1 : 0.35; $('controls').style.pointerEvents = on ? 'auto' : 'none'; for (const b of $('controls').querySelectorAll('button')) b.disabled = !on; $('pad').classList.toggle('idle', !on); }
 export function setSoundMuted(muted) { for (const b of document.querySelectorAll('.sound-toggle')) { b.classList.toggle('muted-sound', muted); b.setAttribute('aria-pressed', String(muted)); b.title = muted ? 'Unmute sound' : 'Mute sound'; b.setAttribute('aria-label', b.title); } }
 export function waiting(text) { if (text) { $('waiting').textContent = text; show('waiting'); } else hide('waiting'); }
+export function setSeg(id, v) { for (const b of $(id).children) pressed(b, b.dataset.v === String(v)); }
 export function seg(id, onChange) { const el = $(id); for (const b of el.children) { pressed(b, b.classList.contains('on')); b.onclick = () => { for (const c of el.children) pressed(c, c === b); onChange(b.dataset.v); }; } return el.querySelector('.on').dataset.v; }
 
 // ---- hub menu: course cards with a mini map, locker room editor ----

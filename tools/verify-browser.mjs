@@ -72,14 +72,26 @@ try {
   const thinPeers = [];
   for (let i = 0; i < 9; i++) {
     const p = await page({ thin: true }); thinPeers.push(p);
-    await p.js(`(async()=>{window.events=[];window.peer=new Peer(window.CHAINS_PEER_CONFIG||{});window.token=crypto.randomUUID();window.conn=await new Promise((r,j)=>{peer.on('open',()=>{const c=peer.connect('chains-dg-${code}',{reliable:true,serialization:'binary',metadata:{name:'Extra ${i}',version:3,token}});c.on('data',d=>events.push(d));c.on('open',()=>r(c));c.on('error',j)});});return true})()`);
+    await p.js(`(async()=>{window.events=[];window.peer=new Peer(window.CHAINS_PEER_CONFIG||{});window.token=crypto.randomUUID();window.conn=await new Promise((r,j)=>{peer.on('open',()=>{const c=peer.connect('chains-dg-${code}',{reliable:true,serialization:'binary',metadata:{name:'Extra ${i}',version:4,token}});c.on('data',d=>events.push(d));c.on('open',()=>r(c));c.on('error',j)});});return true})()`);
     if (i < 8) await host.wait(`__chains.G.lobby.length === ${5 + i}`);
     else await p.wait(`events.some(e=>e.t==='rejected')`);
   }
   assert.equal(await host.js('__chains.G.lobby.length'), 12); record('12-player real WebRTC room admits 12 and rejects player 13'); await host.screenshot('twelve-player-lobby');
   for (const p of thinPeers) { await p.js('peer.destroy()'); await fetch(`http://127.0.0.1:${debugPort}/json/close/${p.id}`); }
   await host.wait('__chains.G.lobby.length===4', 60000);   // a dropped lobby member keeps its place for 30 s
-  await host.js(`__chains.G.settings.holes='3';document.getElementById('btnLobbyStart').click()`);
+  // Waiting room: the host's round settings reach every guest, Start waits for a second tap while anyone is not ready, guests ready up.
+  await host.js(`document.querySelector('#roomHoles [data-v="3"]').click()`);
+  for (const g of guests) await g.wait(`__chains.G.room?.holes===3 && document.getElementById('roomRoundSub').textContent.startsWith('3 holes')`, 10000);
+  record('Every guest sees the host\'s round settings (course, holes, turn order)');
+  await host.js(`document.getElementById('btnLobbyStart').click()`); await pause(300);
+  assert.equal(await host.js('__chains.G.phase'), 'menu'); assert.match(await host.js(`document.getElementById('startLabel').textContent`), /Tap again/);
+  record('Start asks for a second tap while guests are not ready');
+  await host.screenshot('waiting-room-host'); await guests[0].screenshot('waiting-room-guest');
+  for (const g of guests) await g.js(`document.getElementById('btnReady').click()`);
+  await host.wait(`__chains.G.lobby.length===4 && __chains.G.lobby.every(p=>p.host||p.isBot||p.ready)`, 10000);
+  for (const g of guests) await g.wait(`document.getElementById('roomStatus').textContent.includes('all ready') && document.getElementById('btnReady').getAttribute('aria-pressed')==='true'`, 10000);
+  record('Guests ready up and every phone shows it'); await guests[0].screenshot('waiting-room-ready');
+  await host.js(`document.getElementById('btnLobbyStart').click()`);
   const all = [host, ...guests]; for (const p of all) await p.wait('__chains.G.players.length===4 && __chains.G.phase===\'aim\'', 30000);
   record('Host starts the same four-player course on all clients');
   const pad = await host.js(`(()=>{const r=document.getElementById('pad').getBoundingClientRect();return {x:r.left+30,y:r.top+r.height*.4}})()`);

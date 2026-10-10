@@ -95,7 +95,8 @@
     <div class="round-settings">
       <div class="f"><span id="holesLabel">Holes</span><div class="seg" id="holesSeg" role="group" aria-labelledby="holesLabel"><button data-v="3">3</button><button data-v="9" class="on">9</button></div></div>
       <div class="f"><span id="botsLabel">Bots</span><div class="seg" id="diffSeg" role="group" aria-labelledby="botsLabel"><button data-v="easy">Easy</button><button data-v="medium" class="on">Medium</button><button data-v="hard">Hard</button></div></div>
-      <div class="f"><span id="graphicsLabel">Graphics</span><div class="seg" id="qualSeg" role="group" aria-labelledby="graphicsLabel"><button data-v="low">Mobile</button><button data-v="high" class="on">Desktop</button></div></div>
+      <div class="f gfx"><span id="graphicsLabel">Graphics</span><div class="seg" id="qualSeg" role="group" aria-labelledby="graphicsLabel"><button data-v="low">Mobile</button><button data-v="high" class="on">Desktop</button></div></div>
+      <div class="f turns"><span id="turnsLabel">Turns</span><div class="seg" id="orderSeg" role="group" aria-labelledby="turnsLabel"><button data-v="away" class="on" title="Farthest from the basket throws next, like a real round">Real order</button><button data-v="through" title="Each player plays out the whole hole, then the next one tees off">All at once</button></div></div>
     </div>
     <button id="btnHelp" class="quiet" style="width:100%"><span data-icon="help"></span><span>Field guide &amp; rules</span></button>
   </div>
@@ -127,6 +128,7 @@
     <h2 id="setupTitle">Players</h2>
     <div class="players" id="playerList"></div>
     <div class="row"><button id="btnAddHuman">+ Player</button><button id="btnAddBot">+ Bot</button></div>
+    <div class="f setup-turns"><span id="setupTurnsLabel">Turns</span><div class="seg" id="setupOrderSeg" role="group" aria-labelledby="setupTurnsLabel"><button data-v="away" class="on">Real order</button><button data-v="through">All at once</button></div><span class="muted" id="setupOrderHint"></span></div>
     <div class="row"><button id="btnSetupBack"><span data-icon="back"></span><span>Back</span></button><button class="primary" id="btnSetupStart" style="flex:1"><span data-icon="play"></span><span>Start round</span></button></div>
   </div>
 </div>
@@ -136,7 +138,7 @@
     <div class="eyebrow"><span data-icon="online"></span>Play together</div>
     <h2 id="onlineTitle">Online room</h2>
     <div id="inviteNote" class="muted hidden">You're invited. Type your name, then tap <b>Join</b>.</div>
-    <label class="f">Your name<input id="onlineName" maxlength="14" placeholder="Name" autocomplete="nickname"></label>
+    <label class="f name-field">Your name<input id="onlineName" maxlength="14" placeholder="Name" autocomplete="nickname"></label>
     <div id="onlineError" class="inline-error hidden" role="alert"></div>
     <div id="onlineChoice" class="stack">
       <button class="big primary" id="btnCreate"><span data-icon="online"></span><span>Create a room</span></button>
@@ -146,15 +148,27 @@
       <button id="btnHostInstead" class="hidden">Host my own room instead</button>
       <button id="btnOnlineBack"><span data-icon="back"></span><span>Back</span></button>
     </div>
-    <div id="lobby" class="hidden stack">
-      <div class="muted" style="text-align:center">Share this code</div>
-      <div class="code" id="roomCode">----</div>
-      <div id="roomStatus" class="muted" role="status" style="text-align:center"></div>
-      <button id="btnShareRoom">Copy invite link</button>
-      <ul class="list" id="lobbyList"></ul>
-      <div class="row" id="hostControls"><button id="btnLobbyBot">+ Bot</button><button class="primary" id="btnLobbyStart" style="flex:1"><span data-icon="play"></span><span>Start round</span></button></div>
-      <div id="guestWait" class="muted hidden" style="text-align:center">Waiting for the host to start…</div>
-      <button id="btnLeave"><span data-icon="back"></span><span>Leave</span></button>
+    <div id="lobby" class="hidden stack waiting-room">
+      <div class="wr-head">
+        <div class="wr-code"><span class="eyebrow">Room code</span><div class="code" id="roomCode">----</div></div>
+        <button id="btnShareRoom" class="wr-share"><span data-icon="share"></span><span id="shareRoomLabel">Invite</span></button>
+      </div>
+      <div class="wr-round" id="roomRound">
+        <div class="wr-course-art" id="roomCourseArt" aria-hidden="true"></div>
+        <div class="wr-round-copy"><span class="eyebrow" id="roomRoundEyebrow">The round</span><b id="roomCourseName">Pine Hollow</b><span id="roomRoundSub">9 holes · Real order</span><span class="wr-order-hint" id="roomOrderHint"></span></div>
+      </div>
+      <div class="wr-settings" id="roomSettings">
+        <label class="f wr-course-pick"><span>Course</span><select id="roomCourse"></select></label>
+        <div class="f"><span id="roomHolesLabel">Holes</span><div class="seg" id="roomHoles" role="group" aria-labelledby="roomHolesLabel"><button data-v="3">3</button><button data-v="9" class="on">9</button></div></div>
+        <div class="f"><span id="roomOrderLabel">Turns</span><div class="seg" id="roomOrder" role="group" aria-labelledby="roomOrderLabel"><button data-v="away" class="on">Real order</button><button data-v="through">All at once</button></div></div>
+      </div>
+      <div class="wr-roster-head"><span class="eyebrow">Players</span><span id="roomStatus" class="wr-count" role="status"></span></div>
+      <ul class="wr-roster" id="lobbyList" aria-label="Players in the room"></ul>
+      <div class="row2 wr-side"><button id="btnRoomLocker"><span data-icon="jersey"></span><span>Your look</span></button><button id="btnLeave"><span data-icon="back"></span><span>Leave room</span></button></div>
+      <div class="wr-actions">
+      <button class="big wr-ready" id="btnReady" aria-pressed="false"><span class="wr-ready-icon" data-icon="check"></span><span class="cta-copy"><strong id="readyLabel">I'm ready</strong><small id="readySub">Tap when you're set to play</small></span></button>
+      <div class="row2" id="hostControls"><button id="btnLobbyBot"><span>+ Bot</span></button><button class="primary" id="btnLobbyStart"><span data-icon="play"></span><span class="cta-copy"><strong id="startLabel">Start round</strong><small id="startSub"></small></span></button></div>
+      </div>
     </div>
   </div>
 </div>
@@ -228,7 +242,7 @@
       <div><b>Flight</b> — a right-hand backhand fades left at the end; forehand fades right. Throw a disc faster than it's rated for and it will turn over.</div>
       <div><b>Desktop</b> — drag the view or use arrows / WASD to aim. Hold Space to build power, release to throw. Escape cancels. 1–4 pick a disc, Q / E cycle throws, T aims at the basket, O toggles overview. Mouse swipes also work.</div>
       <h2 style="margin-top:6px">Rules</h2>
-      <div>Lowest total throws wins. Each hole starts on the tee pad; you play your next throw from where the disc came to rest. Farthest from the basket throws first; the best score on the previous hole tees off first. Holed when the disc rests in the basket or chains. Water and course boundaries are out of bounds: +1 throw, play from where it went out. Circle 1 is 10 m from the basket. Score names: Ace, Eagle, Birdie, Par, Bogey…</div>
+      <div>Lowest total throws wins. Each hole starts on the tee pad; you play your next throw from where the disc came to rest. Farthest from the basket throws first; the best score on the previous hole tees off first (<b>Turns: Real order</b>). With <b>All at once</b>, each player plays out the whole hole before the next one tees off. Holed when the disc rests in the basket or chains. Water and course boundaries are out of bounds: +1 throw, play from where it went out. Circle 1 is 10 m from the basket. Score names: Ace, Eagle, Birdie, Par, Bogey…</div>
     </div>
     <button class="quiet touch-only" id="btnCoachReplay" style="width:100%"><span data-icon="pan"></span><span>Replay the thumb tutorial</span></button>
     <button class="primary big" id="btnHelpClose"><span data-icon="check"></span><span>Got it</span></button>

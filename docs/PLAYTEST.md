@@ -8,7 +8,7 @@ On a phone, add it to your Home Screen for full screen: Safari → Share → *Ad
 
 | Mode | Use it when | How |
 |---|---|---|
-| **Live room** | Everyone is playing at the same time | Clubhouse → **Friends** → **Live room** → *Create a room* → **Send invite link** (phones open the share sheet; desktops copy the link). Friends tap the link and press *Join*. The host adds bots if wanted and taps **Start round**. Up to 12 players. |
+| **Live room** | Everyone is playing at the same time | Clubhouse → **Friends** → **Live room** → *Create a room* → **Send invite link** (phones open the share sheet; desktops copy the link). Friends tap the link and press *Join*. The waiting room shows the round (course, holes, turn order: the host picks) and a jersey card per player; friends set **Your look** and tap **I'm ready**. The host adds bots if wanted and taps **Start round** (a second tap starts anyway when someone isn't ready). Up to 12 players. |
 | **Invite match** | People play when they can (GamePigeon-style) | Clubhouse → **Friends** → **New match** → share the link. Each player plays a whole hole on their turn; the next player gets a ping. Works on any network. |
 | **Pass & play** | One phone, passed around | Clubhouse → **Pass & play**, add players and bots. |
 
