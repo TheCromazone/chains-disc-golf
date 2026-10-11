@@ -26,7 +26,7 @@ import { createMatches } from './match.js';
 import { unlock, sfx, setMuted, isMuted, audioState } from './audio.js';
 
 const $ = UI.$;
-const COLORS = ['#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#ff7ad9', '#9b6bff'];
+const COLORS = ['#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#ff7ad9', '#9b6bff', '#ff8a2b', '#16c2d4', '#ffffff', '#151820', '#8e2440', '#b6e33c'];   // twelve: a full room never repeats a jersey
 const BOT_NAMES = ['Ricky', 'Paige', 'Simon', 'Eagle', 'Calvin', 'Kristin'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 // Shader warm-up, bounded: compileAsync polls KHR_parallel_shader_compile, and on a busy GPU (several tabs, an old phone) a program
@@ -700,11 +700,42 @@ AIM.puttS = { ...AIM.putt, back: 2.3, side: 1.2, hi: 1.9, hfov: 50, eye: .6, ban
 // pushed his arm out of the right edge. Further back on a taller lens he stands whole, feet to head, in the right third over
 // the swipe pad (ui.css landscape split), with the line and the pin left of centre.
 AIM.driveS = { back: 3.4, side: .95, up: 1.55, pitch: 5, yaw: 0, vfov: 38 };   // a short phone: the swipe pill and ring fill the lower third's middle, so the pin stands further left (38%) with its base plate beside them
+// A lie beside a trunk, a tent or a banner: the rig's spot behind the shoulder could stand inside it or behind it (QA on an
+// iPhone: a birch trunk filled two thirds of a putt's frame; on a desktop the same lie looked at the back of a feather flag
+// over the athlete). Each lie scores the rig's spot and its alternatives (the mirror side, a wider or narrower shoulder, a step
+// closer) by a clear line from the athlete's head to the lens, clear air over the first 8 m ahead of it and the athlete where the
+// rig puts him across the frame (a phone's portrait lens is narrow: a wider shoulder put him out of it), and keeps the best, the
+// rig's own spot on a tie. Once per lie, measured down the line to the pin, so aiming never swaps sides.
+const AIM_SPOTS = [[1, 1], [1, -1], [1, 1.8], [1, -1.8], [1, .3], [.8, -1], [.8, 1], [.65, -.5], [.65, .5]];   // back and side factors
+const aimSpot = { key: '', k: 0 };
+function aimSpotFor(lie, P, side, putt, halfW) {
+  const h = holes[G.holeIdx], key = `${G.seed}|${G.holeIdx}|${lie.x.toFixed(1)}|${lie.z.toFixed(1)}|${putt}|${P === AIM.tall.putt || P === AIM.tall.drive}`;
+  if (aimSpot.key === key) return aimSpot.k;
+  const L = Math.hypot(h.basket[0] - lie.x, h.basket[1] - lie.z) || 1, d = [(h.basket[0] - lie.x) / L, (h.basket[1] - lie.z) / L], r = rightOf(d), head = lie.y + 1.35;
+  let best = 0, top = -1, off0 = 0, score0 = 0; const scores = [];
+  AIM_SPOTS.forEach(([fb, fs], k) => {
+    const x = lie.x - d[0] * P.back * fb - r[0] * side * fs, z = lie.z - d[1] * P.back * fb - r[1] * side * fs, y = Math.max(lie.y, world.height(x, z)) + (P.up || 1.6);
+    const see = clearFraction(world, lie.x, head, lie.z, x, y, z, .3, .15), ahead = clearFraction(world, x, y, z, x + d[0] * 8, head, z + d[1] * 8, .3, 0, .6);
+    const vx = putt ? h.basket[0] - x : d[0], vz = putt ? h.basket[1] - z : d[1], ax = lie.x - x, az = lie.z - z;   // the lens looks at the pin (putt) or down the line; is the athlete inside its width?
+    const off = Math.abs(Math.atan2(vx * az - vz * ax, vx * ax + vz * az));
+    if (k === 0) off0 = off;   // the rig's composition (a phone's portrait putt keeps him half out at the edge, over the shoulder)
+    const framed = Math.max(0, 1 - Math.abs(off - off0) / (halfW * .5));
+    // a trunk close in front of the lens fills the frame even when it blocks neither line (the QA birch: 1 m out, 11° off centre)
+    const lens = world.treesNear(x, z).reduce((m, t) => { const tx = t.x - x, tz = t.z - z, D = Math.hypot(tx, tz) || 1e-3, a = Math.abs(Math.atan2(vx * tz - vz * tx, vx * tx + vz * tz));
+      return a < halfW + .2 ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);
+    const score = see + ahead * .6 + framed * .8 - lens - k * .02;   // the nearest alternative wins a tie
+    scores.push(+score.toFixed(3));
+    if (k === 0) score0 = score;
+    if (score > top + 1e-6) { top = score; best = k; }
+  });
+  if (top - score0 < .15) best = 0;   // only a real obstruction moves the rig: a leaf card's worth of difference keeps the familiar framing
+  aimSpot.key = key; aimSpot.k = best; aimSpot.scores = scores; return best;
+}
 function aimFrame(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = portrait ? AIM.tall[putt ? 'putt' : 'drive'] : putt ? innerHeight > 520 ? AIM.putt : AIM.puttS : innerHeight > 520 ? AIM.drive : AIM.driveS;
   const vt = portrait ? Math.tan(P.fov * DEG / 2) : P.vfov ? Math.tan(P.vfov * DEG / 2) : Math.max(Math.tan((innerHeight > 520 && P.vmin || 14.5) * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least on a short phone, so it keeps headroom
-  const side = P.side + (putt && P.nudge ? puttDodge(lie, P) : 0), rho = Math.hypot(P.back, side);
-  pos.set(lie.x - d[0] * P.back - r[0] * side, lie.y, lie.z - d[1] * P.back - r[1] * side);
+  const side0 = P.side + (putt && P.nudge ? puttDodge(lie, P) : 0), [fb, fs] = AIM_SPOTS[aimSpotFor(lie, P, side0, putt, Math.atan(vt * camera.aspect))], back = P.back * fb, side = side0 * fs, rho = Math.hypot(back, side);
+  pos.set(lie.x - d[0] * back - r[0] * side, lie.y, lie.z - d[1] * back - r[1] * side);
   const bd = Math.hypot(h.basket[0] - pos.x, h.basket[1] - pos.z), bh = h.basketY - lie.y + 1.4, eye = putt && Math.atan(P.eye * vt), band = putt && Math.atan(P.band * vt);   // bh: band centre over the lie
   const B = putt && P.lo ? Math.max(P.band, P.base + 1.4 / bd / vt) : P.band;   // a short putt's basket looms: lift the band until its base plate (1.4 m under it) stays over P.base
   const eh = (curP()?.char.headY || 1.72) - .09;   // eyes in the putting stance, which sinks them ~9 cm
@@ -713,7 +744,7 @@ function aimFrame(lie, d, putt, pos, look) {
   pos.y += up;
   if (putt && P.lo) cam.tShift = Math.max(-.3, Math.min(1, Math.min(B - (bh - up) / bd / vt, P.eye - (eh - up) / rho / vt)));   // slide the lens, don't tip it: the green drops into frame and the trunks stay upright
   const pitch = (putt ? P.lo ? 0 : Math.max(-4, Math.min(14, Math.min(band - Math.atan2(bh - up, bd), eye - Math.atan2(eh - up, rho)) / DEG)) : P.pitch) - G.aim.pitch;   // drag up = look up
-  const yaw = putt ? Math.atan2(side, bd) + Math.atan((P.x || 0) * vt * camera.aspect) : P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
+  const yaw = putt ? Math.atan2(side, bd) + Math.sign(fs) * Math.atan((P.x || 0) * vt * camera.aspect) : Math.sign(fs) * P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
   return 2 * Math.atan(vt) / DEG;
 }
@@ -1103,7 +1134,7 @@ $('btnCoursesBack').onclick = () => { UI.hide('courses'); UI.show('menu'); cam.m
 let heroTimer = null;
 const onAvatarChange = (k, v) => { G.avatar[k] = v; saveLocal('chains.avatar', G.avatar); updateHub(); if (k === 'name') return; if (['eyes','eyeColor','brows','nose','mouth','facialHair','glasses','shades'].includes(k)) { hero?.setFace?.(G.avatar); return; } clearTimeout(heroTimer); heroTimer = setTimeout(makeHero, 120); };
 let lockerFrom = 'menu';   // the clubhouse, or a waiting room (which gets the new look when the locker closes)
-const openLocker = (from = 'menu') => { lockerFrom = from; UI.hide(from); UI.show('locker'); cam.mode = 'locker'; placeHero(); sfx.click(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); };
+const openLocker = (from = 'menu') => { lockerFrom = from; $('btnLockerDone').lastElementChild.textContent = from === 'online' ? 'Back to the room' : 'Ready to play'; UI.hide(from); UI.show('locker'); cam.mode = 'locker'; placeHero(); sfx.click(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); };
 $('btnLocker').onclick = () => openLocker('menu');
 $('btnRoomLocker').onclick = () => { if (G.net && !G.net.locked && G.phase === 'menu') openLocker('online'); };
 $('btnRandomAvatar').onclick = () => { G.avatar = randomAvatar(Math.random, { name: G.avatar.name }); saveLocal('chains.avatar', G.avatar); makeHero(); updateHub(); UI.renderLocker(G.avatar, AVATAR_OPTIONS, onAvatarChange); sfx.click(); };
@@ -1111,7 +1142,7 @@ $('btnLockerDone').onclick = () => {
   const back = lockerFrom === 'online' && G.net && G.phase === 'menu' ? 'online' : 'menu'; lockerFrom = 'menu';
   UI.hide('locker'); UI.show(back); cam.mode = 'menu'; placeHero(); sfx.click();
   if (back === 'online' && !G.net.locked) {   // wear the new look in the waiting room (and in the round it starts)
-    if (G.net.isHost) { const host = G.lobby.find(p => p.host); if (host) host.avatar = { ...G.avatar, name: host.name }; publishLobby(); }
+    if (G.net.isHost) { const host = G.lobby.find(p => p.host); if (host) { host.name = uniqueName(safeName(G.avatar.name), G.lobby.filter(p => p !== host).map(p => p.name)); host.avatar = { ...G.avatar, name: host.name }; } publishLobby(); }
     else G.net.toHost({ t: 'look', avatar: { ...G.avatar } });
   }
 };
@@ -1236,7 +1267,7 @@ function renderLobby() {
   $('btnLobbyStart').disabled = G.lobby.length === 0 || locked;
   $('btnLobbyStart').classList.toggle('armed', !!armed); $('btnLobbyStart').classList.toggle('waiting', !!waiting.length && !armed);
   $('startLabel').textContent = armed ? 'Tap again to start' : waiting.length ? 'Start anyway' : 'Start round';
-  $('startSub').textContent = armed ? `${waiting.map(p => p.name).join(', ')} ${waiting.length > 1 ? 'aren’t' : 'isn’t'} ready` : waiting.length ? `Waiting on ${waiting.length === 1 ? waiting[0].name : `${waiting.length} players`}` : `${G.lobby.length} ${G.lobby.length === 1 ? 'player' : 'players'} · ${room.holes} holes`;
+  $('startSub').textContent = armed ? `${waiting.length} not ready: ${waiting.map(p => p.name).join(', ')}` : waiting.length ? `Waiting on ${waiting.length === 1 ? waiting[0].name : `${waiting.length} players`}` : `${G.lobby.length} ${G.lobby.length === 1 ? 'player' : 'players'} · ${room.holes} holes`;
 }
 const publishLobby = () => { renderLobby(); G.net?.broadcast({ t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code, room: G.room }); };
 function rejectGuest(id, reason) { G.net.send(id, { t: 'rejected', reason }); G.net.disconnect(id); }
@@ -1304,7 +1335,11 @@ function onNet(ev) {
         const member = G.lobby.find(p => p.peerId === ev.from && !p.host);
         if (!member || G.net.locked) return;
         if (m.t === 'ready') { const was = !!member.ready; member.ready = m.ready === true; if (member.ready && !was) sfx.click(); }
-        else { const look = sanitizeAvatar(m.avatar); if (!look) return; member.avatar = look; }
+        else {
+          const look = sanitizeAvatar(m.avatar); if (!look) return;
+          if (look.name && look.name !== member.name) member.name = uniqueName(look.name, G.lobby.filter(p => p !== member).map(p => p.name));   // renamed in the locker
+          member.avatar = { ...look, name: member.name };
+        }
         publishLobby(); return;
       }
       if (m.t === 'sync-request') { G.net.send(ev.from, G.net.locked ? { t: 'snapshot', state: snapshot() } : { t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code, room: G.room }); return; }
@@ -1347,6 +1382,7 @@ const setInvited = code => {
 const openLive = (invite = '') => { UI.hide('menu'); UI.show('online'); leaveRoomView(); $('onlineName').value ||= G.avatar.name || 'Player'; setInvited(invite); };
 // The online panel turns into the waiting room once a room exists, and back into the create/join choice when it is gone.
 function enterRoomView() { seenCards = new Set(); readyBefore = new Set(); roomShown = ''; startArmed = 0; $('online').classList.add('in-room'); $('onlineTitle').textContent = 'Waiting room'; UI.hide('onlineChoice'); UI.show('lobby'); renderLobby(); }
+function adoptName(name) { if (name && name !== G.avatar.name) { G.avatar.name = name; saveLocal('chains.avatar', G.avatar); updateHub(); } }
 function leaveRoomView() { $('online').classList.remove('in-room'); UI.hide('lobby'); UI.show('onlineChoice'); G.room = null; setInvited(''); }
 $('btnHostInstead').onclick = () => { setInvited(''); $('joinCode').value = ''; };
 $('onlineName').addEventListener('focus', e => { if (['You', 'Player'].includes(e.target.value)) e.target.select(); });   // the default name is a placeholder: typing replaces it
@@ -1367,7 +1403,7 @@ $('btnCreate').onclick = async () => {
   try {
     G.net?.close(); G.net = createNet();
     const room = G.net, code = await room.host(name, onNet); if (G.net !== room) return;
-    G.lobby = [{ name, peerId: room.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code;
+    adoptName(name); G.lobby = [{ name, peerId: room.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code;
     G.room = { courseId: COURSE_IDS.includes(G.courseId) ? G.courseId : COURSE_IDS[0], holes: +G.settings.holes === 3 ? 3 : 9, order: safeOrder(G.settings.order) };
     enterRoomView();
   } catch (e) { UI.onlineError('Could not create a room: ' + (e.message || e)); G.net?.close(); G.net = null; }
@@ -1385,7 +1421,7 @@ $('btnJoin').onclick = async () => {
     G.net?.close(); G.net = createNet(); G.lobby = [];
     const room = G.net; room.onStatus = s => { if (s === 'relay') { note = 'Switching to the backup connection…'; if (late) UI.onlineNote(note); } };
     await room.join(code, name, onNet, { ...G.avatar, name }); room.onStatus = null; if (G.net !== room) return;
-    $('roomCode').textContent = code; enterRoomView();
+    adoptName(name); $('roomCode').textContent = code; enterRoomView();
   } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
   finally { clearTimeout(slow); UI.onlineNote(); UI.setConnecting('btnJoin', false); $('btnCreate').disabled = false; }
 };
@@ -1453,7 +1489,7 @@ setTimeout(async () => {
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await Promise.all([warmShaders(), assetsIdle()]);
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE };
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage

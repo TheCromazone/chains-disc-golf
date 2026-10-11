@@ -680,7 +680,7 @@ body.gfx-lost::after { content: 'Restoring graphics…'; position: fixed; left: 
 .wr-jersey { position: relative; width: 42px; height: 42px; flex: none; filter: drop-shadow(0 2px 2px #0c111433); }
 .wr-jersey svg { width: 100%; height: 100%; display: block; }
 .wr-jersey text { font-family: var(--display); font-size: 15px; font-weight: 800; }
-.wr-badge { position: absolute; right: -5px; top: -4px; display: grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; background: #2fd88a; color: #fff; box-shadow: 0 0 0 2px #fff; }
+.wr-badge { position: absolute; left: -5px; top: -4px; display: grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; background: #2fd88a; color: #fff; box-shadow: 0 0 0 2px #fff; }
 .wr-badge .icon { width: 12px; height: 12px; stroke-width: 3.2; }
 .wr-who { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; flex: 1; }
 .wr-who b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 750; color: var(--ink); }
