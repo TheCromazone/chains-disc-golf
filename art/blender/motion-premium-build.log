@@ -1,0 +1,269 @@
+00:00.347  blend            | Read blend: "/Users/matthewcromaz/Documents/chains-disc-golf/art/blender/golfer-v3-source.blend"
+Info: Saved as "golfer-motion-r6.blend"
+INFO Draco is available, use library at /Applications/Blender.app/Contents/Resources/5.2/scripts/addons_core/io_scene_gltf2/libbf_intern_draco_bridge.dylib
+INFO MeshOptimizer is available, use library at /Applications/Blender.app/Contents/Resources/5.2/scripts/addons_core/io_scene_gltf2/libbf_intern_meshopt_bridge.dylib
+13:30:48 | INFO: Starting glTF 2.0 export
+13:30:48 | INFO: Extracting primitive: Torus.001
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: Torus
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: Torus.008
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: Sphere.026
+13:30:48 | INFO: Primitives created: 2
+13:30:48 | INFO: Extracting primitive: Torus.010
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.009
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.010
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.005
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.002
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.003
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.004
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.008
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.006
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.007
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.011
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.013
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.014
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.015
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: char1.012
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: Torus.007
+13:30:48 | INFO: Primitives created: 1
+13:30:48 | INFO: Extracting primitive: Torus.005
+13:30:48 | INFO: Primitives created: 1
+13:30:49 | INFO: Finished glTF 2.0 export in 1.4759199619293213 s
+
+{
+  "skeleton": "ChainsRig eleven-joint v3 (meshy athlete)",
+  "sampleHz": 50,
+  "phase": {
+    "windup": [
+      0,
+      0.5
+    ],
+    "release": 0.62,
+    "followThrough": [
+      0.5,
+      1
+    ]
+  },
+  "clips": {
+    "backhand": {
+      "file": "assets/models/golfer-backhand.glb",
+      "bytes": 21372,
+      "duration": 1,
+      "meshes": 0
+    },
+    "backhand_io": {
+      "file": "assets/models/golfer-backhand_io.glb",
+      "bytes": 21372,
+      "duration": 1,
+      "meshes": 0
+    },
+    "backhand_io_left": {
+      "file": "assets/models/golfer-backhand_io_left.glb",
+      "bytes": 21368,
+      "duration": 1,
+      "meshes": 0
+    },
+    "backhand_left": {
+      "file": "assets/models/golfer-backhand_left.glb",
+      "bytes": 21368,
+      "duration": 1,
+      "meshes": 0
+    },
+    "backhand_oi": {
+      "file": "assets/models/golfer-backhand_oi.glb",
+      "bytes": 21372,
+      "duration": 1,
+      "meshes": 0
+    },
+    "backhand_oi_left": {
+      "file": "assets/models/golfer-backhand_oi_left.glb",
+      "bytes": 21368,
+      "duration": 1,
+      "meshes": 0
+    },
+    "blade": {
+      "file": "assets/models/golfer-blade.glb",
+      "bytes": 21232,
+      "duration": 1,
+      "meshes": 0
+    },
+    "blade_left": {
+      "file": "assets/models/golfer-blade_left.glb",
+      "bytes": 21228,
+      "duration": 1,
+      "meshes": 0
+    },
+    "celebrate": {
+      "file": "assets/models/golfer-celebrate.glb",
+      "bytes": 24952,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "celebrate_left": {
+      "file": "assets/models/golfer-celebrate_left.glb",
+      "bytes": 24944,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "forehand": {
+      "file": "assets/models/golfer-forehand.glb",
+      "bytes": 21216,
+      "duration": 1,
+      "meshes": 0
+    },
+    "forehand_io": {
+      "file": "assets/models/golfer-forehand_io.glb",
+      "bytes": 21220,
+      "duration": 1,
+      "meshes": 0
+    },
+    "forehand_io_left": {
+      "file": "assets/models/golfer-forehand_io_left.glb",
+      "bytes": 21224,
+      "duration": 1,
+      "meshes": 0
+    },
+    "forehand_left": {
+      "file": "assets/models/golfer-forehand_left.glb",
+      "bytes": 21220,
+      "duration": 1,
+      "meshes": 0
+    },
+    "forehand_oi": {
+      "file": "assets/models/golfer-forehand_oi.glb",
+      "bytes": 21220,
+      "duration": 1,
+      "meshes": 0
+    },
+    "forehand_oi_left": {
+      "file": "assets/models/golfer-forehand_oi_left.glb",
+      "bytes": 21224,
+      "duration": 1,
+      "meshes": 0
+    },
+    "hammer": {
+      "file": "assets/models/golfer-hammer.glb",
+      "bytes": 21360,
+      "duration": 1,
+      "meshes": 0
+    },
+    "hammer_left": {
+      "file": "assets/models/golfer-hammer_left.glb",
+      "bytes": 21364,
+      "duration": 1,
+      "meshes": 0
+    },
+    "idle": {
+      "file": "assets/models/golfer-idle.glb",
+      "bytes": 31048,
+      "duration": 4,
+      "meshes": 0
+    },
+    "idle_left": {
+      "file": "assets/models/golfer-idle_left.glb",
+      "bytes": 31056,
+      "duration": 4,
+      "meshes": 0
+    },
+    "practice": {
+      "file": "assets/models/golfer-practice.glb",
+      "bytes": 19200,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "practice_left": {
+      "file": "assets/models/golfer-practice_left.glb",
+      "bytes": 19204,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "putt": {
+      "file": "assets/models/golfer-putt.glb",
+      "bytes": 20164,
+      "duration": 1,
+      "meshes": 0
+    },
+    "putt_left": {
+      "file": "assets/models/golfer-putt_left.glb",
+      "bytes": 20168,
+      "duration": 1,
+      "meshes": 0
+    },
+    "scoober": {
+      "file": "assets/models/golfer-scoober.glb",
+      "bytes": 21232,
+      "duration": 1,
+      "meshes": 0
+    },
+    "scoober_left": {
+      "file": "assets/models/golfer-scoober_left.glb",
+      "bytes": 21232,
+      "duration": 1,
+      "meshes": 0
+    },
+    "slump": {
+      "file": "assets/models/golfer-slump.glb",
+      "bytes": 23020,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "slump_left": {
+      "file": "assets/models/golfer-slump_left.glb",
+      "bytes": 23024,
+      "duration": 2.4,
+      "meshes": 0
+    },
+    "tomahawk": {
+      "file": "assets/models/golfer-tomahawk.glb",
+      "bytes": 21500,
+      "duration": 1,
+      "meshes": 0
+    },
+    "tomahawk_left": {
+      "file": "assets/models/golfer-tomahawk_left.glb",
+      "bytes": 21500,
+      "duration": 1,
+      "meshes": 0
+    },
+    "walk": {
+      "file": "assets/models/golfer-walk.glb",
+      "bytes": 16944,
+      "duration": 1,
+      "meshes": 0
+    },
+    "walk_left": {
+      "file": "assets/models/golfer-walk_left.glb",
+      "bytes": 16944,
+      "duration": 1,
+      "meshes": 0
+    }
+  },
+  "golfer.glb": {
+    "bytes": 280860
+  },
+  "golfer-lod.glb": {
+    "bytes": 186172
+  }
+}
+Blender 5.2.2 LTS (hash d13f752e3b9c built 2026-09-15 01:49:19)
+
+Blender quit

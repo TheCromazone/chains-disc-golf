@@ -1,0 +1,481 @@
+00:00.350  blend            | Read blend: "/Users/matthewcromaz/Documents/chains-disc-golf/art/blender/golfer-v3-source.blend"
+Info: Saved as "golfer-premium.blend"
+INFO Draco is available, use library at /Applications/Blender.app/Contents/Resources/5.2/scripts/addons_core/io_scene_gltf2/libbf_intern_draco_bridge.dylib
+INFO MeshOptimizer is available, use library at /Applications/Blender.app/Contents/Resources/5.2/scripts/addons_core/io_scene_gltf2/libbf_intern_meshopt_bridge.dylib
+13:34:53 | INFO: Starting glTF 2.0 export
+13:34:53 | INFO: Extracting primitive: Torus.001
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus.008
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Sphere.026
+13:34:53 | INFO: Primitives created: 2
+13:34:53 | INFO: Extracting primitive: Torus.010
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.009
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.010
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.005
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.002
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.003
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.004
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.008
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.006
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.007
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.011
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.013
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.014
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.015
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.012
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus.007
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus.005
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Draco encoder: Encoding mesh accessory_wristbandL.
+13:34:53 | INFO: Draco encoder: Encoding mesh accessory_wristbandR.
+13:34:53 | INFO: Draco encoder: Encoding mesh body.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_round.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_sport.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_square.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_afro.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_braids.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_bun.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_buzz.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_curly.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_long.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_mohawk.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_ponytail.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_sidepart.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_wavy.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_backcap.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_beanie.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_bucket.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_cap.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_headband.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_visor.
+13:34:53 | INFO: Finished glTF 2.0 export in 0.0727689266204834 s
+00:00.552  blend            | Read blend: "/Users/matthewcromaz/Documents/chains-disc-golf/art/blender/golfer-v3-lod-source.blend"
+
+golfer-premium {'source': 'golfer-v3-source.blend', 'vertices': 6162, 'triangles': 12400, 'maxDisplacementM': 0.004000053162733761, 'meanDisplacementM': 0.0004951160041858416, 'bytes': 280876}
+Info: Saved as "golfer-lod-premium.blend"
+13:34:53 | INFO: Starting glTF 2.0 export
+13:34:53 | INFO: Extracting primitive: Torus.001
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus.008
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Sphere.026
+13:34:53 | INFO: Primitives created: 2
+13:34:53 | INFO: Extracting primitive: Torus.010
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.009
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.010
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.005
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.002
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.003
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.004
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.008
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.006
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.007
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.011
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.013
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.014
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.015
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.012
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus.007
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus.005
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Draco encoder: Encoding mesh accessory_wristbandL.
+13:34:53 | INFO: Draco encoder: Encoding mesh accessory_wristbandR.
+13:34:53 | INFO: Draco encoder: Encoding mesh body.
+Blender 5.2.2 LTS (hash d13f752e3b9c built 2026-09-15 01:49:19)
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 147 vertices, 720 indices, raw size: 9084, encoded size: 1376, compression ratio: 6.60
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 147 vertices, 720 indices, raw size: 9084, encoded size: 1376, compression ratio: 6.60
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 12579 vertices, 37200 indices, raw size: 722112, encoded size: 125157, compression ratio: 5.77
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 624 vertices, 3024 indices, raw size: 38496, encoded size: 4056, compression ratio: 9.49
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 570 vertices, 3000 indices, raw size: 35640, encoded size: 4171, compression ratio: 8.54
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 108 vertices, 480 indices, raw size: 6576, encoded size: 1033, compression ratio: 6.37
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 624 vertices, 3024 indices, raw size: 38496, encoded size: 4051, compression ratio: 9.50
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 619 vertices, 1398 indices, raw size: 34048, encoded size: 6086, compression ratio: 5.59
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 863 vertices, 2655 indices, raw size: 49094, encoded size: 7724, compression ratio: 6.36
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 682 vertices, 1719 indices, raw size: 37810, encoded size: 6559, compression ratio: 5.76
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 584 vertices, 1329 indices, raw size: 31882, encoded size: 5688, compression ratio: 5.61
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 1230 vertices, 3744 indices, raw size: 70356, encoded size: 11132, compression ratio: 6.32
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 1011 vertices, 2646 indices, raw size: 56304, encoded size: 9255, compression ratio: 6.08
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 648 vertices, 1569 indices, raw size: 35690, encoded size: 6228, compression ratio: 5.73
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 725 vertices, 1863 indices, raw size: 40334, encoded size: 6828, compression ratio: 5.91
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 711 vertices, 1863 indices, raw size: 39606, encoded size: 6795, compression ratio: 5.83
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 808 vertices, 2109 indices, raw size: 45142, encoded size: 7668, compression ratio: 5.89
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 1039 vertices, 3450 indices, raw size: 59836, encoded size: 8914, compression ratio: 6.71
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 1058 vertices, 3195 indices, raw size: 60002, encoded size: 9439, compression ratio: 6.36
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 865 vertices, 2631 indices, raw size: 49098, encoded size: 7737, compression ratio: 6.35
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 1082 vertices, 3594 indices, raw size: 62360, encoded size: 9234, compression ratio: 6.75
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 297 vertices, 1536 indices, raw size: 18516, encoded size: 2294, compression ratio: 8.07
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 484 vertices, 2376 indices, raw size: 29920, encoded size: 3636, compression ratio: 8.23
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 84 vertices, 396 indices, raw size: 5160, encoded size: 1110, compression ratio: 4.65
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 84 vertices, 396 indices, raw size: 5160, encoded size: 1110, compression ratio: 4.65
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 7262 vertices, 18600 indices, raw size: 410352, encoded size: 66739, compression ratio: 6.113:34:53 | INFO: Draco encoder: Encoding mesh glasses_round.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_sport.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_square.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_afro.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_braids.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_bun.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_buzz.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_curly.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_long.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_mohawk.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_ponytail.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_sidepart.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_wavy.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_backcap.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_beanie.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_bucket.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_cap.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_headband.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_visor.
+13:34:53 | INFO: Finished glTF 2.0 export in 0.056793928146362305 s
+00:00.645  blend            | Read blend: "/Users/matthewcromaz/Documents/chains-disc-golf/art/blender/golfer-v3-f-source.blend"
+
+golfer-lod-premium {'source': 'golfer-v3-lod-source.blend', 'vertices': 3062, 'triangles': 6200, 'maxDisplacementM': 0.004000053516224058, 'meanDisplacementM': 0.0006350013698802272, 'bytes': 174612}
+Info: Saved as "golfer-f-premium.blend"
+13:34:53 | INFO: Starting glTF 2.0 export
+13:34:53 | INFO: Extracting primitive: Torus.001
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | WARNING: Mesh char1 is not valid, and may be exported wrongly
+13:34:53 | INFO: Extracting primitive: char1
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | WARNING: There are more than 4 joint vertex influences.The 4 with highest weight will be used (and normalized).
+13:34:53 | INFO: Extracting primitive: Torus.008
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Sphere.026
+13:34:53 | INFO: Primitives created: 2
+13:34:53 | INFO: Extracting primitive: Torus.010
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.009
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.010
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.005
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.002
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.003
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.004
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.008
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.006
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.007
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.011
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.013
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.014
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.015
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.012
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus.007
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus.005
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Draco encoder: Encoding mesh accessory_wristbandL.
+13:34:53 | INFO: Draco encoder: Encoding mesh accessory_wristbandR.
+13:34:53 | INFO: Draco encoder: Encoding mesh body.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_round.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_sport.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_square.
+5
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 372 vertices, 1728 indices, raw size: 22800, encoded size: 3321, compression ratio: 6.87
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 326 vertices, 1728 indices, raw size: 20408, encoded size: 2891, compression ratio: 7.06
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 108 vertices, 480 indices, raw size: 6576, encoded size: 1162, compression ratio: 5.66
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 372 vertices, 1728 indices, raw size: 22800, encoded size: 3324, compression ratio: 6.86
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 407 vertices, 801 indices, raw size: 21570, encoded size: 3968, compression ratio: 5.44
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 586 vertices, 1725 indices, raw size: 32726, encoded size: 5395, compression ratio: 6.07
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 409 vertices, 861 indices, raw size: 21794, encoded size: 3922, compression ratio: 5.56
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 389 vertices, 762 indices, raw size: 20452, encoded size: 3713, compression ratio: 5.51
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 612 vertices, 1485 indices, raw size: 33546, encoded size: 5871, compression ratio: 5.71
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 555 vertices, 1209 indices, raw size: 30082, encoded size: 5097, compression ratio: 5.90
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 412 vertices, 837 indices, raw size: 21798, encoded size: 3915, compression ratio: 5.57
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 427 vertices, 915 indices, raw size: 22838, encoded size: 4026, compression ratio: 5.67
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 419 vertices, 897 indices, raw size: 22386, encoded size: 4018, compression ratio: 5.57
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 460 vertices, 1002 indices, raw size: 24728, encoded size: 4428, compression ratio: 5.58
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 621 vertices, 1872 indices, raw size: 34840, encoded size: 5781, compression ratio: 6.03
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 579 vertices, 1467 indices, raw size: 31898, encoded size: 5556, compression ratio: 5.74
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 494 vertices, 1302 indices, raw size: 27096, encoded size: 4770, compression ratio: 5.68
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 664 vertices, 2016 indices, raw size: 37364, encoded size: 6134, compression ratio: 6.09
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 135 vertices, 672 indices, raw size: 8364, encoded size: 1458, compression ratio: 5.74
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 268 vertices, 1260 indices, raw size: 16456, encoded size: 2503, compression ratio: 6.57
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 147 vertices, 720 indices, raw size: 9084, encoded size: 1385, compression ratio: 6.56
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 147 vertices, 720 indices, raw size: 9084, encoded size: 1385, compression ratio: 6.56
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 17620 vertices, 37107 indices, raw size: 978130, encoded size: 203728, compression ratio: 4.80
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 624 vertices, 3024 indices, raw size: 38496, encoded size: 4107, compression ratio: 9.37
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 570 vertices, 3000 indices, raw size: 35640, encoded size: 4233, compression ratio: 8.42
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 108 vertices, 480 indices, raw size: 6576, encoded size: 1043, compression ratio: 6.30
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 624 vert13:34:53 | INFO: Draco encoder: Encoding mesh hair_afro.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_braids.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_bun.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_buzz.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_curly.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_long.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_mohawk.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_ponytail.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_sidepart.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_wavy.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_backcap.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_beanie.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_bucket.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_cap.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_headband.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_visor.
+13:34:53 | INFO: Finished glTF 2.0 export in 0.08434581756591797 s
+00:00.789  blend            | Read blend: "/Users/matthewcromaz/Documents/chains-disc-golf/art/blender/golfer-v3-f-source.blend"
+
+golfer-f-premium {'source': 'golfer-v3-f-source.blend', 'vertices': 5824, 'triangles': 12369, 'maxDisplacementM': 0.004000056137646733, 'meanDisplacementM': 0.0005912935881130773, 'bytes': 344796}
+Info: Saved as "golfer-f-lod-premium.blend"
+13:34:53 | INFO: Starting glTF 2.0 export
+13:34:53 | INFO: Extracting primitive: Torus.001
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | WARNING: Mesh char1 is not valid, and may be exported wrongly
+13:34:53 | INFO: Extracting primitive: char1
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | WARNING: There are more than 4 joint vertex influences.The 4 with highest weight will be used (and normalized).
+13:34:53 | INFO: Extracting primitive: Torus.008
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Sphere.026
+13:34:53 | INFO: Primitives created: 2
+13:34:53 | INFO: Extracting primitive: Torus.010
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.009
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.010
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.005
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.002
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.003
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.004
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.008
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.006
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.007
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.011
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.013
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.014
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.015
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: char1.012
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus.007
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Extracting primitive: Torus.005
+13:34:53 | INFO: Primitives created: 1
+13:34:53 | INFO: Draco encoder: Encoding mesh accessory_wristbandL.
+13:34:53 | INFO: Draco encoder: Encoding mesh accessory_wristbandR.
+13:34:53 | INFO: Draco encoder: Encoding mesh body.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_round.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_sport.
+13:34:53 | INFO: Draco encoder: Encoding mesh glasses_square.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_afro.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_braids.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_bun.
+ices, 3024 indices, raw size: 38496, encoded size: 4105, compression ratio: 9.38
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 641 vertices, 1479 indices, raw size: 34834, encoded size: 6383, compression ratio: 5.46
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 804 vertices, 2556 indices, raw size: 45932, encoded size: 7230, compression ratio: 6.35
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 623 vertices, 1620 indices, raw size: 34648, encoded size: 6076, compression ratio: 5.70
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 522 vertices, 1260 indices, raw size: 28676, encoded size: 5160, compression ratio: 5.56
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 1187 vertices, 3717 indices, raw size: 68378, encoded size: 10812, compression ratio: 6.32
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 985 vertices, 2718 indices, raw size: 55356, encoded size: 8998, compression ratio: 6.15
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 585 vertices, 1497 indices, raw size: 32426, encoded size: 5699, compression ratio: 5.69
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 666 vertices, 1764 indices, raw size: 37172, encoded size: 6342, compression ratio: 5.86
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 652 vertices, 1764 indices, raw size: 36444, encoded size: 6287, compression ratio: 5.80
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 779 vertices, 2112 indices, raw size: 43744, encoded size: 7451, compression ratio: 5.87
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 760 vertices, 2970 indices, raw size: 45044, encoded size: 6383, compression ratio: 7.06
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 736 vertices, 2709 indices, raw size: 43170, encoded size: 6431, compression ratio: 6.71
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 579 vertices, 2142 indices, raw size: 34028, encoded size: 5070, compression ratio: 6.71
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 803 vertices, 3114 indices, raw size: 47568, encoded size: 6629, compression ratio: 7.18
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 297 vertices, 1536 indices, raw size: 18516, encoded size: 2289, compression ratio: 8.09
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 484 vertices, 2376 indices, raw size: 29920, encoded size: 3585, compression ratio: 8.35
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 147 vertices, 720 indices, raw size: 9084, encoded size: 1537, compression ratio: 5.91
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 147 vertices, 720 indices, raw size: 9084, encoded size: 1536, compression ratio: 5.91
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 17620 vertices, 37107 indices, raw size: 978130, encoded size: 179933, compression ratio: 5.44
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 624 vertices, 3024 indices, raw size: 38496, encoded size: 4725, compression ratio: 8.15
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 570 vertices, 3000 indices, raw size: 35640, encoded size: 4420, compression ratio: 8.06
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 108 vertices, 480 indices, raw size: 6576, encoded size: 1177, compression ratio: 5.59
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 624 vertices, 3024 indices, raw size: 38496, encoded size: 4839, compression ratio: 7.96
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 641 vertices, 1479 indices, raw size: 34834, encoded size: 5961, compression ratio: 5.84
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 804 vertices, 2556 indices, raw size: 45932, encoded size: 6854, compression ratio: 6.70
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 623 vertices, 1620 indices, raw size: 34648, encoded size: 5637, compres13:34:53 | INFO: Draco encoder: Encoding mesh hair_buzz.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_curly.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_long.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_mohawk.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_ponytail.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_sidepart.
+13:34:53 | INFO: Draco encoder: Encoding mesh hair_wavy.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_backcap.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_beanie.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_bucket.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_cap.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_headband.
+13:34:53 | INFO: Draco encoder: Encoding mesh headwear_visor.
+13:34:53 | INFO: Finished glTF 2.0 export in 0.08563113212585449 s
+
+golfer-f-lod-premium {'source': 'golfer-v3-f-source.blend', 'vertices': 5824, 'triangles': 12369, 'maxDisplacementM': 0.004000056137646733, 'meanDisplacementM': 0.0005912935881130773, 'bytes': 318768}
+sion ratio: 6.15
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 522 vertices, 1260 indices, raw size: 28676, encoded size: 4743, compression ratio: 6.05
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 1187 vertices, 3717 indices, raw size: 68378, encoded size: 9847, compression ratio: 6.94
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 985 vertices, 2718 indices, raw size: 55356, encoded size: 8268, compression ratio: 6.70
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 585 vertices, 1497 indices, raw size: 32426, encoded size: 5237, compression ratio: 6.19
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 666 vertices, 1764 indices, raw size: 37172, encoded size: 5943, compression ratio: 6.25
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 652 vertices, 1764 indices, raw size: 36444, encoded size: 5760, compression ratio: 6.33
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 779 vertices, 2112 indices, raw size: 43744, encoded size: 6853, compression ratio: 6.38
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 760 vertices, 2970 indices, raw size: 45044, encoded size: 6493, compression ratio: 6.94
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 736 vertices, 2709 indices, raw size: 43170, encoded size: 6433, compression ratio: 6.71
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 579 vertices, 2142 indices, raw size: 34028, encoded size: 5224, compression ratio: 6.51
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 803 vertices, 3114 indices, raw size: 47568, encoded size: 6733, compression ratio: 7.06
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 297 vertices, 1536 indices, raw size: 18516, encoded size: 2621, compression ratio: 7.06
+DracoEncoder | Preserve triangle order: no
+DracoEncoder | Encoded 484 vertices, 2376 indices, raw size: 29920, encoded size: 4008, compression ratio: 7.47
+
+Blender quit
