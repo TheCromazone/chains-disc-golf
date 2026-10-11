@@ -397,6 +397,7 @@ function featherGeometry(full) {
 }
 
 export function dressCourse({ holes, height, trees, bushes = [], corridor, def, quality }) {
+  const camCapsules = [];   // camera-only blockers (tents, feather flags): the chase and aim cameras steer round them, the disc flies through
   const full = quality !== 'low', K = kit(height, full), rnd = rngOf(def.seed * 97 + 5);
   const frame = (h, u, f) => { const [fx, fz] = fwdOf(h); return [h.tee[0] - fz * u + fx * f, h.tee[1] + fx * u + fz * f]; };   // tee-local: u right of the fairway, f toward the basket
   // u of a spot pad metres outside the flight corridor on one side (-1 left), the half-width sampled where it stands
@@ -412,6 +413,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const blobs = [], shadeUnder = (world, hx, hz, core, k, ox = 0, oz = 0) => { const e = world.elements; blobs.push([e[12] + e[0] * ox + e[8] * oz, e[14] + e[2] * ox + e[10] * oz, Math.atan2(e[8], e[10]), hx, hz, core, k]); };
   const feather = featherGeometry(full);
   const addFeather = (world, design) => {
+    { const c = new THREE.Vector3().setFromMatrixPosition(world); camCapsules.push({ a: [c.x, c.y + .3, c.z], b: [c.x, c.y + 2.9, c.z], r: .55, tag: 'feather' }); }   // cameras keep the banner out of the lens (a putt's rig once stood behind one: 'CHAINS OPEN' backwards across the green)
     K.cloth(feather.cloth.clone().applyMatrix4(world), 'feather' + design);
     K.steel(tube(feather.pole, .012, full ? 12 : 4, 4).applyMatrix4(world), '#d9dcdc');
     K.steel(box(.7, .025, .05).applyMatrix4(world), '#3a3d40'); K.steel(box(.05, .025, .7).applyMatrix4(world), '#3a3d40');
@@ -656,7 +658,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // Yellow rope on white stakes runs from the pad to its legs with an event sign on each line turned to the tee; the
   // crew's UTV parks off the left line, a feather flag stands between it and the left leg, the registration canopy
   // sits just outside the pad camera's left edge (Full), so it never shows as a sliver, and white canopies stand beyond.
-  const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], camCapsules = [], archU = .5;
+  const h1 = holes[0], L1 = Math.hypot(h1.basket[0] - h1.tee[0], h1.basket[1] - h1.tee[1]), capsules = [], archU = .5;
   let archF = 33;
   for (const af of [33, 31, 35, 29, 37]) if ([-1, 1].every(s => clearOf(...frame(h1, archU + s * legX, af), 1.5))) { archF = af; break; }
   // each leg's plinth top: 24 cm over the ground at its centre, its skirt cut to the ground (dug in on the uphill side);

@@ -11,7 +11,8 @@
     "test:browser": "node tools/verify-browser.mjs",
     "test:matches": "node tools/verify-matches.mjs",
     "test:relay": "node tools/verify-relay.mjs",
-    "test:rounds": "node tools/verify-rounds.mjs"
+    "test:rounds": "node tools/verify-rounds.mjs",
+    "test:aimcam": "node tools/verify-aimcam.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",
