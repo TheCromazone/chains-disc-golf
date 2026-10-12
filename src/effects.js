@@ -6,6 +6,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { Water } from 'three/addons/objects/Water.js';
 
 // The course's own sky dome is prefiltered into the environment on both tiers (course.js), so its blue fill and the
@@ -104,8 +105,11 @@ export function postprocessing(renderer, scene, camera, { photographic = false }
   const shafts = new LightShafts(scene, camera); composer.addPass(shafts);
   const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), .35, .6, 2); composer.addPass(bloom);   // wide enough that the 20x sun disc spreads into a halo; the threshold sits above lit turf and the haze
   composer.addPass(new OutputPass());
+  // FXAA over the 4x MSAA resolve, in display space ahead of the grade's grain: MSAA leaves alpha-to-coverage leaf, tuft and
+  // hair edges as 4-level dither and thin chains as broken dots; this finishes them into soft partial coverage (gauntlet r2 d-crisp).
+  const fxaa = new ShaderPass(FXAAShader); composer.addPass(fxaa);
   const grade = new ShaderPass(GRADE); composer.addPass(grade);
-  return { passes: { shafts, bloom, grade }, render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); }, dispose() {
+  return { passes: { shafts, bloom, fxaa, grade }, render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); fxaa.uniforms.resolution.value.set(1 / w, 1 / h); }, dispose() {
     for (const p of composer.passes) p.dispose?.(); composer.dispose();   // disposing a target frees its depth texture too
   } };
 }
