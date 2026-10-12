@@ -1,0 +1,24 @@
+{
+ "source": "dgm-beast.mp4 (Disc Golf Masters, Nokia Beast, youtube 1oKuHnueZTI, 640x360 30 fps; copied from session 3847f857's watch download)",
+ "note": "seconds in the source video, read off 30 fps frame sheets (sheet3-*.jpg)",
+ "flyover": {
+  "start": 50.0,
+  "end": 59.8,
+  "hole": 1
+ },
+ "drive": {
+  "aimEnd": 98.77,
+  "windup": 98.8,
+  "release": 99.27,
+  "followCamStart": 99.6,
+  "landing": 105.9,
+  "hole": 1,
+  "note": "the camera cuts from the over-shoulder aim view to a wider behind view as the reach-back starts, then flies after the disc through the arch"
+ },
+ "putt": {
+  "setup": 107.4,
+  "release": 108.95,
+  "chains": 110.4,
+  "note": "camera behind and right of the thrower, basket centred; fades to black at 112"
+ }
+}

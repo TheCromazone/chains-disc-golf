@@ -4,7 +4,7 @@
 
 <capture_dir> holds phone/ (capture.mjs --size 960x540 --dpr 2 --mobile --quality low), desktop/ (--size 1920x1080
 --quality high) and motion/ (capture-motion.mjs) - see tools/gauntlet/BRIEF.md. Reference frames come from
-tools/gauntlet/refs.py; motion strips are cut straight from the 1080p60 video at the events in art/qa/dgm-motion/events.json.
+tools/gauntlet/refs.py; motion strips are cut straight from the 1080p60 video at the events in tools/gauntlet/dgm-events.json.
 Writes art/qa/judge/<label>/<piece>-<i>/{prompt.md, A.jpg, B.jpg} and prints the key as JSON on stdout
 ({piece: [{"prompt": path, "ours": "A"|"B"}]}). The key never touches disk next to the images, so a critic cannot read it.
 Vote i puts ours in slot A when (start + i) is even and B when odd: critics favour one slot per piece, so a piece is
@@ -14,9 +14,12 @@ import argparse, json, pathlib, subprocess, sys
 from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-REF = ROOT / 'art/reference/dgm-1080'
+def _main_checkout():   # art/reference is gitignored, so a builder's worktree reads the frames from the main checkout
+    git = subprocess.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], capture_output=True, text=True, cwd=ROOT).stdout.strip()
+    return pathlib.Path(git).parent if git else ROOT
+REF = next(r / 'art/reference/dgm-1080' for r in (ROOT, _main_checkout()) if (r / 'art/reference/dgm-1080/frames').exists())
 VIDEO = REF / 'beast-1080.mp4'
-EVENTS = json.loads((ROOT / 'art/qa/dgm-motion/events.json').read_text())
+EVENTS = json.loads((ROOT / 'tools/gauntlet/dgm-events.json').read_text())   # seconds in the reference video, read off frame sheets
 
 # piece: (our [tier/moment] list, reference frame list, what to judge, crop or None). Vote i uses ours[i % n] and refs[i % n].
 STILLS = {
