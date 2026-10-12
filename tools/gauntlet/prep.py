@@ -58,7 +58,7 @@ STILLS.update({
     'fn-d-look': (['desktop/tee', 'desktop/putt'], ['fn/pc-1', 'fn/pc-2', 'fn/pc-3', 'fn/pc-4'],
                   'RENDERING POLISH AND PRODUCTION VALUE on a desktop PC: richness of the lighting (sun, sky light, bounce light), '
                   'material quality, depth, foliage, cleanliness, how premium and finished the frame looks. Ignore HUD and overlays.' + STYLE),
-    'fn-athlete': (['phone/tee'], ['fn/ip-ath', 'fn/pc-3', 'fn/pc-4'],
+    'fn-athlete': (['phone/tee'], ['fn/ip-ath', 'fn/pc-ath', 'fn/pc-4'],
                    "THE PLAYER CHARACTER'S RENDERING: shading, materials, hair, cloth, silhouette and how natural the pose is." + STYLE),
 })
 CRISP = {   # judged on 1:1 native-resolution crops, not the whole frame

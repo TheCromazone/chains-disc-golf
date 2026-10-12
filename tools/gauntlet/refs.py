@@ -23,7 +23,7 @@ FRAMES = {   # name: seconds into the video
 FORTNITE = {
     'ip-1': ('iphone17pm.mp4', 96), 'ip-2': ('iphone17pm.mp4', 104), 'ip-3': ('iphone17pm.mp4', 200), 'ip-4': ('iphone17pm.mp4', 216),
     'ip-ath': ('iphone17pm.mp4', 184),
-    'pc-1': ('pc-5090.mp4', 480), 'pc-2': ('pc-5090.mp4', 570), 'pc-3': ('pc-5090.mp4', 660), 'pc-4': ('pc-5090.mp4', 810),
+    'pc-1': ('pc-5090.mp4', 480), 'pc-2': ('pc-5090.mp4', 570), 'pc-3': ('pc-5090.mp4', 660), 'pc-4': ('pc-5090.mp4', 810), 'pc-ath': ('pc-5090.mp4', 690),
 }
 
 ap = argparse.ArgumentParser(); ap.add_argument('--video', default='art/reference/dgm-1080/beast-1080.mp4'); a = ap.parse_args()
