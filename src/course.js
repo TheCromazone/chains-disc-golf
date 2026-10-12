@@ -490,12 +490,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const decVariants = [0,1,2].map(variant => canopyGeometry('deciduous',variant));
   const bushGeo = shadeCrown(blob(1, 1, 0.6).scale(1, 0.75, 1).translate(0, 0.5, 0));
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
-  // Tree LOD. Full draws the Blender trees within treeNear (62 m) of the eye and a camera-facing impostor beyond; Lite draws
-  // impostors everywhere (treeNear 0). Both sides test the same eye, refreshed every quarter second by treeLod() from update(),
+  // Tree LOD. Both tiers draw the Blender trees within treeNear (Full 62 m, Lite 40 m) of the eye and a camera-facing
+  // impostor beyond. Both sides test the same eye, refreshed every quarter second by treeLod() from update(),
   // per tree in the vertex shader, so every tree is exactly one of the two. Each variant/material pair is one instanced mesh
   // that treeLod() refills from a 32 m grid with just the trees near the eye (plus a 4 m margin, so the shader decides), so
   // a frame submits one draw per pair and only near trees, and the tick's work scales with the trees near the eye.
-  const treeEye = { value: new THREE.Vector3(1e9, 0, 1e9) }, treeNear = { value: quality === 'low' ? 0 : 62 }, nearSets = [];
+  const treeEye = { value: new THREE.Vector3(1e9, 0, 1e9) }, treeNear = { value: quality === 'low' ? 40 : 62 }, nearSets = [];   // gauntlet r2: Lite's all-impostor woods read as "blocky, blurry cards" against the reference; 3D crowns to 40 m cost ~1.5k triangles a tree
   const treeDisc = { value: new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[2]), THREE.MathUtils.degToRad(def.sun[3])) };   // the sun's visible disc (the sky section's discDir)
   const treeKeep = { value: 0 };   // how much of the far squeeze below the putt gives back (update(): PUTT_AIR.keep)
   const treeAir = { value: 0 };   // 1 round the pin, 0 elsewhere (update(): PUTT_AIR's putt factor): how much of the glare exemptions below the putt's air takes back. The putt looks within ~20° of the low sun, where the tee's dark rim-lit silhouettes left the woods 30-80 m past the pin with half the haze and full contrast (w7-2: "far trunks as dark and saturated as the near birches")
@@ -515,7 +515,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
         const dx = pos[k * 2] - view.x, dz = pos[k * 2 + 1] - view.z; if (dx * dx + dz * dz > R * R || dx * fx + dz * fz < -back) continue;
         dm.array.set(mats.subarray(k * 16, k * 16 + 16), n * 16); if (dc) dc.array.set(cols.subarray(k * 3, k * 3 + 3), n * 3); n++;
       }
-      im.count = n; dm.clearUpdateRanges(); dm.addUpdateRange(0, n * 16); dm.needsUpdate = true;
+      im.count = n; im.visible = n > 0; dm.clearUpdateRanges();   // an empty set still costs a draw call (two with its shadow) dm.addUpdateRange(0, n * 16); dm.needsUpdate = true;
       if (dc) { dc.clearUpdateRanges(); dc.addUpdateRange(0, n * 3); dc.needsUpdate = true; }
     } };
   const near3d = mat => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.treeEye = treeEye; s.uniforms.treeNear = treeNear;
@@ -587,7 +587,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // Full: the Blender trees (tools/build-trees.py over the tools/build-foliage.py atlas). A variant is a branch skeleton
   // ('bark' / 'bark_birch') plus leaf-spray cards ('leaves'), one near-tree set per variant and material (see treeLod) with a
   // per-tree tint. Wood and leaves share the wind, so the limbs carry their clumps as they sway, and both cast shadows.
-  const full = quality !== 'low', leafAtlas = full && texture('leaves', { clamp: true, flipY: false }), leafNormals = full && texture('leaves_n', { clamp: true, flipY: false, srgb: false });   // Lite never fetches them
+  const full = quality !== 'low', leafAtlas = texture('leaves', { clamp: true, flipY: false }), leafNormals = texture('leaves_n', { clamp: true, flipY: false, srgb: false });
   // Canopy shading on top of three's PBR loop. Vertex colour rgb tints the albedo and its alpha is the build's sky visibility,
   // which dims ambient light fully and sunlight a little (the shadow map does the rest), so sunlit clumps stay bright while the
   // core of the crown and the limbs inside it fall dark. Leaves (leaf = true) also: the build bakes each leaf normal away from
@@ -764,7 +764,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     return new THREE.Vector4(ym, lo, Math.max(2 * hi - lo, .3, hi * .25), (y1 - y0) / 2); };
   const leafFull = g => near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.3, -.3), alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock), true, crownOf(g)));
   const wood = map => map && near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false));
-  const woodMats = { bark: wood(bark), bark_birch: wood(full && texture('bark_birch')) };
+  const woodMats = { bark: wood(bark), bark_birch: wood(texture('bark_birch')) };
   // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
   // conifers sit darker than the broadleaves (a deep green, not grey-blue); stands drift yellower or bluer, lighter or darker by
@@ -776,7 +776,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = (.85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3) * (s.kind === 'birch' ? .62 + noise(s.x * .29 + 9, s.z * .29 + 2) * .25 : 1); return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
   for (const b of [...bushes, ...shrubs]) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
   const planted = (name, spots, shadow = true, lod = true) => {
-    const src = quality !== 'low' && leafAtlas && model(name); if (!src) return false;
+    const src = leafAtlas && model(name); if (!src) return false;
     src.scene.updateMatrixWorld(true);
     src.scene.traverse(o => { if (!o.isMesh) return;
       const variant = o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
@@ -828,7 +828,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     im.frustumCulled = false; im.castShadow = shadow; im.receiveShadow = false; im.customDepthMaterial = impDepth; group.add(im);
     return true;
   };
-  // Lite (or no GLBs): impostors only. With neither, the embedded crowns, scaled to the trees' height so what the disc hits shows.
+  // No GLBs: impostors only. With neither, the embedded crowns, scaled to the trees' height so what the disc hits shows.
   const grow = (spots, k) => spots.map(s => ({ ...s, s: s.s * k }));
   if (!planted('pine', pineSpots) & !impostors(pineSpots)) {
     inst(pineTrunk, trunkMat, grow(pineSpots, 1.6), null, false);
@@ -838,7 +838,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     inst(decTrunk, trunkMat, grow(decSpots, 1.6), null, false);
     for(let variant=0;variant<3;variant++) inst(decVariants[variant], leafMat, grow(decSpots.filter(s=>Math.floor(noise(s.x*.37+13,s.z*.37+5)*3)===variant), 1.6), s => col.setHSL(def.leafHue + (noise(s.x/22 + 9, s.z/22) - 0.5) * 0.07, 0.5, 0.30 + noise(s.z/24 + 4, s.x/24) * 0.18, THREE.SRGBColorSpace));
   }
-  if (!planted('bush', bushes, false, false) && !(quality === 'low' && impostors(bushes, false))) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
+  // Lite: 3D bushes within treeNear, cards beyond
+  if (!(full ? planted('bush', bushes, false, false) : planted('bush', bushes, false) | impostors(bushes, false))) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
   // Fine crossed-alpha grass is deliberately retired in both modes.
 
   // --- water ---
@@ -875,7 +876,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // rough, gone on gravel, litter, sand and the pads. A few photo tufts stand where mowers miss, at the sign post and
   // round the basket pole: small and green, darkened at the root; no shadow discs. Lite spends their triangles on the carpet.
   group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }));
-  const tuftMap = quality !== 'low' && texture('tuft', { clamp: true });
+  const tuftMap = texture('tuft', { clamp: true });   // both tiers: one draw, and the fringe is what breaks Lite's path edges up too
   if (tuftMap) {
     const tuftRng = makeRng(seed + 733);
     const card = new THREE.PlaneGeometry(1, 1).translate(0, .46, 0);   // rooted 4 cm below grade
@@ -1030,7 +1031,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // past the pin keep full dark trunks, 40 m a light veil, 80 m most of the way to the air, which is a cool blue-grey
     // (#aab8c6-ish on screen) instead of the green-grey that read as fog.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
-      Object.assign(FOG.shape, { x: m(34, P.clear), y: m(TEE_AIR, P.density), z: m(30, P.knee) });
+      const A = full ? { tee: 1, putt: 1, clear: [34, P.clear] } : LITE_AIR;
+      Object.assign(FOG.shape, { x: m(...A.clear), y: m(TEE_AIR * A.tee, P.density * A.putt), z: m(30, P.knee) });
       Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm[0]), g: warm.g * m(1, P.warm[1]), b: warm.b * m(1, P.warm[2]) }); const gl = m(1, P.glow); Object.assign(FOG.glow, { r: glow.r * gl, g: glow.g * gl, b: glow.b * gl }); treeAir.value = k; treeKeep.value = m(0, P.keep); sun.intensity = def.sun[4] * m(1, P.sun); hemi.intensity = 1.5 * m(1, P.fill[0]); scene.environmentIntensity = .5 * m(1, P.fill[1]); gapHole.value.z = m(1.5, P.cut); gapAim.value.w = m(.4, P.aim); gapReach.value.set(m(15, P.reach[0]), m(35, P.reach[1]), m(3.2, P.reach[2])); }   // the putt's canopy gaps (PUTT_AIR.cut, .aim, .reach); the tee and flyover keep 1.5, .4, 15-35 m and 3.2 m cells
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
@@ -1060,6 +1062,12 @@ const PUTT_AIR = { clear: 28, density: .25, knee: 30, haze: [.42, .52, .78], war
 // spruce on Bluffs still blue-grey (top-half foliage value .49 against the reference's .21-.39). The fog chunk's ramp now
 // gives (pine, eye 1.7 m up) ~3% at 60 m, 7% at 80, 11% at 100, 20% at 150: rows still step back, the treeline stays green.
 const TEE_AIR = .55;
+// Lite's air: density scales on the tee's and the putt's (above) and the clear distance (m) at each. Full's light shafts,
+// bloom and veiling glare lay a sunlit veil over its far rows; Lite has none of them, and at Full's air its putt took 2% at
+// 60 m and 5% at 100 m, so the woods kept the near rows' contrast and colour all the way back (gauntlet r2 haze 0/2, light
+// and trees: "no aerial perspective, the far treeline as crisp and saturated as the near"). Pine, eye 1.7 m up: the putt
+// now 6% at 40 m, 15% at 60, 31% at 100; the tee 4% at 40, 12% at 60, 30% at 100.
+const LITE_AIR = { tee: 3, putt: 6, clear: [24, 18] };
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: TEE_AIR, z: 30, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
