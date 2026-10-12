@@ -126,9 +126,11 @@ class Aerial extends Pass {
 export function postprocessing(renderer, scene, camera, { photographic = false } = {}) {
   if (!photographic) return { render: () => renderer.render(scene, camera), resize() {}, dispose() {} };
   // The scene target keeps its depth as a texture for the shafts, and takes 4x MSAA: the renderer's own antialias only
-  // covers the default framebuffer, so Full used to go through post with stair-stepped edges. With two swapping passes
-  // per frame the RenderPass always lands in renderTarget2 (the composer's first read buffer); renderTarget1 only takes
-  // the OutputPass's fullscreen quad, so it keeps neither samples nor a depth texture.
+  // covers the default framebuffer, so Full used to go through post with stair-stepped edges. The RenderPass must land in
+  // renderTarget2 every frame (render() below); renderTarget1 only takes the later passes' fullscreen quads, so it keeps
+  // neither samples nor a depth texture. d-look r2: FXAA made three swapping passes, so the composer's buffers came back
+  // crossed every other frame and the scene drew into renderTarget1: no MSAA, no aerial haze, no shafts on alternate frames
+  // (a 30 Hz flicker; a still caught either "volumetric haze" or "no sense of air" at random).
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType }));
   Object.assign(composer.renderTarget2, { samples: 4, depthTexture: new THREE.DepthTexture(size.x, size.y) });
@@ -141,7 +143,7 @@ export function postprocessing(renderer, scene, camera, { photographic = false }
   // hair edges as 4-level dither and thin chains as broken dots; this finishes them into soft partial coverage (gauntlet r2 d-crisp).
   const fxaa = new ShaderPass(FXAAShader); composer.addPass(fxaa);
   const grade = new ShaderPass(GRADE); composer.addPass(grade);
-  return { passes: { aerial, shafts, bloom, fxaa, grade }, render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); fxaa.uniforms.resolution.value.set(1 / w, 1 / h); }, dispose() {
+  return { passes: { aerial, shafts, bloom, fxaa, grade }, render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; if (composer.readBuffer !== composer.renderTarget2) composer.swapBuffers(); composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); fxaa.uniforms.resolution.value.set(1 / w, 1 / h); }, dispose() {
     for (const p of composer.passes) p.dispose?.(); composer.dispose();   // disposing a target frees its depth texture too
   } };
 }
