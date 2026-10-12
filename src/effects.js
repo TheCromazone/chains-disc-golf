@@ -18,12 +18,12 @@ export async function loadSky() { return null; }
 // toward summer olive (uHue) and a little of their saturation off (uOlive), a split tone (shade toward the sky's blue,
 // sunlit tones toward the key's warmth, so sun and shade read apart at a glance), a thin cool veil over the deepest darks,
 // film grain, corner vignette. d-look r2 (0/2: "neon-green grass, punchy contrast", "a stylized game"): the lawn's green
-// sat at hue ~100 deg against Disc Golf Masters' ~77 (yellow-olive), so uHue .25 -> .7, uOlive 0 -> .28, uSat 1.12 -> .97,
+// sat at hue ~100 deg against Disc Golf Masters' ~77 (yellow-olive), so uHue .25 -> 1.1 (lawn ~86 deg), uOlive 0 -> .28, uSat 1.12 -> .97,
 // curve .4 -> .25 and a warmer gain with a lifted toe: a muted, slightly warm filmic print instead of a punchy game grade.
 // Screen-space AO was tried and dropped (r5): too faint at thin contacts, grime in the lawn; the contact rings under trunks
 // and baskets (course.js) and the canopy's baked occlusion carry it.
 const GRADE = {
-  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.01, .975, .9) }, uLift: { value: new THREE.Vector3(.009, .009, .013) }, uSat: { value: .97 }, uOlive: { value: .28 }, uHue: { value: .7 },
+  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.01, .975, .9) }, uLift: { value: new THREE.Vector3(.009, .009, .013) }, uSat: { value: .97 }, uOlive: { value: .28 }, uHue: { value: 1.1 },
     uCool: { value: new THREE.Vector3(.94, .99, 1.06) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uVeil: { value: new THREE.Vector3(.018, .022, .03) }, uCurve: { value: .25 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
   vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift,uCool,uWarm,uVeil;uniform float uSat,uOlive,uHue,uCurve,uGrain,uVignette,uTime;varying vec2 vUv;
