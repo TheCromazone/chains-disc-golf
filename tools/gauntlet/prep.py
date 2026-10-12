@@ -48,9 +48,23 @@ STILLS = {
     'd-look': (['desktop/tee', 'desktop/putt'], ['tee-hole1', 'putt-b', 'tee-hole2'],
                'OVERALL REALISM AND PRODUCTION VALUE of the whole frame, as a player on a big monitor would see it.'),
 }
+STYLE = (' The two games have different art styles, one stylized and one realistic: do not reward or punish either style; '
+         'judge how well each one executes its own.')
+# Fortnite, the second bar: reference names starting "fn/" come from art/reference/fortnite/frames (tools/gauntlet/refs.py).
+STILLS.update({
+    'fn-look': (['phone/tee', 'phone/putt'], ['fn/ip-1', 'fn/ip-2', 'fn/ip-3', 'fn/ip-4'],
+                'RENDERING POLISH AND PRODUCTION VALUE of a phone game: richness of the lighting (sun, sky light, bounce light), '
+                'material quality, depth, cleanliness, how premium and finished the frame looks. Ignore the HUD and touch buttons.' + STYLE),
+    'fn-d-look': (['desktop/tee', 'desktop/putt'], ['fn/pc-1', 'fn/pc-2', 'fn/pc-3', 'fn/pc-4'],
+                  'RENDERING POLISH AND PRODUCTION VALUE on a desktop PC: richness of the lighting (sun, sky light, bounce light), '
+                  'material quality, depth, foliage, cleanliness, how premium and finished the frame looks. Ignore HUD and overlays.' + STYLE),
+    'fn-athlete': (['phone/tee'], ['fn/ip-ath', 'fn/pc-3', 'fn/pc-4'],
+                   "THE PLAYER CHARACTER'S RENDERING: shading, materials, hair, cloth, silhouette and how natural the pose is." + STYLE),
+})
 CRISP = {   # judged on 1:1 native-resolution crops, not the whole frame
     'crisp': (['phone/tee', 'phone/putt'], ['tee-hole1', 'putt-b'], 'phone'),
     'd-crisp': (['desktop/tee', 'desktop/putt'], ['tee-hole1', 'putt-b'], 'desktop'),
+    'fn-crisp': (['phone/tee', 'phone/putt'], ['fn/ip-1', 'fn/ip-3'], 'phone'),
 }
 CRISP_TEXT = ('IMAGE QUALITY AT NATIVE RESOLUTION, nothing else: stair-stepped (jaggy) edges, pixelation, blocky or blurry-upscaled '
               'texture, hard one-pixel cut-out edges on leaves, grass and hair, thin lines that break into dots, shadow edges that '
@@ -87,6 +101,7 @@ def fit(im, size=(1280, 720)):
     return im.convert('RGB').resize(size, Image.LANCZOS)
 
 def ref_frame(name):
+    if name.startswith('fn/'): return Image.open(REF.parent / 'fortnite/frames' / f'{name[3:]}.jpg')
     return Image.open(REF / 'frames' / f'{name}.jpg')
 
 def video_frame(t):

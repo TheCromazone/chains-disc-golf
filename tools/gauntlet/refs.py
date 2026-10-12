@@ -17,7 +17,23 @@ FRAMES = {   # name: seconds into the video
     'tee-hole1-b': 299.5, 'putt-b': 319.5, 'putt-dark': 323.5, 'tee-hole2-b': 329.5, 'scorecard-b': 367.5, 'tee-hole3-b': 371.5,
 }
 
+# Fortnite, the second bar (the owner's pick): judged on rendering polish and image quality, never on art style.
+# iphone17pm.mp4 = YouTube eECqS_WBT7c (iPhone 17 Pro Max screen recording, 2336x1080, centre-cropped to 16:9);
+# pc-5090.mp4 = YouTube jFrJKF3o5_8 (RTX 5090, 4K max settings + RTX, fetched at 1080p). Both in art/reference/fortnite/ (gitignored).
+FORTNITE = {
+    'ip-1': ('iphone17pm.mp4', 96), 'ip-2': ('iphone17pm.mp4', 104), 'ip-3': ('iphone17pm.mp4', 200), 'ip-4': ('iphone17pm.mp4', 216),
+    'ip-ath': ('iphone17pm.mp4', 184),
+    'pc-1': ('pc-5090.mp4', 480), 'pc-2': ('pc-5090.mp4', 570), 'pc-3': ('pc-5090.mp4', 660), 'pc-4': ('pc-5090.mp4', 810),
+}
+
 ap = argparse.ArgumentParser(); ap.add_argument('--video', default='art/reference/dgm-1080/beast-1080.mp4'); a = ap.parse_args()
+fn = ROOT / 'art/reference/fortnite'
+if fn.exists():
+    (fn / 'frames').mkdir(exist_ok=True)
+    for name, (video, t) in FORTNITE.items():
+        crop = ['-vf', 'crop=1920:1080:(iw-1920)/2:0'] if video.startswith('iphone') else []
+        subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-ss', str(t), '-i', str(fn / video), *crop, '-frames:v', '1', '-q:v', '2', str(fn / 'frames' / f'{name}.jpg')], check=True)
+        print('fortnite', name, t)
 out = ROOT / 'art/reference/dgm-1080/frames'; out.mkdir(parents=True, exist_ok=True)
 for name, t in FRAMES.items():
     subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-ss', str(t), '-i', str(ROOT / a.video), '-frames:v', '1', '-q:v', '2', str(out / f'{name}.jpg')], check=True)
