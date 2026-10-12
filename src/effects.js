@@ -13,24 +13,25 @@ import { Water } from 'three/addons/objects/Water.js';
 // sun's aureole agree with what the frame shows; the old course HDRIs baked their sun somewhere else. Nothing to fetch.
 export async function loadSky() { return null; }
 
-// Broadcast finish for Full: render -> light shafts -> bloom (the sun's halo, lit cloud tops, chalk, glossy plastic)
-// -> output (ACES) -> grade. The grade is one fullscreen pass in display space: gain and lift, a gentle S-curve (at .5
-// it sank dark mulch in shade under the toe), saturation about luma (1.12) with greens' hue eased toward summer olive (the
-// lawn and leaves were a neon lime; uOlive, which also took saturation off greens, is 0 since the saturation round: the
-// foliage sat at .24-.41 against Disc Golf Masters' .40-.54), a split tone (shade toward the sky's blue, sunlit tones
-// toward the key's warmth, so sun and shade read apart at a glance), a thin cool veil over the deepest darks, film grain,
-// corner vignette.
+// Broadcast finish for Full: render -> aerial perspective -> light shafts -> bloom (the sun's halo, lit cloud tops, chalk,
+// glossy plastic) -> output (ACES) -> grade. The grade is one fullscreen pass in display space: a warm gain over a lifted
+// toe, a gentle S-curve (at .5 it sank dark mulch in shade under the toe), saturation about luma with greens' hue pushed
+// toward summer olive (uHue) and a little of their saturation off (uOlive), a split tone (shade toward the sky's blue,
+// sunlit tones toward the key's warmth, so sun and shade read apart at a glance), a thin cool veil over the deepest darks,
+// film grain, corner vignette. d-look r2 (0/2: "neon-green grass, punchy contrast", "a stylized game"): the lawn's green
+// sat at hue ~100 deg against Disc Golf Masters' ~77 (yellow-olive), so uHue .25 -> 1.1 (lawn ~86 deg), uOlive 0 -> .28, uSat 1.12 -> .97,
+// curve .4 -> .25 and a warmer gain with a lifted toe: a muted, slightly warm filmic print instead of a punchy game grade.
 // Screen-space AO was tried and dropped (r5): too faint at thin contacts, grime in the lawn; the contact rings under trunks
 // and baskets (course.js) and the canopy's baked occlusion carry it.
 const GRADE = {
-  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.03, 1, .96) }, uLift: { value: new THREE.Vector3(0, .003, .01) }, uSat: { value: 1.12 }, uOlive: { value: 0 },
-    uCool: { value: new THREE.Vector3(.94, .99, 1.06) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uVeil: { value: new THREE.Vector3(.018, .022, .03) }, uCurve: { value: .4 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.01, .975, .9) }, uLift: { value: new THREE.Vector3(.009, .009, .013) }, uSat: { value: .97 }, uOlive: { value: .28 }, uHue: { value: 1.1 },
+    uCool: { value: new THREE.Vector3(.94, .99, 1.06) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uVeil: { value: new THREE.Vector3(.018, .022, .03) }, uCurve: { value: .25 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
   vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-  fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift,uCool,uWarm,uVeil;uniform float uSat,uOlive,uCurve,uGrain,uVignette,uTime;varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift,uCool,uWarm,uVeil;uniform float uSat,uOlive,uHue,uCurve,uGrain,uVignette,uTime;varying vec2 vUv;
     void main(){ vec4 c=texture2D(tDiffuse,vUv); c.rgb=clamp(c.rgb*uGain+uLift,0.,1.);
       c.rgb=mix(c.rgb,c.rgb*c.rgb*(3.-2.*c.rgb),uCurve);
       float l=dot(c.rgb,vec3(.2126,.7152,.0722)), lead=clamp((c.g-max(c.r,c.b))*3.,0.,1.);   // how far green leads: turf and leaves
-      c.rgb=mix(vec3(l),c.rgb,uSat*(1.-uOlive*lead)); c.r+=(c.g-c.r)*lead*.25;
+      c.rgb=mix(vec3(l),c.rgb,uSat*(1.-uOlive*lead)); c.r+=(c.g-c.r)*lead*uHue;
       c.rgb*=mix(uCool,uWarm,smoothstep(.06,.5,l));
       c.rgb=mix(vec3(l),c.rgb,mix(.9,1.,smoothstep(.04,.3,l)))+uVeil*(1.-l)*(1.-l)*(1.-l);   // air between lens and shade: the deepest darks go a little grey and cool, never ink-black
       float n=fract(sin(dot(gl_FragCoord.xy+vec2(uTime*61.,uTime*37.),vec2(12.9898,78.233)))*43758.5453); c.rgb+=(n-.5)*uGrain*(1.-l*.6);
@@ -92,6 +93,36 @@ class LightShafts extends Pass {
   dispose() { this.a.dispose(); this.b.dispose(); for (const q of [this.mask, this.blur, this.smooth, this.add]) { q.material.dispose(); q.dispose(); } }
 }
 
+// Aerial perspective for Full, from the scene's own depth: past uShape.x metres of true eye distance every solid pixel
+// is veiled toward sunlit air (the course fog's haze, warming toward the disc, a forward-scatter glare round it), up to
+// uShape.z, at a density of uShape.y per metre. The materials' fog clears the first 34 m (28 at the pin) for Lite's sake,
+// so on a big monitor the arch, the 30-60 m woods and the hill behind them kept the near rows' contrast and saturation
+// ("a dense CG diorama", d-look 0/2); this starts at 12 m and grades each row back. Drawn into the scene target with
+// blending (dst*(1-f) + air*f), so it needs no target or buffer swap of its own; the sky (no depth) is left alone.
+class Aerial extends Pass {
+  constructor(scene, camera) {
+    super(); this.needsSwap = false; this.scene = scene; this.camera = camera;
+    this.u = { tDepth: { value: null }, uProjInv: { value: camera.projectionMatrixInverse }, uSun: { value: new THREE.Vector3() }, uUp: { value: new THREE.Vector3() },
+      uHaze: { value: new THREE.Color() }, uWarm: { value: new THREE.Color() }, uGlow: { value: new THREE.Color() }, uShape: { value: new THREE.Vector4(15, .013, .52, 10) }, uGain: { value: new THREE.Vector3(.75, .8, .85) } };
+    this.quad = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: this.u, vertexShader: QUAD_VS, depthTest: false, depthWrite: false, transparent: true,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+      fragmentShader: `uniform sampler2D tDepth;uniform mat4 uProjInv;uniform vec3 uSun,uUp,uHaze,uWarm,uGlow,uGain;uniform vec4 uShape;varying vec2 vUv;
+      void main(){ float z=texture2D(tDepth,vUv).x; if(z>.99999) discard;
+        vec4 p=uProjInv*vec4(vUv*2.-1.,z*2.-1.,1.); p.xyz/=p.w; float d=length(p.xyz); vec3 ray=p.xyz/d; float s=max(dot(ray,uSun),0.);
+        float f=uShape.z*(1.-exp(-uShape.y*max(d-uShape.x,0.)))*mix(1.,.7,smoothstep(0.,.6,dot(ray,uUp)));   // a little thinner looking up into the crowns than across the ground
+        vec3 air=(mix(uHaze,uWarm,pow(s,uShape.w))+uGlow*pow(s,24.))*uGain;
+        gl_FragColor=vec4(air*f,f); }` }));
+  }
+  render(renderer, writeBuffer, readBuffer) {
+    const sun = this.scene.userData.sun; if (!sun || !readBuffer.depthTexture || this.u.uShape.value.z <= 0) return;
+    const u = this.u, fog = sun.fog, v = this.camera.matrixWorldInverse;
+    u.tDepth.value = readBuffer.depthTexture; u.uSun.value.copy(sun.dir).transformDirection(v); u.uUp.value.set(0, 1, 0).transformDirection(v);
+    u.uHaze.value.setRGB(fog.haze.r, fog.haze.g, fog.haze.b); u.uWarm.value.setRGB(fog.warm.r, fog.warm.g, fog.warm.b); u.uGlow.value.setRGB(fog.glow.r, fog.glow.g, fog.glow.b);
+    const auto = renderer.autoClear; renderer.autoClear = false; renderer.setRenderTarget(readBuffer); this.quad.render(renderer); renderer.autoClear = auto;
+  }
+  dispose() { this.quad.material.dispose(); this.quad.dispose(); }
+}
+
 export function postprocessing(renderer, scene, camera, { photographic = false } = {}) {
   if (!photographic) return { render: () => renderer.render(scene, camera), resize() {}, dispose() {} };
   // The scene target keeps its depth as a texture for the shafts, and takes 4x MSAA: the renderer's own antialias only
@@ -102,6 +133,7 @@ export function postprocessing(renderer, scene, camera, { photographic = false }
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType }));
   Object.assign(composer.renderTarget2, { samples: 4, depthTexture: new THREE.DepthTexture(size.x, size.y) });
   composer.addPass(new RenderPass(scene, camera));
+  const aerial = new Aerial(scene, camera); composer.addPass(aerial);
   const shafts = new LightShafts(scene, camera); composer.addPass(shafts);
   const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), .35, .6, 2); composer.addPass(bloom);   // wide enough that the 20x sun disc spreads into a halo; the threshold sits above lit turf and the haze
   composer.addPass(new OutputPass());
@@ -109,7 +141,7 @@ export function postprocessing(renderer, scene, camera, { photographic = false }
   // hair edges as 4-level dither and thin chains as broken dots; this finishes them into soft partial coverage (gauntlet r2 d-crisp).
   const fxaa = new ShaderPass(FXAAShader); composer.addPass(fxaa);
   const grade = new ShaderPass(GRADE); composer.addPass(grade);
-  return { passes: { shafts, bloom, fxaa, grade }, render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); fxaa.uniforms.resolution.value.set(1 / w, 1 / h); }, dispose() {
+  return { passes: { aerial, shafts, bloom, fxaa, grade }, render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); fxaa.uniforms.resolution.value.set(1 / w, 1 / h); }, dispose() {
     for (const p of composer.passes) p.dispose?.(); composer.dispose();   // disposing a target frees its depth texture too
   } };
 }
