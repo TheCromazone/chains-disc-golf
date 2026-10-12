@@ -74,6 +74,7 @@ try {
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: +o.dpr, mobile: o.mobile });
   if (o.mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.coach', '["aim","throw","both"]'); } catch {}` });   // a returning player: the first-round thumb coach covered a third of the phone tee frame
   if (o.course) await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.course', ${JSON.stringify(o.course)}); } catch {}` });   // pine | meadow | lake | bluff
   await send('Page.navigate', { url: o.url || `http://localhost:${port}/` });
   await until(`!!(window.__chains && __chains.course && __chains.hero)`, 120000);
