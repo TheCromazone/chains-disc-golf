@@ -78,9 +78,10 @@ renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
 let post = null, postEnabled = true, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0, slowTime = 0;
+const forcedDpr = +new URLSearchParams(location.search).get('dpr') || 0;   // QA: a fixed pixel ratio (e.g. a supersampled ground truth for the aliasing metric)
 const lineMats = [];   // screen-space line materials that need the framebuffer size
 const resize = () => { if (!innerWidth || !innerHeight) return;   // a page opened in a background tab (or a hidden pane) reports 0x0: an aspect of 0/0 poisoned the camera with NaN for good
-  renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' || isMobile ? 1.5 : 2, Math.sqrt((isMobile ? 1800000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
+  renderer.setPixelRatio(forcedDpr || Math.min(devicePixelRatio, 2, Math.sqrt((isMobile ? 1800000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); /* phones render at 2x (1.5x on a 3x screen read as soft stair-steps); the frame-budget scaler sheds pixels on slow ones */ renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
 addEventListener('resize', resize); resize();
 
 let course, world, holes, effects = null;
@@ -1007,13 +1008,15 @@ function frame(dt, rawDt, background) {
   time += dt; input.update(dt);
   // Ignore background/paused frames; resolution changes never alter simulation time.
   if(fpsTag&&performance.now()>fpsNext){fpsNext=performance.now()+500;fpsTag.textContent=`${Math.round(1/frameAverage)} fps · ${G.settings.quality==='low'?'Mobile':'Desktop'} · ${Math.round(renderer.getPixelRatio()*100)/100}x · ${innerWidth}×${innerHeight} · sound ${audioState()}${isMuted() ? ' (muted)' : ''}`;}
-  if(!document.hidden && rawDt>.004 && rawDt<.25){frameAverage=frameAverage*.96+rawDt*.04;frameSamples++;
-    if(frameSamples>90 && time-lastResolutionChange>2){const budget=1/60;const old=resolutionScale;
-      if(frameAverage>budget*1.15)resolutionScale=Math.max(.5,resolutionScale-.08);
-      else if(frameAverage<budget*.82)resolutionScale=Math.min(1,resolutionScale+.04);
+  // Hitches over 100 ms (shader compiles, a hole loading) are not load: averaged in, each one stepped the resolution down, and the old
+  // recovery line (13.7 ms) sat under a 60 Hz display's 16.7 ms floor, so phones only ever lost pixels until the round looked 8-bit.
+  if(!document.hidden && rawDt>.004 && rawDt<.1){frameAverage=frameAverage*.96+rawDt*.04;frameSamples++;
+    if(frameSamples>90 && time-lastResolutionChange>2 && !forcedDpr){const old=resolutionScale;
+      if(frameAverage>(isMobile?1/30:1/50))resolutionScale=Math.max(.6,resolutionScale-.08);   // phones hold 30 fps, desktops 50
+      else if(frameAverage<(isMobile?1/40:1/57))resolutionScale=Math.min(1,resolutionScale+.04);
       if(old!==resolutionScale){resize();lastResolutionChange=time;}
     }
-    slowTime = frameAverage > 1/48 && resolutionScale <= .58 ? slowTime + dt : Math.max(0, slowTime - dt);
+    slowTime = frameAverage > 1/48 && resolutionScale <= .62 ? slowTime + dt : Math.max(0, slowTime - dt);
     if (slowTime > 6 && post && postEnabled) { postEnabled = false; slowTime = 0; UI.toast('Graphics adjusted', 'Keeping your round smooth', 1600); }
   }
   if (!course) return;
