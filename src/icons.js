@@ -28,6 +28,7 @@ const paths = {
   bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zm4 4a2 2 0 0 0 4 0"/>',
   share: '<path d="M12 3v12m-5-7 5-5 5 5M5 13v7h14v-7"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  sliders: '<path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
 };
 paths.backhand_io = paths.backhand + '<path d="m14 21 6-2"/>'; paths.backhand_oi = paths.backhand + '<path d="m14 19 6 2"/>';
 paths.forehand_io = paths.forehand + '<path d="m4 19 6 2"/>'; paths.forehand_oi = paths.forehand + '<path d="m4 21 6-2"/>';

@@ -184,7 +184,7 @@ const ORDER_COPY = { away: ['Real order', 'Farthest from the basket throws next,
 // off-shoulder and the woods past it closing the top of the frame. Trees inside ~25 m keep 95% of their contrast
 // through the haze, so staging close is what clears the fog. Of the greens whose approach runs away from the sun (the
 // low key then lights his face and the woods instead of haloing him) the one with the most trees past it wins.
-const MENU = { short: 5, lat: 1.25, face: .2, kick: 8, haze: 1.6, wide: { back: 3.3, up: 1.3, aim: 1.37, x: .5, fov: 23 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
+const MENU = { short: 5, lat: 1.25, face: .2, kick: 8, haze: 1.6, wide: { back: 3.3, up: 1.3, aim: 1.37, x: .38, fov: 23 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
 const menuStage = { d: [0, 1], r: [-1, 0] };
 // Contact shade under the clubhouse hero: the key light sits behind the lens, so his own shadow falls out of sight behind him.
 const blobCanvas = document.createElement('canvas'); blobCanvas.width = blobCanvas.height = 64; const blobInk = blobCanvas.getContext('2d'), blobGrad = blobInk.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -204,20 +204,25 @@ function kickLight(root) {
     m.customProgramCacheKey = () => prevKey.call(m) + '|kick'; m.needsUpdate = true;
   } });
 }
-const hazeMat = new THREE.MeshBasicMaterial({ color: '#c3d5d4', transparent: true, opacity: .28, depthWrite: false, fog: false }), scrim = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), hazeMat); scrim.visible = false; scene.add(scrim);
 // Full: the sheet shows the woods themselves, defocused: a quarter-res snapshot of this frame with the hero hidden (no shadow
 // pass), read through a 12-tap golden-angle disc between its first two mips, the cheap shallow depth of field of a long lens:
 // soft enough to sit behind him, sharp enough that the basket and banners still read (a heavier blur read as a smeared photo).
-// Lite keeps the plain haze.
+// Lite gets it too: plain haze over Lite's foliage cards read as blotchy low-res blobs, and the clubhouse has the budget for
+// a quarter-res second look (Mobile draws straight to the canvas, so the sheet tone-maps and encodes itself; into Full's
+// linear target both chunks are no-ops).
 const backdrop = { rt: null, mat: new THREE.ShaderMaterial({ uniforms: { map: { value: null }, texel: { value: new THREE.Vector2() }, blur: { value: .8 }, lod: { value: .7 } }, transparent: true, depthWrite: false,
   vertexShader: 'varying vec4 vClip; void main() { gl_Position = vClip = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
   fragmentShader: `uniform sampler2D map; uniform vec2 texel; uniform float blur, lod; varying vec4 vClip;
     void main() { vec2 uv = vClip.xy / vClip.w * .5 + .5; vec3 c = vec3(0.);
       for (int i = 0; i < 12; i++) { float r = sqrt((float(i) + .5) / 12.) * blur, a = float(i) * 2.39996; c += textureLod(map, uv + vec2(cos(a), sin(a)) * r * texel, lod).rgb; }
-      gl_FragColor = vec4(c / 12., 1.); }` }) };   // the blur's radius is in snapshot texels (4 px each)
+      gl_FragColor = vec4(c / 12., 1.);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }` }) };   // the blur's radius is in snapshot texels (4 px each)
+const scrim = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), backdrop.mat); scrim.visible = false; scene.add(scrim);
 function snapBackdrop() {
   const s = renderer.getDrawingBufferSize(new THREE.Vector2()), w = Math.max(32, s.x >> 2), h = Math.max(18, s.y >> 2);
-  if (!backdrop.rt) backdrop.rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });   // linear HDR, like the scene pass it lands in; MSAA so chains and twigs don't alias into blocks
+  if (!backdrop.rt) backdrop.rt = new THREE.WebGLRenderTarget(w, h, { type: renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float') ? THREE.HalfFloatType : THREE.UnsignedByteType, samples: 4, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });   // linear HDR, like the scene pass it lands in; MSAA so chains and twigs don't alias into blocks
   else if (backdrop.rt.width !== w || backdrop.rt.height !== h) backdrop.rt.setSize(w, h);
   backdrop.mat.uniforms.map.value = backdrop.rt.texture; backdrop.mat.uniforms.texel.value.set(1 / w, 1 / h);
   const shown = [hero.group, heroDisc, scrim, menuBlob].map(o => [o, o.visible]), auto = renderer.shadowMap.autoUpdate;
@@ -932,7 +937,7 @@ function updateCamera(dt) {
   let k = 5, fov = baseFov(); cam.tShift = 0;   // only a landscape putt's aimFrame slides the lens
   if (cam.mode === 'menu') {   // clubhouse: a low portrait of the athlete cut at mid-thigh (key art's crop: never at a joint), basket over his off-shoulder, woods closing the top
     const { d, r } = menuStage, t = performance.now() / 1000, p = hero.group.position, wide = camera.aspect > 1.2, S = wide ? MENU.wide : MENU.portrait, sway = Math.sin(t * 0.18) * 0.06;
-    // wide: the athlete centred in the view right of the panel (whatever its width); the axis swings left to put him there
+    // wide: the athlete just left of centre in the view right of the panel (whatever its width), so he stands near the frame's middle; the axis swings left to put him there
     const right = wide ? (document.querySelector('#menu .panel')?.getBoundingClientRect().right || 0) / innerWidth : 0, sx = wide ? right + (1 - right) * S.x - .5 : S.x - .5;
     const yaw = -Math.atan(sx * 2 * Math.tan(S.fov * DEG / 2) * camera.aspect) + sway * .02, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
     cam.tPos.set(p.x - d[0] * S.back - r[0] * sway, p.y + S.up, p.z - d[1] * S.back - r[1] * sway);
@@ -980,7 +985,7 @@ function updateCamera(dt) {
   camera.position.copy(cam.pos); camera.lookAt(cam.look);
   if (Math.abs(camera.fov - cam.fov) > .01) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }   // resize() resets fov by aspect; this re-applies the mode's lens every frame
   applyViewOffset();
-  scrim.material = post ? backdrop.mat : hazeMat; if (scrim.visible && post) snapBackdrop(); else if (backdrop.rt) { backdrop.rt.dispose(); backdrop.rt = null; }   // the snapshot's target lives only while the clubhouse shows
+  if (scrim.visible) snapBackdrop(); else if (backdrop.rt) { backdrop.rt.dispose(); backdrop.rt = null; }   // the snapshot's target lives only while the clubhouse shows
   // Target tag (ui.css #pin): the basket's distance on a hairline just over the flag while a hole is in play; it bows out as
   // the camera closes inside ~20 m, where the basket itself is the target. This frame's matrices, so it never trails the drone.
   if (/^(intro|aim|windup|release|flight)$/.test(G.phase)) { camera.updateMatrixWorld(); _v.set(h.basket[0], h.basketY + 2.3, h.basket[1]); const fade = THREE.MathUtils.smoothstep(_v.distanceTo(camera.position), 14, 22); _v.project(camera); UI.placePin((_v.x + 1) / 2 * innerWidth, (1 - _v.y) / 2 * innerHeight, _v.z < 1 ? fade : 0); }
