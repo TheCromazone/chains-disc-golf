@@ -1,0 +1,26 @@
+# Unity AI on the Windows PC (2026-10-12), editor 6000.6.0f1 in batch mode, project C:\Users\matth\Documents\ChainsUnity
+# CLI: C:\Users\matth\AppData\Local\Unity\bin\unity.exe 1.0.0-beta.8 (installed by Unity Hub 2026-09-14)
+
+$ unity auth status
+Signed in as Matthew Cromaz <owner's account>          (the owner signed the CLI in earlier; nothing was signed in here)
+$ unity license list
+Unity Personal  Assigned
+Asset Store     Assigned
+$ unity editors
+6000.6.0f1 installed (Hub offers 6000.6.5f1 as the upgrade)
+
+# Unity MCP (com.unity.pipeline 0.8.0-exp.1 via `unity pipeline install`): 160 tools, editor_status / package_search / eval answer.
+# Editor log: "[Licensing::Client] Successfully resolved entitlement details"; no Software Terms dialog in -batchmode.
+
+# Unity AI (text-to-motion lives in com.unity.ai.generators, module Unity.AI.Animate)
+package_search com.unity.ai.generators -> 1.7.0-pre.1 (Registry, not installed)
+package_search com.unity.ai.assistant  -> 2.20.0-pre.2 (Registry, not installed)
+package_add com.unity.ai.generators@1.7.0-pre.1 (+ com.unity.ai.toolkit 1.7.0-pre.1) -> does not compile on 6000.6.0f1:
+  com.unity.ai.toolkit/Modules/GenerationObjectPicker/ObjectSelectorReflected.cs(326,66): error CS0619: 'EntityId.implicit operator EntityId(int)' is obsolete
+  com.unity.ai.toolkit/Modules/GenerationObjectPicker/GenerationObjectPicker.cs(177,50): error CS0619: 'Object.GetInstanceID()' is obsolete
+  com.unity.ai.generators/Modules/Unity.AI.Generators.UI/Utilities/DoCreateBlankAsset.cs(5,32): error CS0619: 'EndNameEditAction' is obsolete
+  -> package removed again; the project compiles clean.
+# Gates in com.unity.ai.toolkit (Modules/Accounts/Services/States/SettingsState.cs), all server-side per organisation:
+#   IsTermsOfServiceAccepted, IsAiGeneratorsEnabled, PointsBalance (points request: https://create.unity.com/unity-ai-beta-points-request)
+# Not read live: the toolkit never compiled, so its Account states could not be queried (art/unity/mcp/unity_ai_state.cs is the query).
+# Nothing was accepted, enabled or bought.
