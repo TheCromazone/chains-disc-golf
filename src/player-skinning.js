@@ -83,38 +83,3 @@ export function repairPlayerSkinning(mesh) {
   ix.needsUpdate = sw.needsUpdate = true;
   return g.userData.playerSkinning = { correctedLowerBodyVertices: removed, weldedVertices: p.count - n };
 }
-
-// Shoulder half-joints. ChainsRig has no clavicle, so the stance and the clips swing the upper arm 60-150° from the bind
-// pose about one pivot, and linear blend skinning averaged the spine/shoulder blend zone straight through the chest: the
-// deltoid caved in and the arm read as growing out of the front of the shirt (every losing tee critic). Each shoulder gets
-// a helper bone on the spine at the shoulder joint that turns half as far; a vertex shared by spine and upper arm hands
-// the overlapping share of both weights (2 x min) to it, so the blend zone bends in two half steps and keeps its volume.
-// Weights are rewritten once per geometry; each character appends the helpers to its own skeleton (indices bones.length
-// and +1, as the weights expect) and calls the returned update once the pose is final.
-export function addHalfJoints(mesh) {
-  const g = mesh.geometry, bones = mesh.skeleton.bones, n = bones.length, spine = bones.findIndex(b => b.name === 'spine');
-  const pairs = ['shR', 'shL'].map((name, k) => ({ arm: bones.findIndex(b => b.name === name), half: n + k }));
-  if (spine < 0 || pairs.some(p => p.arm < 0)) return { halves: [], update() {} };
-  if (g.userData.halfJoints !== n) {
-    const ix = g.attributes.skinIndex, sw = g.attributes.skinWeight, pos = g.attributes.position;
-    // only the shoulder cap and the chest/back beside it (from ~5 cm under the joint up): the armpit keeps the plain blend,
-    // which folds it in under a raised arm; rigid half steps there stretched it into a web from the ribs to the elbow
-    const jointY = pairs.map(p => new THREE.Matrix4().copy(mesh.skeleton.boneInverses[p.arm]).invert().elements[13]);
-    for (let i = 0; i < ix.count; i++) for (const [j, { arm, half }] of pairs.entries()) {
-      let a = -1, s = -1; for (let k = 0; k < 4; k++) { const b = ix.getComponent(i, k); if (b === arm) a = k; else if (b === spine) s = k; }
-      if (a < 0 || s < 0) continue;
-      const y = (pos.getY(i) - jointY[j] + .055) / .06, cap = y <= 0 ? 0 : y >= 1 ? 1 : y * y * (3 - 2 * y);
-      const m = cap * Math.min(sw.getComponent(i, a), sw.getComponent(i, s)); if (m < 1e-4) continue;
-      sw.setComponent(i, a, sw.getComponent(i, a) - m); sw.setComponent(i, s, sw.getComponent(i, s) - m);
-      // an empty slot takes the helper; with all four in use the smaller of the pair makes way and its rest rides the helper
-      let free = [0, 1, 2, 3].find(k => k !== a && k !== s && sw.getComponent(i, k) < 1e-5);
-      if (free === undefined) free = sw.getComponent(i, a) <= sw.getComponent(i, s) ? a : s;
-      ix.setComponent(i, free, half); sw.setComponent(i, free, (free === a || free === s ? sw.getComponent(i, free) : 0) + 2 * m);
-    }
-    ix.needsUpdate = sw.needsUpdate = true; g.userData.halfJoints = n;
-  }
-  const helpers = pairs.map(({ arm }) => { const h = new THREE.Bone(); h.name = bones[arm].name + 'Half'; h.position.copy(bones[arm].position); bones[spine].add(h); return h; });
-  mesh.bind(new THREE.Skeleton([...bones, ...helpers], [...mesh.skeleton.boneInverses, ...pairs.map(p => mesh.skeleton.boneInverses[p.arm].clone())]), mesh.bindMatrix);
-  const rest = new THREE.Quaternion();   // ChainsRig's bind rotations are identity (tools/build-golfer-v3.py)
-  return { halves: pairs.map(p => p.half), update() { pairs.forEach(({ arm }, k) => { helpers[k].position.copy(bones[arm].position); helpers[k].quaternion.copy(rest).slerp(bones[arm].quaternion, .5); }); } };
-}
