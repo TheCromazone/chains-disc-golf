@@ -112,7 +112,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     uSkinMean: { value: new THREE.Color().setRGB(...(SKIN_FIX[prefix] || spec.skinMean || [.35, .22, .16]), THREE.LinearSRGBColorSpace) },   // the scan's own skin colour (linear)
     uKnit: { value: texture('athletic_knit', { srgb: false }) || texture('jersey_pattern', { srgb: false }) },
     uPrint: { value: printTexture(avatar.number) },
-    uArm: { value: new THREE.Vector4(-1, -1, -1, -1) },   // skeleton indices of the four arm bones (gltf-player.js): the 'pro' shirt's panels need arm vs torso
+    uArm: { value: new THREE.Vector4(-1, -1, -1, -1) }, uArmH: { value: new THREE.Vector2(-1, -1) },   // skeleton indices of the four arm bones (gltf-player.js): the 'pro' shirt's panels need arm vs torso
     uPanelN: { value: prefix === 'body_f_' ? 0 : 1 }, uStrands: { value: 1 }, uSleeve: { value: 1e3 },
     uTuck: { value: null }, uTuckC: { value: new THREE.Vector4(0, 0, 0, -1) }, uHeadBone: { value: -1 },   // hat hair (tuck below); w < 0: off
   };
@@ -123,10 +123,11 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   material.onBeforeCompile = s => {
     Object.assign(s.uniforms, u);
     // bind-pose normal and arm weight: which cloth faces sideways off the torso and which is the arm's underside
-    s.vertexShader = 'uniform vec4 uArm, uTuckC; uniform float uHeadBone; uniform sampler2D uTuck; varying vec3 vBindN; varying float vArmW, vElbow;\n' + s.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+    s.vertexShader = 'uniform vec4 uArm, uTuckC; uniform vec2 uArmH; uniform float uHeadBone; uniform sampler2D uTuck; varying vec3 vBindN; varying float vArmW, vElbow;\n' + s.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
       vBindN = objectNormal; vArmW = 0.; vElbow = 0.;
       #ifdef USE_SKINNING
         vec4 armW = vec4(dot(skinWeight, vec4(equal(skinIndex, uArm.xxxx))), dot(skinWeight, vec4(equal(skinIndex, uArm.yyyy))), dot(skinWeight, vec4(equal(skinIndex, uArm.zzzz))), dot(skinWeight, vec4(equal(skinIndex, uArm.wwww))));
+        armW.xz += .5 * vec2(dot(skinWeight, vec4(equal(skinIndex, uArmH.xxxx))), dot(skinWeight, vec4(equal(skinIndex, uArmH.yyyy))));   // shoulder half-joints (player-skinning.js) count as half an upper arm, so the masks match the original weights
         vArmW = armW.x + armW.y + armW.z + armW.w; vElbow = min(1., 4. * (armW.x * armW.y + armW.z * armW.w));   // upper arm and forearm share the elbow's skin
       #endif`).replace('#include <skinning_vertex>', `
       // hat hair: under a covering hat his sculpted locks stood out round the band as a ragged fringe. uTuck holds, per
@@ -239,5 +240,5 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   setPalette(avatar);
   // tuck: a field from player-headwear.js (or null to let the hair stand); headBone: the head's skeleton index
   const tuck = (field, headBone) => { u.uTuck.value = field?.texture || null; u.uHeadBone.value = headBone; if (field) u.uTuckC.value.set(...field.centre, field.keep); else u.uTuckC.value.w = -1; };
-  return { material, setPalette, tuck, mask: u.uMask1.value, arms: ix => u.uArm.value.set(...ix), sleeve: y => { u.uSleeve.value = y; }, dispose: () => u.uPrint.value.dispose() };
+  return { material, setPalette, tuck, mask: u.uMask1.value, arms: (ix, half = [-1, -1]) => { u.uArm.value.set(...ix); u.uArmH.value.set(...half); }, sleeve: y => { u.uSleeve.value = y; }, dispose: () => u.uPrint.value.dispose() };
 }

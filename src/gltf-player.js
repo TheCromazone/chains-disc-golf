@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { cloneModel, model } from './models.js';
 import { rimLight } from './materials.js';
-import { repairPlayerSkinning } from './player-skinning.js';
+import { repairPlayerSkinning, addHalfJoints } from './player-skinning.js';
 import { createPlayerHeadwear } from './player-headwear.js';
 import { createAthleteMotion } from './athlete-motion.js';
 import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL } from './body-material.js';
@@ -354,14 +354,14 @@ export function createGLTFCharacter(avatar) {
   const joints = {}, owned = new Set();
   const colors = { hair: avatar.hairColor, headwear: avatar.headwearColor, trim: avatar.accent };
   const spec = actor.getObjectByName('ChainsRig')?.userData || {}, handOffset = new THREE.Vector3(...(spec.handOffset || [0, -.25, 0]));
-  let body = null, skin = null;
+  let body = null, skin = null, halfJoints = null;
   actor.traverse(o => {
     if (o.isBone) joints[o.name] = o;
     if (o.name.startsWith('hair_') || o.name.startsWith('headwear_') || o.name.startsWith('glasses_')) o.visible = false;
     if (o.name.startsWith('accessory_wristband')) o.visible = false; // fitted cloth cuffs replace the scan's loose torus bands
     if (!o.isMesh) return;
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const by = i => new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert().elements[13]; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); } }
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); halfJoints = addHalfJoints(o); body.arms(ai, halfJoints.halves); const by = i => new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert().elements[13]; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); } }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
     // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
@@ -557,7 +557,7 @@ export function createGLTFCharacter(avatar) {
       }
       overlay();
       motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase);
-      placeSocket(); remember();
+      halfJoints.update(); placeSocket(); remember();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
     dispose() { mixer.stopAllAction(); mixer.uncacheRoot(actor); body.dispose(); headwear.dispose(); cuffGeometry.dispose(); for (const m of owned) m.dispose(); actor.traverse(o => { if (o.isSkinnedMesh) o.skeleton.dispose(); }); }
