@@ -1030,8 +1030,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // past the pin keep full dark trunks, 40 m a light veil, 80 m most of the way to the air, which is a cool blue-grey
     // (#aab8c6-ish on screen) instead of the green-grey that read as fog.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
-      Object.assign(FOG.shape, { x: m(34, P.clear), y: m(TEE_AIR, P.density), z: m(30, P.knee) });
-      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm[0]), g: warm.g * m(1, P.warm[1]), b: warm.b * m(1, P.warm[2]) }); const gl = m(1, P.glow); Object.assign(FOG.glow, { r: glow.r * gl, g: glow.g * gl, b: glow.b * gl }); treeAir.value = k; treeKeep.value = m(0, P.keep); sun.intensity = def.sun[4] * m(1, P.sun); hemi.intensity = 1.5 * m(1, P.fill[0]); scene.environmentIntensity = .5 * m(1, P.fill[1]); gapHole.value.z = m(1.5, P.cut); gapAim.value.w = m(.4, P.aim); gapReach.value.set(m(15, P.reach[0]), m(35, P.reach[1]), m(3.2, P.reach[2])); }   // the putt's canopy gaps (PUTT_AIR.cut, .aim, .reach); the tee and flyover keep 1.5, .4, 15-35 m and 3.2 m cells
+      const L = full ? { fill: [1.5, .5], sun: P.sun, air: [1, 1], aim: P.aim } : LITE_AIR;
+      Object.assign(FOG.shape, { x: m(34, P.clear), y: m(TEE_AIR * L.air[0], P.density * L.air[1]), z: m(30, P.knee) });
+      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm[0]), g: warm.g * m(1, P.warm[1]), b: warm.b * m(1, P.warm[2]) }); const gl = m(1, P.glow); Object.assign(FOG.glow, { r: glow.r * gl, g: glow.g * gl, b: glow.b * gl }); treeAir.value = k; treeKeep.value = m(0, P.keep); sun.intensity = def.sun[4] * m(1, L.sun); hemi.intensity = m(L.fill[0], 1.5 * P.fill[0]); scene.environmentIntensity = m(L.fill[1], .5 * P.fill[1]); gapHole.value.z = m(1.5, P.cut); gapAim.value.w = m(.4, L.aim); gapReach.value.set(m(15, P.reach[0]), m(35, P.reach[1]), m(3.2, P.reach[2])); }   // the putt's canopy gaps (PUTT_AIR.cut, .aim, .reach); the tee and flyover keep 1.5, .4, 15-35 m and 3.2 m cells
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
@@ -1060,6 +1061,12 @@ const PUTT_AIR = { clear: 28, density: .25, knee: 30, haze: [.42, .52, .78], war
 // spruce on Bluffs still blue-grey (top-half foliage value .49 against the reference's .21-.39). The fog chunk's ramp now
 // gives (pine, eye 1.7 m up) ~3% at 60 m, 7% at 80, 11% at 100, 20% at 150: rows still step back, the treeline stays green.
 const TEE_AIR = .55;
+// Lite's light away from the pin and at it (gauntlet r2, phone forensics against Disc Golf Masters): its tee sat at median luma
+// .28 with 14% deep shade (the reference .42, 9%), and without Full's bloom and veiling glare its putt's sunlit mulch clipped
+// (95th percentile .92 against .70) under woods as crisp as the near birches. fill: the tee's sky fill (hemi, environment);
+// sun: the key's gain at the putt (Full's PUTT_AIR.sun 1.2); air: density scales on TEE_AIR's and PUTT_AIR's; aim: the approach's canopy cut
+// (PUTT_AIR.aim 1.1 opened every impostor crown over it, so the mulch before the pin lay in one even blaze of sun).
+const LITE_AIR = { fill: [1.85, .62], sun: .9, air: [1.6, 1.6], aim: .5 };
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: TEE_AIR, z: 30, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update())
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
