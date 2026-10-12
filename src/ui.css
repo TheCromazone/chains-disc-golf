@@ -558,8 +558,6 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
    with the power ring under the swipe hand. One finger still works: drag on the left, swipe on the right. */
 @media (pointer: coarse) and (min-aspect-ratio: 6/5) {
   #pad { left: 40%; top: calc(70px + var(--sat)); height: auto; padding-left: 12px; padding-right: 12px; }
-  #pad::before { content: ''; position: absolute; left: 0; top: 10%; bottom: 22%; width: 1px; background: linear-gradient(#ffffff00, #ffffff38, #ffffff00); pointer-events: none; }
-  body.thrown #pad::before { opacity: .5; }
   #aimZone { top: auto; left: 16px; bottom: calc(76px + var(--sab)); }
   #power, #powerLabel, #waiting { left: 63%; }   /* clear of the wind plate on a 390-430 pt tall phone on its side */
   #pad { padding-bottom: calc(108px + var(--sab)); }   /* the hint rides over the wind plate, not into it */
