@@ -73,11 +73,6 @@ THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars
   c *= mix( vec3( .94, .99, 1.06 ), vec3( 1.04, 1., .92 ), smoothstep( .06, .5, l ) );
   c = mix( vec3( l ), c, mix( .9, 1., smoothstep( .04, .3, l ) ) ) + vec3( .018, .022, .03 ) * ( 1. - l ) * ( 1. - l ) * ( 1. - l );
   c = max( c, 0. ); return c * c; }`);
-// Alpha-to-coverage edges ramp over ~2 px centred on the cut, not three's one pixel above it: MSAA then resolves leaf, tuft,
-// hair and banner cut-outs to a soft edge (gauntlet r2 crisp: "hard one-pixel alpha cut-outs"). Capped at the cut so a
-// fully transparent texel never gains coverage.
-THREE.ShaderChunk.alphatest_fragment = THREE.ShaderChunk.alphatest_fragment.replace('smoothstep( alphaTest, alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )',
-  'smoothstep( alphaTest - clamp( fwidth( diffuseColor.a ), 1e-4, min( alphaTest, 1. - alphaTest ) ), alphaTest + clamp( fwidth( diffuseColor.a ), 1e-4, min( alphaTest, 1. - alphaTest ) ), diffuseColor.a )');
 const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
 const scene = new THREE.Scene();
