@@ -67,10 +67,10 @@ renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.A
 THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace('vec3 CustomToneMapping( vec3 color ) { return color; }', `vec3 CustomToneMapping( vec3 color ) {
   vec3 c = sqrt( clamp( ACESFilmicToneMapping( color ), 0., 1. ) );   // a gamma-2 display space: sqrt and a square instead of two pows a pixel
   c = clamp( c * vec3( 1.13, 1.08, 1. ) + vec3( 0., .003, .01 ), 0., 1. );   // brighter and warmer than Desktop's gain: no bloom or sun shafts lift it
-  c = mix( c, c * c * ( 3. - 2. * c ), .14 );   // a gentler S: local contrast sat at .11-.12 against the reference's .07-.08
+  c = mix( c, c * c * ( 3. - 2. * c ), .28 );
   float l = dot( c, vec3( .2126, .7152, .0722 ) ), lead = clamp( ( c.g - max( c.r, c.b ) ) * 3., 0., 1. );
-  c = mix( vec3( l ), c, 1.04 - lead * .3 ); c.r += ( c.g - c.r ) * lead * .45;   // greens to olive (gauntlet r2 forensics: phone foliage hue 99 deg against Disc Golf Masters' 74, saturation .42 against .32; critics: 'saturated, game-like green')
-  c *= mix( vec3( .98, .99, 1.01 ), vec3( 1.04, 1., .92 ), smoothstep( .06, .5, l ) );   // shade near neutral: the reference's darks run warm (red/blue 1.13), ours had gone blue (.85)
+  c = mix( vec3( l ), c, 1.04 ); c.r += ( c.g - c.r ) * lead * .25;
+  c *= mix( vec3( .94, .99, 1.06 ), vec3( 1.04, 1., .92 ), smoothstep( .06, .5, l ) );
   c = mix( vec3( l ), c, mix( .9, 1., smoothstep( .04, .3, l ) ) ) + vec3( .018, .022, .03 ) * ( 1. - l ) * ( 1. - l ) * ( 1. - l );
   c = max( c, 0. ); return c * c; }`);
 const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
