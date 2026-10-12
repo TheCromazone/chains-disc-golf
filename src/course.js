@@ -490,12 +490,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const decVariants = [0,1,2].map(variant => canopyGeometry('deciduous',variant));
   const bushGeo = shadeCrown(blob(1, 1, 0.6).scale(1, 0.75, 1).translate(0, 0.5, 0));
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
-  // Tree LOD. Full draws the Blender trees within treeNear (62 m) of the eye and a camera-facing impostor beyond; Lite draws
-  // impostors everywhere (treeNear 0). Both sides test the same eye, refreshed every quarter second by treeLod() from update(),
+  // Tree LOD. Full draws the Blender trees within treeNear (62 m) of the eye and a camera-facing impostor beyond; Lite within 40 m
+  // (gauntlet r2 clarity: its all-impostor woods read as blocky magnified cards over the tee). Both sides test the same eye, refreshed every quarter second by treeLod() from update(),
   // per tree in the vertex shader, so every tree is exactly one of the two. Each variant/material pair is one instanced mesh
   // that treeLod() refills from a 32 m grid with just the trees near the eye (plus a 4 m margin, so the shader decides), so
   // a frame submits one draw per pair and only near trees, and the tick's work scales with the trees near the eye.
-  const treeEye = { value: new THREE.Vector3(1e9, 0, 1e9) }, treeNear = { value: quality === 'low' ? 0 : 62 }, nearSets = [];
+  const treeEye = { value: new THREE.Vector3(1e9, 0, 1e9) }, treeNear = { value: quality === 'low' ? 40 : 62 }, nearSets = [];
   const treeDisc = { value: new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[2]), THREE.MathUtils.degToRad(def.sun[3])) };   // the sun's visible disc (the sky section's discDir)
   const treeKeep = { value: 0 };   // how much of the far squeeze below the putt gives back (update(): PUTT_AIR.keep)
   const treeAir = { value: 0 };   // 1 round the pin, 0 elsewhere (update(): PUTT_AIR's putt factor): how much of the glare exemptions below the putt's air takes back. The putt looks within ~20° of the low sun, where the tee's dark rim-lit silhouettes left the woods 30-80 m past the pin with half the haze and full contrast (w7-2: "far trunks as dark and saturated as the near birches")
@@ -587,7 +587,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // Full: the Blender trees (tools/build-trees.py over the tools/build-foliage.py atlas). A variant is a branch skeleton
   // ('bark' / 'bark_birch') plus leaf-spray cards ('leaves'), one near-tree set per variant and material (see treeLod) with a
   // per-tree tint. Wood and leaves share the wind, so the limbs carry their clumps as they sway, and both cast shadows.
-  const full = quality !== 'low', leafAtlas = full && texture('leaves', { clamp: true, flipY: false }), leafNormals = full && texture('leaves_n', { clamp: true, flipY: false, srgb: false });   // Lite never fetches them
+  const full = quality !== 'low', leafAtlas = texture('leaves', { clamp: true, flipY: false }), leafNormals = texture('leaves_n', { clamp: true, flipY: false, srgb: false });   // both tiers: Lite's near crowns were impostor cards magnified 2-3x (256 x 512 a tree), blocky 8-bit leaf clumps at native resolution; within 40 m (an impostor texel about a pixel there) it draws the 3D trees too, ~1.5k triangles each
   // Canopy shading on top of three's PBR loop. Vertex colour rgb tints the albedo and its alpha is the build's sky visibility,
   // which dims ambient light fully and sunlight a little (the shadow map does the rest), so sunlit clumps stay bright while the
   // core of the crown and the limbs inside it fall dark. Leaves (leaf = true) also: the build bakes each leaf normal away from
@@ -764,7 +764,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     return new THREE.Vector4(ym, lo, Math.max(2 * hi - lo, .3, hi * .25), (y1 - y0) / 2); };
   const leafFull = g => near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.3, -.3), alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock), true, crownOf(g)));
   const wood = map => map && near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false));
-  const woodMats = { bark: wood(bark), bark_birch: wood(full && texture('bark_birch')) };
+  const woodMats = { bark: wood(bark), bark_birch: wood(texture('bark_birch')) };
   // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
   // conifers sit darker than the broadleaves (a deep green, not grey-blue); stands drift yellower or bluer, lighter or darker by
@@ -776,7 +776,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = (.85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3) * (s.kind === 'birch' ? .62 + noise(s.x * .29 + 9, s.z * .29 + 2) * .25 : 1); return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
   for (const b of [...bushes, ...shrubs]) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
   const planted = (name, spots, shadow = true, lod = true) => {
-    const src = quality !== 'low' && leafAtlas && model(name); if (!src) return false;
+    const src = leafAtlas && model(name); if (!src) return false;
     src.scene.updateMatrixWorld(true);
     src.scene.traverse(o => { if (!o.isMesh) return;
       const variant = o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
@@ -838,7 +838,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     inst(decTrunk, trunkMat, grow(decSpots, 1.6), null, false);
     for(let variant=0;variant<3;variant++) inst(decVariants[variant], leafMat, grow(decSpots.filter(s=>Math.floor(noise(s.x*.37+13,s.z*.37+5)*3)===variant), 1.6), s => col.setHSL(def.leafHue + (noise(s.x/22 + 9, s.z/22) - 0.5) * 0.07, 0.5, 0.30 + noise(s.z/24 + 4, s.x/24) * 0.18, THREE.SRGBColorSpace));
   }
-  if (!planted('bush', bushes, false, false) && !(quality === 'low' && impostors(bushes, false))) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
+  if (!(quality !== 'low' && planted('bush', bushes, false, false)) && !(quality === 'low' && impostors(bushes, false))) inst(bushGeo, leafMat, bushes, s => col.setHSL(0.3 + (noise(s.x + 2, s.z + 2) - 0.5) * 0.08, 0.5, 0.25 + noise(s.z, s.x + 7) * 0.1, THREE.SRGBColorSpace), false);
   // Fine crossed-alpha grass is deliberately retired in both modes.
 
   // --- water ---
@@ -867,7 +867,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   { // the woods shrubs, clear of every prop (its colliders and the camera's tent canopies, each a capsule; distance in plan to its axis): 3D within treeNear on Full, cards beyond (and everywhere on Lite)
     const props = [...dressing.capsules, ...(dressing.camCapsules || [])], off = (s, c) => { const ax = c.b[0] - c.a[0], az = c.b[2] - c.a[2], L = ax * ax + az * az, t = L ? clamp(((s.x - c.a[0]) * ax + (s.z - c.a[2]) * az) / L, 0, 1) : 0; return Math.hypot(s.x - c.a[0] - ax * t, s.z - c.a[2] - az * t) - c.r; };
     shrubs.splice(0, Infinity, ...shrubs.filter(s => props.every(c => off(s, c) > 2.6 * s.s + .5)));
-    planted('bush', shrubs, false); impostors(shrubs, false); }
+    if (quality !== 'low') planted('bush', shrubs, false); impostors(shrubs, false); }   // Lite keeps its shrubs as cards: a 3D bush 8 m from the putt lens magnifies the leaf atlas into hard texel-stepped cut-outs
   const baskets = holes.map(h => new THREE.Group().translateX(h.basket[0]).translateY(h.basketY).translateZ(h.basket[1]));   // positions only: the geometry is merged; the pin's distance tag is HUD (#pin, placed by main.js)
 
   // --- grass tufts ---
@@ -1111,7 +1111,7 @@ reflectedLight.indirectDiffuse *= mix( vec3( .9, .87, .8 ), vec3( 1. ), sunVis )
 vec2 vogelTap( int i, vec2 turn ) { return vec2( vogel[ i ].x * turn.x - vogel[ i ].y * turn.y, vogel[ i ].x * turn.y + vogel[ i ].y * turn.x ); }
 vec2 vogelTurn() { float spin = 6.2831853 * fract( sin( dot( gl_FragCoord.xy, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ); return vec2( cos( spin ), sin( spin ) ); }
 ` + THREE.ShaderChunk.shadowmap_pars_fragment.replace(/#if defined\( SHADOWMAP_TYPE_PCF \)\n[\s\S]*?(?=#elif defined\( SHADOWMAP_TYPE_PCF_SOFT \))/, `#if defined( SHADOWMAP_TYPE_PCF )
-			vec2 turn = vogelTurn() * shadowRadius / shadowMapSize.x;
+			vec2 turn = vec2( shadowRadius / shadowMapSize.x, 0. );   // Lite: not turned per pixel; each tap is a bilinear compare, 16 of them within 2 texels blur smoothly, where the per-pixel white-noise turn read as stippled shadow edges at native resolution (gauntlet r2 crisp)
 			shadow = 0.;
 			for ( int i = 0; i < 16; i ++ ) shadow += texture2DCompare( shadowMap, shadowCoord.xy + vogelTap( i, turn ), shadowCoord.z );
 			shadow *= .0625;
