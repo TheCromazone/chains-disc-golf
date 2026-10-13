@@ -9,6 +9,17 @@ set -u
 out=$1; p=$2; what=${3:-all}
 cd "$(dirname "$0")/../.."
 mkdir -p "$out"
+# At most two capture-all runs at once on this machine (each starts 2-3 headless Chromes on the GPU), so parallel builders
+# never pin the owner's PC: wait for a free slot. A slot older than 20 minutes belongs to a capture that died; take it.
+slots="${TMPDIR:-/tmp}/chains-capture-slots"; mkdir -p "$slots"; slot=
+while [ -z "$slot" ]; do
+  for s in 1 2; do
+    [ -n "$(find "$slots/$s" -maxdepth 0 -mmin +20 2>/dev/null)" ] && rm -rf "$slots/$s"
+    if mkdir "$slots/$s" 2>/dev/null; then slot="$slots/$s"; break; fi
+  done
+  [ -z "$slot" ] && sleep 5
+done
+trap 'rm -rf "$slot"' EXIT
 pids=()
 if [ "$what" != motion ]; then
   node tools/capture.mjs --out "$out/phone" --port "$p" --size 960x540 --dpr 2 --mobile --quality low > "$out/phone.log" 2>&1 & pids+=($!)

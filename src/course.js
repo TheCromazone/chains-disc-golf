@@ -958,7 +958,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const sm = quality === 'low' ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
   // 120 m box following the focus in update(): wide enough that trees off-frame toward the sun still rake shadows across the frame.
   const extent = 60, sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -extent; sc2.right = sc2.top = extent; sc2.near = 1; sc2.far = 400;
-  sun.shadow.radius = 3.5; sun.shadow.bias = -0.0004; sun.shadow.normalBias = .04;   // Lite: the Vogel taps reach 3.5 texels (41 cm), about the penumbra of a crown 35 m up (g2 haze: at 2 texels the canopy and trunk shade read as "hard dark stencils"); the normal bias covers that slope
+  sun.shadow.radius = 5; sun.shadow.bias = -0.0004; sun.shadow.normalBias = .04;   // Lite: the Vogel taps reach 5 texels (59 cm; was 2): wider than the sun alone would blur, standing in for the light leaking round leaves and the sway Lite has no PCSS for (g2 haze: at 2 texels canopy and trunk shade read as "hard dark stencils"; the trunk bars still read at 5); the normal bias covers that slope
   scene.add(sun, sun.target);
   // Full: the near cascade. A second shadow map 24 m across at 2048² (1.2 cm texels) round the play, blended into the
   // 120 m one over its outer fifth (the shadow chunk above skyDome()); it adds no light of its own. On Full both maps grow

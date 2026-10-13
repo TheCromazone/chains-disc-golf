@@ -18,7 +18,7 @@ const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/capture' }, port: { type: 'string', default: '8101' },
   size: { type: 'string', default: '1280x720' }, dpr: { type: 'string', default: '1' }, quality: { type: 'string' },
   moments: { type: 'string', default: 'menu,flyover,tee,putt,scorecard' }, mobile: { type: 'boolean', default: false },
-  url: { type: 'string' }, course: { type: 'string' },
+  url: { type: 'string' }, course: { type: 'string' }, uncapped: { type: 'boolean', default: false },
   chrome: { type: 'string', default: CHROME },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -32,7 +32,9 @@ const server = spawn(process.execPath, ['serve.mjs'], { cwd: ROOT, env: { ...pro
 const profile = mkdtempSync(join(tmpdir(), 'chains-capture-'));
 const chrome = spawn(o.chrome, ['--headless=new', '--mute-audio', `--remote-debugging-port=${cdp}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--ignore-gpu-blocklist',
-  '--disable-gpu-vsync', '--disable-frame-rate-limit',   // uncapped rAF, so frameMs compares builds instead of reading the display's refresh
+  // --uncapped: rAF as fast as the GPU goes, so frameMs compares builds instead of reading 16.7 ms. Off by default: six builders
+  // capturing uncapped at once pinned the owner's GPU, and the judged frames are identical either way.
+  ...(o.uncapped ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : []),
   `--window-size=${w},${h}`, 'about:blank'], { stdio: 'ignore' });
 process.on('exit', () => { chrome.kill(); server.kill(); try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* temp dir, harmless */ } });
 
@@ -61,7 +63,7 @@ const stats = { size: o.size, dpr: +o.dpr, mobile: o.mobile, moments: {} };
 const measure = () => js(`(async () => { const c = __chains, info = c.renderer.info; info.autoReset = false; info.reset(); c.renderFrame();
   const calls = info.render.calls, tris = info.render.triangles; info.autoReset = true; const t0 = performance.now(); let n = 0;
   await new Promise(res => { const f = () => (++n < 60 ? requestAnimationFrame(f) : res()); requestAnimationFrame(f); });
-  return { calls, tris, frameMs: +((performance.now() - t0) / 60).toFixed(2), textures: info.memory.textures, geometries: info.memory.geometries }; })()`);
+  return { calls, tris, frameMs: +((performance.now() - t0) / 60).toFixed(2), pixelRatio: +c.renderer.getPixelRatio().toFixed(3), textures: info.memory.textures, geometries: info.memory.geometries }; })()`);
 async function shoot(name) {
   if (!want.has(name)) return;
   stats.moments[name] = await measure();
@@ -75,6 +77,11 @@ try {
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: +o.dpr, mobile: o.mobile });
   if (o.mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.coach', '["aim","throw","both"]'); } catch {}` });   // a returning player: the first-round thumb coach covered a third of the phone tee frame
+  // Headless Chrome has no vsync, so without --uncapped the game's rAF is held to ~80 Hz here (under the resolution scaler's 50 fps line): the draws (all the GPU work) run at
+  // most once per ~12 ms instead of ~240 times a second.
+  // Gated per frame, not per callback: every callback of an allowed frame runs (a per-callback gate starved the second loop).
+  if (!o.uncapped) await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { const raf = requestAnimationFrame.bind(window); let open = -1, next = 0;
+    window.requestAnimationFrame = cb => raf(function tick(t) { if (t !== open) { if (t < next) return raf(tick); open = t; next = t + 10.5; } cb(t); }); })()` });
   if (o.course) await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.course', ${JSON.stringify(o.course)}); } catch {}` });   // pine | meadow | lake | bluff
   await send('Page.navigate', { url: o.url || `http://localhost:${port}/` });
   await until(`!!(window.__chains && __chains.course && __chains.hero)`, 120000);
