@@ -12,6 +12,7 @@ import { createWindFx } from './wind.js';
 import { createShotGuide } from './shot-guide.js';
 import { suggestPower } from './shot-planning.js';
 import { createFlightTrail } from './flight-trail.js';
+import { createTemporal } from './temporal.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -73,9 +74,15 @@ THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars
   c *= mix( vec3( .94, .99, 1.06 ), vec3( 1.04, 1., .92 ), smoothstep( .06, .5, l ) );
   c = mix( vec3( l ), c, mix( .9, 1., smoothstep( .04, .3, l ) ) ) + vec3( .018, .022, .03 ) * ( 1. - l ) * ( 1. - l ) * ( 1. - l );
   c = max( c, 0. ); return c * c; }`);
+// Alpha-to-coverage cut-outs (leaves, tufts, hair, impostors, banners) ramp over ~2 px centred on the cut, not three's one
+// pixel above it. On a held frame the temporal resolve (temporal.js) averages the jittered coverage into a soft edge, the way
+// Disc Golf Masters' leaves fall off (gauntlet r2 crisp: "hard one-pixel alpha cut-out edges on foliage and hair").
+THREE.ShaderChunk.alphatest_fragment = THREE.ShaderChunk.alphatest_fragment.replace('smoothstep( alphaTest, alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )',
+  'smoothstep( alphaTest - min( fwidth( diffuseColor.a ), alphaTest ), alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )');   // capped below so a fully transparent texel never gains coverage
 const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
 const scene = new THREE.Scene();
+const taa = createTemporal();   // temporal.js: jittered, accumulated edges on held frames, both tiers
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
 let post = null, postEnabled = true, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0, slowTime = 0;
 const forcedDpr = +new URLSearchParams(location.search).get('dpr') || 0;   // QA: a fixed pixel ratio (e.g. a supersampled ground truth for the aliasing metric)
@@ -289,7 +296,7 @@ async function applyCourse(id) {
   effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
   const hdri = effects ? await effects.loadSky(renderer, asset('skies', def.id) || asset('skies', 'lake')) : null;
   course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, hdri });
-  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }
+  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true, temporal: taa }); resize(); }
   windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
   world = course.world; holes = course.holes; course.setHole(0);
   G.courseId = def.id; saveLocal('chains.course', def.id); updateHub();
@@ -1072,8 +1079,12 @@ function frame(dt, rawDt, background) {
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   trail.update(camera, !!G.flight);
-  if(post && postEnabled) post.render(); else renderer.render(scene, camera);
+  draw();
 }
+// One frame to the screen (Desktop's post chain, else the canvas), through the temporal resolve while the camera holds still.
+// Not through the throw and the flight: the aim camera holds while the arm and the disc sweep across the turf, and the
+// history's colour box let them leave a tinted streak behind (drive clip, release).
+function draw() { const still = taa.begin(renderer, camera, !/^(windup|release|flight)$/.test(G.phase)); if (post && postEnabled) post.render(still); else { renderer.render(scene, camera); if (still) taa.canvas(renderer); } taa.end(camera); }
 
 // ---------- HUD / menu wiring ----------
 function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.selectThrow(id); if (id === 'putt') { G.discId = 'putter'; UI.selectDisc('putter'); ensureDisc(curP(), 'putter'); curP().discMesh.visible = true; } G.previewDirty = true; G.previewPower = null; sfx.click(); }
@@ -1497,7 +1508,7 @@ setTimeout(async () => {
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await Promise.all([warmShaders(), assetsIdle()]);
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: draw, taa, performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage

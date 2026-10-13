@@ -123,7 +123,7 @@ class Aerial extends Pass {
   dispose() { this.quad.material.dispose(); this.quad.dispose(); }
 }
 
-export function postprocessing(renderer, scene, camera, { photographic = false } = {}) {
+export function postprocessing(renderer, scene, camera, { photographic = false, temporal = null } = {}) {
   if (!photographic) return { render: () => renderer.render(scene, camera), resize() {}, dispose() {} };
   // The scene target keeps its depth as a texture for the shafts, and takes 4x MSAA: the renderer's own antialias only
   // covers the default framebuffer, so Full used to go through post with stair-stepped edges. The RenderPass must land in
@@ -141,9 +141,15 @@ export function postprocessing(renderer, scene, camera, { photographic = false }
   composer.addPass(new OutputPass());
   // FXAA over the 4x MSAA resolve, in display space ahead of the grade's grain: MSAA leaves alpha-to-coverage leaf, tuft and
   // hair edges as 4-level dither and thin chains as broken dots; this finishes them into soft partial coverage (gauntlet r2 d-crisp).
+  // A held camera swaps FXAA for the temporal resolve (temporal.js): the jittered frames average into ~10x supersampled
+  // edges, which FXAA would only soften again. Exactly one of the two runs, so the composer's swap parity never changes.
   const fxaa = new ShaderPass(FXAAShader); composer.addPass(fxaa);
+  const taa = temporal && Object.assign(new Pass(), { hist: new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false }), enabled: false,
+    setSize(w, h) { this.hist.setSize(w, h); }, dispose() { this.hist.dispose(); },
+    render(r, write, read) { r.setRenderTarget(write); temporal.resolve(r, read.texture, this.hist.texture); r.setRenderTarget(this.hist); temporal.copy(r, write.texture); } });
+  if (taa) composer.insertPass(taa, composer.passes.indexOf(fxaa));
   const grade = new ShaderPass(GRADE); composer.addPass(grade);
-  return { passes: { aerial, shafts, bloom, fxaa, grade }, render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; if (composer.readBuffer !== composer.renderTarget2) composer.swapBuffers(); composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); fxaa.uniforms.resolution.value.set(1 / w, 1 / h); }, dispose() {
+  return { passes: { aerial, shafts, bloom, fxaa, taa, grade }, render: (still = false) => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; if (taa) { taa.enabled = still; fxaa.enabled = !still; } if (composer.readBuffer !== composer.renderTarget2) composer.swapBuffers(); composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); fxaa.uniforms.resolution.value.set(1 / w, 1 / h); }, dispose() {
     for (const p of composer.passes) p.dispose?.(); composer.dispose();   // disposing a target frees its depth texture too
   } };
 }
