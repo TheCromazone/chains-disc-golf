@@ -745,7 +745,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // into separate clumps with the dark interior showing between them and sky through the rim
       { float nearK = 1. - smoothstep(20., 45., length(vViewPosition));   // w6-2: the framing crown seen from below stayed one dark solid underside (its leaves sit at half depth, under the cut): a near crown's pockets now run through its heart too, so sky shows through it
         if (crownN * max(smoothstep(.45, .95, crownDepth), CROWN_CORE_CUT * nearK) > .47 - .09 * nearK) diffuseColor.a = 0.; }   // near crowns (the framing tree over the tee) open wider: w6 "solid lumpy blobs, almost no sky holes". Colour pass only: the shadow keeps its own cut
-      diffuseColor.a = smoothstep(.25, .75, diffuseColor.a); if (diffuseColor.a < .01) discard;
+      { float w = clamp(fwidth(diffuseColor.a), .25, .5); diffuseColor.a = smoothstep(.5 - w, .5 + w, diffuseColor.a); } if (diffuseColor.a < .01) discard;   // at least a ~2 px coverage ramp: a minified leaf's alpha turns over in under a pixel and .25-.75 cut it to a hard one-pixel edge (gauntlet r2 crisp)
       #else
       #include <alphatest_fragment>
       #endif`); };
