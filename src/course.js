@@ -455,7 +455,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const k = 1 - Math.min(1, shade) * .4 * (1 - lawn); colors[i * 3] *= k; colors[i * 3 + 1] *= k; colors[i * 3 + 2] *= k;
     if (lawn > 0) { tmp.setRGB(colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]).lerp(cFair, lawn * .85); colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
       turf[i * 4] = Math.max(turf[i * 4], lawn * .9); splats[i * 4 + 3] *= 1 - lawn * .85; }
-    splats[i * 4 + 2] = Math.max(splats[i * 4 + 2], Math.min(1, duff) * .9 * (1 - lawn), Math.min(1, bare) * .8);   // trunk feet: chips and leaves, not the paths' pale gravel (it read as a concrete pad under every tree)
+    splats[i * 4 + 2] = Math.max(splats[i * 4 + 2], Math.min(1, duff) * .9 * (1 - lawn)); splats[i * 4] = Math.max(splats[i * 4], Math.min(1, bare) * .7);
     splats[i * 4 + 3] = Math.max(splats[i * 4 + 3], Math.min(1, shade) * .15 * (1 - lawn));
   }
 
@@ -873,21 +873,19 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // --- grass tufts ---
   // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
   // rough, gone on gravel, litter, sand and the pads. A few photo tufts stand where mowers miss, at the sign post and
-  // round the basket pole: small and green, darkened at the root; no shadow discs. Lite too (one draw, ~8 triangles a
-  // tuft): its carpet ends 6 m out, and without them every path and mulch edge on the phone was a clean soft cut.
+  // round the basket pole: small and green, darkened at the root; no shadow discs. Lite spends their triangles on the carpet.
   group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }));
-  const tuftMap = texture('tuft', { clamp: true });
+  const tuftMap = quality !== 'low' && texture('tuft', { clamp: true });
   if (tuftMap) {
     const tuftRng = makeRng(seed + 733);
     const card = new THREE.PlaneGeometry(1, 1).translate(0, .46, 0);   // rooted 4 cm below grade
     const tuftGeo = mergeGeometries([0, Math.PI, Math.PI / 2, -Math.PI / 2].map(a => card.clone().rotateY(a)));   // both windings, so no DoubleSide normal flip
     const tn = tuftGeo.attributes.normal; for (let i = 0; i < tn.count; i++) tn.setXYZ(i, 0, 1, 0);   // lit like the turf they stand in
     const tuftMat = windMaterial(toonMaterial({ map: tuftMap, alphaTest: .45, alphaToCoverage: true, roughness: .9 }), windClock, true);
-    const nx = segX + 1, grid = (x, z) => {   // bilinear lookup on the terrain grid: (array, channel) -> value
+    const nx = segX + 1, fringeAt = (x, z) => {   // 1 on the turf just outside the ground shader's gravel (gCover without its noise), bilinear on the terrain grid
       const gx = clamp((x + W / 2) / W * segX, 0, segX - 1e-3), gz = clamp((z + H / 2) / H * segZ, 0, segZ - 1e-3), ix = gx | 0, iz = gz | 0, fx = gx - ix, fz = gz - iz;
-      const a = iz * nx + ix, b = a + nx; return (arr, o) => lerp(lerp(arr[a * 4 + o], arr[(a + 1) * 4 + o], fx), lerp(arr[b * 4 + o], arr[(b + 1) * 4 + o], fx), fz);
-    }, litterAt = (x, z) => grid(x, z)(splats, 2), fringeAt = (x, z) => {   // 1 on the turf just outside the ground shader's gravel (gCover without its noise)
-      const at4 = grid(x, z), ax = Math.abs(at4(turf, 2)), sx = at4(splats, 0);
+      const a = iz * nx + ix, b = a + nx, at4 = (arr, o) => lerp(lerp(arr[a * 4 + o], arr[(a + 1) * 4 + o], fx), lerp(arr[b * 4 + o], arr[(b + 1) * 4 + o], fx), fz);
+      const ax = Math.abs(at4(turf, 2)), sx = at4(splats, 0);
       return Math.max(smooth(.25, .5, at4(turf, 3)) * smooth(.4, .52, ax) * (1 - smooth(.62, .85, ax)), smooth(.1, .28, sx) * (1 - smooth(.38, .55, sx)));   // the trail's 1 m strip, the apron and worn earth
     };
     const spots = [];
@@ -904,13 +902,6 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         const edge = Math.max(fringeAt(x, z), bed > .02 && bed < .3 ? 1 : 0) * smooth(.3, .6, noise(x / 1.4 + 13, z / 1.4 + 13));   // in clumps and gaps along the edge, not a planted border
         if (bed < .02 || tuftRng() > edge) continue;
         spots.push({ p: [x, z], s: .1 + tuftRng() ** 2 * .16, dry: tuftRng() < .3 });
-      }
-      // The putting circle's mulch: tufts creep into its edge from the lawn (the litter splat's own fade, as above).
-      // Lite only: Full's carpet already frays that edge, and its tee frame sits at the 2.3M triangle budget.
-      for (let k = 0; k < (quality === 'low' ? 12000 : 0); k++) {
-        const x = h.basket[0] + (tuftRng() - .5) * 26, z = h.basket[1] + (tuftRng() - .5) * 26, sz = litterAt(x, z);
-        if (tuftRng() > smooth(.12, .32, sz) * (1 - smooth(.42, .62, sz)) * smooth(.3, .6, noise(x / 1.4 + 13, z / 1.4 + 13))) continue;
-        spots.push({ p: [x, z], s: .1 + tuftRng() ** 2 * .14, dry: tuftRng() < .25 });
       }
     }
     const fixed = new THREE.InstancedMesh(tuftGeo, tuftMat, spots.length);
