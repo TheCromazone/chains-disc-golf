@@ -84,9 +84,9 @@ def srgb(c):
 
 def webp(rgb8, budget):
     """Highest quality (<= 92) that fits the byte budget."""
-    im, best = Image.fromarray(rgb8), None
+    im, best = Image.fromarray(rgb8, "RGBA"), None
     for q in range(92, 30, -4):
-        b = io.BytesIO(); im.save(b, "WEBP", quality=q, method=6)
+        b = io.BytesIO(); im.save(b, "WEBP", quality=q, method=6, alpha_quality=60)
         best = (b.getvalue(), q)
         if b.tell() <= budget:
             break
@@ -105,9 +105,16 @@ def main(ids):
         lin *= gain
         p999 = float(np.percentile(lin, 99.9))
         print(f"{cid}: gain {gain:.4g}, 99.9th pct {p999:.3f} (headroom {HEADROOM}), clipped {float((lin > HEADROOM).mean()) * 100:.3f}%")
-        enc = np.clip(srgb(np.clip(lin / HEADROOM, 0, 1)) * 255 + .5, 0, 255).astype(np.uint8)
+        # Alpha: 1 in clear sky, .5 under cloud (the dome hides its disc there), from how far the render departs from the
+        # same sky rendered clear. Never below .5, so a browser that round-trips the image through premultiplied alpha
+        # costs the clouds at most one bit and leaves the clear sky exact.
+        clear = resample(read_hdr(os.path.join(SRC, cid + "-clear.hdr")), 4096) * gain @ np.array([.2126, .7152, .0722], np.float32)
+        t = np.clip((np.abs(lum * gain - clear) / np.maximum(clear, 1e-4) - .04) / .26, 0, 1)
+        alpha = 1 - .5 * t * t * (3 - 2 * t)
+        print(f"  cloud cover above 7 deg: {float((t[v > .12] > .5).mean()) * 100:.0f}%")
+        enc = np.clip(np.dstack([srgb(np.clip(lin / HEADROOM, 0, 1)), alpha]) * 255 + .5, 0, 255).astype(np.uint8)
         for suf, (W, budget) in SIZES.items():
-            img = enc if W == 4096 else np.asarray(Image.fromarray(enc).resize((W, W // 4), Image.LANCZOS))
+            img = enc if W == 4096 else np.asarray(Image.fromarray(enc, "RGBA").resize((W, W // 4), Image.LANCZOS))
             data, q = webp(img, budget)
             with open(os.path.join(ROOT, "assets", "skies", f"{cid}{suf}.webp"), "wb") as f:
                 f.write(data)

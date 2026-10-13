@@ -22,10 +22,11 @@ struct ChainsCloud {
     #undef G
     return r * 1.7;
   }
-  float fbm(float3 p, int o) { float s = 0., a = .5, n = 0.; for (int i = 0; i < o; i++) { s += a * gn(p); n += a; p = p * 2.03 + float3(17.1, 3.7, 9.2); a *= .5; } return saturate(s / n * .5 + .5); }
+  // [loop]: unrolled, the dozen inlined call sites took the compiler 1-3 minutes per cloud shader permutation
+  float fbm(float3 p, int o) { float s = 0., a = .5, n = 0.; [loop] for (int i = 0; i < o; i++) { s += a * gn(p); n += a; p = p * 2.03 + float3(17.1, 3.7, 9.2); a *= .5; } return saturate(s / n * .5 + .5); }
   float wor(float3 p) {   // 1 at a cell's feature point, falling off between: one billow per cell
     float3 i = floor(p), f = frac(p); float d = 1.;
-    for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { float3 c = float3(x, y, z), r = c + h33(i + c) - f; d = min(d, dot(r, r)); }
+    [loop] for (int k = 0; k < 27; k++) { float3 c = float3(k % 3, (k / 3) % 3, k / 9) - 1., r = c + h33(i + c) - f; d = min(d, dot(r, r)); }
     return 1. - sqrt(d);
   }
   float rmp(float v, float a, float b) { return saturate((v - a) / (b - a)); }
@@ -36,17 +37,18 @@ float alt = H * LayerKm;                                           // km above t
 // Where cumulus grow: a 2-3 km cell field thresholded to the coverage, the coverage itself swinging over ~25 km so some
 // stretches of sky are nearly clear and others busy.
 float big = C.fbm(float3(p.xy / 25., Seed), 2);
-float cov = saturate(Coverage + (big - .5) * .6);
-float cell = C.fbm(float3(p.xy / 2.4, .5), 3);
-float wth = C.rmp(cell, 1. - cov, 1. - cov + .22);
-// Flat base, domed top; the thicker the cell the taller the tower (300 m wisps to ~1.9 km heaps).
-float top = .3 + 1.6 * wth * (.35 + .65 * C.fbm(float3(p.xy / 7., 3.3), 2));
-float prof = C.rmp(alt, 0., .07) * C.rmp(alt, top, top * .45);
-// Billows: cellular lumps ~600 m, a little taller than wide, mixed with a smooth fbm so they merge into heaps.
-float3 sp = float3(p.xy, alt * 1.3) / .62;
-float pw = saturate(C.wor(sp) * .55 + C.fbm(sp * .45, 3) * .65 - .08);
-float wp = wth * prof;
-float dens = wp > 1e-3 ? C.rmp(pw, 1. - wp, 1.) * wp : 0.;
+float cov = saturate(Coverage + (big - .5) * 1.2);
+float cell = C.fbm(float3(p.xy / 2.4, .5), 3);           // ~N(.5, .12): the threshold below puts about `cov` of the sky under cloud
+float thr = .5 + (.5 - cov) * .32;
+float core = C.rmp(cell, thr, thr + .12);                 // 0 at a cloud's footprint edge, 1 in its core
+// Flat base, domed top: a round heap over the footprint (sqrt(1 - r^2) with r = 1 - core), not an extruded column or a
+// cone; 0.4-1.9 km tall by region.
+float top = (.4 + 1.5 * C.fbm(float3(p.xy / 7., 3.3), 2)) * sqrt(core * (2. - core));
+float shape = C.rmp(alt, 0., .06) * C.rmp(alt, top, top - .3);
+// Billows: cellular lumps ~550 m and ~230 m, a little taller than wide, over a smooth fbm so they merge into heaps.
+float3 sp = float3(p.xy, alt * 1.3) / .55;
+float pw = saturate(C.wor(sp) * .4 + C.wor(sp * 2.4 + 5.) * .25 + C.fbm(sp * .45, 3) * .55 - .08);
+float dens = shape > 1e-3 ? C.rmp(pw, 1. - shape, 1.) * shape : 0.;
 // Detail: smaller cauliflower bumps on the tops, torn and wispy at the base and on thin clouds.
 if (dens > 0.) {
   float3 dp = float3(p.xy, alt * 1.2) / .13;
@@ -60,17 +62,17 @@ float cir = 0.;
 if (ca > 0.) {
   float2 cr = float2(dot(p.xy, float2(.8, .6)), dot(p.xy, float2(-.6, .8)));
   float fib = C.fbm(float3(cr.x / 9., cr.y / .8, 7.), 4) * .6 + C.fbm(float3(cr.x / 2.5, cr.y / .22, 2.), 3) * .4;
-  float cm = C.rmp(C.fbm(float3(p.xy / 30., 11. + Seed), 2), .48, .62);
+  float cm = C.rmp(C.fbm(float3(p.xy / 30., 11. + Seed), 2), .53, .63);
   cir = C.rmp(fib, .5, .78) * cm * ca * Cirrus;
 }
 AO = lerp(.45, 1., C.rmp(alt, 0., max(top, .3)));   // sky light reaching into a heap: its base sits in its own shade
-return dens * Density + cir * .0012;                  // extinction per metre
+return dens * Density + cir * .0007;                  // extinction per metre
 """
 
 # Forward-scattering droplets with a little back scatter (silver linings toward the disc, bright faces away from it);
 # two multiple-scattering octaves so thick cores stay soft and luminous instead of dark grey.
-ADV = {"const_phase_g": .6, "const_phase_g2": -.25, "const_phase_blend": .25, "const_multi_scattering_contribution": .55,
-       "const_multi_scattering_occlusion": .4, "const_multi_scattering_eccentricity": .6, "multi_scattering_approximation_octave_count": 2,
+ADV = {"const_phase_g": .55, "const_phase_g2": -.3, "const_phase_blend": .3, "const_multi_scattering_contribution": .4,
+       "const_multi_scattering_occlusion": .6, "const_multi_scattering_eccentricity": .6, "multi_scattering_approximation_octave_count": 2,
        "ground_contribution": True}
 
 
@@ -78,6 +80,9 @@ def make():
     at = unreal.AssetToolsHelpers.get_asset_tools()
     if unreal.EditorAssetLibrary.does_asset_exist(PATH):
         mat = unreal.load_asset(PATH)
+        for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():   # recompiling a material the cloud is drawing crashed the renderer
+            if isinstance(a, unreal.VolumetricCloud):
+                a.get_component_by_class(unreal.VolumetricCloudComponent).set_material(None)
         for e in MEL.get_material_expressions(mat):   # delete_all_material_expressions leaves some behind
             MEL.delete_material_expression(mat, e)
     else:
@@ -99,7 +104,7 @@ def make():
     pos = node(unreal.MaterialExpressionWorldPosition, -900, -200)
     csa = node(unreal.MaterialExpressionCloudSampleAttribute, -900, -60)
     pars = {"Coverage": param("Coverage", .32, 60), "Seed": param("Seed", 0., 160), "LayerKm": param("LayerKm", 4., 260),
-            "Density": param("Density", .045, 360), "Cirrus": param("Cirrus", 1., 460)}
+            "Density": param("Density", .06, 360), "Cirrus": param("Cirrus", 1., 460)}
     def cin(n):
         i = unreal.CustomInput()
         i.set_editor_property("input_name", n)

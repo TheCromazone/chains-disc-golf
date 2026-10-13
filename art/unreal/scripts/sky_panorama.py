@@ -14,7 +14,9 @@ OUT = os.path.join(os.path.expanduser("~"), "Documents", "ChainsUnreal", "Saved"
 # id: disc elevation and azimuth (src/course.js COURSES[].sun[2], sun[3]), sunColor, cloud coverage, seed (which sky)
 COURSES = {"pine": (12, 10, "#ffe4cc", .30, 1.), "meadow": (10, 22, "#ffdcae", .36, 2.), "lake": (11, 26, "#fff2e0", .27, 3.), "bluff": (12, 24, "#fff4e4", .34, 4.)}
 SIZE = globals().get("SKY_SIZE", 4096)   # cube face (a job may set SKY_SIZE = 1024 for quick looks); the export is 2 x SIZE by SIZE
-LAYER = (1.4, 4.0)           # cloud base and layer height, km (cumulus 1.4-3.3 km, the cirrus sheet near the top)
+MIE = .002                   # SkyAtmosphere Mie scattering scale (default .004)
+LAYER = (1.4, 2.8)           # cloud base and layer height, km: cumulus up to ~1.9 km over the base, the cirrus sheet in the top 700 m
+                             # (it reads as cirrus from the ground; a thinner layer leaves the ray march finer steps)
 EAS = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
 MEL = unreal.MaterialEditingLibrary
 
@@ -62,12 +64,15 @@ def prep(cid):
     cloud.set_layer_bottom_altitude(LAYER[0])
     cloud.set_layer_height(LAYER[1])
     cloud.set_tracing_max_distance(80.)
+    cloud.set_shadow_tracing_distance(4.)   # km; at the default 15 the low sun's near-level shadow rays stepped so coarsely the heaps lit in horizontal shelves
     for f in ("set_view_sample_count_scale", "set_reflection_view_sample_count_scale", "set_shadow_view_sample_count_scale", "set_shadow_reflection_view_sample_count_scale"):
         getattr(cloud, f)(4.)
     cloud.set_ground_albedo(unreal.Color(r=96, g=104, b=72, a=255))   # bounce off woods and turf under the bases
     for c in ("r.VolumetricCloud.ReflectionRaySampleMaxCount 512", "r.VolumetricCloud.ViewRaySampleMaxCount 1024", "r.VolumetricCloud.HighQualityAerialPerspective 0",
               "r.VolumetricCloud.EnableAerialPerspectiveSampling 1", "r.VolumetricCloud.Shadow.SampleAtmosphericLightShadowmap 0"):
         cvar(c)
+    atmo = actors(unreal.SkyAtmosphere)[0].get_component_by_class(unreal.SkyAtmosphereComponent)
+    atmo.set_mie_scattering_scale(MIE)   # half the default haze: the dome draws its own aureole round the disc, the render's would double it
     sun = actors(unreal.DirectionalLight)[0]
     sun.set_actor_rotation(sun_rotator(elev, azim), False)
     lc = sun.light_component
