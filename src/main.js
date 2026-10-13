@@ -306,7 +306,7 @@ async function applyCourse(id) {
   effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
   const hdri = effects ? await effects.loadSky(renderer, asset('skies', def.id) || asset('skies', 'lake')) : null;
   course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, hdri });
-  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true, temporal: taa }); resize(); }
+  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }   // no temporal resolve on Desktop (see draw())
   windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
   world = course.world; holes = course.holes; course.setHole(0);
   G.courseId = def.id; saveLocal('chains.course', def.id); updateHub();
@@ -1094,7 +1094,9 @@ function frame(dt, rawDt, background) {
 // One frame to the screen (Desktop's post chain, else the canvas), through the temporal resolve while the camera holds still.
 // Not through the throw and the flight: the aim camera holds while the arm and the disc sweep across the turf, and the
 // history's colour box let them leave a tinted streak behind (drive clip, release).
-function draw() { const still = taa.begin(renderer, camera, !/^(windup|release|flight)$/.test(G.phase)); if (post && postEnabled) post.render(still); else { renderer.render(scene, camera); if (still) taa.canvas(renderer); } taa.end(camera); }
+// Phones only: on Desktop the resolve's Gaussian softened a 4x-MSAA + FXAA frame that was already clean (blind build-vs-build
+// check, r2: desktop crispness and look 0/4 against round 1, "softened all over like a blurry upscale"; phones won 3/4).
+function draw() { const still = taa.begin(renderer, camera, !post && !/^(windup|release|flight)$/.test(G.phase)); if (post && postEnabled) post.render(still); else { renderer.render(scene, camera); if (still) taa.canvas(renderer); } taa.end(camera); }
 
 // ---------- HUD / menu wiring ----------
 function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.selectThrow(id); if (id === 'putt') { G.discId = 'putter'; UI.selectDisc('putter'); ensureDisc(curP(), 'putter'); curP().discMesh.visible = true; } G.previewDirty = true; G.previewPower = null; sfx.click(); }
