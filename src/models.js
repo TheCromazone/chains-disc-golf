@@ -11,9 +11,10 @@ let activeQuality = 'low';
 export const modelStatus = {};
 export async function loadModels(renderer, quality = 'full') {
   activeQuality = quality;
-  // Props use the clean procedural art. Only the actors are downloaded, by quality: phones get the athlete LODs.
-  const full = quality === 'full' || quality === 'high';
-  const bodies = full ? ['golfer', 'golfer_lod', 'golfer_f', 'golfer_f_lod'] : ['golfer_lod', 'golfer_f_lod'];
+  // Props use the clean procedural art. Both tiers fetch both bodies: the thrower wears the full one (main.js setPlayerDetail),
+  // the waiting players the LOD. On phones the LOD alone drew the tee's foreground athlete from a 1024 bake whose face island
+  // is ~80 px, magnified 2x into "blocky, blotchy baked-texture patches" and a faceted hair outline (gauntlet r2 crisp).
+  const bodies = ['golfer', 'golfer_lod', 'golfer_f', 'golfer_f_lod'];
   const baseClips = ['idle','practice','backhand','backhand_io','backhand_oi','forehand','forehand_io','forehand_oi','tomahawk','scoober','hammer','blade','putt','celebrate','slump','walk'];
   const clipNames = [...baseClips,...baseClips.map(n=>n+'_left')];
   const names = [...bodies, 'disc', 'pine', 'deciduous', 'bush', ...clipNames.map(n=>'golfer_'+n)];   // both tiers fetch the Blender trees (~230 KB): Lite draws the near ones in 3D too
@@ -39,7 +40,7 @@ export async function loadModels(renderer, quality = 'full') {
     .then(g => { g.scene.updateMatrixWorld(true); models.set('headwear', g); modelStatus.headwear = 'ready'; }, () => { modelStatus.headwear = 'procedural fallback'; }) : null;
   const clips = clipNames.flatMap(n=>models.get('golfer_'+n)?.animations || []);
   for (const [body, lod] of [['golfer', 'golfer_lod'], ['golfer_f', 'golfer_f_lod']]) {   // both figures share the rig and the clip set
-    const actor = models.get(full ? body : lod) || models.get(lod); if (!actor) continue;
+    const actor = models.get(body) || models.get(lod); if (!actor) continue;
     actor.animations = clips; if (models.get(lod)) models.get(lod).animations = clips;
     models.set(body, actor); modelStatus[body] = 'ready';
   }
