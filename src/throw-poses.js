@@ -171,7 +171,13 @@ export const STANCE = {
   // hand and plate ~27 px, the plate now ~35 px under the shoulder across the chest. The off arm swings out from the ribs
   // with the elbow softer ("elbows tucked against the torso"; the reference's free arm hangs clear, counterbalancing). The
   // chin drops ~15° more: the m2 scan's longer neck read at the tee as "a pale column" under a head held upright.
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.28, -1.75, -.12], shR: [.583, 1.164, .872], elR: [.712, -.447, 0], shL: [.45, 0, -.32], elL: [.75, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // Round 17: still "a stubby, foreshortened forearm ending in a balled fist, the disc floating under it" with "a thin,
+  // over-long trailing arm" (the forearm pointed at the lens: the wrist sat ~36 cm nearer the camera than the elbow).
+  // Solved in screen space with the new grip (gltf-player.js GRIP, wrist curled): the upper arm forward toward the lens, the
+  // elbow folded ~115°, the forearm level and side-on across the frame to the target side, the hand hanging off its end with
+  // the plate level (normal within ~10° of up) reaching back under it across the chest, as Disc Golf Masters holds it; the off
+  // arm hangs at the side, elbow soft, the open hand by the hip (swung out from the ribs it read as a long trailing limb).
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.28, -1.75, -.12], shR: [.098, -1.512, 1.517], elR: [2.004, -.261, 0], shL: [.555, .328, .028], elL: [.676, .079, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },

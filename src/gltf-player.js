@@ -71,7 +71,12 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // disc reaching back across the chest (the old cock held it level only at the end of a forearm dropping ~33°, which the tee
 // camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
-const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
+// Round 17: the Disc Golf Masters address hangs the hand off a level forearm, wrist curled ~80°, the thumb along the plate and
+// the fingers under the rim, the plate reaching back under the forearm. Solved jointly with the stance in screen space: flex
+// 1.36, a .4 rad turn toward the little finger (cock x), tilt .1; the scan's tucked hand keeps the old .5 bend (`tuck`) so the
+// free hand and every bystander's wrist stay as they were. A forearm pointed at the tee lens with the hand bunched on its end
+// read as "a stubby forearm ending in a balled fist" to every critic.
+const GRIP = { rim: -.092, flex: 1.36, tuck: .5, tilt: .1, cock: [-.4, 0, 0], wrist: [.2, -.16], press: .003, chroma: .6, tone: .8, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
@@ -106,7 +111,7 @@ function tube(out, pts, radii, seg, steps) {   // a finger: centripetal Catmull-
 // b along x, centre cx, cz). Returns positions, indices, a per-vertex occlusion (dark between the digits) and the seat.
 function gripHand(L, wrist, lod, rest = false, open = false) {
   // the free hand hung at the tee "oversized, a spade" next to the forearm: its digits run a little shorter than the grip's
-  const k = L / .19 * (rest ? .9 : 1), seg = lod ? 7 : 10, steps = lod ? 7 : 16, out = { p: [], i: [] }, axes = [];
+  const k = L / .19 * (rest ? .9 : 1), seg = 10, steps = lod ? 12 : 16,   /* the phone's 7-sided, 7-step digits read as angular L-shaped bricks at the tee */ out = { p: [], i: [] }, axes = [];
   const V = (x, y, z) => new THREE.Vector3(x * k, y * k, z * k);
   // palm: from inside the forearm, through the scan's own wrist, out to the knuckle ridge
   const U = new THREE.Vector3(0, 0, 1), X = new THREE.Vector3(-1, 0, 0), palm = [[.02, wrist.a * .9 / k, wrist.b * .9 / k], [0, wrist.a * .98 / k, wrist.b * .98 / k], [-.025, .033, .019], [-.055, .039, .0165], [-.08, .043, .0155], [-.096, .0435, .015]];
@@ -117,7 +122,7 @@ function gripHand(L, wrist, lod, rest = false, open = false) {
     let ridge = 0; for (const [kn] of GRIP.fingers) ridge = Math.max(ridge, Math.exp(-(((z - kn[2] * spread) / .0045) ** 2)));
     return [dors * ridge * (.0014 + .0022 * smooth(-.07, -.092, y)) / b, dors * (1 - ridge)];
   };
-  loft(out, palm.map(([y, a, b], j) => ({ c: new THREE.Vector3(wrist.cx * (1 - smooth(0, -.04 * k, y * k)), y * k, wrist.cz * (1 - smooth(0, -.04 * k, y * k)) - .004 * k * smooth(0, -.04 * k, y * k)), u: U, v: X, a: a * k * (j < 2 ? taperAt(y * k) : 1), b: b * k * (j < 2 ? taperAt(y * k) : 1), bump: t => backOfHand(t, y, a, b) })), lod ? seg + 4 : 30, .014 * k);   // the wrist rings follow the tapered forearm
+  loft(out, palm.map(([y, a, b], j) => ({ c: new THREE.Vector3(wrist.cx * (1 - smooth(0, -.04 * k, y * k)), y * k, wrist.cz * (1 - smooth(0, -.04 * k, y * k)) - .004 * k * smooth(0, -.04 * k, y * k)), u: U, v: X, a: a * k * (j < 2 ? taperAt(y * k) : 1), b: b * k * (j < 2 ? taperAt(y * k) : 1), bump: t => backOfHand(t, y, a, b) })), lod ? 20 : 30, .014 * k);   // the wrist rings follow the tapered forearm
   const valley = out.h; out.h = null;
   const partEnd = [out.p.length / 3];
   // the rim touches the palm at C; the disc's far side rises `tilt` (radians) from square to the hand, toward the forearm,
@@ -192,13 +197,13 @@ function handMorphs(mesh, handOffset, lod) {
     wrists[name] = { position: [W.x - E.x + cx * side, W.y - E.y + .032, W.z - E.z + cz], x: THREE.MathUtils.clamp(bx, .012, .03), z: THREE.MathUtils.clamp(ax, .018, .038) };
     const gh = gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod);
     // the wrist flex, blended across the joint; the grip hand and the tucked scan bend together
-    const qw = new THREE.Quaternion().setFromAxisAngle(Z, GRIP.flex), qi = new THREE.Quaternion(), qk = new THREE.Quaternion();
+    const qw = new THREE.Quaternion().setFromAxisAngle(Z, GRIP.tuck), qi = new THREE.Quaternion(), qk = new THREE.Quaternion();
     const bend = (v, q = qw) => { const w = smooth(GRIP.wrist[0] * L, GRIP.wrist[1] * L, v.y); if (w > 0) v.applyQuaternion(qk.copy(qi).slerp(q, w)); return v; };
     // the gripping hand is also cocked (GRIP.cock, before the flex, blended across the same band so the wrist bends rather
     // than steps): the plate's normal leaves the flex plane, so a thumb-up hand holds the disc level at the end of a forearm
     // lying across the chest. With flex and tilt alone the disc was level only with the palm turned down, which a forearm
     // reaching toward the target from an elbow in front of the ribs cannot do (the solve folded it into a chicken wing)
-    const qg = qw.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...GRIP.cock, 'XYZ')));
+    const qg = new THREE.Quaternion().setFromAxisAngle(Z, GRIP.flex).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...GRIP.cock, 'XYZ')));
     // tuck: the scanned hand folds into a small core inside the grip hand's palm
     const taper = v => { const s = taperAt(v.y); v.x = cx + (v.x - cx) * s; v.z = cz + (v.z - cz) * s; return v; };
     const TP = R.map(r => { const t = smooth(.014, -.004, r.y); return bend(taper(new THREE.Vector3(r.x + (cx + (r.x - cx) * .15 - r.x) * t, r.y + (-.016 + (r.y + .016) * .08 - r.y) * t, r.z + (cz + (r.z - cz) * .15 - r.z) * t))); });   // all of it inside the grip palm: half-tucked, the scan's thumb base stood out of it as a flap
@@ -389,7 +394,7 @@ export function createGLTFCharacter(avatar) {
   const headwear = createPlayerHeadwear(joints.head, skin, spec, avatar, lod);
   body.tuck(headwear.tuck, skin.skeleton.bones.indexOf(joints.head));   // hat hair: his locks lie down under a covering hat
   const holdHands = {};
-  const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); into[name] = h; };
+  const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.receiveShadow = true;   /* no shadow-map pass: a hand's shadow is a few texels, and the finer phone hands paid for it twice */ h.visible = false; joints[name].add(h); into[name] = h; };
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.holds)) mount(geo, name, holdHands, 'hold_');
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.rests)) mount(geo, name, restHands, 'rest_');
   const cuffMat = new THREE.MeshStandardMaterial({ color: avatar.accent, roughness: .9 }); cuffMat.color.multiplyScalar(.68); owned.add(cuffMat);
