@@ -12,6 +12,7 @@ import { createWindFx } from './wind.js';
 import { createShotGuide } from './shot-guide.js';
 import { suggestPower } from './shot-planning.js';
 import { createFlightTrail } from './flight-trail.js';
+import { createTemporal } from './temporal.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -73,15 +74,21 @@ THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars
   c *= mix( vec3( .94, .99, 1.06 ), vec3( 1.04, 1., .92 ), smoothstep( .06, .5, l ) );
   c = mix( vec3( l ), c, mix( .9, 1., smoothstep( .04, .3, l ) ) ) + vec3( .018, .022, .03 ) * ( 1. - l ) * ( 1. - l ) * ( 1. - l );
   c = max( c, 0. ); return c * c; }`);
+// Alpha-to-coverage cut-outs (leaves, tufts, hair, impostors, banners) ramp over ~2 px centred on the cut, not three's one
+// pixel above it. On a held frame the temporal resolve (temporal.js) averages the jittered coverage into a soft edge, the way
+// Disc Golf Masters' leaves fall off (gauntlet r2 crisp: "hard one-pixel alpha cut-out edges on foliage and hair").
+THREE.ShaderChunk.alphatest_fragment = THREE.ShaderChunk.alphatest_fragment.replace('smoothstep( alphaTest, alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )',
+  'smoothstep( alphaTest - min( fwidth( diffuseColor.a ), alphaTest ), alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )');   // capped below so a fully transparent texel never gains coverage
 const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
 const scene = new THREE.Scene();
+const taa = createTemporal();   // temporal.js: jittered, accumulated edges on held frames, both tiers
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
 let post = null, postEnabled = true, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0, slowTime = 0;
 const forcedDpr = +new URLSearchParams(location.search).get('dpr') || 0;   // QA: a fixed pixel ratio (e.g. a supersampled ground truth for the aliasing metric)
 const lineMats = [];   // screen-space line materials that need the framebuffer size
 const resize = () => { if (!innerWidth || !innerHeight) return;   // a page opened in a background tab (or a hidden pane) reports 0x0: an aspect of 0/0 poisoned the camera with NaN for good
-  renderer.setPixelRatio(forcedDpr || Math.min(devicePixelRatio, 2, Math.sqrt((isMobile ? 1800000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); /* phones render at 2x (1.5x on a 3x screen read as soft stair-steps); the frame-budget scaler sheds pixels on slow ones */ renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
+  renderer.setPixelRatio(forcedDpr || Math.min(devicePixelRatio, 2, Math.sqrt((isMobile ? 2100000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); /* phones render at 2x (1.5x on a 3x screen read as soft stair-steps; the 2.1 M pixel cap keeps a 960 x 540 view at exactly 2x, 1.8 M gave 1.86x resampled up to the screen); the frame-budget scaler sheds pixels on slow ones */ renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
 addEventListener('resize', resize); resize();
 
 let course, world, holes, effects = null;
@@ -90,6 +97,16 @@ const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos
 // arrow at the lie that turns with the aim. The dashes flow toward the basket so the direction reads at a glance.
 const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false });
 const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .42, depthTest: false, depthWrite: false });
+// Dash ends as one-pixel coverage ramps instead of LineMaterial's per-pixel discard: MSAA never smooths a discard and the
+// flowing dashes defeat the temporal resolve, so every dash ended in a stair step (gauntlet r2 crisp: "stepped ends on the dashed arc")
+for (const m of [previewMat, previewEdge]) m.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader
+  .replace('if ( mod( vLineDistance + dashOffset, dashSize + gapSize ) > dashSize ) discard;', '')
+  .replace('float alpha = opacity;', `float alpha = opacity;
+    #ifdef USE_DASH
+    { float dp = mod( vLineDistance + dashOffset, dashSize + gapSize ), fw = max( fwidth( vLineDistance ), 1e-5 );
+      alpha *= clamp( ( dp < dashSize ? min( dp, dashSize - dp ) : - min( dp - dashSize, dashSize + gapSize - dp ) ) / fw + .5, 0., 1. );
+      if ( alpha <= 0. ) discard; }
+    #endif`); };
 const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();
 const shotGuide = createShotGuide(preview);
 const trail = createFlightTrail(scene);
@@ -130,8 +147,8 @@ function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerI
   marker.visible = false; scene.add(marker);
   return { name, color, isBot, difficulty, peerId, appearance, lod: i > 0, scores: [], strokes: 0, done: false, lie: [0, 0, 0], lieDist: 0, char, marker, discMesh: null, discId: null };
 }
-function setPlayerDetail(p, lod) {
-  if (p.lod === lod || G.settings.quality === 'low') return;
+function setPlayerDetail(p, lod) {   // both tiers: the thrower is the foreground figure the crisp critics zoom into (models.js)
+  if (p.lod === lod) return;
   const next = createCharacter({ ...p.appearance, lod });
   next.setGround?.((x, z) => world.height(x, z));
   next.group.position.copy(p.char.group.position); next.group.rotation.copy(p.char.group.rotation);
@@ -184,7 +201,7 @@ const ORDER_COPY = { away: ['Real order', 'Farthest from the basket throws next,
 // off-shoulder and the woods past it closing the top of the frame. Trees inside ~25 m keep 95% of their contrast
 // through the haze, so staging close is what clears the fog. Of the greens whose approach runs away from the sun (the
 // low key then lights his face and the woods instead of haloing him) the one with the most trees past it wins.
-const MENU = { short: 5, lat: 1.25, face: .2, kick: 8, haze: 1.6, wide: { back: 3.3, up: 1.3, aim: 1.37, x: .5, fov: 23 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
+const MENU = { short: 5, lat: 1.25, face: .2, kick: 8, haze: 1.6, wide: { back: 3.3, up: 1.3, aim: 1.37, x: .38, fov: 23 }, portrait: { back: 3.2, up: 1.2, aim: 1.2, x: .6, fov: 50 } };
 const menuStage = { d: [0, 1], r: [-1, 0] };
 // Contact shade under the clubhouse hero: the key light sits behind the lens, so his own shadow falls out of sight behind him.
 const blobCanvas = document.createElement('canvas'); blobCanvas.width = blobCanvas.height = 64; const blobInk = blobCanvas.getContext('2d'), blobGrad = blobInk.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -204,20 +221,25 @@ function kickLight(root) {
     m.customProgramCacheKey = () => prevKey.call(m) + '|kick'; m.needsUpdate = true;
   } });
 }
-const hazeMat = new THREE.MeshBasicMaterial({ color: '#c3d5d4', transparent: true, opacity: .28, depthWrite: false, fog: false }), scrim = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), hazeMat); scrim.visible = false; scene.add(scrim);
 // Full: the sheet shows the woods themselves, defocused: a quarter-res snapshot of this frame with the hero hidden (no shadow
 // pass), read through a 12-tap golden-angle disc between its first two mips, the cheap shallow depth of field of a long lens:
 // soft enough to sit behind him, sharp enough that the basket and banners still read (a heavier blur read as a smeared photo).
-// Lite keeps the plain haze.
+// Lite gets it too: plain haze over Lite's foliage cards read as blotchy low-res blobs, and the clubhouse has the budget for
+// a quarter-res second look (Mobile draws straight to the canvas, so the sheet tone-maps and encodes itself; into Full's
+// linear target both chunks are no-ops).
 const backdrop = { rt: null, mat: new THREE.ShaderMaterial({ uniforms: { map: { value: null }, texel: { value: new THREE.Vector2() }, blur: { value: .8 }, lod: { value: .7 } }, transparent: true, depthWrite: false,
   vertexShader: 'varying vec4 vClip; void main() { gl_Position = vClip = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
   fragmentShader: `uniform sampler2D map; uniform vec2 texel; uniform float blur, lod; varying vec4 vClip;
     void main() { vec2 uv = vClip.xy / vClip.w * .5 + .5; vec3 c = vec3(0.);
       for (int i = 0; i < 12; i++) { float r = sqrt((float(i) + .5) / 12.) * blur, a = float(i) * 2.39996; c += textureLod(map, uv + vec2(cos(a), sin(a)) * r * texel, lod).rgb; }
-      gl_FragColor = vec4(c / 12., 1.); }` }) };   // the blur's radius is in snapshot texels (4 px each)
+      gl_FragColor = vec4(c / 12., 1.);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }` }) };   // the blur's radius is in snapshot texels (4 px each)
+const scrim = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), backdrop.mat); scrim.visible = false; scene.add(scrim);
 function snapBackdrop() {
   const s = renderer.getDrawingBufferSize(new THREE.Vector2()), w = Math.max(32, s.x >> 2), h = Math.max(18, s.y >> 2);
-  if (!backdrop.rt) backdrop.rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });   // linear HDR, like the scene pass it lands in; MSAA so chains and twigs don't alias into blocks
+  if (!backdrop.rt) backdrop.rt = new THREE.WebGLRenderTarget(w, h, { type: renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float') ? THREE.HalfFloatType : THREE.UnsignedByteType, samples: 4, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });   // linear HDR, like the scene pass it lands in; MSAA so chains and twigs don't alias into blocks
   else if (backdrop.rt.width !== w || backdrop.rt.height !== h) backdrop.rt.setSize(w, h);
   backdrop.mat.uniforms.map.value = backdrop.rt.texture; backdrop.mat.uniforms.texel.value.set(1 / w, 1 / h);
   const shown = [hero.group, heroDisc, scrim, menuBlob].map(o => [o, o.visible]), auto = renderer.shadowMap.autoUpdate;
@@ -286,7 +308,7 @@ async function applyCourse(id) {
   const panoUrl = asset('skies', def.id + (G.settings.quality === 'low' ? '-mobile' : ''));
   const pano = panoUrl && await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null);   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps
   course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, pano });
-  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }
+  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true, temporal: taa }); resize(); }
   windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
   world = course.world; holes = course.holes; course.setHole(0);
   G.courseId = def.id; saveLocal('chains.course', def.id); updateHub();
@@ -934,7 +956,7 @@ function updateCamera(dt) {
   let k = 5, fov = baseFov(); cam.tShift = 0;   // only a landscape putt's aimFrame slides the lens
   if (cam.mode === 'menu') {   // clubhouse: a low portrait of the athlete cut at mid-thigh (key art's crop: never at a joint), basket over his off-shoulder, woods closing the top
     const { d, r } = menuStage, t = performance.now() / 1000, p = hero.group.position, wide = camera.aspect > 1.2, S = wide ? MENU.wide : MENU.portrait, sway = Math.sin(t * 0.18) * 0.06;
-    // wide: the athlete centred in the view right of the panel (whatever its width); the axis swings left to put him there
+    // wide: the athlete just left of centre in the view right of the panel (whatever its width), so he stands near the frame's middle; the axis swings left to put him there
     const right = wide ? (document.querySelector('#menu .panel')?.getBoundingClientRect().right || 0) / innerWidth : 0, sx = wide ? right + (1 - right) * S.x - .5 : S.x - .5;
     const yaw = -Math.atan(sx * 2 * Math.tan(S.fov * DEG / 2) * camera.aspect) + sway * .02, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
     cam.tPos.set(p.x - d[0] * S.back - r[0] * sway, p.y + S.up, p.z - d[1] * S.back - r[1] * sway);
@@ -982,7 +1004,7 @@ function updateCamera(dt) {
   camera.position.copy(cam.pos); camera.lookAt(cam.look);
   if (Math.abs(camera.fov - cam.fov) > .01) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }   // resize() resets fov by aspect; this re-applies the mode's lens every frame
   applyViewOffset();
-  scrim.material = post ? backdrop.mat : hazeMat; if (scrim.visible && post) snapBackdrop(); else if (backdrop.rt) { backdrop.rt.dispose(); backdrop.rt = null; }   // the snapshot's target lives only while the clubhouse shows
+  if (scrim.visible) snapBackdrop(); else if (backdrop.rt) { backdrop.rt.dispose(); backdrop.rt = null; }   // the snapshot's target lives only while the clubhouse shows
   // Target tag (ui.css #pin): the basket's distance on a hairline just over the flag while a hole is in play; it bows out as
   // the camera closes inside ~20 m, where the basket itself is the target. This frame's matrices, so it never trails the drone.
   if (/^(intro|aim|windup|release|flight)$/.test(G.phase)) { camera.updateMatrixWorld(); _v.set(h.basket[0], h.basketY + 2.3, h.basket[1]); const fade = THREE.MathUtils.smoothstep(_v.distanceTo(camera.position), 14, 22); _v.project(camera); UI.placePin((_v.x + 1) / 2 * innerWidth, (1 - _v.y) / 2 * innerHeight, _v.z < 1 ? fade : 0); }
@@ -1069,8 +1091,12 @@ function frame(dt, rawDt, background) {
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   trail.update(camera, !!G.flight);
-  if(post && postEnabled) post.render(); else renderer.render(scene, camera);
+  draw();
 }
+// One frame to the screen (Desktop's post chain, else the canvas), through the temporal resolve while the camera holds still.
+// Not through the throw and the flight: the aim camera holds while the arm and the disc sweep across the turf, and the
+// history's colour box let them leave a tinted streak behind (drive clip, release).
+function draw() { const still = taa.begin(renderer, camera, !/^(windup|release|flight)$/.test(G.phase)); if (post && postEnabled) post.render(still); else { renderer.render(scene, camera); if (still) taa.canvas(renderer); } taa.end(camera); }
 
 // ---------- HUD / menu wiring ----------
 function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.selectThrow(id); if (id === 'putt') { G.discId = 'putter'; UI.selectDisc('putter'); ensureDisc(curP(), 'putter'); curP().discMesh.visible = true; } G.previewDirty = true; G.previewPower = null; sfx.click(); }
@@ -1494,7 +1520,7 @@ setTimeout(async () => {
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await Promise.all([warmShaders(), assetsIdle()]);
   UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: draw, taa, performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage

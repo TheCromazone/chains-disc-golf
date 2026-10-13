@@ -85,20 +85,20 @@
 <div id="menu" class="overlay hub">
   <div class="hub-top">
     <div class="hub-brand"><a id="hostHome" class="host-home hidden" href="../"><span data-icon="back"></span><span>Back to <b id="hostName">Huck Yeah</b></span></a><div class="brand"><small id="brandSmall">DISC GOLF CLUB</small>Chains</div></div>
-    <div class="hub-tools"><button class="pcard" id="btnLocker" title="Locker room" aria-label="Locker room"><i class="sw" id="hubSwatch"><span data-icon="jersey"></span></i><div><b id="hubName">You</b><span class="muted">Locker</span></div></button><button id="btnHubSound" class="sound-toggle hub-sound" title="Mute sound" aria-label="Mute sound" aria-pressed="false"><span class="sound-icons"><span class="sound-on" data-icon="sound"></span><span class="sound-off" data-icon="mute"></span></span></button></div>
+    <div class="hub-tools"><button class="pcard" id="btnLocker" title="Locker room" aria-label="Locker room"><i class="sw" id="hubSwatch"><span data-icon="jersey"></span></i><div><b id="hubName">You</b><span class="muted">Locker</span></div></button><button id="btnHubSound" class="sound-toggle hub-sound" title="Mute sound" aria-label="Mute sound" aria-pressed="false"><span class="sound-icons"><span class="sound-on" data-icon="sound"></span><span class="sound-off" data-icon="mute"></span></span></button><button id="btnHelp" class="hub-sound" title="Field guide &amp; rules" aria-label="Field guide and rules"><span data-icon="help"></span></button></div>
   </div>
+  <!-- One hero (Play), two modes, the course, and the round's options folded away: the sheet stays a title screen, not a form. -->
   <div class="panel stack hub-main">
-    <div class="hub-caption"><span class="eyebrow">Your next round</span><span class="muted">Find your line.</span></div>
     <button class="big primary play-cta" id="btnSolo"><span data-icon="play"></span><span class="cta-copy"><strong>Play round</strong><small>Solo · take on the bots</small></span><span class="cta-end" data-icon="arrow"></span></button>
     <div class="row2"><button class="big mode-btn" id="btnLocal"><span data-icon="players"></span><span>Pass &amp; play</span></button><button class="big mode-btn" id="btnOnline"><span data-icon="online"></span><span>Friends</span><b id="matchBadge" class="match-badge hidden" aria-label="Matches waiting on you"></b></button></div>
     <button class="ccard" id="btnCourses"><div class="cmap" id="hubMap"></div><div class="cinfo"><span class="eyebrow">Selected course</span><b id="hubCourse">Pine Hollow</b><span class="muted" id="hubCourseSub"></span></div><span class="chev" data-icon="chevron"></span></button>
+    <details class="round-opts" id="roundOpts"><summary><span data-icon="sliders"></span><span class="ro-title">Round settings</span><span class="ro-sum" id="roundSum"></span><span class="ro-chev" data-icon="chevron"></span></summary>
     <div class="round-settings">
       <div class="f"><span id="holesLabel">Holes</span><div class="seg" id="holesSeg" role="group" aria-labelledby="holesLabel"><button data-v="3">3</button><button data-v="9" class="on">9</button></div></div>
       <div class="f"><span id="botsLabel">Bots</span><div class="seg" id="diffSeg" role="group" aria-labelledby="botsLabel"><button data-v="easy">Easy</button><button data-v="medium" class="on">Medium</button><button data-v="hard">Hard</button></div></div>
       <div class="f gfx"><span id="graphicsLabel">Graphics</span><div class="seg" id="qualSeg" role="group" aria-labelledby="graphicsLabel"><button data-v="low">Mobile</button><button data-v="high" class="on">Desktop</button></div></div>
       <div class="f turns"><span id="turnsLabel">Turns</span><div class="seg" id="orderSeg" role="group" aria-labelledby="turnsLabel"><button data-v="away" class="on" title="Farthest from the basket throws next, like a real round">Real order</button><button data-v="through" title="Each player plays out the whole hole, then the next one tees off">All at once</button></div></div>
-    </div>
-    <button id="btnHelp" class="quiet" style="width:100%"><span data-icon="help"></span><span>Field guide &amp; rules</span></button>
+    </div></details>
   </div>
 </div>
 

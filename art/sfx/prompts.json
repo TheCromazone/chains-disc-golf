@@ -13,5 +13,159 @@
       "takes": "python3 tools/process-sfx.py land_grass landing.wav --peak -6 --at 1.92-2.95,1.94-2.5 && python3 tools/process-sfx.py land_dirt landing.wav --peak -6 --at 5.93-6.95,7.3-7.98"
     }
   ],
-  "runtime": "src/audio.js: whoosh on release (gain and pitch follow power), land_grass / land_dirt on first ground contact by surface (gain follows impact speed); a random take each time, synthesis as the fallback."
+  "runtime": "src/audio.js: whoosh on release (gain and pitch follow power), land_grass / land_dirt on first ground contact by surface (gain follows impact speed); a random take each time, synthesis as the fallback.",
+
+  "local": {
+    "made": "2026-10-12",
+    "tool": "Stable Audio 3 small, run locally in ComfyUI (C:\\ComfyUI) on the owner's RTX 5090: CheckpointLoaderSimple stable_audio_3_small_sfx.safetensors (or _music where noted), CLIPLoader t5gemma_b_b_ul2.safetensors type stable_audio, EmptyLatentAudio <seconds> x <batch>, KSampler lcm / simple, 8 steps, cfg 1, denoise 1, VAEDecodeAudio, SaveAudio (flac). 'seed S batch B item i' is item i of one batch of B from seed S. No third-party recordings or libraries were used.",
+    "default_negative": "music, melody, singing, speech, voices, synthesizer, electronic tones, distortion, low quality",
+    "selection": "16-32 candidates per prompt, 40-190 per slot. Kept by (1) a blind CLAP critic, laion/larger_clap_general: score = similarity to a description of the real event minus the best of 'a synthesized electronic sound effect from a video game', 'music', 'digital beeps and tones', 'static noise'; every shipped take outscores the game's synthesized fallback rendered offline from src/audio.js (womp, birdie_jingle, bad judged on 'a recording of real <instrument> played by a musician' vs synthesizer / chiptune / music box), and the whoosh and landing pools are the critic's top four of the original Veo takes plus new ones; (2) spectrograms: impact first, steel ring 2-9 kHz with a ~1 s decaying rattle and tray clank for chains, woody knock under 1 kHz for trees, no music beds or voices, no clipping.",
+    "processing": "tools/process-sfx.py on each kept candidate: cut from 5 ms before the onset (first sample within 26 dB of the peak; 40 dB for the gradual whoosh, roll, leaves, ohh, applause, womp and jingle) to 60 ms past the last 20 ms window within 42 dB of the loudest, 45 Hz high-pass, 6 ms fade in, 90 ms fade out, mono 44.1 kHz 96 kbps MP3, peak -7 dBFS, or lower so the loudest 300 ms sits at the level its neighbours imply: click -18 dBFS peak, applause about -31 dBFS short-term RMS, the gallery ohh -29, womp -24, birdie jingle -22, bad -28, roll -30, leaves and chains_soft by the same rule. Each take is python tools/process-sfx.py <slot> <candidate flac> --peak P --at A-B --first <take number>, with the exact --peak and --at values listed below.",
+    "voices": "Gallery voices ('Nice shot!', 'Yeah!', 'Oh no!', 'Aww!') were made with Qwen3-TTS 1.7B VoiceDesign (local, C:\\ComfyUI\\models\\qwen3-tts\\VoiceDesign, five designed spectator voices, words verified with Whisper small.en) and mixed far back (180 Hz - 4.2 kHz, four ground/tree reflections, 0.45 s diffuse tail) into applause and ohh takes. They are not in the manifest: nobody could listen to judge them natural. Audition art/sfx/voice-candidates/*.mp3 (applause_voices_1: Yeah! + Yeah! over seed 1000 item 11; applause_voices_2: Wow! + Yeah! over item 9; ohh_voices_1: Aww! + Oh no! over the ohh item 8) and add any keeper to the applause / ohh list in assets/manifest.json.",
+    "ambient": {
+      "file": "sfx/ambient_1.mp3",
+      "model": "stable_audio_3_small_sfx",
+      "prompt": "Quiet wooded park ambience on a calm summer afternoon: gentle wind through pine and birch trees, soft leaf rustle, several songbirds chirping and calling at different distances, no people, no traffic, realistic stereo field recording. Length: 30 seconds",
+      "seconds": 32,
+      "take": "seed 1000 batch 4 item 3",
+      "processing": "mono, 45 Hz high-pass, 28 s loop from 1.5 s whose last 2 s are crossfaded (equal power) back over its head so the end runs straight into the start; loudest 300 ms at -32 dBFS (-39 dBFS overall RMS, peak -18.4); mono 96 kbps MP3. src/audio.js loops only the decoded span, so MP3 encoder padding cannot open a gap at the seam."
+    },
+    "slots": {
+      "chains_soft": {"model": "sfx", "prompts": [
+        "Light tinkle and rustle of steel chains as a slow disc golf putt drops into the basket, gentle metallic chain links jingling, a soft clank in the galvanized steel tray, outdoors in a quiet wooded park, realistic close field recording. Length: 2 seconds (2.5 s)",
+        "Slow disc golf putt settling into the basket, one-shot: immediate light tinkle of hanging steel chains at the start, a few links clinking and jingling softly, quiet clank in the steel tray, realistic close recording. Length: 2 seconds (2 s)"],
+        "takes": [
+          "chains_soft_1: prompt 1, seed 1001 batch 16 item 0; process-sfx.py chains_soft chains_soft_v1_1001_0.flac --peak -7.0 --at 0.260-1.537 --first 1",
+          "chains_soft_2: prompt 1, seed 1001 batch 16 item 15; --peak -7.0 --at 0.260-1.410",
+          "chains_soft_3: prompt 1, seed 1001 batch 16 item 8; --peak -7.0 --at 0.058-1.513",
+          "chains_soft_4: prompt 2, seed 3001 batch 24 item 14; --peak -7.0 --at 0.238-1.557"]},
+      "chains_medium": {"model": "sfx", "prompts": [
+        "Disc golf putt into the chains, one-shot: immediate metallic chain crash at the start, dense rattling of steel chain links decaying over one second, plastic disc drops into the metal basket. Length: 2 seconds (2 s)"],
+        "takes": [
+          "chains_medium_1: seed 3002 batch 32 item 31; --peak -7.0 --at 0.000-0.943",
+          "chains_medium_2: seed 3002 batch 32 item 27; --peak -7.0 --at 0.000-1.016",
+          "chains_medium_3: seed 3002 batch 32 item 20; --peak -7.0 --at 0.000-0.749",
+          "chains_medium_4: seed 2002 batch 16 item 4; --peak -7.0 --at 0.000-0.676"]},
+      "chains_fast": {"model": "sfx", "prompts": [
+        "Hard fast disc golf putt smashing into the chains, one-shot: immediate loud violent crash of heavy steel chains at the start, links clattering, rattling and swinging, decaying over one and a half seconds, disc clanks into the metal basket tray. Length: 2 seconds (2.5 s)",
+        "Powerful disc golf putt slams the basket chains, a big explosive crash of steel chains, links jangling and swinging and slowly settling, metal tray clank, outdoors in a quiet wooded park, realistic close field recording. Length: 3 seconds (3 s)"],
+        "takes": [
+          "chains_fast_1: prompt 1, seed 3003 batch 24 item 17; --peak -7.0 --at 0.013-1.108",
+          "chains_fast_2: prompt 1, seed 3003 batch 24 item 13; --peak -7.0 --at 0.014-1.063",
+          "chains_fast_3: prompt 1, seed 3003 batch 24 item 3; --peak -7.0 --at 0.013-1.074",
+          "chains_fast_4: prompt 2, seed 1001 batch 16 item 15; --peak -7.0 --at 0.151-1.398"]},
+      "chainout": {"model": "sfx", "prompts": [
+        "Sharp clash of steel chains on a disc golf basket struck by a fast plastic disc that bounces away, chains rattle briefly and ring out, outdoors in a quiet wooded park, realistic close field recording. Length: 2 seconds (2 s)"],
+        "takes": [
+          "chainout_1: seed 1001 batch 16 item 5; --peak -7.0 --at 0.007-1.301",
+          "chainout_2: seed 1001 batch 16 item 4; --peak -7.0 --at 0.007-1.137",
+          "chainout_3: seed 1001 batch 16 item 6; --peak -7.0 --at 0.007-1.183"]},
+      "tray": {"model": "sfx", "prompts": [
+        "Disc dropping into a disc golf basket, one-shot: immediate hollow clank of a plastic disc landing in a galvanized steel wire basket tray at the start, a small rattling bounce, faint chain jingle, quick decay. Length: 1 seconds (1.5 s)",
+        "A plastic disc golf disc drops into the empty metal wire basket tray of a disc golf basket, a hollow galvanized steel clank and rattle of the wire tray, a short light bounce and a faint chain jingle, outdoors in a quiet wooded park, realistic close field recording. Length: 1 seconds (1.5 s)",
+        "Plastic disc falls into a steel wire basket and rattles to rest, hollow metallic clunk, small bounce, outdoors in a quiet wooded park, realistic close field recording. Length: 1 seconds (1.5 s)"],
+        "takes": [
+          "tray_1: prompt 1, seed 3006 batch 24 item 21; --peak -7.0 --at 0.000-0.690",
+          "tray_2: prompt 2, seed 1000 batch 16 item 7; --peak -7.0 --at 0.099-0.752",
+          "tray_3: prompt 3, seed 1001 batch 16 item 7; --peak -7.0 --at 0.002-0.726"]},
+      "band": {"model": "sfx", "note": "also the pole and the arch (played at 0.7 rate) and the rim", "prompts": [
+        "Plastic disc hits a steel pipe, one-shot: immediate bright metallic clank at the start, short hollow metal ring fading, outdoors, realistic. Length: 1 seconds (2 s)"],
+        "takes": [
+          "band_1: seed 3008 batch 24 item 15; --peak -7.0 --at 0.000-1.213",
+          "band_2: seed 3008 batch 24 item 22; --peak -7.0 --at 0.000-1.223",
+          "band_3: seed 3008 batch 24 item 12; --peak -7.0 --at 0.000-1.143"]},
+      "tree": {"model": "sfx", "prompts": [
+        "A plastic flying disc hits a tree trunk hard: a sharp dull woody knock thwack on bark, then a short rustle of leaves and twigs, outdoors in a quiet wooded park, realistic close field recording. Length: 1 seconds (1.5 s)",
+        "Hard plastic disc thwacks into a pine tree, solid wooden thunk on the trunk followed by a brief leaf and needle rustle, outdoors in a quiet wooded park, realistic close field recording. Length: 1 seconds (1.5 s)",
+        "Frisbee hitting a tree, one-shot: immediate hard woody knock of a plastic disc striking a tree trunk at the start, dull hollow wooden thunk, followed by a short rustle of leaves and twigs, outdoors. Length: 1 seconds (1.5 s)"],
+        "takes": [
+          "tree_1: prompt 1, seed 1000 batch 16 item 7; --peak -7.0 --at 0.038-0.749",
+          "tree_2: prompt 1, seed 1000 batch 16 item 5; --peak -7.0 --at 0.007-0.731",
+          "tree_3: prompt 2, seed 1001 batch 16 item 8; --peak -7.0 --at 0.000-0.938",
+          "tree_4: prompt 3, seed 3009 batch 24 item 11; --peak -7.0 --at 0.000-0.505"]},
+      "leaves": {"model": "sfx", "prompts": [
+        "Disc flying through tree branches, one-shot: immediate quick rustle and swish of leaves and thin twigs at the start, short crackle of foliage, fading fast, outdoors. Length: 1 seconds (1.5 s)",
+        "A flying plastic disc rips through the leafy branches of a tree: a quick swish and rustle of leaves and small twigs snapping, outdoors in a quiet wooded park, realistic close field recording. Length: 1 seconds (1.5 s)"],
+        "takes": [
+          "leaves_1: prompt 1, seed 3010 batch 24 item 4; --peak -7.0 --at 0.000-0.953",
+          "leaves_2: prompt 1, seed 3010 batch 24 item 17; --peak -7.0 --at 0.000-0.922",
+          "leaves_3: prompt 2, seed 1000 batch 16 item 0; --peak -7.0 --at 0.000-0.922"]},
+      "skip": {"model": "sfx", "prompts": [
+        "A plastic disc golf disc skips off hard packed ground: a quick slapping thud on dirt and grass, a skittering scrape, outdoors in a quiet wooded park, realistic close field recording. Length: 1 seconds (1.5 s)"],
+        "takes": [
+          "skip_1: seed 1000 batch 16 item 15; --peak -7.0 --at 0.096-0.685",
+          "skip_2: seed 1000 batch 16 item 11; --peak -7.0 --at 0.100-0.637",
+          "skip_3: seed 1000 batch 16 item 1; --peak -7.0 --at 0.098-0.889"]},
+      "splash": {"model": "sfx", "prompts": [
+        "Small object plops into a lake with a crisp splash and dripping water, short ripples, outdoors in a quiet wooded park, realistic close field recording. Length: 2 seconds (2 s)",
+        "Disc splashing into a pond, one-shot: immediate small sharp water splash at the start, droplets falling back, a short gentle ripple slosh, outdoors. Length: 2 seconds (2 s)"],
+        "takes": [
+          "splash_1: prompt 1, seed 1001 batch 16 item 15; --peak -7.0 --at 0.068-1.054",
+          "splash_2: prompt 1, seed 1001 batch 16 item 5; --peak -7.0 --at 0.000-1.402",
+          "splash_3: prompt 2, seed 3012 batch 24 item 8; --peak -7.0 --at 0.003-1.084"]},
+      "roll": {"model": "sfx", "prompts": [
+        "A plastic disc golf disc rolls on its edge across short grass and dirt: a soft continuous rumbling roll with light grass brushing, slowing down and wobbling flat to a stop, outdoors in a quiet wooded park, realistic close field recording. Length: 2 seconds (2.5 s)"],
+        "takes": [
+          "roll_1: seed 1000 batch 16 item 11; --peak -7.4 --at 0.000-1.490",
+          "roll_2: seed 1000 batch 16 item 6; --peak -8.2 --at 0.000-1.463",
+          "roll_3: seed 1000 batch 16 item 15; --peak -7.7 --at 0.000-1.631"]},
+      "click": {"model": "sfx", "prompts": [
+        "Single gentle mechanical tick of a plastic switch, crisp and subtle, close microphone, dry. Length: 1 seconds (1 s)"],
+        "takes": [
+          "click_1: seed 1001 batch 16 item 0; --peak -18.0 --at 0.002-0.114",
+          "click_2: seed 1001 batch 16 item 9; --peak -18.0 --at 0.002-0.103",
+          "click_3: seed 1001 batch 16 item 13; --peak -18.0 --at 0.004-0.110"]},
+      "applause": {"model": "sfx", "negative": "music, melody, singing, clear words, synthesizer, electronic tones, distortion, low quality, stadium, cheering announcer", "prompts": [
+        "A small polite gallery of about a dozen spectators applauds outdoors at a golf course, light warm clapping that fades out after a few seconds, distant, open air, birds in the trees, realistic field recording. Length: 3 seconds (4 s)"],
+        "takes": [
+          "applause_1: seed 1000 batch 16 item 15; --peak -8.2 --at 0.000-2.094",
+          "applause_2: seed 1000 batch 16 item 11; --peak -7.8 --at 0.000-2.110",
+          "applause_3: seed 1000 batch 16 item 11, first 2.05 s with a squared fade over its last 0.9 s (the model stops dead at ~2 s); --peak -7.8 --at 0.000-1.980",
+          "applause_4: seed 1000 batch 16 item 0; --peak -7.0 --at 0.000-2.097"]},
+      "ohh": {"model": "sfx", "negative": "music, melody, singing, clear words, synthesizer, electronic tones, distortion, low quality, stadium, cheering announcer", "prompts": [
+        "A small outdoor golf gallery groans in sympathy at a near miss, a short descending ohhh from a dozen spectators, open air, slightly distant, realistic field recording. Length: 2 seconds (2.5 s)"],
+        "takes": [
+          "ohh_1: seed 1000 batch 16 item 10; --peak -20.4 --at 0.000-1.259",
+          "ohh_2: seed 1000 batch 16 item 12; --peak -19.3 --at 0.000-1.252",
+          "ohh_3: seed 1000 batch 16 item 8; --peak -18.5 --at 0.000-1.227",
+          "ohh_4: seed 1000 batch 16 item 6; --peak -20.4 --at 0.000-1.242"]},
+      "womp": {"model": "music", "negative": "synthesizer, electronic, chiptune, drums, noise, distortion, low quality, vocals", "prompts": [
+        "Real tuba and trombone play a soft comic two-note fall, low warm brass, bwaa bwaaa, gentle, dry room recording. Length: 2 seconds (2.5 s)"],
+        "takes": [
+          "womp_1: seed 5001 batch 32 item 16; --peak -13.5 --at 0.127-1.673",
+          "womp_2: seed 5001 batch 32 item 1; --peak -14.1 --at 0.366-1.609",
+          "womp_3: seed 5001 batch 32 item 25; --peak -14.8 --at 0.079-1.634"]},
+      "birdie_jingle": {"model": "music", "negative": "synthesizer, electronic, chiptune, music box, drums, noise, distortion, low quality, vocals", "prompts": [
+        "Real marimba played with soft mallets, a quick bright ascending three-note arpeggio landing on a ringing major chord, warm wooden tone, natural room recording, short and tasteful. Length: 2 seconds (2.5 s)"],
+        "takes": [
+          "birdie_jingle_1: seed 5002 batch 32 item 9; --peak -11.5 --at 0.000-1.836",
+          "birdie_jingle_2: seed 5002 batch 32 item 30; --peak -12.6 --at 0.079-1.108",
+          "birdie_jingle_3: seed 5002 batch 32 item 4; --peak -13.5 --at 0.000-1.079"]},
+      "bad": {"model": "music", "negative": "noise, distortion, low quality, vocals", "note": "sfx.bad() has no caller in the game today", "prompts": [
+        "Soft low wooden marimba plays two short descending notes, muted and gentle, dry. Length: 1 seconds (1.5 s)"],
+        "takes": [
+          "bad_1: seed 1000 batch 16 item 10; --peak -15.6 --at 0.000-0.581",
+          "bad_2: seed 1000 batch 16 item 3; --peak -17.1 --at 0.000-0.580"]},
+      "whoosh": {"model": "sfx", "prompts": [
+        "A plastic flying disc thrown hard spins fast past the microphone, a sharp airy whoosh that fades away, outdoors in a quiet wooded park, realistic close field recording. Length: 1 seconds (1.5 s)"],
+        "takes": [
+          "whoosh_1, whoosh_2, whoosh_3: the original Veo takes above, untouched (their 50-190 ms before the -26 dB onset is the disc's approach, not silence: under 16 ms at -40 dB)",
+          "whoosh_4: seed 1000 batch 16 item 11; --peak -7.0 --at 0.000-0.830 (replaces the old whoosh_4, the critic's lowest)"]},
+      "land_grass": {"model": "sfx", "prompts": [
+        "A plastic disc lands flat on thick lawn grass, one-shot: a soft muffled low thump at the start and a short dry brush of grass blades, no hiss, outdoors, close microphone. Length: 1 seconds (1.5 s)",
+        "Frisbee dropping onto a grass field, dull soft thud on turf, slight rustle, realistic outdoor foley recording. Length: 1 seconds (1.5 s)"],
+        "takes": [
+          "land_grass_1: the original Veo take above, untouched",
+          "land_grass_2: prompt 1, seed 4002 batch 32 item 9; --peak -7.0 --at 0.027-0.968",
+          "land_grass_3: prompt 2, seed 4003 batch 32 item 21; --peak -7.0 --at 0.082-0.709",
+          "land_grass_4: prompt 1, seed 4002 batch 32 item 7; --peak -7.0 --at 0.012-1.000"]},
+      "land_dirt": {"model": "sfx", "prompts": [
+        "A plastic flying disc lands on hard packed dirt: a dry slap thud and a short gritty scrape skid, outdoors in a quiet wooded park, realistic close field recording. Length: 1 seconds (1.5 s)"],
+        "takes": [
+          "land_dirt_1: the original Veo take above, untouched",
+          "land_dirt_2: seed 1000 batch 16 item 2; --peak -7.0 --at 0.029-0.894",
+          "land_dirt_3: seed 1000 batch 16 item 1; --peak -7.0 --at 0.024-0.893",
+          "land_dirt_4: seed 1000 batch 16 item 3; --peak -7.0 --at 0.025-0.915"]}
+    }
+  }
 }

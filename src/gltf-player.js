@@ -71,7 +71,13 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // disc reaching back across the chest (the old cock held it level only at the end of a forearm dropping ~33°, which the tee
 // camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
-const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
+// set (round 18): the Disc Golf Masters address hangs the hand down off the end of a forearm that comes toward the lens, the
+// back of the hand out, the thumb along the top of the plate and the fingers under the rim, the disc level reaching back
+// across the chest; ours ended the forearm in its knuckles ("a stubby forearm ending in a balled fist, the disc floating
+// under it"). A turn of the whole grip hand about the wrist joint (XYZ, forearm frame, mirrored for the left), solved in
+// screen space with throw-poses.js STANCE.backhand and blended in with the set-up's grip weight. It is not baked into the
+// geometry, so the putt's and the throw's hands (the hold mesh's other shapes) stay exactly as they were.
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], set: [-.052, -.964, -.126], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
@@ -392,6 +398,10 @@ export function createGLTFCharacter(avatar) {
   const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); into[name] = h; };
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.holds)) mount(geo, name, holdHands, 'hold_');
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.rests)) mount(geo, name, restHands, 'rest_');
+  // GRIP.set, per side: the wrist joint in the forearm bone's frame (build-golfer-v3.py: handOffset = wrist - elbow + (0, -.075, -.012)) and the turn about it
+  const setPivot = {}, setTurn = {}, _sq = new THREE.Quaternion();
+  for (const [name, side] of [['elR', 1], ['elL', -1]]) { setPivot[name] = new THREE.Vector3(handOffset.x * side, handOffset.y + .075, handOffset.z + .012); setTurn[name] = new THREE.Quaternion().setFromEuler(new THREE.Euler(GRIP.set[0], GRIP.set[1] * side, GRIP.set[2] * side, 'XYZ')); }
+  const turnSet = (v, w, dir = false) => { _sq.identity().slerp(setTurn[forearm.name], w); return dir ? v.applyQuaternion(_sq) : v.sub(setPivot[forearm.name]).applyQuaternion(_sq).add(setPivot[forearm.name]); };
   const cuffMat = new THREE.MeshStandardMaterial({ color: avatar.accent, roughness: .9 }); cuffMat.color.multiplyScalar(.68); owned.add(cuffMat);
   const cuffGeometry = new THREE.CylinderGeometry(1, 1, .032, lod ? 12 : 20, 1, true);
   for (const [name, wrist] of Object.entries(skin.geometry.userData.grip.wrists)) {
@@ -521,7 +531,7 @@ export function createGLTFCharacter(avatar) {
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
     get heroWeight() { return heroW; },   // blend into the relaxed clubhouse stance
-    gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c)); nrm.copy(s.n).transformDirection(forearm.matrixWorld); } return w; },   // holdDisc: the disc seated in the gripping hand, and how much of it to use
+    gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(turnSet(pos.copy(s.c), w)); turnSet(nrm.copy(s.n), w, true).transformDirection(forearm.matrixWorld); } return w; },   // holdDisc: the disc seated in the gripping hand, and how much of it to use
     carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
     setGround: fn => motion.setGround(fn),
     lookAt: value => motion.lookAt(value),
@@ -555,6 +565,7 @@ export function createGLTFCharacter(avatar) {
         holdHands[side].morphTargetInfluences[1] = grip;
         restHands[side].visible = !throwingHand || !held;
       }
+      { const h = holdHands[forearm.name]; turnSet(h.position.set(0, 0, 0), grip); h.quaternion.copy(_sq); }   // GRIP.set: the set-up hand hangs off the wrist; the seat (gripPose) turns with it
       overlay();
       motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase);
       placeSocket(); remember();
