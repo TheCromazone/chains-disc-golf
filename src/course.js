@@ -134,7 +134,7 @@ export function fairwayInfo(holes, x, z) { // nearest fairway polyline: distance
 }
 
 // ---------- main build ----------
-export function buildCourse(scene, renderer, { course: def = COURSES[0], quality = 'high', effects = null, hdri = null } = {}) {
+export function buildCourse(scene, renderer, { course: def = COURSES[0], quality = 'high', effects = null, pano = null } = {}) {   // pano: the course's sky panorama texture (main.js), null keeps the gradient sky
   const seed = def.seed;
   const windClock = windTime, waters = [], clusters = []; let lastCull=-1;
   const noise = makeNoise(seed), rng = makeRng(seed * 7919 + 13);
@@ -933,7 +933,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // any brighter and the tee's back third, which looks into the lobe, goes to a milky cream veil.
   const glow = { r: sunColor.r * .42, g: sunColor.g * .39, b: sunColor.b * .33 }; Object.assign(FOG.glow, glow);   // glow: the base, which the putt scales (update(): PUTT_AIR.glow)
   scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG, gap: { hole: gapHole, aim: gapAim, reach: gapReach, sun: gapSun }, putt: PUTT_AIR, air: treeAir };   // air: the putt factor (update())   // effects.js aims the light shafts at the disc; FOG for the debug hook
-  const sky = skyDome(def, quality === 'low'); scene.add(sky);
+  const sky = skyDome(def, pano); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
   // green-brown bounce from below (the dome's `ground` switch) and the sun's aureole glints in discs, chains and water.
   // The cube camera's far plane has to reach the 1100 m dome.
@@ -1041,7 +1041,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   };
   const dispose = () => {   // tear down so another course can be built into the same scene
     for(const w of waters)w.userData.dispose?.();
-    scene.remove(group, sky, sun, sun.target, hemi); if (near) { scene.remove(near, near.target); near.shadow.map?.dispose(); } scene.fog = null; scene.environment = null; scene.background = null; hdri?.target.dispose(); hdri?.texture.dispose(); envRT?.dispose();
+    scene.remove(group, sky, sun, sun.target, hemi); if (near) { scene.remove(near, near.target); near.shadow.map?.dispose(); } scene.fog = null; scene.environment = null; scene.background = null; pano?.dispose(); envRT?.dispose();
     group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
@@ -1164,35 +1164,35 @@ vec2 vogelTurn() { float spin = 6.2831853 * fract( sin( dot( gl_FragCoord.xy, ve
 #endif`,
 });
 
-// Sky dome for both tiers, in the scene's linear HDR. Near the horizon it is the fog's colour along the ray (haze plus
-// the scatter lobe), so hazed tree lines and hills melt into it; above ~7° a pale-to-deep blue gradient with the sun's
-// aureole thinning upward. Cumulus: value noise on a planar projection, bright sun-facing tops over blue-grey bellies,
-// thin edges silvered near the sun. Lite runs two noise octaves, Full four. The 20x disc is tone mapped here on Lite;
-// on Full the OutputPass does that after the bloom and light shafts have spread it. `ground` swaps the lower
-// hemisphere for a green bounce only while the dome is prefiltered into the environment map.
-function skyDome(def, lite) {
-  const [coverage, scale, zenith, blue] = def.sky;
+// Sky dome for both tiers, in the scene's linear HDR. Above the horizon it is the course's panorama: Unreal's physical
+// atmosphere under our own volumetric cumulus and cirrus, lit by this course's sun with no disc of its own
+// (art/unreal/sky-render.sh; tools/sky-webp.py stores it in these linear units over 4, rows by sin(elevation), so the
+// frame's own tone mapping treats it like everything else). It turns slowly so the clouds drift: up to .3°/s, swinging
+// ±12° about the render's heading so their lit faces stay on the disc's side. Near the horizon it is the fog's colour
+// along the ray (haze plus the scatter lobe), so hazed tree lines and hills melt into it. The disc, its aureole and the
+// scatter lobe are drawn here; the panorama's alpha (1 clear, .5 cloud) hides the disc behind a cloud drifting over it.
+// Without a panorama, the old pale-to-deep blue gradient. The 20x disc is tone mapped here on Lite; on Full the
+// OutputPass does that after the bloom and light shafts have spread it. `ground` swaps the lower hemisphere for a green
+// bounce only while the dome is prefiltered into the environment map.
+function skyDome(def, pano) {
+  const [, , zenith, blue] = def.sky;
   return new THREE.Mesh(new THREE.SphereGeometry(1100, 32, 16), new THREE.ShaderMaterial({
-    side: THREE.BackSide, depthWrite: false, defines: { OCT: lite ? 2 : 4 },
+    side: THREE.BackSide, depthWrite: false, defines: pano ? { PANO: '' } : {},
     uniforms: { haze: { value: FOG.haze }, warm: { value: FOG.warm }, glow: { value: FOG.glow }, sunDir: { value: FOG.sun }, blue: { value: new THREE.Color(blue) }, zenith: { value: new THREE.Color(zenith) }, sunColor: { value: new THREE.Color(def.sunColor) },
-      bounce: { value: new THREE.Color(def.hemi[1]) }, cloud: { value: new THREE.Vector2(coverage, scale) }, time: { value: 0 }, ground: { value: 0 } },
+      bounce: { value: new THREE.Color(def.hemi[1]) }, pano: { value: pano }, time: { value: 0 }, ground: { value: 0 } },
     vertexShader: 'varying vec3 vDir;void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: `uniform vec3 haze,warm,glow,sunDir,blue,zenith,sunColor,bounce;uniform vec2 cloud;uniform float time,ground;varying vec3 vDir;
-      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-      float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
-      float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<OCT;i++){s+=a*noise(p);p=p*2.07+vec2(19.,7.);a*=.5;}return s;}
+    fragmentShader: `uniform vec3 haze,warm,glow,sunDir,blue,zenith,sunColor,bounce;uniform sampler2D pano;uniform float time,ground;varying vec3 vDir;
       void main(){
-        vec3 d=normalize(vDir);float h=max(d.y,0.),s=max(dot(d,sunDir),0.),s2=s*s;
+        vec3 d=normalize(vDir);float h=max(d.y,0.),s=max(dot(d,sunDir),0.);
         vec3 scatter=glow*(pow(s,16.)*.25+pow(s,90.)*3.);                                    // the fog chunk's lobe
-        vec3 col=mix(mix(haze,warm,pow(s,8.)),mix(blue,zenith,smoothstep(.03,.45,h))*mix(mix(vec3(.62,.8,1.05),vec3(1.),pow(s,6.)),vec3(1.),ground),smoothstep(0.,.12,h))+scatter*mix(1.,.25,smoothstep(0.,.2,h));
-        col+=sunColor*(pow(s,8.)*.1+pow(s,90.)*.8)*smoothstep(-.02,.04,d.y);                  // aureole: open sky round the disc outshines the hazed ground, so the treeline rims. Seen sky (not the prefiltered fill, so shade and skin keep their tint) runs a deeper blue away from the disc: a canopy gap read as pale steel
-        vec2 p=d.xz/(h+.2)*cloud.y+vec2(time*.004,time*.0015);                               // planar projection: clouds flatten toward the horizon
-        float n=fbm(p),cov=smoothstep(cloud.x,cloud.x+.1,n)*smoothstep(.02,.14,h);           // a short ramp keeps cumulus edges crisp
-        float core=smoothstep(cloud.x,cloud.x+.32,n);                                        // thick belly vs thin rim
-        float lit=clamp((n-fbm(p+normalize(sunDir.xz+vec2(1e-4))*.16))*6.+.55,0.,1.);        // density falling toward the sun = the lit face
-        vec3 cc=mix(mix(zenith,vec3(.52,.56,.63),.65),mix(vec3(1.),sunColor,.3)*1.5,clamp(lit*(1.-core*.45)+(1.-core)*.3,0.,1.));
-        cc+=sunColor*pow(s,10.)*(1.-core)*2.5;                                              // silver lining in the aureole
-        col=mix(col,mix(cc,col,smoothstep(.14,.02,h)*.6),cov);                               // far cumulus melts into the haze
+        #ifdef PANO
+          vec4 pa=texture2D(pano,vec2(.5-atan(d.x,d.z)*.1591549+.0333*sin(time*.025),h));  // u = .5 - azimuth/360 plus the drift, v = sin(elevation)
+          vec3 sky=pa.rgb*4.;float cov=2.-2.*pa.a;
+        #else
+          vec3 sky=mix(blue,zenith,smoothstep(.03,.45,h))*mix(mix(vec3(.62,.8,1.05),vec3(1.),pow(s,6.)),vec3(1.),ground);float cov=0.;
+        #endif
+        vec3 col=mix(mix(haze,warm,pow(s,8.)),sky,smoothstep(0.,.12,h))+scatter*mix(1.,.25,smoothstep(0.,.2,h));
+        col+=sunColor*(pow(s,8.)*.1+pow(s,90.)*.8)*smoothstep(-.02,.04,d.y);                  // aureole: open sky round the disc outshines the hazed ground, so the treeline rims
         col+=sunColor*smoothstep(.9994,.9998,s)*20.*(1.-cov*.85);                            // the disc
         col=mix(col,bounce*1.4,ground*smoothstep(0.,-.1,d.y));
         gl_FragColor=vec4(col,1.);

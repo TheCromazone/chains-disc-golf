@@ -282,8 +282,10 @@ async function applyCourse(id) {
   renderer.toneMapping = toneFor(G.settings.quality); document.body.classList.toggle('gfx-mobile', G.settings.quality === 'low');
   // Full: HDRI ambient, reflective water and a bloom + grade pass. Lite: same textures, no render targets.
   effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
-  const hdri = effects ? await effects.loadSky(renderer, asset('skies', def.id) || asset('skies', 'lake')) : null;
-  course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, hdri });
+  // The sky panorama (course.js skyDome), loaded before the build because the environment fill is prefiltered from the dome. Mobile takes the 2048 copy.
+  const panoUrl = asset('skies', def.id + (G.settings.quality === 'low' ? '-mobile' : ''));
+  const pano = panoUrl && await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null);   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps
+  course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, pano });
   if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }
   windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
   world = course.world; holes = course.holes; course.setHole(0);
