@@ -20,6 +20,10 @@ HEADROOM = 2.5       # src/course.js skyDome() multiplies the texture by this; c
 # 40 deg, the reference's pale blue-grey low sky (~158, 169, 186) deepening overhead.
 TARGET, TINT, SAT, CLOUD_SAT, LIFT = .24, np.array([1., .92, 1.03], np.float32), 1.3, .75, .55
 SIZES = {"": (4096, 600_000), "-mobile": (2048, 200_000)}   # suffix: width, byte budget
+# Degrees the cloud field is turned against the render (the dome's drift swings it +-12 anyway): Pine Hollow's first tee
+# sees only a small window of sky beside the disc, which the render filled with one flat backlit heap; 8 deg puts a
+# heap's silver edge against the glowing sky there at the start of a round.
+YAW = {"pine": 8.}
 
 
 def read_hdr(path):
@@ -58,7 +62,7 @@ def bilinear(im, x, y):
     return (im[y0, x0] * (1 - fx) + im[y0, x1] * fx) * (1 - fy) + (im[y0 + 1, x0] * (1 - fx) + im[y0 + 1, x1] * fx) * fy
 
 
-def resample(src, W):
+def resample(src, W, yaw=0.):
     """Equirect (u = .75 - az/360, row 0 = zenith) -> W x W/4 dome texture, 3x3 supersampled."""
     H = W // 4
     hs, ws, _ = src.shape
@@ -67,7 +71,7 @@ def resample(src, W):
         for sx in (-1 / 3, 0, 1 / 3):
             u = (np.arange(W) + .5 + sx) / W
             v = 1 - (np.arange(H) + .5 + sy) / H
-            az = (.5 - u) * 360.
+            az = (.5 - u) * 360. + yaw
             el = np.degrees(np.arcsin(np.clip(v, 0, 1)))
             xs = ((.75 - az / 360.) % 1.) * ws - .5
             ys = (90. - el) / 180. * hs - .5
@@ -102,7 +106,7 @@ def main(ids):
     prev = os.path.join(ROOT, "art", "qa", "sky-pano"); os.makedirs(prev, exist_ok=True)
     for cid in ids:
         src = read_hdr(os.path.join(SRC, cid + ".hdr"))
-        lin = resample(src, 4096)
+        lin = resample(src, 4096, YAW.get(cid, 0.))
         lum = lin @ np.array([.2126, .7152, .0722], np.float32)
         v = 1 - (np.arange(lin.shape[0]) + .5) / lin.shape[0]
         band = (v > math.sin(math.radians(15))) & (v < math.sin(math.radians(40)))
@@ -113,7 +117,7 @@ def main(ids):
         # Alpha: 1 in clear sky, .5 under cloud (the dome hides its disc there), from how far the render departs from the
         # same sky rendered clear. Never below .5, so a browser that round-trips the image through premultiplied alpha
         # costs the clouds at most one bit and leaves the clear sky exact.
-        clear_rgb = resample(read_hdr(os.path.join(SRC, cid + "-clear.hdr")), 4096) * gain
+        clear_rgb = resample(read_hdr(os.path.join(SRC, cid + "-clear.hdr")), 4096, YAW.get(cid, 0.)) * gain
         clear = clear_rgb @ np.array([.2126, .7152, .0722], np.float32)
         t = np.clip((np.abs(lum * gain - clear) / np.maximum(clear, 1e-4) - .04) / .26, 0, 1)
         alpha = 1 - .5 * t * t * (3 - 2 * t)
