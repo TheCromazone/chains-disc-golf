@@ -316,23 +316,28 @@ def birch_bark(rng):
   base[..., 2] -= .06 * noise((8, 16), 4); base[..., 1] -= .02 * noise((8, 16), 4)   # faint warm patches where the outer layer peeled
   band = noise((3, 40), 5); base *= (.93 + .09 * band[..., None])   # horizontal peel bands
   img = base.copy(); rough = noise((40, 80), 6)
-  for _ in range(520):   # lenticels: short dark horizontal dashes, some in rows
-    cx, cy = rng.uniform(0, W), rng.uniform(0, H); L = rng.uniform(5, 34); th = rng.uniform(1, 2.8); dark = rng.uniform(.18, .6)
+  # g2 (desktop putt): the trunks read "like barcodes, hard black stripes": 520 lenticels down to 18% and 23 pure-black
+  # scars and bands, all hard-edged, stacked in a tile that repeats every metre up the stem. Now the lenticels are grey-brown
+  # dashes (45-80%), the scars and bands fewer and smaller, a charcoal grey-brown (not .03 black) and feathered over the outer
+  # third of their outline, so a stem reads chalk-white with broken dark marks.
+  def mark(d, edge, ink, k):   # d < 1 inside the mark; feather the outer `edge` of it toward the bark
+    a = np.clip((1 - d) / edge, 0, 1)[..., None] * k
+    img[:] = img * (1 - a) + np.array(ink) * a
+  for _ in range(380):   # lenticels: short grey-brown horizontal dashes, some in rows
+    cx, cy = rng.uniform(0, W), rng.uniform(0, H); L = rng.uniform(5, 30); th = rng.uniform(1, 2.6); dark = rng.uniform(.45, .8)
     m = (np.abs(((x - cx + W / 2) % W) - W / 2) < L / 2) & (np.abs(((y - cy + H / 2) % H) - H / 2) < th / 2 * (.6 + rough))
-    img[m] *= dark
-  for _ in range(14):   # black scars: ragged horizontal blotches where branches fell or the bark cracked
-    cx, cy = rng.uniform(0, W), rng.uniform(0, H); sx, sy = rng.uniform(14, 60), rng.uniform(4, 16)
+    img[m] *= np.array([dark, dark * .97, dark * .93])
+  for _ in range(8):   # scars: ragged horizontal blotches where branches fell or the bark cracked
+    cx, cy = rng.uniform(0, W), rng.uniform(0, H); sx, sy = rng.uniform(14, 50), rng.uniform(4, 12)
     dx = (((x - cx + W / 2) % W) - W / 2) / sx; dy = (((y - cy + H / 2) % H) - H / 2) / sy
-    scar = dx * dx + dy * dy + (rough - .5) * 1.4 < 1
-    img[scar] = img[scar] * .1 + .03
+    mark(dx * dx + dy * dy + (rough - .5) * 1.4, .35, (.2, .18, .17), .85)
   # w3 verdicts: at 20-40 m (a pixel is ~15 cm of trunk at 640 px) every mark above is sub-pixel and the birches read as plain
-  # white poles. A mature birch carries big black bands and diamonds, 15-35 cm tall and a third of the way round: those stay
-  # a pixel or two, so a trunk reads black-barred white at any range
-  for _ in range(9):
-    cx, cy = rng.uniform(0, W), rng.uniform(0, H); sx, sy = rng.uniform(60, 170), rng.uniform(18, 38)
+  # white poles. A mature birch carries dark bands and diamonds, 10-25 cm tall and a fifth of the way round: those stay a
+  # pixel or two, so a trunk reads dark-flecked white at any range
+  for _ in range(5):
+    cx, cy = rng.uniform(0, W), rng.uniform(0, H); sx, sy = rng.uniform(40, 110), rng.uniform(10, 24)
     dx = (((x - cx + W / 2) % W) - W / 2) / sx; dy = (((y - cy + H / 2) % H) - H / 2) / sy
-    scar = np.abs(dx) ** 1.4 + dy * dy + (rough - .5) * 1.1 < 1
-    img[scar] = img[scar] * .08 + .03
+    mark(np.abs(dx) ** 1.4 + dy * dy + (rough - .5) * 1.1, .4, (.24, .22, .2), .8)
   grain = noise((128, 256), 7); img *= (.93 + .1 * grain[..., None])
   return np.concatenate([np.clip(img, 0, 1), np.ones((H, W, 1))], 2)
 
