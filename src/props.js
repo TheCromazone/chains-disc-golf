@@ -140,10 +140,9 @@ function weather(g, w, h, seed) {
   for (let k = 0; k < 5; k++) { const x = rnd() * w, y = rnd() * h, r = Math.min(w, h) * (.15 + rnd() * .3), gr = g.createRadialGradient(x, y, r * .7, x, y, r);
     gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.8, 'rgba(60,50,35,.1)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
 }
-// Event signs on the gallery rope: the event, the two invented sponsors and the host club. The event board takes the
-// arch's faded slate and inks, not a saturated navy-and-gold card standing beside it.
+// Event signs on the gallery rope: the event, the two invented sponsors and the host club.
 function paintBoard(g, w, h, i, name) {
-  const [bg, fg, accent, big, small] = [['#363a4b', '#e4e3dc', '#cdb05a', 'CHAINS OPEN 2026', name.toUpperCase() + '  ·  DISC GOLF CHAMPIONSHIP'], ['#f6f4ee', '#d4471b', '#1c2430', 'LOFTWING', 'DISCS  ·  FLY FURTHER'], ['#1f5a3b', '#f3ead2', GOLD, 'BIRDIE BREW', 'COFFEE ROASTERS'], [PARK, '#ffffff', GOLD, name.toUpperCase(), 'DISC GOLF CLUB  ·  HOST']][i];
+  const [bg, fg, accent, big, small] = [[NAVY, '#ffffff', GOLD, 'CHAINS OPEN 2026', name.toUpperCase() + '  ·  DISC GOLF CHAMPIONSHIP'], ['#f6f4ee', '#d4471b', '#1c2430', 'LOFTWING', 'DISCS  ·  FLY FURTHER'], ['#1f5a3b', '#f3ead2', GOLD, 'BIRDIE BREW', 'COFFEE ROASTERS'], [PARK, '#ffffff', GOLD, name.toUpperCase(), 'DISC GOLF CLUB  ·  HOST']][i];
   g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = accent; g.fillRect(0, h - 8, w, 8);
   g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = fg; fitText(g, big, w / 2, h * .4, w - 28, 800, Math.round(h * .58)); g.fillStyle = i === 1 ? '#1c2430' : accent; fitText(g, small, w / 2, h * .77, w - 44, 700, Math.round(h * .19));
   weather(g, w, h, 141 + i);
@@ -194,36 +193,34 @@ function paintAtlas(canvas, scale, ctx) {
     g.fillStyle = '#f4f1ea'; roundRect(g, w * .22, h * .45, w * .56, h * .2, 8); g.fill(); g.fillStyle = '#d4471b'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'LOFTWING', w / 2, h * .55 + 2, w * .5, 800, 40);
   });
   // Event arch: the beam carries the event, the legs stack the basket roundel over the partners, like a broadcast arch.
-  // g2-final props verdicts ('flat, saturated slabs', 'uniform saturated navy', graphics 'pasted onto the scene'): the
-  // cover is a sun-faded slate navy, the reference arch's, and its inks a dye-sub gold and an off-white, not paint.
-  const AG = '#cdb05a', AW = '#e4e3dc';
   const roundel = (g, cx, cy, r) => {
-    g.strokeStyle = AG; g.lineWidth = r * .1; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke(); g.fillStyle = AW;
+    g.strokeStyle = GOLD; g.lineWidth = r * .1; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke(); g.fillStyle = '#ffffff';
     g.fillRect(cx - r * .04, cy - r * .7, r * .08, r * 1.45); g.fillRect(cx - r * .5, cy - r * .42, r, r * .1);
     g.beginPath(); g.moveTo(cx - r * .46, cy + .1 * r); g.lineTo(cx + r * .46, cy + .1 * r); g.lineTo(cx + r * .36, cy + .45 * r); g.lineTo(cx - r * .36, cy + .45 * r); g.fill();
-    g.strokeStyle = AW; g.lineWidth = r * .035; for (let i = 0; i < 7; i++) { g.beginPath(); g.moveTo(cx - r * .42 + i * r * .14, cy - r * .32); g.quadraticCurveTo(cx - r * .3 + i * r * .1, cy - r * .05, cx + (i - 3) * r * .02, cy + r * .1); g.stroke(); }
+    g.strokeStyle = '#ffffff'; g.lineWidth = r * .035; for (let i = 0; i < 7; i++) { g.beginPath(); g.moveTo(cx - r * .42 + i * r * .14, cy - r * .32); g.quadraticCurveTo(cx - r * .3 + i * r * .1, cy - r * .05, cx + (i - 3) * r * .02, cy + r * .1); g.stroke(); }
   };
   draw('archBeam', (g, w, h) => {
-    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#5a5e70'); grd.addColorStop(1, '#4b4f61'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
-    g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(0, 0, w, 3); roundel(g, 56, h / 2 - 2, 36); roundel(g, w - 56, h / 2 - 2, 36);
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = AG; fitText(g, `${ctx.name.toUpperCase()}  ·  DISC GOLF CHAMPIONSHIP`, w / 2, 19, w - 230, 700, 21);
-    g.fillStyle = AW; fitText(g, 'CHAINS OPEN 2026', w / 2, 62, w - 230, 800, 70);
+    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#22385e'); grd.addColorStop(1, '#14223c'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    g.fillStyle = GOLD; g.fillRect(0, h - 6, w, 6); g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(0, 0, w, 3); roundel(g, 56, h / 2 - 2, 36); roundel(g, w - 56, h / 2 - 2, 36);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = GOLD; fitText(g, `${ctx.name.toUpperCase()}  ·  DISC GOLF CHAMPIONSHIP`, w / 2, 19, w - 230, 700, 21);
+    g.fillStyle = '#ffffff'; fitText(g, 'CHAINS OPEN 2026', w / 2, 62, w - 230, 800, 70);
     wrapShade(g, w, h, false, 71);
   });
   // Legs: the event roundel over one partner each, set big down the leg so it reads from the tee. The art sits in the
   // top two thirds: a leg on higher ground (hole 1's cross slope) is shorter and loses only plain foot. Leg 0 is the
   // left one seen from the tee, the taller, so it carries the longer name.
   [['BIRDIE BREW', 'COFFEE ROASTERS'], ['LOFTWING', 'DISCS · FLY FURTHER']].forEach(([big, small], j) => draw('archLeg' + j, (g, w, h) => {
-    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#585c6e'); grd.addColorStop(1, '#4c5061'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
-    roundel(g, w / 2, 49, 37);
+    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#20355a'); grd.addColorStop(1, '#16243f'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    g.fillStyle = GOLD; g.fillRect(0, 0, w, 4); g.fillRect(8, 94, w - 16, 3); roundel(g, w / 2, 49, 37);
     g.save(); g.translate(w / 2, 108); g.rotate(Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle';
-    g.fillStyle = AW; fitText(g, big, 0, -8, j ? 196 : 250, 800, 62); g.fillStyle = AG; fitText(g, small, 0, 38, j ? 196 : 250, 700, 22); g.restore();
+    g.fillStyle = '#ffffff'; fitText(g, big, 0, -8, j ? 196 : 250, 800, 74); g.fillStyle = GOLD; fitText(g, small, 0, 38, j ? 196 : 250, 700, 22); g.restore();
     wrapShade(g, w, h, true, 73 + j); tension(g, w, h, 91 + j);
   }));
   draw('archSide', (g, w, h) => {   // the legs' inner faces: the cover's return, a shade under the front (g3: a pale return strip read as a card's edge)
-    const grd = g.createLinearGradient(0, 0, w, 0); grd.addColorStop(0, '#4d5163'); grd.addColorStop(1, '#434656'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    const grd = g.createLinearGradient(0, 0, w, 0); grd.addColorStop(0, '#16233c'); grd.addColorStop(1, '#0f1a2e'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
     const top = g.createLinearGradient(0, 0, 0, h * .2); top.addColorStop(0, 'rgba(2,5,12,.45)'); top.addColorStop(1, 'rgba(2,5,12,0)'); g.fillStyle = top; g.fillRect(0, 0, w, h * .2);   // in the beam's shade
-    g.save(); g.translate(w / 2, 16); g.rotate(Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = AW; fitText(g, 'CHAINS OPEN 2026', 0, 4, h * .66, 800, 24); g.restore();
+    g.fillStyle = GOLD; g.fillRect(w - 12, 0, 4, h);
+    g.save(); g.translate(w / 2, 16); g.rotate(Math.PI / 2); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#ffffff'; fitText(g, 'CHAINS OPEN 2026', 0, 4, h * .66, 800, 24); g.restore();
   });
   for (let i = 0; i < 4; i++) draw('board' + i, (g, w, h) => paintBoard(g, w, h, i, ctx.name));
   draw('valance', (g, w, h) => { g.fillStyle = NAVY; g.fillRect(0, 0, w, h); g.fillStyle = GOLD; g.fillRect(0, h - 10, w, 10); g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'CHAINS OPEN 2026  ·  REGISTRATION', w / 2, h * .45, w - 60, 800, 60); });
@@ -467,14 +464,14 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const addTent = (world, white = false) => {   // white: a plain vendor/players' canopy, walled at the back, for the village beyond the arch
     { const c = new THREE.Vector3().setFromMatrixPosition(world); camCapsules.push({ a: [c.x, c.y + .3, c.z], b: [c.x, c.y + 2.6, c.z], r: 2, tag: 'tent' }); }   // the chase camera steers round a canopy instead of filling the frame with it
     for (const [x, z] of [[-1.47, -1.47], [1.47, -1.47], [-1.47, 1.47], [1.47, 1.47]]) K.steel(at(box(.04, 2.12, .04), pose(x, 1.06, z), world), '#c4c9cc');
-    paint(at(canopyRoof(full ? 5 : 4), I4, world), white ? '#d0cdc3' : NAVY);   // off-white, so its faces shade instead of clipping in the sun
+    paint(at(canopyRoof(full ? 5 : 4), I4, world), white ? '#dfddd5' : NAVY);   // off-white, so its faces shade instead of clipping in the sun
     // valance: hemmed cloth hanging off the eave, slack between the corners so its lower edge scallops and it ripples
     for (let k = 0; k < 4; k++) { const vg = new THREE.PlaneGeometry(3, .3, full ? 12 : 6, 1), vp = vg.attributes.position;
       for (let i = 0; i < vp.count; i++) { const x = vp.getX(i), lo = vp.getY(i) < 0, t = 1 - (2 * x / 3) ** 2; vp.setXYZ(i, x, vp.getY(i) - (lo ? .035 * t : 0), .025 * Math.sin(x * 4.2 + k) * (lo ? 1 : .3) + .02 * t); }
-      vg.computeVertexNormals(); const v = at(vg, pose(Math.sin(k * Math.PI / 2) * 1.5, 1.97, Math.cos(k * Math.PI / 2) * 1.5, k * Math.PI / 2), world); if (white) paint(v, '#d8d5cc'); else K.print(v, 'valance'); }
-    if (white) { const wg = new THREE.PlaneGeometry(2.96, 1.9, full ? 14 : 8, 1), wp = wg.attributes.position;   // back wall: zipped to the legs, hanging in loose, uneven vertical folds, in weathered greige canvas (g2-final: the white tent 'a plain untextured block')
-      for (let i = 0; i < wp.count; i++) { const x = wp.getX(i); wp.setZ(i, .075 * Math.sin(x * 5.3 + Math.sin(x * 2.1)) * (1 - (x / 1.48) ** 4) * (wp.getY(i) < 0 ? 1.3 : .7)); }
-      wg.computeVertexNormals(); paint(at(wg, pose(0, .98, -1.47), world), '#cbc8be'); }
+      vg.computeVertexNormals(); const v = at(vg, pose(Math.sin(k * Math.PI / 2) * 1.5, 1.97, Math.cos(k * Math.PI / 2) * 1.5, k * Math.PI / 2), world); if (white) paint(v, '#ecebe6'); else K.print(v, 'valance'); }
+    if (white) { const wg = new THREE.PlaneGeometry(2.96, 1.9, full ? 14 : 8, 1), wp = wg.attributes.position;   // back wall: zipped to the legs, hanging in loose vertical folds
+      for (let i = 0; i < wp.count; i++) { const x = wp.getX(i); wp.setZ(i, .045 * Math.sin(x * 5.3) * (1 - (x / 1.48) ** 4) * (wp.getY(i) < 0 ? 1.3 : .7)); }
+      wg.computeVertexNormals(); paint(at(wg, pose(0, .98, -1.47), world), '#e6e5df'); }
     paint(at(box(1.8, .74, .72), pose(0, .37, -.6), world), '#f1f1ee');
     paint(at(box(1.82, .03, .74), pose(0, .755, -.6), world), '#f7f7f4');
     for (const [x, z] of [[-1.47, -1.47], [1.47, -1.47], [-1.47, 1.47], [1.47, 1.47]]) shadeUnder(world, .16, .16, 0, .45, x, z);
@@ -489,7 +486,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // g3 props verdicts ('thin, flat banner slabs ... like printed cards', 'no depth or bevel'): every cover is a padded
   // box whose edges roll over in an R-wide bevel, the print kept to the flat of each face, so a navy rim shades round
   // every leg and the beam the way stuffed fabric over a truss does.
-  const ARCH = { span: 11.2, leg: 2.5, deep: 1.7, beam: 1.85, R: .17 }, legX = ARCH.span / 2 + ARCH.leg / 2, ARCH_COVER = '#53576a';   // the plain cover, the print's slate navy
+  const ARCH = { span: 11.2, leg: 2.5, deep: 1.7, beam: 1.85, R: .17 }, legX = ARCH.span / 2 + ARCH.leg / 2;
   const addArch = (world, yb, feet) => {
     const { leg, deep, beam, R } = ARCH, face = deep / 2 + .004, skin = (g, region, color) => K.arch(g.applyMatrix4(world), region, color);
     const gy = (lx, lz) => { const e = world.elements; return height(e[0] * lx + e[8] * lz + e[12], e[2] * lx + e[10] * lz + e[14]); };   // ground under an arch-local point
@@ -504,7 +501,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     };
     [-1, 1].forEach((s, j) => {
       const x = s * legX, y0 = feet[j], low = Math.min(...[-1, 1].flatMap(a => [-1, 1].map(b => gy(x + a * leg / 2, b * deep / 2)))) - .1;
-      K.arch(cut(roundBox(leg, yb - low, deep, R, 4, true).translate(x, (low + yb) / 2, 0).applyMatrix4(world), (low + yb) / 2), 'white', ARCH_COVER);
+      K.arch(cut(roundBox(leg, yb - low, deep, R, 4, true).translate(x, (low + yb) / 2, 0).applyMatrix4(world), (low + yb) / 2), 'white', '#1a2a48');
       for (const z of [1, -1]) skin(panel(leg - 2 * R, 'archLeg0', yb - R, y0 + .55).rotateY(z < 0 ? Math.PI : 0).translate(x, 0, z * face), 'archLeg' + (s * z > 0 ? 1 : 0));   // left leg as seen from either side: LOFTWING
       skin(panel(deep - 2 * R, 'archSide', yb - R, y0 + .55).rotateY(-s * Math.PI / 2).translate(x - s * (leg / 2 + .004), 0, 0), 'archSide');   // inner face, toward the opening
       // weighted base skirt: heavy charcoal PVC wrapped round the foot of the cover, 40 cm over the ground at every corner
@@ -516,7 +513,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
       shadeUnder(world, leg / 2 + .45, deep / 2 + .5, .72, .95, x, 0);   // a tight dark band hugging the skirt and bags
       shadeUnder(world, leg / 2 + 1.3, deep / 2 + 1.3, .35, .45, x, 0);   // and the wider occlusion of a 7 m column standing on the turf
     });
-    skin(roundBox(2 * legX + leg, beam, deep, R, 4, true).translate(0, yb + beam / 2, 0), 'white', ARCH_COVER);
+    skin(roundBox(2 * legX + leg, beam, deep, R, 4, true).translate(0, yb + beam / 2, 0), 'white', '#1a2a48');
     for (const z of [1, -1]) skin(pillow(new THREE.PlaneGeometry(2 * legX + leg - 2 * R, beam - 2 * R, 1, full ? 4 : 2), 0, beam - 2 * R, false).rotateY(z < 0 ? Math.PI : 0).translate(0, yb + beam / 2, z * face), 'archBeam');   // no extrusions on the beam: a chase camera passing through it would meet them as bars across the screen
   };
   // Event sign: an A-frame board, two 2.04 x .84 m black composite panels hinged at the top and standing on their own
@@ -559,7 +556,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     P(box(.9, .06, 2.7), UNDER, pose(0, .31, 0));   // skid plates and frame between the wheels
     // front clip: hood pitched down to the nose, fascia with a black grille, lamps in housings, bumper and brush guard
     B(roundBox(1.36, .09, .9, .04, hi), pose(0, .905, 1.02, 0, .13));
-    B(roundBox(1.26, .42, .14, .05, hi), pose(0, .63, 1.43));
+    B(roundBox(1.0, .42, .14, .05, hi), pose(0, .63, 1.43));
     P(box(.6, .19, .02), '#101112', pose(0, .6, 1.505));
     for (const x of [-.31, .31]) { P(box(.27, .11, .03), '#141516', pose(x, .77, 1.49)); S(roundBox(.22, .075, .03, .015, 1), '#f2eedd', pose(x, .77, 1.502)); }
     P(roundBox(1.18, .1, .12, .04, 1), PLA, pose(0, .42, 1.5));
@@ -601,7 +598,6 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     P(box(.3, .03, .3), '#1f1f1f', pose(.42, .9, -.8));
     [NAVY, '#1f5a3b', '#f2efe6'].forEach((c, k) => { const a = V(-.52 + k * .1, 1.22, -2), b = V(-.4 + k * .1, 1.24, -.68); P(rod(a.clone().lerp(b, .12), b.clone().lerp(a, .06), .048, full ? 8 : 5), c); S(rod(a, b, .013, 4), '#cfd3d6'); });
     shadeUnder(world, .86, 1.62, .45, .6);
-    shadeUnder(world, .7, 1.4, .7, .9);   // g2-final: 'a soft, vague shadow under it': the near-black occlusion under the floor pan, inside the wheels
   };
   const clearOf = (x, z, r) => !trees.some(t => (t.x - x) ** 2 + (t.z - z) ** 2 < (r + t.r * 2) ** 2) && !holes.some(h => h.ponds.some(p => ((x - p.x) / (p.rx * 1.3 + r)) ** 2 + ((z - p.z) / (p.rz * 1.3 + r)) ** 2 < 1));
   // A 10 x 12 cm landscape timber laid from (u0, f0) to (u1, f1) of hole h, 5 cm proud of the ground and dug in below
@@ -778,13 +774,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
         diffuseColor.rgb=mix(diffuseColor.rgb,vec3(l)*1.1+.01,.12+.12*up);
         diffuseColor.rgb*=mix(.78,1.04,smoothstep(.3,4.,vLift));   // less sky reaches the foot of a leg than its top
         diffuseColor.rgb*=1.-.14*smoothstep(.55,.95,wNoise(vec3(vWp.x*13.,vWp.y*.4,vWp.z*13.)))*(1.-up*.4); }
-      #include <roughnessmap_fragment>`).replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-      { vec3 k=vec3(1.9,.32,1.9),q=vWp*k;float n0=wNoise(q);   // g2-final: 'no fabric material', 'no sag, seams or wear': the cover hangs in soft folds, ~0.5 m apart, running down the legs and the beam's face
-        vec3 gV=mat3(viewMatrix)*((vec3(wNoise(q+vec3(.1,0,0)),wNoise(q+vec3(0,.1,0)),wNoise(q+vec3(0,0,.1)))-n0)*10.*k);
-        normal=normalize(normal-.16*(gV-dot(gV,normal)*normal)); }`)
-    // the cloth's glow: tinted by the dye (the navy) rather than by the ink, so the off-white print does not shine out of
-    // a shaded face like a backlit decal
-    .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += mix(diffuseColor.rgb, vec3(.08, .082, .1), .55) * .32;'); };
+      #include <roughnessmap_fragment>`).replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * .22;'); };
   arch.material.customProgramCacheKey = () => 'chains-props-arch' + full;
   print.castShadow = print.receiveShadow = steel.receiveShadow = arch.castShadow = arch.receiveShadow = true; steel.castShadow = full;
   const meshes = [print, steel, arch, gravelBed(), contactShade(blobs, height)];
