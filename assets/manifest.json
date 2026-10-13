@@ -145,9 +145,14 @@
     "headwear": "models/headwear.glb"
   },
   "skies": {
-    "pine": "skies/pine.exr",
-    "meadow": "skies/meadow.exr",
-    "lake": "skies/lake.exr"
+    "pine": "skies/pine.webp",
+    "pine-mobile": "skies/pine-mobile.webp",
+    "meadow": "skies/meadow.webp",
+    "meadow-mobile": "skies/meadow-mobile.webp",
+    "lake": "skies/lake.webp",
+    "lake-mobile": "skies/lake-mobile.webp",
+    "bluff": "skies/bluff.webp",
+    "bluff-mobile": "skies/bluff-mobile.webp"
   },
   "renders": {
     "pine": "courses/pine_unity.jpg",
