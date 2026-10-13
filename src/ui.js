@@ -175,7 +175,11 @@ export function renderCourseCards(courses, layouts, selectedId, onPick, imgFor) 
     b.onclick = () => onPick(c.id); list.appendChild(b);
   });
 }
+// The clubhouse folds the round's options under one line that says the current picks, so nobody opens it just to check.
+const roundSum = () => { const on = id => $(id).querySelector('.on')?.textContent || ''; $('roundSum').textContent = `${on('holesSeg')} holes · ${on('diffSeg')} bots`; };
+$('roundOpts').addEventListener('click', roundSum);   // bubbles after the seg buttons' own handlers have moved .on
 export function setHub({ name, jersey, course, holes, img }) {
+  roundSum();
   if (name !== undefined) $('hubName').textContent = name;
   if (jersey) $('hubSwatch').style.background = `linear-gradient(160deg, ${jersey}, ${jersey} 60%, rgba(0,0,0,0.35))`;
   if (course) { const st = courseStats(holes); $('hubCourse').textContent = course.name; $('hubCourseSub').textContent = `Par ${st.par} · ${st.len} m · ${course.tag.toLowerCase()}`; $('hubMap').innerHTML = img ? `<img src="${img}" alt="">` : courseMapSVG(course, holes); }

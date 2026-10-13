@@ -1,0 +1,36 @@
+# Unreal 5.8.1 MCP on Windows (RTX 5090, driver 617.42), 2026-10-12. Project C:\Users\matth\Documents\ChainsUnreal (descriptor + ini in art/unreal/project/).
+# Launch: "C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" C:\Users\matth\Documents\ChainsUnreal\ChainsUnreal.uproject -nosound -nosplash -unattended -NoLiveCoding
+# First launch: server up 20 s after start (log below), no shader wait for MCP.
+
+ChainsUnreal.log:
+  LogModelContextProtocol: Tool search enabled: registered 3 meta-tools (1 toolsets discoverable via list_toolsets)
+  LogModelContextProtocol: Starting MCP server on port 8000 (override with -ModelContextProtocolPort=N).
+
+$ node art/unreal/mcp.mjs info
+  "url": "http://127.0.0.1:8000/mcp", "protocolVersion": "2025-11-25", "capabilities": { "resources": {}, "tools": { "listChanged": true } }
+
+$ node art/unreal/mcp.mjs list
+  list_toolsets / describe_toolset / call_tool
+
+$ node art/unreal/mcp.mjs toolsets          -> 52 toolsets (AllToolsets plugin), full text in list_toolsets.txt.
+  No MetaHuman toolset: the engine's MetaHumanGenerator refuses to register without "MetaHuman Creator Core Data".
+
+$ node art/unreal/mcp.mjs ct EditorToolset.EditorAppToolset SearchCVars '{"name":"r.RayTracing.Enable"}'
+  { "returnValue": "{\"r.RayTracing.EnableOnDemand\":{\"help\":\"Controls whether ray...(632 chars)" }
+$ node art/unreal/mcp.mjs ct editor_toolset.toolsets.programmatic.ProgrammaticToolset get_execution_environment '{}'
+  { "returnValue": { "instructions": "Use the function execute_tool(tool_name, json_input) ...", "language": "python", ... } }
+$ node art/unreal/mcp.mjs ct EditorToolset.EditorAppToolset CaptureViewport '{"annotations":[], ...}'
+  Viewport has zero size.          (editor started minimised: use SceneCapture via uepy.mjs for images instead)
+
+$ node art/unreal/uepy.mjs ping.py         (job runner art/unreal/scripts/init_unreal.py -> Content/Python/init_unreal.py)
+  engine 5.8.1-56057345+++UE5+Release-5.8   {"py": "3.11.8"}
+
+$ claude mcp add --scope user --transport http unreal http://127.0.0.1:8000/mcp
+$ claude mcp get unreal
+  unreal: Scope: User config  Status: Connected  Type: http  URL: http://127.0.0.1:8000/mcp
+
+$ claude mcp add --scope user --transport stdio unity -- C:\Users\matth\AppData\Local\Unity\bin\unity.exe mcp --project-path C:\Users\matth\Documents\ChainsUnity
+$ claude mcp get unity
+  unity: Scope: User config  Status: Connected  Type: stdio   (160 tools when the ChainsUnity editor runs)
+
+# Both editors were closed at the end of the session (Unreal via unreal.SystemLibrary.quit_editor()); start them again before using either MCP.

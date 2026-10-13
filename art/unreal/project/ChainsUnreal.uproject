@@ -1,0 +1,17 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "Chains disc golf: offline art tooling (MCP, MetaHuman, impostor and backdrop bakes). Content made here ships only as exported glTF/PNG.",
+	"Plugins": [
+		{ "Name": "ModelContextProtocol", "Enabled": true },
+		{ "Name": "AllToolsets", "Enabled": true },
+		{ "Name": "MetaHumanGenerator", "Enabled": true },
+		{ "Name": "MetaHumanCharacter", "Enabled": true },
+		{ "Name": "PythonScriptPlugin", "Enabled": true },
+		{ "Name": "EditorScriptingUtilities", "Enabled": true },
+		{ "Name": "GLTFExporter", "Enabled": true },
+		{ "Name": "ImpostorBaker", "Enabled": true },
+		{ "Name": "MovieRenderPipeline", "Enabled": true }
+	]
+}
