@@ -305,7 +305,9 @@ async function applyCourse(id) {
   // Full: HDRI ambient, reflective water and a bloom + grade pass. Lite: same textures, no render targets.
   effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
   // The sky panorama (course.js skyDome), loaded before the build because the environment fill is prefiltered from the dome. Mobile takes the 2048 copy.
-  const panoUrl = asset('skies', def.id + (G.settings.quality === 'low' ? '-mobile' : ''));
+  // Phones only: on Desktop the bloom, shafts and aerial pass blew a sunlit cloud in the tee's canopy gap into a warm smudge
+  // (blind check: phone light 4/4, intro 4/4; desktop look 0/4), so Desktop keeps the gradient dome.
+  const panoUrl = G.settings.quality === 'low' && asset('skies', def.id + '-mobile');
   const pano = panoUrl && await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null);   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps
   course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, pano });
   if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }   // no temporal resolve on Desktop (see draw())
