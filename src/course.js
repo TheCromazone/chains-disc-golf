@@ -1174,7 +1174,7 @@ vec2 vogelTurn() { float spin = 6.2831853 * fract( sin( dot( gl_FragCoord.xy, ve
 
 // Sky dome for both tiers, in the scene's linear HDR. Above the horizon it is the course's panorama: Unreal's physical
 // atmosphere under our own volumetric cumulus and cirrus, lit by this course's sun with no disc of its own
-// (art/unreal/sky-render.sh; tools/sky-webp.py stores it in these linear units over 4, rows by sin(elevation), so the
+// (art/unreal/sky-render.sh; tools/sky-webp.py stores it in these linear units over 2.5, graded, rows by sin(elevation), so the
 // frame's own tone mapping treats it like everything else). It turns slowly so the clouds drift: up to .3°/s, swinging
 // ±12° about the render's heading so their lit faces stay on the disc's side. Near the horizon it is the fog's colour
 // along the ray (haze plus the scatter lobe), so hazed tree lines and hills melt into it. The disc, its aureole and the
@@ -1195,7 +1195,7 @@ function skyDome(def, pano) {
         vec3 scatter=glow*(pow(s,16.)*.25+pow(s,90.)*3.);                                    // the fog chunk's lobe
         #ifdef PANO
           vec4 pa=texture2D(pano,vec2(.5-atan(d.x,d.z)*.1591549+.0333*sin(time*.025),h));  // u = .5 - azimuth/360 plus the drift, v = sin(elevation)
-          vec3 sky=pa.rgb*4.;float cov=2.-2.*pa.a;
+          vec3 sky=pa.rgb*2.5;float cov=2.-2.*pa.a;
         #else
           vec3 sky=mix(blue,zenith,smoothstep(.03,.45,h))*mix(mix(vec3(.62,.8,1.05),vec3(1.),pow(s,6.)),vec3(1.),ground);float cov=0.;
         #endif
