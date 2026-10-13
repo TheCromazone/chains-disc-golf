@@ -1,11 +1,11 @@
 """Slice a generated foley clip (several takes separated by silence) into game-ready samples.
 
-    python3 tools/process-sfx.py <name> <input audio or video> [--max 4] [--min 0.2] [--peak -6] [--tail 0.12] [--at 1.0-1.6,4.0-4.5]
+    python3 tools/process-sfx.py <name> <input audio or video> [--max 4] [--min 0.2] [--peak -6] [--tail 0.12] [--at 1.0-1.6,4.0-4.5] [--first 1]
 
 Finds the takes with ffmpeg's silencedetect (or takes the exact --at ranges, for a clip without gaps such as the sound of
 a generated video), trims each with a short pre-roll, high-passes rumble away, fades the edges,
 peak-normalises to --peak dBFS, and writes mono 96 kbps MP3s to assets/sfx/<name>_<n>.mp3 (MP3 decodes everywhere,
-Safari included). Prints the manifest entry; src/audio.js plays a random take per event.
+Safari included); --first numbers the takes from n, to add takes cut from another source. Prints the manifest entry; src/audio.js plays a random take per event.
 """
 import json, re, subprocess, sys
 from pathlib import Path
@@ -26,21 +26,26 @@ ends = [float(x) for x in re.findall(r'silence_end: ([\d.]+)', log)]
 edges = [0.] + ends; stops = starts + [dur]
 if starts and starts[0] < .05: edges, stops = ends, starts[1:] + [dur]
 takes = [(a, b) for a, b in zip(edges, stops) if b - a >= MIN]
-# loudest takes first (a quiet stray noise between takes is not a take)
-def peak(a, b):
-    m = re.search(r'max_volume: (-?[\d.]+) dB', ff('-ss', f'{a}', '-to', f'{b}', '-i', str(src), '-af', 'volumedetect', '-f', 'null', '-').stderr)
+# peak in dB, measured on the mono downmix the take is written as (ffmpeg folds correlated stereo up to +3 dB hotter than either channel)
+def peak(a, b, f=None):
+    m = re.search(r'max_volume: (-?[\d.]+) dB', ff('-ss', f'{a}', '-to', f'{b}', '-i', str(f or src), '-ac', '1', '-af', 'volumedetect', '-f', 'null', '-').stderr)
     return float(m.group(1)) if m else -99.
+# loudest takes first (a quiet stray noise between takes is not a take)
 ranked = sorted(takes, key=lambda t: peak(*t), reverse=True)[:MAX]
 if '--at' in args:   # exact ranges, kept in the given order
     ranked = [tuple(float(v) for v in r.split('-')) for r in args[args.index('--at') + 1].split(',')]; TAIL = 0.
 files = []
-for k, (a, b) in enumerate(ranked if '--at' in args else sorted(ranked)):
+for k, (a, b) in enumerate(ranked if '--at' in args else sorted(ranked), opt('--first', 1)):
     a0, b0 = (a, b) if '--at' in args else (max(0., a - .03), min(dur, b + TAIL)); length = b0 - a0
     gain = PEAK - peak(a0, b0)
-    target = out / f'{name}_{k + 1}.mp3'
-    r = ff('-y', '-ss', f'{a0:.3f}', '-to', f'{b0:.3f}', '-i', str(src), '-af',
-           f'highpass=f=45,afade=t=in:st=0:d=0.006,afade=t=out:st={max(0., length - .09):.3f}:d=0.09,volume={gain:.2f}dB',
-           '-ac', '1', '-ar', '44100', '-c:a', 'libmp3lame', '-b:a', '96k', str(target))
-    if r.returncode: raise SystemExit(r.stderr[-400:])
+    target = out / f'{name}_{k}.mp3'
+    for _ in range(2):   # MP3's band limit rings a sharp transient up to ~3 dB over the PCM peak: measure the encode, correct once
+        r = ff('-y', '-ss', f'{a0:.3f}', '-to', f'{b0:.3f}', '-i', str(src), '-af',
+               f'highpass=f=45,afade=t=in:st=0:d=0.006,afade=t=out:st={max(0., length - .09):.3f}:d=0.09,volume={gain:.2f}dB',
+               '-ac', '1', '-ar', '44100', '-c:a', 'libmp3lame', '-b:a', '96k', str(target))
+        if r.returncode: raise SystemExit(r.stderr[-400:])
+        over = peak(0, length + 1, target) - PEAK
+        if over < .3: break
+        gain -= over
     files.append(f'sfx/{target.name}'); print(f'{target.name}: {a0:.2f}-{b0:.2f}s, {length:.2f}s, gain {gain:+.1f} dB')
 print(json.dumps({name: files}))
