@@ -21,8 +21,8 @@ export async function loadSky() { return null; }
 // film grain, corner vignette. d-look r2 (0/2: "neon-green grass, punchy contrast", "a stylized game"): the lawn's green
 // sat at hue ~100 deg against Disc Golf Masters' ~77 (yellow-olive), so uHue .25 -> 1.1 (lawn ~86 deg), uOlive 0 -> .28, uSat 1.12 -> .97,
 // curve .4 -> .25 and a warmer gain with a lifted toe: a muted, slightly warm filmic print instead of a punchy game grade.
-// Screen-space AO was tried and dropped (r5): too faint at thin contacts, grime in the lawn; the contact rings under trunks
-// and baskets (course.js) and the canopy's baked occlusion carry it.
+// Screen-space AO: see the AO pass below (r5's version was dropped as too faint at thin contacts, grime in the lawn); the
+// contact rings under trunks and baskets (course.js) and the canopy's baked occlusion still carry the near field.
 const GRADE = {
   uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.01, .975, .9) }, uLift: { value: new THREE.Vector3(.009, .009, .013) }, uSat: { value: .97 }, uOlive: { value: .28 }, uHue: { value: 1.1 },
     uCool: { value: new THREE.Vector3(.94, .99, 1.06) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uVeil: { value: new THREE.Vector3(.018, .022, .03) }, uCurve: { value: .25 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
@@ -115,12 +115,64 @@ class Aerial extends Pass {
   }
   render(renderer, writeBuffer, readBuffer) {
     const sun = this.scene.userData.sun; if (!sun || !readBuffer.depthTexture || this.u.uShape.value.z <= 0) return;
-    const u = this.u, fog = sun.fog, v = this.camera.matrixWorldInverse;
+    const u = this.u, fog = sun.fog, v = this.camera.matrixWorldInverse, k = sun.air?.value ?? 0;
+    // Round the pin (k: course.js's putt factor) the air clears to 30 m and its warm lobe narrows to the disc itself:
+    // from 15 m it laid a milky cream veil over the bushes and birches 10-25 m behind the basket and the whole upper-left
+    // quarter ("a milky veil washes out the upper half", fn-d-look r1), and past it the density drops 45% ("cut the haze about in
+    // half so the far trunks keep their contrast"). The rows past 30 m still step back into the air, a shallower step.
+    u.uShape.value.x = 15 + 15 * k; u.uShape.value.y = .013 * (1 - .45 * k); u.uShape.value.w = 10 + 20 * k;
     u.tDepth.value = readBuffer.depthTexture; u.uSun.value.copy(sun.dir).transformDirection(v); u.uUp.value.set(0, 1, 0).transformDirection(v);
     u.uHaze.value.setRGB(fog.haze.r, fog.haze.g, fog.haze.b); u.uWarm.value.setRGB(fog.warm.r, fog.warm.g, fog.warm.b); u.uGlow.value.setRGB(fog.glow.r, fog.glow.g, fog.glow.b);
     const auto = renderer.autoClear; renderer.autoClear = false; renderer.setRenderTarget(readBuffer); this.quad.render(renderer); renderer.autoClear = auto;
   }
   dispose() { this.quad.material.dispose(); this.quad.dispose(); }
+}
+
+// Ambient occlusion for Full, from the scene's own depth (no normal pass, so no second scene draw): half resolution,
+// 12 taps on a spiral over a ~0.45 m world radius, normals rebuilt from the nearer depth neighbour on each axis, then
+// a depth-aware 4x4 blur, multiplied into the scene ahead of the aerial pass (the haze veils it with distance like any
+// shade). It is what gives the bushes and crowns their inner self-shadow, and the litter, tufts, sign feet and basket
+// base their contact darkening. r5's attempt read "too faint at thin contacts, grime in the lawn": the falloff here
+// ignores occluders under 4 cm above the tangent plane (the blade carpet) and the result fades out past 60 m.
+class AO extends Pass {
+  constructor(camera) {
+    super(); this.needsSwap = false; this.camera = camera; this.strength = 1;
+    this.a = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false }); this.b = this.a.clone();
+    const u = this.u = { tDepth: { value: null }, tAO: { value: null }, uProj: { value: camera.projectionMatrix }, uProjInv: { value: camera.projectionMatrixInverse }, uTexel: { value: new THREE.Vector2() }, uDir: { value: new THREE.Vector2() }, uStrength: { value: 1 } };
+    const VIEW = `uniform sampler2D tDepth;uniform mat4 uProj,uProjInv;uniform vec2 uTexel;
+      vec3 viewAt(vec2 uv){ vec4 p=uProjInv*vec4(uv*2.-1.,texture2D(tDepth,uv).x*2.-1.,1.); return p.xyz/p.w; }`;
+    this.ao = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: u, vertexShader: QUAD_VS, depthTest: false, depthWrite: false, fragmentShader: `${VIEW}varying vec2 vUv;
+      void main(){ float z=texture2D(tDepth,vUv).x; if(z>.99999){ gl_FragColor=vec4(1.); return; }
+        vec3 p=viewAt(vUv),px=viewAt(vUv+vec2(uTexel.x,0.))-p,nx=p-viewAt(vUv-vec2(uTexel.x,0.)),py=viewAt(vUv+vec2(0.,uTexel.y))-p,ny=p-viewAt(vUv-vec2(0.,uTexel.y));
+        vec3 n=normalize(cross(abs(px.z)<abs(nx.z)?px:nx,abs(py.z)<abs(ny.z)?py:ny));   // the flatter side on each axis: no seams along silhouettes
+        float R=.45,rs=R*uProj[1][1]*.5/-p.z,occ=0.,a=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)*6.2832;
+        rs=min(rs,.08);   // up close a 0.45 m disc would span the screen: keep it to a tenth of the height
+        for(int i=0;i<12;i++){ float t=(float(i)+.5)/12.; vec2 o=vec2(cos(a),sin(a))*rs*t*vec2(uTexel.x/uTexel.y,1.); a+=2.3998;
+          vec3 v=viewAt(vUv+o)-p; float d2=dot(v,v),h=dot(v,n);
+          occ+=max(h-.04,0.)/(sqrt(d2)+.05)*(1.-smoothstep(R*R*.6,R*R*2.,d2)); }   // only what stands 4 cm proud of the surface, within the radius
+        float ao=1.-clamp(occ/12.*6.,0.,.6)*smoothstep(4.5,7.,-p.z)*(1.-smoothstep(40.,60.,-p.z));   // at most 60% of the light (3.6/.5 read faint inside the putt's bushes, cycle 2); none on the athlete within 7 m of the lens (his arm against his torso went black) or past 60 m
+        gl_FragColor=vec4(vec3(ao),1.); }` }));
+    // Separable, depth-aware: a tap counts only if its depth sits within 3% of the centre's, so occlusion never bleeds across a silhouette.
+    this.blur = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: u, vertexShader: QUAD_VS, depthTest: false, depthWrite: false, fragmentShader: `${VIEW}uniform sampler2D tAO;uniform vec2 uDir;varying vec2 vUv;
+      void main(){ float z0=-viewAt(vUv).z,s=0.,w=0.;
+        for(int i=-3;i<=3;i++){ vec2 uv=vUv+uDir*float(i); float k=(1.-smoothstep(.0,.03,abs(-viewAt(uv).z-z0)/z0))*(1.-abs(float(i))/4.); s+=texture2D(tAO,uv).r*k; w+=k; }
+        gl_FragColor=vec4(vec3(s/max(w,1e-4)),1.); }` }));
+    this.apply = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: u, vertexShader: QUAD_VS, depthTest: false, depthWrite: false, transparent: true,
+      blending: THREE.CustomBlending, blendSrc: THREE.DstColorFactor, blendDst: THREE.ZeroFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+      fragmentShader: 'uniform sampler2D tAO;uniform float uStrength;varying vec2 vUv;void main(){ gl_FragColor=vec4(vec3(max(mix(1.,texture2D(tAO,vUv).r,uStrength),0.)),1.); }' }));
+  }
+  setSize(w, h) { this.a.setSize(Math.max(1, w >> 1), Math.max(1, h >> 1)); this.b.setSize(Math.max(1, w >> 1), Math.max(1, h >> 1)); }
+  render(renderer, writeBuffer, readBuffer) {
+    if (!readBuffer.depthTexture || this.strength <= 0) return;
+    const u = this.u, auto = renderer.autoClear; renderer.autoClear = false;
+    u.tDepth.value = readBuffer.depthTexture; u.uStrength.value = this.strength; u.uTexel.value.set(1 / this.a.width, 1 / this.a.height);
+    renderer.setRenderTarget(this.a); this.ao.render(renderer);
+    u.tAO.value = this.a.texture; u.uDir.value.set(u.uTexel.value.x, 0); renderer.setRenderTarget(this.b); this.blur.render(renderer);
+    u.tAO.value = this.b.texture; u.uDir.value.set(0, u.uTexel.value.y); renderer.setRenderTarget(this.a); this.blur.render(renderer);
+    u.tAO.value = this.a.texture; renderer.setRenderTarget(readBuffer); this.apply.render(renderer);
+    renderer.autoClear = auto;
+  }
+  dispose() { this.a.dispose(); this.b.dispose(); for (const q of [this.ao, this.blur, this.apply]) { q.material.dispose(); q.dispose(); } }
 }
 
 export function postprocessing(renderer, scene, camera, { photographic = false } = {}) {
@@ -135,6 +187,7 @@ export function postprocessing(renderer, scene, camera, { photographic = false }
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType }));
   Object.assign(composer.renderTarget2, { samples: 4, depthTexture: new THREE.DepthTexture(size.x, size.y) });
   composer.addPass(new RenderPass(scene, camera));
+  const ao = new AO(camera); composer.addPass(ao);
   const aerial = new Aerial(scene, camera); composer.addPass(aerial);
   const shafts = new LightShafts(scene, camera); composer.addPass(shafts);
   const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), .35, .6, 2); composer.addPass(bloom);   // wide enough that the 20x sun disc spreads into a halo; the threshold sits above lit turf and the haze
@@ -143,7 +196,7 @@ export function postprocessing(renderer, scene, camera, { photographic = false }
   // hair edges as 4-level dither and thin chains as broken dots; this finishes them into soft partial coverage (gauntlet r2 d-crisp).
   const fxaa = new ShaderPass(FXAAShader); composer.addPass(fxaa);
   const grade = new ShaderPass(GRADE); composer.addPass(grade);
-  return { passes: { aerial, shafts, bloom, fxaa, grade }, render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; if (composer.readBuffer !== composer.renderTarget2) composer.swapBuffers(); composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); fxaa.uniforms.resolution.value.set(1 / w, 1 / h); }, dispose() {
+  return { passes: { ao, aerial, shafts, bloom, fxaa, grade }, render: () => { grade.uniforms.uTime.value = performance.now() / 1000 % 100; if (composer.readBuffer !== composer.renderTarget2) composer.swapBuffers(); composer.render(); }, resize(w, h) { composer.setPixelRatio(1); composer.setSize(w, h); fxaa.uniforms.resolution.value.set(1 / w, 1 / h); }, dispose() {
     for (const p of composer.passes) p.dispose?.(); composer.dispose();   // disposing a target frees its depth texture too
   } };
 }
