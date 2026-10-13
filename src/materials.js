@@ -53,7 +53,7 @@ float gNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(g
 float gBreak(vec2 p){return gNoise(p*1.3+5.)-.5;}
 #define gMacro(p) gNoise(p/19.+5.)
 #define gWarm(p,rough) 1.
-#define gPatch(p) gNoise(p/2.6+23.)   /* damp and sun-dried patches in the litter: one octave, 2-4 m (1.4 m blotches smeared the chips) */
+#define gPatch(p) gNoise(p/1.4+23.)   /* damp and sun-dried patches in the litter: one octave */
 #define gPatchy(p) gNoise(p/4.7+71.)
 #define gOlive .7   /* Lite has no grade to ease greens toward olive: the turf does it alone */
 #define gThin(p) (1.-smoothstep(.36,.64,gNoise(p/5.5+51.)))   /* one octave of 5 m thin, sun-dried patches: the lawn is never one green */
@@ -117,8 +117,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         normal=normalize(normal+mat3(viewMatrix)*vec3(gN.x,0.,gN.y));   // pebble and chip relief: world-space slopes, the ground is near level`)
       .replace('#include <color_fragment>', `vec2 gN=vec2(0.);{ vec2 p=vGround; float br=gBreak(p),dry=gDry(vSplat.w,br);
         vec3 detail=${lite ? tile('gRough', 1.7) : `mix(${tile('gRough', 1.7)},${tile('gLawn', .9)},vTurf.x)`};   // Lite: one turf photo, the palette still lightens the fairway
-        ${lite ? `detail=mix(detail,vec3(1.),smoothstep(8.,40.,length(vViewPosition))*.5);   // past the carpet the photo blades alias into streaks at a grazing angle: the far lawn is carried by its macro patches
-        detail*=mix(1.,dot(gTile(gRough,mat2(-.28,.96,-.96,-.28)*p,5.5,${vec3s(TILE_MEAN.rough)}),vec3(.33)),.5);   // Full's clump layer (one more fetch pair): light and dark tufts 0.5-2 m wide, so the lawn at 8-30 m has structure, not a flat painted green` : ''}
+        ${lite ? 'detail=mix(detail,vec3(1.),smoothstep(8.,40.,length(vViewPosition))*.5);   // past the carpet the photo blades alias into streaks at a grazing angle: the far lawn is carried by its macro patches' : ''}
         ${lite ? '' : `detail*=mix(vec3(1.),gTile(gMottle,mat2(.6,.8,-.8,.6)*p,8.,${vec3s(TILE_MEAN.mottle)}),.7);   // two orientations break the photo's diagonal mowing bands into patches
         detail*=mix(1.,dot(gTile(gRough,mat2(-.28,.96,-.96,-.28)*p,5.5,${vec3s(TILE_MEAN.rough)}),vec3(.33)),.45);   // clumps 0.5-2 m wide that still read at 20-80 m, where the fine tiles have gone to their mean`}
         vec3 c=gTurf(p,vColor,vTurf.xy,dry)*mix(detail,vec3(dot(detail,vec3(.33))),dry*.4);
@@ -132,21 +131,17 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         vec2 sp=gSpot(p,gEdge(vSplat.x,vTurf.zw));
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.02,.72)*mix(.95,mix(.7,1.25,step(.55,gNoise(p*21.))),1.-smoothstep(.015,.04,fw)),sp.y*.8);   // clover: round leaves, bluer and darker than the grass
         c=mix(c,mix(${vec3s([.2, .14, .085])},c*.6,step(.62,gNoise(p*9.+4.))*(1.-smoothstep(.04,.1,fw))),sp.x);   // scuffed to soil, a few blades left`}
-        float d=length(vViewPosition),u=${lite ? 'clamp((5.8-d)/2.8,0.,1.)*.55+.18*(1.-smoothstep(8.,15.,d))' : 'clamp((8.5-d)/5.,0.,1.)*.9+.12*(1.-smoothstep(9.,15.,d))'};
+        float d=length(vViewPosition),u=${lite ? 'clamp((5.8-d)/2.8,0.,1.)*.55' : 'clamp((8.5-d)/5.,0.,1.)*.9+.12*(1.-smoothstep(9.,15.,d))'};
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.25,.28),u*.75)*(1.-u*.18);   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo or bare soil
         vec3 cov=gCover(vSplat,vTurf.zw,br);
         float reach=${lite ? 'cov.z' : 'smoothstep(.02,.4,vSplat.z+br*.5)'};   // beyond the litter's edge single leaves stray into the turf (Full)
         float ht=dot(detail,vec3(.33))-1.;   // the turf's own blades as a height: they poke over the cover's edge
-        if(reach>0.){ vec2 lq=p/.8,lq2=mat2(.6,-.8,.8,.6)*p/1.+.3;   // chips 1-4 cm: at 1.15 m a tile the birch leaves read as pale cobbles
-          vec3 l=texture2D(gDuff,lq).rgb,l2=texture2D(gDuff,lq2).rgb; float dp=gPatch(p);
-          float pk=smoothstep(.4,.6,.5+(gNoise(p/1.7+41.)-.5)*5.+dot(l2-l,vec3(3.)));   // a second scale and heading in drifts, joined chip by chip (the brighter, upper chip wins): a linear mix ghosted two layers into a soft smear
-          l=mix(l,l2,pk);
+        if(reach>0.){ vec2 lq=p/1.15; vec3 l=texture2D(gDuff,lq).rgb; float dp=gPatch(p);
+          l=mix(l,texture2D(gDuff,mat2(.6,-.8,.8,.6)*p/1.45+.3).rgb,smoothstep(.35,.65,gNoise(p/1.7+41.)));   // a second scale and heading in drifts: no tile repeat, chip size varies
           float ll=dot(l,vec3(.3,.59,.11)),w=max(cov.z,reach*smoothstep(.22,.36,ll)*.85);   // photo wood chips, birch leaves and twigs (Qwen-Image tile), mean = albedo
           w=smoothstep(.35,.65,w+(ll/.147-1.-ht*.5)*w*(1.-w)*1.6);   // height blend: whole chips and leaves cross the edge, not a dither
-          ll=dot(l,vec3(.3,.59,.11)); l*=(.147+max(ll-.147,0.)/(1.+max(ll-.147,0.)*6.)+min(ll-.147,0.))/max(ll,1e-3);   // pale leaves rolled off toward the chips: DGM's mulch is shreds and dark gaps, not pale flakes
-          l=mix(vec3(dot(l,vec3(.3,.59,.11))),l,.55)*mix(${vec3s([.6, .62, .66])},${vec3s([.9, .86, .82])},smoothstep(10.,30.,d));   // greyed and darkened to DGM's weathered putting-circle chips (~35% less saturated, sRGB luma .32); the forest floor on a far sunlit slope keeps its warm duff (dark grey there read as burnt ground)
-          l=(${vec3s([.16, .114, .068])}+(l-${vec3s([.16, .114, .068])})*.86)*mix(vec3(.76,.74,.76),vec3(1.1,1.08,1.04),smoothstep(.2,.8,dp));   // chip contrast kept; damp patches darker, sun-dried paler, but gentle (2x blotches read as a smeary low-frequency brown)
-          c=mix(c,l,w); gN+=mix(texture2D(gDuffN,lq).rg*2.-1.,(texture2D(gDuffN,lq2).rg*2.-1.)*mat2(.6,-.8,.8,.6),pk)*w*1.1; }   // the drift's slopes turned back to world axes
+          l=(${vec3s([.2, .135, .07])}+(l-${vec3s([.2, .135, .07])})*.72)*mix(vec3(.6,.58,.6),vec3(1.22,1.18,1.08),smoothstep(.2,.8,dp));   // contrast eased; damp dark patches, sun-dried pale ones
+          c=mix(c,l,w); gN+=(texture2D(gDuffN,lq).rg*2.-1.)*w*.8; }
         if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.6).rgb;   // photo gravel, pebbles 1.5-6 cm of mixed size and tone (Qwen-Image tile), mean = albedo
           float hg=dot(g,vec3(1.04))-1.,w=cov.x; w=smoothstep(.38,.62,w+(hg-ht*.5)*w*(1.-w)*2.2);   // height blend: pebble tops win first, blades last
           g=mix(g,${vec3s([.33, .322, .292])},smoothstep(3.,16.,d)*.25)*vec3(1.48,1.42,1.16)*mix(1.,.62,smoothstep(.55,.85,gNoise(p*.8+3.)))*mix(1.,dot(texture2D(gGravel,mat2(.6,.8,-.8,.6)*p/4.1).rgb,vec3(1.06)),.75);   // packed earth shows in patches; stones three times the size keep a grain at 20 m
@@ -156,7 +151,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         c*=1.-.45*(1.-smoothstep(0.,.25,pd));   // contact shade where the pad sits on the ground`}
         diffuseColor.rgb=c; }`);
   };
-  material.customProgramCacheKey = () => 'chains-ground-v12' + (lite ? '-lite' : '');
+  material.customProgramCacheKey = () => 'chains-ground-v11' + (lite ? '-lite' : '');
   return material;
 }
 
