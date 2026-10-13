@@ -76,20 +76,27 @@
     "menu_bg": "menu_bg.jpg"
   },
   "sfx": {
-    "whoosh": [
-      "sfx/whoosh_1.mp3",
-      "sfx/whoosh_2.mp3",
-      "sfx/whoosh_3.mp3",
-      "sfx/whoosh_4.mp3"
-    ],
-    "land_grass": [
-      "sfx/land_grass_1.mp3",
-      "sfx/land_grass_2.mp3"
-    ],
-    "land_dirt": [
-      "sfx/land_dirt_1.mp3",
-      "sfx/land_dirt_2.mp3"
-    ]
+    "whoosh": ["sfx/whoosh_1.mp3", "sfx/whoosh_2.mp3", "sfx/whoosh_3.mp3", "sfx/whoosh_4.mp3"],
+    "land_grass": ["sfx/land_grass_1.mp3", "sfx/land_grass_2.mp3", "sfx/land_grass_3.mp3", "sfx/land_grass_4.mp3"],
+    "land_dirt": ["sfx/land_dirt_1.mp3", "sfx/land_dirt_2.mp3", "sfx/land_dirt_3.mp3", "sfx/land_dirt_4.mp3"],
+    "chains_soft": ["sfx/chains_soft_1.mp3", "sfx/chains_soft_2.mp3", "sfx/chains_soft_3.mp3", "sfx/chains_soft_4.mp3"],
+    "chains_medium": ["sfx/chains_medium_1.mp3", "sfx/chains_medium_2.mp3", "sfx/chains_medium_3.mp3", "sfx/chains_medium_4.mp3"],
+    "chains_fast": ["sfx/chains_fast_1.mp3", "sfx/chains_fast_2.mp3", "sfx/chains_fast_3.mp3", "sfx/chains_fast_4.mp3"],
+    "chainout": ["sfx/chainout_1.mp3", "sfx/chainout_2.mp3", "sfx/chainout_3.mp3"],
+    "tray": ["sfx/tray_1.mp3", "sfx/tray_2.mp3", "sfx/tray_3.mp3"],
+    "band": ["sfx/band_1.mp3", "sfx/band_2.mp3", "sfx/band_3.mp3"],
+    "tree": ["sfx/tree_1.mp3", "sfx/tree_2.mp3", "sfx/tree_3.mp3", "sfx/tree_4.mp3"],
+    "leaves": ["sfx/leaves_1.mp3", "sfx/leaves_2.mp3", "sfx/leaves_3.mp3"],
+    "skip": ["sfx/skip_1.mp3", "sfx/skip_2.mp3", "sfx/skip_3.mp3"],
+    "splash": ["sfx/splash_1.mp3", "sfx/splash_2.mp3", "sfx/splash_3.mp3"],
+    "roll": ["sfx/roll_1.mp3", "sfx/roll_2.mp3", "sfx/roll_3.mp3"],
+    "click": ["sfx/click_1.mp3", "sfx/click_2.mp3", "sfx/click_3.mp3"],
+    "applause": ["sfx/applause_1.mp3", "sfx/applause_2.mp3", "sfx/applause_3.mp3", "sfx/applause_4.mp3"],
+    "ohh": ["sfx/ohh_1.mp3", "sfx/ohh_2.mp3", "sfx/ohh_3.mp3", "sfx/ohh_4.mp3"],
+    "womp": ["sfx/womp_1.mp3", "sfx/womp_2.mp3", "sfx/womp_3.mp3"],
+    "birdie_jingle": ["sfx/birdie_jingle_1.mp3", "sfx/birdie_jingle_2.mp3", "sfx/birdie_jingle_3.mp3"],
+    "bad": ["sfx/bad_1.mp3", "sfx/bad_2.mp3"],
+    "ambient": ["sfx/ambient_1.mp3"]
   },
   "models": {
     "golfer": "models/golfer-premium.glb",
