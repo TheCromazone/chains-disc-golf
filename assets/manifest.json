@@ -14,6 +14,8 @@
     "turf_mottle": "textures/turf_mottle.jpg",
     "gravel": "textures/gravel.jpg",
     "litter": "textures/litter.jpg",
+    "gravel_normal": "textures/gravel_normal.jpg",
+    "litter_normal": "textures/litter_normal.jpg",
     "grass_detail": "textures/r3/fairway.jpg",
     "rough_detail": "textures/r3/rough.jpg",
     "green_detail": "textures/r3/green.jpg",
