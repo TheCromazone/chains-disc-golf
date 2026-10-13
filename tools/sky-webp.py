@@ -128,6 +128,11 @@ def main(ids):
         lin *= TINT + (1 - TINT) * (2 - 2 * alpha)[..., None]
         y = (lin @ np.array([.2126, .7152, .0722], np.float32))[..., None]
         lin = np.maximum(y + (lin - y) * (SAT + (CLOUD_SAT - SAT) * t)[..., None], 0)   # the sky bluer, the clouds' low-sun gold rims calmer
+        # A soft shoulder over .9: silver linings by the disc stay the brightest thing in the sky without the dome's own
+        # aureole on top blowing them out to a flat cream blob (blind critic, Pine's first tee).
+        y = (lin @ np.array([.2126, .7152, .0722], np.float32))[..., None]
+        over = np.maximum(y - .9, 0)
+        lin *= (np.minimum(y, .9) + over / (1 + over / .5)) / np.maximum(y, 1e-6)
         print(f"  cloud cover above 7 deg: {float((t[v > .12] > .5).mean()) * 100:.0f}%")
         enc = np.clip(np.dstack([srgb(np.clip(lin / HEADROOM, 0, 1)), alpha]) * 255 + .5, 0, 255).astype(np.uint8)
         for suf, (W, budget) in SIZES.items():
