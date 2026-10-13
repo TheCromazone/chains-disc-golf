@@ -16,14 +16,19 @@ export const moved = (a, b, eps = MOVE_EPS) => a.some((v, i) => Math.abs(v - b[i
 
 const VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
 export function createTemporal() {
-  const u = { tCur: { value: null }, tHist: { value: null }, uTexel: { value: new THREE.Vector2() }, uAlpha: { value: 1 }, uSeed: { value: 0 } };
+  const u = { tCur: { value: null }, tHist: { value: null }, uTexel: { value: new THREE.Vector2() }, uJit: { value: new THREE.Vector2() }, uAlpha: { value: 1 }, uSeed: { value: 0 } };
   // History clamped into the box of the current frame's 3x3 neighbourhood, then a running mean (1/n, floored at .1). The
   // +-.5 LSB hash dither keeps an 8-bit history (phones) from sticking a few levels off the mean at small blend weights.
+  // Each jittered frame enters through Unreal's TAA reconstruction filter, not as its centre sample: the 3x3 samples sit at
+  // their offset plus the jitter (a pixel shows the scene at its centre + uJit) and are weighted exp(-2.29 d^2), a Gaussian
+  // of sigma ~.47 px. A box-filtered (centre-sample) supersample still ends silhouettes, hair and wire in a one-pixel step
+  // that critics read as "crisp and slightly stepped, pasted on"; the Gaussian lands them over ~2 px, Disc Golf Masters' edge.
   const resolve = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: u, vertexShader: VS, depthTest: false, depthWrite: false,
-    fragmentShader: `uniform sampler2D tCur,tHist;uniform vec2 uTexel;uniform float uAlpha,uSeed;varying vec2 vUv;
-      void main(){ vec3 c=texture2D(tCur,vUv).rgb,lo=c,hi=c;
-        for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){ vec3 s=texture2D(tCur,vUv+vec2(x,y)*uTexel).rgb; lo=min(lo,s); hi=max(hi,s); }
-        vec3 o=mix(clamp(texture2D(tHist,vUv).rgb,lo,hi),c,uAlpha);
+    fragmentShader: `uniform sampler2D tCur,tHist;uniform vec2 uTexel,uJit;uniform float uAlpha,uSeed;varying vec2 vUv;
+      void main(){ vec3 c=vec3(0.),lo=vec3(1e4),hi=vec3(-1e4); float ws=0.;
+        for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){ vec3 s=texture2D(tCur,vUv+vec2(x,y)*uTexel).rgb; vec2 d=vec2(x,y)+uJit; float k=exp(-2.29*dot(d,d));
+          c+=s*k; ws+=k; lo=min(lo,s); hi=max(hi,s); }
+        c/=ws; vec3 o=mix(clamp(texture2D(tHist,vUv).rgb,lo,hi),c,uAlpha);
         gl_FragColor=vec4(o+(fract(sin(dot(gl_FragCoord.xy+uSeed,vec2(12.9898,78.233)))*43758.5453)-.5)/255.,1.); }` }));
   const copy = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur }, vertexShader: VS, depthTest: false, depthWrite: false,
     fragmentShader: 'uniform sampler2D tCur;varying vec2 vUv;void main(){gl_FragColor=texture2D(tCur,vUv);}' }));
@@ -41,7 +46,7 @@ export function createTemporal() {
       n = still ? n + 1 : 0; if (!n) return false;
       const [jx, jy] = JITTER[n % JITTER.length], e = camera.projectionMatrix.elements; held.copy(camera.projectionMatrix);
       e[8] += jx * 2 / w; e[9] += jy * 2 / h; camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-      u.uTexel.value.set(1 / w, 1 / h); u.uAlpha.value = n === 1 ? 1 : Math.max(1 / n, .1); u.uSeed.value = n % 97;
+      u.uTexel.value.set(1 / w, 1 / h); u.uJit.value.set(jx, jy); u.uAlpha.value = n === 1 ? 1 : Math.max(1 / n, .1); u.uSeed.value = n % 97;
       return true;
     },
     end(camera) { if (!n) return; camera.projectionMatrix.copy(held); camera.projectionMatrixInverse.copy(held).invert(); },

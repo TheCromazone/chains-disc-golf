@@ -97,6 +97,16 @@ const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos
 // arrow at the lie that turns with the aim. The dashes flow toward the basket so the direction reads at a glance.
 const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false });
 const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .42, depthTest: false, depthWrite: false });
+// Dash ends as one-pixel coverage ramps instead of LineMaterial's per-pixel discard: MSAA never smooths a discard and the
+// flowing dashes defeat the temporal resolve, so every dash ended in a stair step (gauntlet r2 crisp: "stepped ends on the dashed arc")
+for (const m of [previewMat, previewEdge]) m.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader
+  .replace('if ( mod( vLineDistance + dashOffset, dashSize + gapSize ) > dashSize ) discard;', '')
+  .replace('float alpha = opacity;', `float alpha = opacity;
+    #ifdef USE_DASH
+    { float dp = mod( vLineDistance + dashOffset, dashSize + gapSize ), fw = max( fwidth( vLineDistance ), 1e-5 );
+      alpha *= clamp( ( dp < dashSize ? min( dp, dashSize - dp ) : - min( dp - dashSize, dashSize + gapSize - dp ) ) / fw + .5, 0., 1. );
+      if ( alpha <= 0. ) discard; }
+    #endif`); };
 const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();
 const shotGuide = createShotGuide(preview);
 const trail = createFlightTrail(scene);
@@ -137,8 +147,8 @@ function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerI
   marker.visible = false; scene.add(marker);
   return { name, color, isBot, difficulty, peerId, appearance, lod: i > 0, scores: [], strokes: 0, done: false, lie: [0, 0, 0], lieDist: 0, char, marker, discMesh: null, discId: null };
 }
-function setPlayerDetail(p, lod) {
-  if (p.lod === lod || G.settings.quality === 'low') return;
+function setPlayerDetail(p, lod) {   // both tiers: the thrower is the foreground figure the crisp critics zoom into (models.js)
+  if (p.lod === lod) return;
   const next = createCharacter({ ...p.appearance, lod });
   next.setGround?.((x, z) => world.height(x, z));
   next.group.position.copy(p.char.group.position); next.group.rotation.copy(p.char.group.rotation);
