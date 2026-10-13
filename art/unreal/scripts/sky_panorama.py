@@ -12,8 +12,8 @@ import unreal, math, os
 
 OUT = os.path.join(os.path.expanduser("~"), "Documents", "ChainsUnreal", "Saved", "Sky")
 # id: disc elevation and azimuth (src/course.js COURSES[].sun[2], sun[3]), sunColor, cloud coverage, seed (which sky)
-COURSES = {"pine": (12, 10, "#ffe4cc", .30, 1.), "meadow": (10, 22, "#ffdcae", .36, 2.), "lake": (11, 26, "#fff2e0", .27, 3.), "bluff": (12, 24, "#fff4e4", .34, 4.)}
-SIZE = globals().get("SKY_SIZE", 4096)   # cube face (a job may set SKY_SIZE = 1024 for quick looks); the export is 2 x SIZE by SIZE
+COURSES = {"pine": (12, 10, "#ffe4cc", .37, 1.), "meadow": (10, 22, "#ffdcae", .40, 2.), "lake": (11, 26, "#fff2e0", .34, 3.), "bluff": (12, 24, "#fff4e4", .39, 4.)}
+SIZE = 2048                  # cube face, the most a cube render target takes (4096 is clamped back); the export is 4096x2048
 MIE = .002                   # SkyAtmosphere Mie scattering scale (default .004)
 LAYER = (1.4, 2.8)           # cloud base and layer height, km: cumulus up to ~1.9 km over the base, the cirrus sheet in the top 700 m
                              # (it reads as cirrus from the ground; a thinner layer leaves the ray march finer steps)
@@ -47,8 +47,7 @@ def prep(cid):
             a.set_is_temporarily_hidden_in_editor(True)
             a.set_actor_hidden_in_game(True)
     cap = actors(unreal.SceneCaptureCube) or [EAS.spawn_actor_from_class(unreal.SceneCaptureCube, unreal.Vector(0, 0, 200))]
-    rt = unreal.load_asset("/Game/Sky/RT_SkyCube") if unreal.EditorAssetLibrary.does_asset_exist("/Game/Sky/RT_SkyCube") else \
-        unreal.AssetToolsHelpers.get_asset_tools().create_asset("RT_SkyCube", "/Game/Sky", unreal.TextureRenderTargetCube, unreal.TextureRenderTargetCubeFactoryNew())
+    rt = unreal.load_asset("/Game/Sky/RT_SkyCube") if unreal.EditorAssetLibrary.does_asset_exist("/Game/Sky/RT_SkyCube") else         unreal.AssetToolsHelpers.get_asset_tools().create_asset("RT_SkyCube", "/Game/Sky", unreal.TextureRenderTargetCube, unreal.TextureRenderTargetCubeFactoryNew())
     rt.set_editor_property("size_x", SIZE)
     rt.set_editor_property("hdr", True)
     comp = cap[0].get_component_by_class(unreal.SceneCaptureComponentCube)

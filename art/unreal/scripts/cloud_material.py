@@ -38,22 +38,23 @@ float alt = H * LayerKm;                                           // km above t
 // stretches of sky are nearly clear and others busy.
 float big = C.fbm(float3(p.xy / 25., Seed), 2);
 float cov = saturate(Coverage + (big - .5) * 1.2);
-float cell = C.fbm(float3(p.xy / 2.4, .5), 3);           // ~N(.5, .12): the threshold below puts about `cov` of the sky under cloud
+float2 q = p.xy + (float2(C.fbm(float3(p.xy / .9, 7.1), 2), C.fbm(float3(p.xy / .9, 9.4), 2)) - .5) * 1.2;   // warped by ~+-.4 km: lumpy outlines, not smooth noise blobs
+float cell = C.fbm(float3(q / 2.4, .5), 3);              // ~N(.5, .12): the threshold below puts about `cov` of the sky under cloud
 float thr = .5 + (.5 - cov) * .32;
-float core = C.rmp(cell, thr, thr + .12);                 // 0 at a cloud's footprint edge, 1 in its core
-// Flat base, domed top: a round heap over the footprint (sqrt(1 - r^2) with r = 1 - core), not an extruded column or a
-// cone; 0.4-1.9 km tall by region.
-float top = (.4 + 1.5 * C.fbm(float3(p.xy / 7., 3.3), 2)) * sqrt(core * (2. - core));
-float shape = C.rmp(alt, 0., .06) * C.rmp(alt, top, top - .3);
+float core = C.rmp(cell, thr, thr + .3);                  // 0 at a cloud's footprint edge, 1 in its core
+// Flat base, domed top: a round heap over the footprint (sqrt(1 - r^2) with r = 1 - core), wider than tall (fair-weather
+// humilis and mediocris, ~0.5-1 km), not an extruded column or a cone.
+float top = (.3 + .9 * C.fbm(float3(p.xy / 7., 3.3), 2)) * sqrt(core * (2. - core));
+float shape = C.rmp(alt, 0., .05) * C.rmp(alt, top, top - .45);
 // Billows: cellular lumps ~550 m and ~230 m, a little taller than wide, over a smooth fbm so they merge into heaps.
 float3 sp = float3(p.xy, alt * 1.3) / .55;
 float pw = saturate(C.wor(sp) * .4 + C.wor(sp * 2.4 + 5.) * .25 + C.fbm(sp * .45, 3) * .55 - .08);
-float dens = shape > 1e-3 ? C.rmp(pw, 1. - shape, 1.) * shape : 0.;
+float dens = C.rmp(shape + (pw - .5) * 1.8 * saturate(shape * 3.), .45, .62);   // solid inside the heap; the billows push its rim in and out by a few hundred metres (as density, the cell walls showed as shelves inside), never outside the footprint (specks)
 // Detail: smaller cauliflower bumps on the tops, torn and wispy at the base and on thin clouds.
 if (dens > 0.) {
   float3 dp = float3(p.xy, alt * 1.2) / .13;
-  float det = C.wor(dp) * .55 + C.wor(dp * 2.4) * .3 + C.fbm(dp * 5., 2) * .15;
-  float er = lerp(1. - det, det, C.rmp(alt, .05, .35)) * .42;
+  float det = C.wor(dp) * .6 + C.wor(dp * 2.4) * .4;
+  float er = lerp(1. - det, det, C.rmp(alt, .05, .35)) * .3;
   dens = C.rmp(dens, er, 1.);
 }
 // Cirrus: a thin sheet 300-600 m under the layer top, long fibrous streaks along the upper wind, over parts of the sky only.
