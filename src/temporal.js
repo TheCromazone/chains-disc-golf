@@ -33,6 +33,14 @@ export function createTemporal() {
         gl_FragColor=vec4(o+(fract(sin(dot(gl_FragCoord.xy+uSeed,vec2(12.9898,78.233)))*43758.5453)-.5)/255.,1.); }` }));
   const copy = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur }, vertexShader: VS, depthTest: false, depthWrite: false,
     fragmentShader: 'uniform sampler2D tCur;varying vec2 vUv;void main(){gl_FragColor=texture2D(tCur,vUv);}' }));
+  // Phones: the resolved frame is shown through a 5-tap sharpen clamped to its own neighbourhood (no halos), the way Unreal
+  // sharpens after TAA. The blind check against round 1 had the resolve winning edges (crisp 3/4) but losing texture: mulch,
+  // turf and leaf clusters read "slightly smeared" (ground 0/4, trees 0/4). Drawn after the history is saved, so it never compounds.
+  const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, uTexel: u.uTexel }, vertexShader: VS, depthTest: false, depthWrite: false,
+    fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel;varying vec2 vUv;void main(){
+      vec3 c=texture2D(tCur,vUv).rgb,n=texture2D(tCur,vUv+vec2(0.,uTexel.y)).rgb,s=texture2D(tCur,vUv-vec2(0.,uTexel.y)).rgb,
+        e=texture2D(tCur,vUv+vec2(uTexel.x,0.)).rgb,w=texture2D(tCur,vUv-vec2(uTexel.x,0.)).rgb;
+      gl_FragColor=vec4(clamp(c+(4.*c-n-s-e-w)*.2,min(c,min(min(n,s),min(e,w))),max(c,max(max(n,s),max(e,w)))),1.); }` }));
   const lastW = new THREE.Matrix4(), lastP = new THREE.Matrix4(), held = new THREE.Matrix4(), size = new THREE.Vector2();
   let n = 0, w = 0, h = 0, cur = null, hist = null;
   const draw = (renderer, quad) => { const auto = renderer.autoClear; renderer.autoClear = false; quad.render(renderer); renderer.autoClear = auto; };
@@ -55,7 +63,7 @@ export function createTemporal() {
     resolve(renderer, curTex, histTex) { u.tCur.value = curTex; u.tHist.value = histTex; draw(renderer, resolve); },
     copy(renderer, tex) { u.tCur.value = tex; draw(renderer, copy); },
     // Mobile: the frame was drawn straight to the canvas. Copy it out, resolve back over it, keep the result as history.
-    // Two RGB8 textures at the drawing-buffer size (the canvas is RGB: alpha false), one full-screen pass, two blits.
+    // Two RGB8 textures at the drawing-buffer size (the canvas is RGB: alpha false), two full-screen passes (resolve, sharpen), two blits.
     canvas(renderer) {
       if (!cur || cur.image.width !== w || cur.image.height !== h) {
         cur?.dispose(); hist?.dispose(); u.uAlpha.value = 1;
@@ -63,6 +71,7 @@ export function createTemporal() {
         for (const x of [cur, hist]) Object.assign(x, { format: THREE.RGBFormat, internalFormat: 'RGB8' });   // copyTexSubImage2D may only drop channels, never add alpha
       }
       renderer.copyFramebufferToTexture(cur); t.resolve(renderer, cur, hist); renderer.copyFramebufferToTexture(hist);
+      u.tCur.value = hist; draw(renderer, sharpen);
     },
     dispose() { cur?.dispose(); hist?.dispose(); cur = hist = null; },
   };
