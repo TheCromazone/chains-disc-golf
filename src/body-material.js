@@ -79,9 +79,7 @@ float chainsNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2
 const FOLD_GLSL = `uniform vec4 uFold;
 float chainsFolds(vec3 p, float armW) {
   float ax = abs(p.x), s = p.x < 0. ? -1. : 1., torso = 1. - smoothstep(.3, .6, armW);
-  // the knit bump shows only where a stitch spans 8+ pixels: at the tee and in the menu (4-5 px a stitch) its sin x sin grid
-  // resolved into a regular halftone screen that the critics' downscale turned into "a noisy, grainy, over-sharpened jersey"
-  vec2 kw = vec2((p.x * .7 + p.z * .7) * 698., p.y * 1047.); float fk = 1. - smoothstep(.06, .12, max(fwidth(kw.x), fwidth(kw.y)) / 6.283);
+  vec2 kw = vec2((p.x * .7 + p.z * .7) * 698., p.y * 1047.); float fk = 1. - smoothstep(.3, .6, max(fwidth(kw.x), fwidth(kw.y)) / 6.283);
   float h = .00035 * sin(kw.x) * sin(kw.y) * fk;
   float band = smoothstep(uFold.x - .01, uFold.x + .02, p.y) * (1. - smoothstep(uFold.x + .07, uFold.x + .17, p.y));
   float brk = smoothstep(.3, .7, chainsNoise(p * vec3(13., 5., 13.) + 3.));
