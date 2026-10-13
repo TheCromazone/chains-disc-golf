@@ -101,7 +101,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
   geometry.setAttribute('splat', new THREE.BufferAttribute(splat, 4)); geometry.setAttribute('turf', new THREE.BufferAttribute(turf, 4));
   const tiles = { gLawn: texture('grass'), gRough: texture('turf_rough'), gMottle: texture('turf_mottle'), gGravel: texture('gravel'), gSand: texture('sand'), gDuff: texture('litter') };
   if (!Object.values(tiles).every(Boolean)) return material;
-  if (!lite) for (const t of Object.values(tiles)) t.anisotropy = 8;   // the tee camera sees the ground at a grazing angle; phones keep 4 (bandwidth)
+  for (const t of Object.values(tiles)) t.anisotropy = lite ? 8 : 16;   // the tee camera sees the ground at a grazing angle; at 4x phones' turf and mulch read "smeared" under the temporal resolve (blind check vs round 1, ground 0/4)
   const tile = (name, s) => `gTile(${name},p,${s},${vec3s(TILE_MEAN[name.slice(1).toLowerCase()])})`;
   material.onBeforeCompile = s => {
     for (const k in tiles) s.uniforms[k] = { value: tiles[k] };
