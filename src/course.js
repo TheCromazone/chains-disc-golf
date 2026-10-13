@@ -894,7 +894,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     for (const h of holes) {
       const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), at = (u, w) => [h.tee[0] + u * cy + w * sy, h.tee[1] - u * sy + w * cy];
       for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .08 + tuftRng() * .2; spots.push({ p: at(2.4 + Math.cos(a) * r, -2.6 + Math.sin(a) * r), s: .14 + tuftRng() * .12 }); }
-      for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .3 + tuftRng() * .3; spots.push({ p: [h.basket[0] + Math.cos(a) * r, h.basket[1] + Math.sin(a) * r], s: .12 + tuftRng() * .1 }); }
+      for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .1 + tuftRng() * .14; spots.push({ p: [h.basket[0] + Math.cos(a) * r, h.basket[1] + Math.sin(a) * r], s: .12 + tuftRng() * .1 }); }   // one clump hugging the pole, not sprigs dotted round it
       // Ragged fringe: tufts the mower and the rake miss, 12-30 cm, strung along the gravel's edge (trail, apron, worn
       // earth) and the bed's timbers on the ground the tee camera sees, so every grass-to-gravel border breaks into clumps
       // that lean over it instead of a clean cut. Placed where the shader's own gravel cover (same grid data) turns from turf.
@@ -905,12 +905,14 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         if (bed < .02 || tuftRng() > edge) continue;
         spots.push({ p: [x, z], s: .1 + tuftRng() ** 2 * .16, dry: tuftRng() < .3 });
       }
-      // The putting circle's mulch: tufts creep into its edge from the lawn (the litter splat's own fade, as above).
+      // The putting circle's mulch: clumps of 3-7 tufts creep into its edge from the lawn (the litter splat's outer fade),
+      // never mid-mulch: single tufts spread over the litter read as "evenly spaced planted decals" (ground 0/2).
       // Lite only: Full's carpet already frays that edge, and its tee frame sits at the 2.3M triangle budget.
-      for (let k = 0; k < (quality === 'low' ? 12000 : 0); k++) {
+      for (let k = 0; k < (quality === 'low' ? 2500 : 0); k++) {
         const x = h.basket[0] + (tuftRng() - .5) * 26, z = h.basket[1] + (tuftRng() - .5) * 26, sz = litterAt(x, z);
-        if (tuftRng() > smooth(.12, .32, sz) * (1 - smooth(.42, .62, sz)) * smooth(.3, .6, noise(x / 1.4 + 13, z / 1.4 + 13))) continue;
-        spots.push({ p: [x, z], s: .1 + tuftRng() ** 2 * .14, dry: tuftRng() < .25 });
+        if (tuftRng() > smooth(.08, .2, sz) * (1 - smooth(.3, .48, sz)) * smooth(.35, .6, noise(x / 2.3 + 13, z / 2.3 + 13))) continue;
+        for (let j = 0, nj = 3 + (tuftRng() * 5 | 0); j < nj; j++) { const a = tuftRng() * 6.3, r = Math.sqrt(tuftRng()) * .28;
+          spots.push({ p: [x + Math.cos(a) * r, z + Math.sin(a) * r], s: .08 + tuftRng() ** 2 * .16, dry: tuftRng() < .25 }); }
       }
     }
     const fixed = new THREE.InstancedMesh(tuftGeo, tuftMat, spots.length);
