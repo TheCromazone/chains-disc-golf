@@ -1,0 +1,7 @@
+{
+  "note": "Qwen-Image 2.1 (bf16) in local ComfyUI, 1024x1024, 25 euler steps, cfg 1; outputs chains_ground_mulch2_00001_ / chains_ground_gravel2_00001_ (2026-10-12). Prompts asked for a top-down, evenly lit photo texture; the exact wording was not recorded. tools/texture-pack.py --ground makes them seamless, sets each tile's linear mean (the shader's albedo) and derives the normal map; relief = pebble/chip height range over the tile's world size.",
+  "tiles": {
+    "gravel": { "master": "gravel-master.jpg", "mean": [0.33, 0.322, 0.292], "relief": 0.015, "contrast": 1.45 },
+    "litter": { "master": "litter-master.jpg", "mean": [0.2, 0.135, 0.07], "relief": 0.009 }
+  }
+}
