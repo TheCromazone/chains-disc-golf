@@ -20,13 +20,14 @@ export function createTemporal() {
   // History clamped into the box of the current frame's 3x3 neighbourhood, then a running mean (1/n, floored at .1). The
   // +-.5 LSB hash dither keeps an 8-bit history (phones) from sticking a few levels off the mean at small blend weights.
   // Each jittered frame enters through Unreal's TAA reconstruction filter, not as its centre sample: the 3x3 samples sit at
-  // their offset plus the jitter (a pixel shows the scene at its centre + uJit) and are weighted exp(-2.29 d^2), a Gaussian
-  // of sigma ~.47 px. A box-filtered (centre-sample) supersample still ends silhouettes, hair and wire in a one-pixel step
+  // their offset plus the jitter (a pixel shows the scene at its centre + uJit) and are weighted exp(-4.5 d^2), a Gaussian
+  // of sigma ~.33 px (it was ~.47, which smeared mulch and turf detail: blind r1-vs-r2 check, ground 0/4). A box-filtered
+  // (centre-sample) supersample still ends silhouettes, hair and wire in a one-pixel step
   // that critics read as "crisp and slightly stepped, pasted on"; the Gaussian lands them over ~2 px, Disc Golf Masters' edge.
   const resolve = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: u, vertexShader: VS, depthTest: false, depthWrite: false,
     fragmentShader: `uniform sampler2D tCur,tHist;uniform vec2 uTexel,uJit;uniform float uAlpha,uSeed;varying vec2 vUv;
       void main(){ vec3 c=vec3(0.),lo=vec3(1e4),hi=vec3(-1e4); float ws=0.;
-        for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){ vec3 s=texture2D(tCur,vUv+vec2(x,y)*uTexel).rgb; vec2 d=vec2(x,y)+uJit; float k=exp(-2.29*dot(d,d));
+        for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){ vec3 s=texture2D(tCur,vUv+vec2(x,y)*uTexel).rgb; vec2 d=vec2(x,y)+uJit; float k=exp(-4.5*dot(d,d));
           c+=s*k; ws+=k; lo=min(lo,s); hi=max(hi,s); }
         c/=ws; vec3 o=mix(clamp(texture2D(tHist,vUv).rgb,lo,hi),c,uAlpha);
         gl_FragColor=vec4(o+(fract(sin(dot(gl_FragCoord.xy+uSeed,vec2(12.9898,78.233)))*43758.5453)-.5)/255.,1.); }` }));
