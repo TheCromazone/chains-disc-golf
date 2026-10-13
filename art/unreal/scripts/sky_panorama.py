@@ -14,7 +14,7 @@ OUT = os.path.join(os.path.expanduser("~"), "Documents", "ChainsUnreal", "Saved"
 # id: disc elevation and azimuth (src/course.js COURSES[].sun[2], sun[3]), sunColor, cloud coverage, seed (which sky)
 COURSES = {"pine": (12, 10, "#ffe4cc", .37, 1.), "meadow": (10, 22, "#ffdcae", .40, 2.), "lake": (11, 26, "#fff2e0", .34, 3.), "bluff": (12, 24, "#fff4e4", .39, 4.)}
 SIZE = 2048                  # cube face, the most a cube render target takes (4096 is clamped back); the export is 4096x2048
-MIE = .002                   # SkyAtmosphere Mie scattering scale (default .004)
+MIE = .0004                  # SkyAtmosphere Mie scattering scale (default .004)
 LAYER = (1.4, 2.8)           # cloud base and layer height, km: cumulus up to ~1.9 km over the base, the cirrus sheet in the top 700 m
                              # (it reads as cirrus from the ground; a thinner layer leaves the ray march finer steps)
 EAS = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
@@ -71,11 +71,12 @@ def prep(cid):
               "r.VolumetricCloud.EnableAerialPerspectiveSampling 1", "r.VolumetricCloud.Shadow.SampleAtmosphericLightShadowmap 0"):
         cvar(c)
     atmo = actors(unreal.SkyAtmosphere)[0].get_component_by_class(unreal.SkyAtmosphereComponent)
-    atmo.set_mie_scattering_scale(MIE)   # half the default haze: the dome draws its own aureole round the disc, the render's would double it
+    atmo.set_mie_scattering_scale(MIE)   # a tenth of the default haze: the dome draws its own aureole and haze round the disc; the render's doubled them into a cream glare that fed Full's light shafts
     sun = actors(unreal.DirectionalLight)[0]
     sun.set_actor_rotation(sun_rotator(elev, azim), False)
     lc = sun.light_component
-    lc.set_light_color(srgb(col), True)
+    c = srgb(col)
+    lc.set_light_color(unreal.LinearColor((1 + c.r) / 2, (1 + c.g) / 2, (1 + c.b) / 2, 1.), True)   # half way to white: the atmosphere reddens the low sun again on its way in (the full swatch gave gold rims on brown-grey heaps)
     lc.set_editor_property("atmosphere_sun_disk_color_scale", unreal.LinearColor(0, 0, 0, 0))   # no second sun: the dome draws the disc
     return {"prep": cid}
 

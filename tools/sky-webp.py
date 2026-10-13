@@ -3,7 +3,8 @@
 # the horizon, where the sky is mostly seen, gets ~1.6x the rows of a plain equirect), columns u = .5 - azimuth / 360
 # (hole 1's direction in the middle, read as seen from inside). Stored in the game's own linear scene units over HEADROOM,
 # sRGB-encoded, so the dome multiplies by HEADROOM and the frame's own tone mapping (ACES at .74 on Desktop, Mobile's
-# CustomToneMapping grade) treats the clouds exactly like the rest of the scene.
+# CustomToneMapping grade) treats the clouds exactly like the rest of the scene; the grade below is set against what those
+# produce. Alpha is the cloud mask (from the <id>-clear.hdr pass) the dome hides its sun disc behind.
 #   python tools/sky-webp.py [pine meadow lake bluff]   -> assets/skies/<id>.webp (4096x1024), <id>-mobile.webp (2048x512),
 #                                                          previews in art/qa/sky-pano/ (game tone map, for eyeballing)
 import io, math, os, sys
@@ -12,8 +13,12 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(os.path.expanduser("~"), "Documents", "ChainsUnreal", "Saved", "Sky")
-HEADROOM = 4.        # src/course.js skyDome() multiplies the texture by this
-TARGET = .45         # the clear sky's median luminance 15-40 deg up, game linear (the old dome's blue sat at ~.39)
+HEADROOM = 2.5       # src/course.js skyDome() multiplies the texture by this; clips under .1% (the brightest silver linings)
+# The grade: the clear sky's median luminance 15-40 deg up (game linear), a tint on clear sky only (not on clouds), and a
+# saturation boost about luminance. Both tiers' grades warm and desaturate bright tones: at .45 and as rendered the sky came
+# out a cream-grey (~205, 205, 190); now Mobile shows ~(152, 168, 182) 20 deg up away from the sun and ~(81, 106, 147) at
+# 40 deg, the reference's pale blue-grey low sky (~158, 169, 186) deepening overhead.
+TARGET, TINT, SAT, CLOUD_SAT, LIFT = .24, np.array([1., .92, 1.03], np.float32), 1.3, .75, .55
 SIZES = {"": (4096, 600_000), "-mobile": (2048, 200_000)}   # suffix: width, byte budget
 
 
@@ -108,9 +113,17 @@ def main(ids):
         # Alpha: 1 in clear sky, .5 under cloud (the dome hides its disc there), from how far the render departs from the
         # same sky rendered clear. Never below .5, so a browser that round-trips the image through premultiplied alpha
         # costs the clouds at most one bit and leaves the clear sky exact.
-        clear = resample(read_hdr(os.path.join(SRC, cid + "-clear.hdr")), 4096) * gain @ np.array([.2126, .7152, .0722], np.float32)
+        clear_rgb = resample(read_hdr(os.path.join(SRC, cid + "-clear.hdr")), 4096) * gain
+        clear = clear_rgb @ np.array([.2126, .7152, .0722], np.float32)
         t = np.clip((np.abs(lum * gain - clear) / np.maximum(clear, 1e-4) - .04) / .26, 0, 1)
         alpha = 1 - .5 * t * t * (3 - 2 * t)
+        # Heaps toward the sun came out as dark grey blobs with gold rims (the engine's multiple scattering is thin): a
+        # cloud darker than the sky behind it gets back LIFT of the luminance difference, as neutral grey (the sky's own
+        # blue made the cores look see-through), so backlit cores read silver-grey.
+        lin += (t * LIFT * np.maximum(clear - lum * gain, 0))[..., None]
+        lin *= TINT + (1 - TINT) * (2 - 2 * alpha)[..., None]
+        y = (lin @ np.array([.2126, .7152, .0722], np.float32))[..., None]
+        lin = np.maximum(y + (lin - y) * (SAT + (CLOUD_SAT - SAT) * t)[..., None], 0)   # the sky bluer, the clouds' low-sun gold rims calmer
         print(f"  cloud cover above 7 deg: {float((t[v > .12] > .5).mean()) * 100:.0f}%")
         enc = np.clip(np.dstack([srgb(np.clip(lin / HEADROOM, 0, 1)), alpha]) * 255 + .5, 0, 255).astype(np.uint8)
         for suf, (W, budget) in SIZES.items():

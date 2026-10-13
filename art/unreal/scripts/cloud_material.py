@@ -45,7 +45,8 @@ float core = C.rmp(cell, thr, thr + .3);                  // 0 at a cloud's foot
 // Flat base, domed top: a round heap over the footprint (sqrt(1 - r^2) with r = 1 - core), wider than tall (fair-weather
 // humilis and mediocris, ~0.5-1 km), not an extruded column or a cone.
 float top = (.3 + .9 * C.fbm(float3(p.xy / 7., 3.3), 2)) * sqrt(core * (2. - core));
-float shape = C.rmp(alt, 0., .05) * C.rmp(alt, top, top - .45);
+float bse = saturate(C.fbm(float3(p.xy / 3., 4.4), 2) - .35) * .6;   // each heap's own base, 0-~150 m up: not one plate of identical flat bottoms
+float shape = C.rmp(alt, bse, bse + .1) * C.rmp(alt, bse + top, bse + top - .45);
 // Billows: cellular lumps ~550 m and ~230 m, a little taller than wide, over a smooth fbm so they merge into heaps.
 float3 sp = float3(p.xy, alt * 1.3) / .55;
 float pw = saturate(C.wor(sp) * .4 + C.wor(sp * 2.4 + 5.) * .25 + C.fbm(sp * .45, 3) * .55 - .08);
@@ -66,14 +67,14 @@ if (ca > 0.) {
   float cm = C.rmp(C.fbm(float3(p.xy / 30., 11. + Seed), 2), .53, .63);
   cir = C.rmp(fib, .5, .78) * cm * ca * Cirrus;
 }
-AO = lerp(.45, 1., C.rmp(alt, 0., max(top, .3)));   // sky light reaching into a heap: its base sits in its own shade
+AO = lerp(.65, 1., C.rmp(alt, bse, bse + max(top, .3)));   // sky light reaching into a heap: its base sits in its own shade
 return dens * Density + cir * .0007;                  // extinction per metre
 """
 
 # Forward-scattering droplets with a little back scatter (silver linings toward the disc, bright faces away from it);
 # two multiple-scattering octaves so thick cores stay soft and luminous instead of dark grey.
-ADV = {"const_phase_g": .55, "const_phase_g2": -.3, "const_phase_blend": .3, "const_multi_scattering_contribution": .4,
-       "const_multi_scattering_occlusion": .6, "const_multi_scattering_eccentricity": .6, "multi_scattering_approximation_octave_count": 2,
+ADV = {"const_phase_g": .55, "const_phase_g2": -.3, "const_phase_blend": .3, "const_multi_scattering_contribution": .5,
+       "const_multi_scattering_occlusion": .5, "const_multi_scattering_eccentricity": .6, "multi_scattering_approximation_octave_count": 2,
        "ground_contribution": True}
 
 
