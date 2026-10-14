@@ -96,7 +96,17 @@
     "womp": ["sfx/womp_1.mp3", "sfx/womp_2.mp3", "sfx/womp_3.mp3"],
     "birdie_jingle": ["sfx/birdie_jingle_1.mp3", "sfx/birdie_jingle_2.mp3", "sfx/birdie_jingle_3.mp3"],
     "bad": ["sfx/bad_1.mp3", "sfx/bad_2.mp3"],
-    "ambient": ["sfx/ambient_1.mp3"]
+    "ambient": ["sfx/ambient_1.mp3"],
+    "voice_ace": ["sfx/voice_ace_1.mp3", "sfx/voice_ace_2.mp3", "sfx/voice_ace_3.mp3", "sfx/voice_ace_4.mp3", "sfx/voice_ace_5.mp3"],
+    "voice_eagle": ["sfx/voice_eagle_1.mp3", "sfx/voice_eagle_2.mp3", "sfx/voice_eagle_3.mp3", "sfx/voice_eagle_4.mp3", "sfx/voice_eagle_5.mp3"],
+    "voice_birdie": ["sfx/voice_birdie_1.mp3", "sfx/voice_birdie_2.mp3", "sfx/voice_birdie_3.mp3", "sfx/voice_birdie_4.mp3"],
+    "voice_par": ["sfx/voice_par_1.mp3", "sfx/voice_par_2.mp3", "sfx/voice_par_3.mp3"],
+    "voice_chains": ["sfx/voice_chains_1.mp3", "sfx/voice_chains_2.mp3", "sfx/voice_chains_3.mp3", "sfx/voice_chains_4.mp3"],
+    "voice_nice": ["sfx/voice_nice_1.mp3", "sfx/voice_nice_2.mp3", "sfx/voice_nice_3.mp3", "sfx/voice_nice_4.mp3"],
+    "voice_ohh": ["sfx/voice_ohh_1.mp3", "sfx/voice_ohh_2.mp3", "sfx/voice_ohh_3.mp3", "sfx/voice_ohh_4.mp3"],
+    "voice_bad": ["sfx/voice_bad_1.mp3", "sfx/voice_bad_2.mp3", "sfx/voice_bad_3.mp3"],
+    "voice_tree": ["sfx/voice_tree_1.mp3", "sfx/voice_tree_2.mp3", "sfx/voice_tree_3.mp3", "sfx/voice_tree_4.mp3"],
+    "voice_ob": ["sfx/voice_ob_1.mp3", "sfx/voice_ob_2.mp3"]
   },
   "models": {
     "golfer": "models/golfer-premium.glb",

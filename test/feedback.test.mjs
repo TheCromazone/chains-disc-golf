@@ -8,4 +8,5 @@ assert.equal(run(true,['rim','drop']).filter(c=>c[0]==='ohh').length,0,'ricochet
 assert.equal(run(false,['rim','band','chainout']).filter(c=>c[0]==='ohh').length,1,'one gallery miss reaction per throw');
 assert.deepEqual(run(true,['chains'])[0],['chains',.9],'chain playback receives speed class input');
 assert(run(true,['chains']).some(c=>c[0]==='toast'&&c[1]==='Chains!'));
+assert.deepEqual(run(false,['rim','band','chainout','tree','tree']).filter(c=>c[0]==='voice'),[['voice','ohh'],['voice','tree']],'one shouted callout per miss and per tree, however many hits');
 console.log('Feedback event outcomes OK');

@@ -137,6 +137,8 @@ export const sfx = {
     const seq = kind === 'ace' ? [523, 659, 784, 1047, 1319] : kind === 'eagle' ? [523, 659, 784, 1047] : kind === 'birdie' ? [659, 784, 1047] : [523, 659];
     seq.forEach((f, i) => { const t0 = now() + i * 0.12; partial(f, 0.4, 0.13, { t0, send: 0.5 }); partial(f * 4, 0.07, 0.03, { t0, send: 0.3 }); }); },  // marimba-ish
   bad() { if (!ctx) return; if (play('bad')) return; partial(230, 0.35, 0.1, { f1: 140, type: 'triangle', send: 0.3 }); },
+  // the group's shouted callouts (ace, eagle, birdie, par, chains, nice, ohh, bad, tree, ob): Gemini TTS takes, no synth fallback
+  voice(kind) { if (ctx) play('voice_' + kind, { gain: 0.8, send: 0.35 }); },
 };
 
 function ambient() { // wind bed with slow gusts + bird calls (frequency-swept chirps, trills)
