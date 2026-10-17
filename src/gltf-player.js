@@ -16,6 +16,9 @@ const SLOT = { hair: { roughness: .7, rim: .22 }, headwear: { roughness: .8 }, t
 const _v = new THREE.Vector3(), _e = new THREE.Vector3(), _f = new THREE.Vector3(), _gi = new THREE.Quaternion(), _q = new THREE.Quaternion(), _eu = new THREE.Euler();
 const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0);   // FLIP: half turn about the forearm, puts the carried disc's face on the knuckle side, where a lens in front sees it
 const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
+// ?liveclips: throws drawn straight from the shared keys (throw-poses.js) instead of the Blender-baked clips, so a key edit shows
+// on a reload without a bake (tools/author-throws.mjs authoring); the shipped game always plays the baked clips
+const LIVE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('liveclips');
 // The female scan keeps folded slivers and ~1600 flipped triangles; Blender's vertex normals follow them and the cloth
 // shades as dark shards (the male scan has a few too: dark ticks by his collar and chest print). Rebuild them once per
 // loaded body: every face oriented to agree with the normals it replaces, area-weighted, shared across UV-seam
@@ -431,7 +434,8 @@ export function createGLTFCharacter(avatar) {
   const build = { slim: .95, athletic: 1, broad: 1.07 }[avatar.build] || 1, tall = HEIGHT[avatar.height] || 1;
   actor.scale.set(build * tall, tall, tall);
   // the clips were authored for the male rig's legs; a shorter rig scales their hip drops so the soles still meet the ground
-  const legScale = spec.legScale || 1, rootRestY = joints.root.position.y;
+  const legScale = spec.legScale || 1, rootRestY = joints.root.position.y, rootRestX = joints.root.position.x, rootRestZ = joints.root.position.z;
+  let kept = false;   // keepTravel(): the throw's travel now lives in the group's position until the next throw starts
   const motion = createAthleteMotion({ joints, actor, skin, group });
   const handed = name => lefty && actions.has(name + '_left') ? name + '_left' : name;
   const mixer = new THREE.AnimationMixer(actor);
@@ -479,8 +483,8 @@ export function createGLTFCharacter(avatar) {
     // disc would sit on it like a tray; rolling the forearm a quarter turn puts the palm against the rim with the thumb on
     // top. The clip's release hand is already thumb-up with the palm trailing, so the roll unwinds through the pull. The set-up
     // stance carries its own forearm (and the grip morph), so the roll grows only as the clip takes over. Cosmetic: the socket ignores roll.
-    const family = phase === null ? aimType : throwType, k = phase === null ? 0 : (1 - cw) * (phase < .45 ? 1 : phase < .6 ? 1 - (phase - .45) / .15 : 0);
-    if (k > 0 && family.startsWith('backhand')) { forearm.quaternion.multiply(_q.setFromAxisAngle(UP, (lefty ? -1 : 1) * k * Math.PI / 2)); group.updateMatrixWorld(true); }
+    const family = phase === null ? aimType : throwType, k = phase === null ? 0 : family.startsWith('xstep') ? smooth(.45, .95, phase) : (1 - cw) * (phase < .45 ? 1 : phase < .6 ? 1 - (phase - .45) / .15 : 0);   // the x-step rolls it in as the arm goes back, so the drive takes over at .35 with it in place
+    if (k > 0 && /^(backhand|xstep)/.test(family)) { forearm.quaternion.multiply(_q.setFromAxisAngle(UP, (lefty ? -1 : 1) * k * Math.PI / 2)); group.updateMatrixWorld(true); }
     placeSocket();
   }
   function sample(name, at) {
@@ -500,7 +504,7 @@ export function createGLTFCharacter(avatar) {
     if (phase === null) { aimType = t; gripHit = true; }
     if (frames.has(name)) return frames.get(name);
     const action = actions.get(name); if (!action) return null;
-    const snap = [...actions.values()].map(a => ({ a, w: a.getEffectiveWeight(), time: a.time, running: a.isRunning() }));
+    const snap = [...actions.values()].map(a => ({ a, w: a.getEffectiveWeight(), time: a.time, running: a.isRunning() })), shown = joints.root.position.clone();   // the travel too: a first grip mid run-up must not snap him to the lie for a frame
     for (const s of snap) s.a.setEffectiveWeight(0);
     const wasRunning = action.isRunning(); if (!wasRunning) { action.reset().play(); action.paused = true; }
     action.setEffectiveWeight(1); action.time = .62 * action.getClip().duration; mixer.update(0); settle();
@@ -509,16 +513,20 @@ export function createGLTFCharacter(avatar) {
     dir.y += .015; dir.divideScalar(.075);
     if (!wasRunning) action.stop();
     for (const s of snap) { s.a.setEffectiveWeight(s.w); s.a.time = s.time; }
-    mixer.update(0); unstale(); settle(); overlay(); remember();
+    mixer.update(0); unstale(); settle(); overlay(); joints.root.position.x = shown.x; joints.root.position.z = shown.z; group.updateMatrixWorld(true); placeSocket(); remember();
     const frame = { qInv: q.invert(), dir }; frames.set(name, frame); return frame;
   }
-  const coilW = () => phase === null ? readyW : readyW * stanceFade(phase);
+  const runUp = () => phase !== null && /^f?xstep/.test(throwType);   // the run-up into a drive starts from its own standing pose, never the aim stance
+  const coilW = () => phase === null ? readyW : runUp() ? 0 : readyW * stanceFade(phase);
   const gripW = () => (phase === null ? aimType : throwType).startsWith('backhand') ? coilW() : 0;   // the seated grip belongs to the backhand set-up and hands over to the release frame through the windup
   const seat = () => skin.geometry.userData.grip.seats[forearm.name];
   const api = {
     group, hand, elbow: forearm, joints, avatar, source: 'glb', releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},
     setFace(value) { body.setPalette(value); gripSkin(value); hairShow(value); headwear.setFace(value); },
-    setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { phase = p; if (p !== null) mood = null; },
+    setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { if (p === null || phase === null) kept = false; phase = p; if (p !== null) mood = null; },
+    // the end of a throw: move the athlete to where the follow-through left him (the travel becomes the group's position), so
+    // the idle that follows starts there instead of sliding back to the lie
+    keepTravel() { if (phase === null || kept) return; group.updateMatrixWorld(true); const a = joints.root.getWorldPosition(new THREE.Vector3()); joints.root.position.x = rootRestX; joints.root.position.z = rootRestZ; group.updateMatrixWorld(true); const b = joints.root.getWorldPosition(new THREE.Vector3()); group.position.x += a.x - b.x; group.position.z += a.z - b.z; kept = true; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
     get heroWeight() { return heroW; },   // blend into the relaxed clubhouse stance
     gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c)); nrm.copy(s.n).transformDirection(forearm.matrixWorld); } return w; },   // holdDisc: the disc seated in the gripping hand, and how much of it to use
@@ -535,27 +543,32 @@ export function createGLTFCharacter(avatar) {
       else if (mood) { mood.t += dt; sample(mood.name, mood.t); if (mood.t >= (actions.get(mood.name)?.getClip().duration || 2.4)) mood = null; }
       else { name = handed(locomotion || 'idle'); sample(name, time % (actions.get(name)?.getClip().duration || 4)); }   // ponytail: no more practice-swing cycle; the cover-shot pose holds, play('practice') still works
       unstale(); settle();
+      if (LIVE && phase !== null) { let pose = poseAt(keysFor(throwType.replace(/_left$/, '')), phase); if (lefty) pose = mirrorPose(pose); pose.rootY = -Math.min(...soleHeights(pose, false, RIGS.glb)); blendTo(pose, 1); }
       // the stance weight holds through the whole windup (a swipe pulled back under STANCE_FADE eases back into the coil
       // instead of popping onto the bare clip) and lets go once the release starts
-      readyW = aiming ? Math.min(1, readyW + dt / .22) : phase !== null && phase <= .5 ? readyW : Math.max(0, readyW - dt / .22);
+      readyW = aiming ? Math.min(1, readyW + dt / .22) : runUp() ? 0 : phase !== null && phase <= .5 ? readyW : Math.max(0, readyW - dt / .22);
       heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
       clapFor = Math.max(0, clapFor - dt); clapW = clapFor > 0 && phase === null && !mood && !aiming ? Math.min(1, clapW + dt / .25) : Math.max(0, clapW - dt / .3);
       // the disc hand hooks round the rim while it holds one (a bystander's hands hang open) and lets go just after release;
       // the free hand keeps half the curl (straight scanned fingers, and a third of the curl, read as a flat paddle; the female scan's mitten shards past a third). In the set-up the
       // modelled grip hand takes over from the tucked scan hand (a crossfade would show two hands); it hands
       // the disc back to the hooked scan hand in the first few percent of the swipe, before the seat drifts toward the release
-      const grip = gripW(), holding = phase !== null ? phase < .68 : carries >= 1 || grips >= 1, mi = skin.morphTargetInfluences;
+      const grip = gripW(), holding = phase !== null ? runUp() || phase < .68 : carries >= 1 || grips >= 1, mi = skin.morphTargetInfluences;
       // the free hand too: in the set-up its fused scan hand tucks away under a modelled one at rest (separate fingers)
       const throwing = phase !== null, cheering = mood?.name.startsWith('celebrate'), held = holding || throwing || cheering;
       mi[0] = mi[1] = 1; mi[2] = mi[3] = 0;
       for (const side of ['elR', 'elL']) {
         const throwingHand = side === forearm.name;
         holdHands[side].visible = throwingHand && held;
-        holdHands[side].morphTargetInfluences[0] = (throwing ? smooth(.62, .80, phase) : 0) * (1 - grip);
+        holdHands[side].morphTargetInfluences[0] = (throwing && !runUp() ? smooth(.62, .80, phase) : 0) * (1 - grip);
         holdHands[side].morphTargetInfluences[1] = grip;
         restHands[side].visible = !throwingHand || !held;
       }
       overlay();
+      // the pelvis's travel through the throw (rootX/rootZ of the keys), faded in as the clip takes over from the aim stance
+      let tx = 0, tz = 0;
+      if (phase !== null && !kept) { const t = poseAt(keysFor(throwType.replace(/_left$/, '')), phase), w = 1 - coilW(); tx = (lefty ? -t.rootX : t.rootX) * w; tz = t.rootZ * w; }
+      joints.root.position.x = rootRestX + tx; joints.root.position.z = rootRestZ + tz;
       motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase);
       placeSocket(); remember();
     },

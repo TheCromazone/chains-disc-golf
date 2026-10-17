@@ -9,14 +9,18 @@ import { asset } from './assets.js';
 const models = new Map();
 let activeQuality = 'low';
 export const modelStatus = {};
+// Mobile: the full-detail bodies, fetched once the round can already start, for the athlete the camera is on (the player on
+// the tee, the clubhouse). The low-detail bake's 1024 albedo stair-steps and shimmers across the jersey at the tee. Resolves
+// true once they replaced the low-detail ones under the 'golfer' and 'golfer_f' names.
+export let fullBodies = Promise.resolve(false);
 export async function loadModels(renderer, quality = 'full') {
   activeQuality = quality;
   // Props use the clean procedural art. Only the actors are downloaded, by quality: phones get the athlete LODs.
   const full = quality === 'full' || quality === 'high';
   const bodies = full ? ['golfer', 'golfer_lod', 'golfer_f', 'golfer_f_lod'] : ['golfer_lod', 'golfer_f_lod'];
-  const baseClips = ['idle','practice','backhand','backhand_io','backhand_oi','forehand','forehand_io','forehand_oi','tomahawk','scoober','hammer','blade','putt','celebrate','slump','walk'];
+  const baseClips = ['idle','practice','backhand','backhand_io','backhand_oi','forehand','forehand_io','forehand_oi','tomahawk','scoober','hammer','blade','putt','xstep','fxstep','celebrate','slump','walk'];   // xstep/fxstep: the run-ups into a drive
   const clipNames = [...baseClips,...baseClips.map(n=>n+'_left')];
-  const names = [...bodies, 'disc', ...(full ? ['pine', 'deciduous', 'bush'] : []), ...clipNames.map(n=>'golfer_'+n)];   // Full also fetches the Blender trees
+  const names = [...bodies, 'disc', 'pine', 'deciduous', ...(full ? ['bush'] : []), ...clipNames.map(n=>'golfer_'+n)];   // the Blender trees (3D near the eye on both tiers); Mobile keeps the shrubs as cards
   if (!names.some(n => asset('models', n))) return;
   // relative to the page, not the site root: Chains also runs one level down as Huck Yeah's disc golf (/discgolf/)
   const vendor = location.pathname.startsWith('/node_modules/') ? '/node_modules/three/examples/jsm/libs/' : new URL(document.querySelector('script[type="importmap"]') ? 'node_modules/three/examples/jsm/libs/' : 'vendor/', document.baseURI).pathname;
@@ -43,7 +47,16 @@ export async function loadModels(renderer, quality = 'full') {
     actor.animations = clips; if (models.get(lod)) models.get(lod).animations = clips;
     models.set(body, actor); modelStatus[body] = 'ready';
   }
-  Promise.resolve(hats).finally(() => { draco.dispose(); ktx.dispose(); });
+  if (!full) fullBodies = Promise.all(['golfer', 'golfer_f'].map(async body => {
+    const url = asset('models', body); if (!url) return false;
+    try {
+      const gltf = await loader.loadAsync(url);
+      gltf.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.geometry.__shared = true; for (const m of [].concat(o.material)) { m.__shared = true; for (const v of Object.values(m)) if (v?.isTexture) v.__shared = true; } } });
+      if (activeQuality !== quality) return false;   // switched tiers meanwhile
+      gltf.animations = clips; models.set(body, gltf); modelStatus[body] = 'ready'; return true;
+    } catch { return false; }
+  })).then(r => r.some(Boolean));
+  Promise.all([hats, fullBodies]).finally(() => { draco.dispose(); ktx.dispose(); });
 }
 export const model = name => models.get(name);
 export function cloneModel(name) {

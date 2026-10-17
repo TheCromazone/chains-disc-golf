@@ -3,7 +3,7 @@ import { buildCourse, makeRng, COURSES, courseById, courseLayout } from './cours
 import { DISCS, THROWS, discById, launch, step, DT, isDone, resultOf, simulate, speedFor, releasePos } from './physics.js';
 import { createCharacter, DEFAULT_AVATAR, AVATAR_OPTIONS, randomAvatar } from './player.js';
 import { loadManifest, asset } from './assets.js';
-import { loadModels, modelStatus } from './models.js';
+import { loadModels, modelStatus, fullBodies } from './models.js';
 import { createDiscMesh, setDiscPose } from './disc.js';
 import { clearFraction } from './cam-collide.js';
 import { createPuffs } from './puffs.js';
@@ -29,9 +29,37 @@ const $ = UI.$;
 const COLORS = ['#ff4d3d', '#2f80ff', '#ffd23f', '#38d47a', '#ff7ad9', '#9b6bff', '#ff8a2b', '#16c2d4', '#ffffff', '#151820', '#8e2440', '#b6e33c'];   // twelve: a full room never repeats a jersey
 const BOT_NAMES = ['Ricky', 'Paige', 'Simon', 'Eagle', 'Calvin', 'Kristin'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+// Throw timing, phase against time (throw-poses.js phases). The release half (.5 -> 1) is explosive then decelerating, as a
+// real hit is: the arm is fastest through the hit (.62, HIT_T after .5) and the follow-through settles. A windup played for
+// someone else (a bot, a guest's replay) reaches back steadily and arrives at .5 already at that speed; a run-up (x-step or
+// crow hop, RUNUP.dur) hands over to the drive at its full coil (.35) and pulls into .5 in RUNUP.pull.
+const RELEASE = { dur: .75, pow: 1.8 }, releasePhase = t => .5 + .5 * (1 - (1 - Math.min(1, Math.max(0, t) / RELEASE.dur)) ** RELEASE.pow);
+const HIT_T = RELEASE.dur * (1 - .76 ** (1 / RELEASE.pow)), HIT_RATE = .5 * RELEASE.pow / RELEASE.dur;   // releasePhase(HIT_T) = .62; phase per second at .5
+const hermite = (s, v0, v1) => 3 * s * s - 2 * s ** 3 + v0 * (s ** 3 - 2 * s * s + s) + v1 * (s ** 3 - s * s);   // 0 -> 1 with end slopes v0, v1
+const windupPhase = (s, dur) => .5 * hermite(s, 0, HIT_RATE * dur / .5);
+const RUNUP = { dur: .8, pull: .15, min: 40, cam: { back: 3.6, side: 2.1, up: 1.5, ahead: .8, lookY: 1.05, fov: 60, wide: 42 } };   // seconds; metres to the pin below which nobody runs up
+// RUNUP.cam frames a watched run-up on its own: from straight behind, the reach-back pointed into the lens and the strides ran
+// along the line of sight, so the x-step read as "jogging in place under an unrelated upper body" (a ChatGPT critique,
+// 3.5/10), and even 13 degrees off the line the arm reaching back into the lens foreshortened to "a disc held at the chest".
+// A three-quarter view instead, ~35 degrees off the line on the thrower's chest side (side > 0: the left of a right-hander,
+// mirrored for a left-hander), following the athlete's own travel (`ahead` m in front of him), so the approach crosses the
+// frame and the reach-back, the plant and the hit read in profile.
 // Shader warm-up, bounded: compileAsync polls KHR_parallel_shader_compile, and on a busy GPU (several tabs, an old phone) a program
 // can report incomplete forever and the game sat on its loading screen. After 6 s, carry on: the first frames compile what is left.
-const warmShaders = () => Promise.race([renderer.compileAsync(scene, camera).catch(() => {}), sleep(6000)]);
+let warming = null;   // a warm-up in flight: nothing may dispose a material it is polling (compileAsync throws on one and never resolves)
+// compileAsync's own poll throws on a material disposed meanwhile (a player swapped to its full-detail body) and then never
+// resolves; this one polls the same programs and lets a disposed material go.
+const warmShaders = () => {
+  const w = new Promise(resolve => {
+    let mats; try { mats = renderer.compile(scene, camera); } catch { resolve(); return; }
+    const t0 = performance.now(), check = () => {
+      for (const m of mats) { const pr = renderer.properties.get(m).currentProgram; if (!pr || pr.isReady()) mats.delete(m); }
+      if (!mats.size || performance.now() - t0 > 6000) resolve(); else setTimeout(check, 10);
+    };
+    check();
+  }).finally(() => { if (warming === w) warming = null; });
+  return (warming = w);
+};
 // Textures and GLBs still downloading (TextureLoader and GLTFLoader report to the default manager): until they land the turf
 // and athletes draw black and the impostor trees not at all. The loading screen waits for them, up to a cap.
 const assetsIdle = (() => { const m = THREE.DefaultLoadingManager, start = m.itemStart, end = m.itemEnd; let pending = 0, waiters = [];
@@ -69,7 +97,7 @@ THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars
   c = clamp( c * vec3( 1.13, 1.08, 1. ) + vec3( 0., .003, .01 ), 0., 1. );   // brighter and warmer than Desktop's gain: no bloom or sun shafts lift it
   c = mix( c, c * c * ( 3. - 2. * c ), .28 );
   float l = dot( c, vec3( .2126, .7152, .0722 ) ), lead = clamp( ( c.g - max( c.r, c.b ) ) * 3., 0., 1. );
-  c = mix( vec3( l ), c, 1.04 ); c.r += ( c.g - c.r ) * lead * .25;
+  c = mix( vec3( l ), c, 1.09 ); c.r += ( c.g - c.r ) * lead * .25;   // 1.04 left Mobile's foliage duller than Desktop's 1.12 grade
   c *= mix( vec3( .94, .99, 1.06 ), vec3( 1.04, 1., .92 ), smoothstep( .06, .5, l ) );
   c = mix( vec3( l ), c, mix( .9, 1., smoothstep( .04, .3, l ) ) ) + vec3( .018, .022, .03 ) * ( 1. - l ) * ( 1. - l ) * ( 1. - l );
   c = max( c, 0. ); return c * c; }`);
@@ -78,6 +106,10 @@ renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
 let post = null, postEnabled = true, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0, slowTime = 0;
+// Adaptive resolution watches missed frames at the screen's own cadence (60 Hz, 120 Hz, or iOS Low Power Mode's 30 Hz) and the
+// frame's own work time. It used to compare the average interval with 13.7 ms, which a vsync-capped 60 Hz screen can never show:
+// every hitch stepped the resolution down and nothing stepped it back up (one hole took a phone from 1.5x to 1.14x for good).
+const pace = { dts: new Float32Array(120).fill(1 / 60), n: 0, work: 1 / 240, raiseWait: 4 };
 const lineMats = [];   // screen-space line materials that need the framebuffer size
 const resize = () => { if (!innerWidth || !innerHeight) return;   // a page opened in a background tab (or a hidden pane) reports 0x0: an aspect of 0/0 poisoned the camera with NaN for good
   renderer.setPixelRatio(Math.min(devicePixelRatio, G.settings.quality === 'low' || isMobile ? 1.5 : 2, Math.sqrt((isMobile ? 1800000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
@@ -130,7 +162,8 @@ function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerI
   return { name, color, isBot, difficulty, peerId, appearance, lod: i > 0, scores: [], strokes: 0, done: false, lie: [0, 0, 0], lieDist: 0, char, marker, discMesh: null, discId: null };
 }
 function setPlayerDetail(p, lod) {
-  if (p.lod === lod || G.settings.quality === 'low') return;
+  if (p.lod === lod) return;
+  if (warming) { warming.then(() => setPlayerDetail(p, lod)); return; }   // swap once the warm-up has let go of the old body's materials   // Mobile too: the player on the tee gets the full-detail body once it has loaded (models.js fullBodies)
   const next = createCharacter({ ...p.appearance, lod });
   next.setGround?.((x, z) => world.height(x, z));
   next.group.position.copy(p.char.group.position); next.group.rotation.copy(p.char.group.rotation);
@@ -203,7 +236,8 @@ function kickLight(root) {
     m.customProgramCacheKey = () => prevKey.call(m) + '|kick'; m.needsUpdate = true;
   } });
 }
-const hazeMat = new THREE.MeshBasicMaterial({ color: '#c3d5d4', transparent: true, opacity: .28, depthWrite: false, fog: false }), scrim = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), hazeMat); scrim.visible = false; scene.add(scrim);
+// Mobile's plain sheet: at #c3d5d4 / .28 the clubhouse woods sat under a milky veil (foliage value .55 and saturation .32, Desktop's snapshot .31 / .51)
+const hazeMat = new THREE.MeshBasicMaterial({ color: '#a7bab5', transparent: true, opacity: .14, depthWrite: false, fog: false }), scrim = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), hazeMat); scrim.visible = false; scene.add(scrim);
 // Full: the sheet shows the woods themselves, defocused: a quarter-res snapshot of this frame with the hero hidden (no shadow
 // pass), read through a 12-tap golden-angle disc between its first two mips, the cheap shallow depth of field of a long lens:
 // soft enough to sit behind him, sharp enough that the basket and banners still read (a heavier blur read as a smeared photo).
@@ -277,7 +311,7 @@ function loadCourse(id){wantedCourse=id;courseQueue=courseQueue.catch(()=>{}).th
 async function applyCourse(id) {
   const def = courseById(id); if (course && course.def.id === def.id && course.quality === G.settings.quality) return;
   const first = !course; if (!first) { UI.fade(true); await sleep(340); }
-  course?.dispose(); post?.dispose(); post = null; postEnabled = true; resolutionScale = 1; slowTime = 0; resize();
+  course?.dispose(); post?.dispose(); post = null; postEnabled = true; resolutionScale = 1; slowTime = 0; pace.raiseWait = 4; resize();
   renderer.toneMapping = toneFor(G.settings.quality); document.body.classList.toggle('gfx-mobile', G.settings.quality === 'low');
   // Full: HDRI ambient, reflective water and a bloom + grade pass. Lite: same textures, no render targets.
   effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
@@ -386,6 +420,9 @@ function setupTurn(idx) {
   updateWindHud();
   UI.setPower(0); G.gesture = { power: 0, lateral: 0 }; G.previewDirty = true; G.previewPower = null; G.planDirty = false;
   G.phase = 'aim'; cam.mode = 'aim'; G.overview = false; $('btnOverview').classList.remove('on'); $('btnOverview').setAttribute('aria-pressed', 'false');
+  // a drive watched from the aim camera (a bot's, a guest's) starts at the back of the pad: the athlete waits there for the run-up
+  for (const q of G.players) q.runUp = false;
+  if (!isMine(p) && dist > RUNUP.min && runUpClear(lie, [Math.cos(G.aim.yaw), Math.sin(G.aim.yaw)])) { p.runUp = true; p.char.setThrow('xstep'); p.char.setPhase(0); }
   if (p.isBot) { UI.setControlsEnabled(false); preview.visible = false; if (iControl(p)) botTurn(p); else UI.waiting(`${p.name} is throwing…`); }
   else if (isMine(p)) { UI.setControlsEnabled(true); UI.waiting(null); preview.visible = true; if (G.mode === 'local' && G.players.filter(q => !q.isBot).length > 1) UI.toast(`${p.name}'s throw`, `${Math.round(dist)} m to the basket`, 1600); }
   else { UI.setControlsEnabled(false); preview.visible = false; UI.waiting(`${p.name} is throwing…`); }
@@ -401,8 +438,36 @@ async function botTurn(p) {
   G.throwType = plan.throwType; G.discId = plan.discId; UI.selectThrow(G.throwType); UI.selectDisc(G.discId); ensureDisc(p, G.discId); p.discMesh.visible = true;
   G.aim.yaw = Math.atan2(plan.dir[1], plan.dir[0]);
   UI.waiting(`${p.name} · ${THROWS[plan.throwType].name}, ${discById(plan.discId).type.toLowerCase()}`);
-  G.phase = 'windup'; p.char.setThrow(G.throwType);
-  G.tween = { t: 0, dur: 0.9, fn: u => { p.char.setPhase(u * 0.5); UI.setPower(plan.power * u); }, done: () => doThrow(G.cur, { power: plan.power, hyzer: plan.hyzer, yawOffset: plan.yawOffset, launchOffset: 0 }) };
+  G.phase = 'windup';
+  windUp(p, G.throwType, .9, () => doThrow(G.cur, { power: plan.power, hyzer: plan.hyzer, yawOffset: plan.yawOffset, launchOffset: 0 }), u => UI.setPower(plan.power * u));
+}
+// Someone else's throw, played to the hit: from the run-up's standing start (p.runUp) a drive runs in through the x-step (or the
+// forehand's crow hop) and pulls from the full coil; otherwise the athlete reaches back from the aim stance. done() hands over
+// to doThrow at .5, where the release curve carries on at the same speed.
+function windUp(p, type, dur, done, progress = null) {
+  const run = p.runUp && /^(backhand|forehand)/.test(type) ? (type.startsWith('forehand') ? 'fxstep' : 'xstep') : null;
+  if (p.runUp && !run) { p.char.setPhase(null); p.runUp = false; }   // a putt or an overhead from the back of the pad: walk-in is not modelled, start from the stance (p.runUp also holds the camera back)
+  if (run) {
+    const T = RUNUP.dur + RUNUP.pull; p.char.setThrow(run);
+    G.tween = { t: 0, dur: T, raw: true, done, fn: u => {
+      const t = u * T; progress?.(u);
+      if (t < RUNUP.dur) { p.char.setThrow(run); p.char.setPhase(t / RUNUP.dur); }
+      else { p.char.setThrow(type); p.char.setPhase(.35 + .15 * hermite((t - RUNUP.dur) / RUNUP.pull, 0, HIT_RATE * RUNUP.pull / .15)); }
+    } };
+    return;
+  }
+  p.char.setThrow(type);
+  G.tween = { t: 0, dur, raw: true, done, fn: u => { progress?.(u); p.char.setPhase(windupPhase(u, dur)); } };
+}
+// Room behind the lie for a run-up: firm, dry, in bounds, no trunk within reach of the line and no step in the ground.
+function runUpClear(lie, d) {
+  const y0 = world.height(lie[0], lie[2]);
+  for (const s of [.3, .8, 1.3, 1.8]) {
+    const x = lie[0] - d[0] * s, z = lie[2] - d[1] * s;
+    if (world.inWater(x, z) || (world.inBounds && !world.inBounds(x, z)) || Math.abs(world.height(x, z) - y0) > .3) return false;
+    if (world.treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < (t.r || .3) + .55)) return false;
+  }
+  return true;
 }
 function doThrow(pi, o, sim = null) {
   const p = G.players[pi];
@@ -454,9 +519,13 @@ function launchNow() {
   }
   ensureDisc(p, params.discId); p.discMesh.visible = true; G.lastParams = params;
   G.flight = { pi, params, traj: sim.traj, events: sim.events, result: sim.result, t: 0, ei: 0, spin: 0, spinRate: 4 + speedFor(params.throwType, params.power) * 3 };
+  // the hand lets go a little ahead of (or behind) the physics' release point: the disc leaves the hand where it was drawn and
+  // eases onto the flight path over its first .16 s, a few metres out, so neither the hit nor the ribbon jumps
+  { const d = p.discMesh.position, q = sim.traj[0], off = q && [d.x - q[0], d.y - q[1], d.z - q[2]]; G.flight.from = off && Math.hypot(...off) < 1.2 ? off : null; }
   G.flight.lock = params.throwType === 'putt' && staysInFrame(sim.traj);   // a putt holds its aim frame into the chains, unless it leaves that frame
   trail.start(discById(params.discId)?.color || "#ffffff");
   G.phase = 'flight'; cam.mode = 'flight'; sfx.whoosh(params.power);
+  if (p.runUp) { cam.mode = 'aim'; G.flight.camAt = .4; }   // a watched run-up keeps the tee camera through the follow-through (Gemini: "the cut at release wipes it out"), then cuts to the chase
   UI.setHud({ throwNo: `Throw ${p.strokes + 1}` });
 }
 // The putt's locked broadcast frame holds only while the disc stays inside it; a putt thrown long (a missed lag, a putt chosen
@@ -473,6 +542,8 @@ function updateFlight(dt) {
   dt*=f.playbackRate; f.t += dt;
   const fi = f.t * 60, i = Math.min(Math.floor(fi), n - 1), a = f.traj[i], b = f.traj[Math.min(i + 1, n - 1)], u = Math.min(1, fi - i);
   const pos = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
+  if (f.camAt != null && f.t >= f.camAt) { f.camAt = null; if (cam.mode === 'aim') cam.mode = 'flight'; }
+  if (f.from) { const w = Math.max(0, 1 - f.t / .16) ** 2; if (w > 0) for (let k = 0; k < 3; k++) pos[k] += f.from[k] * w; else f.from = null; }
   const nn = [a[3] + (b[3] - a[3]) * u, a[4] + (b[4] - a[4]) * u, a[5] + (b[5] - a[5]) * u];
   if (a.length > 6) f.spinRate = a[6] + (b[6] - a[6]) * u; else f.spinRate *= (1 - 0.12 * dt);   // older peers send six-wide records
   f.spin += f.spinRate * dt;
@@ -565,10 +636,10 @@ function applyRemoteThrow(m) {   // only called when this client is idle in 'aim
   G.aim.yaw = Math.atan2(m.params.dir[1], m.params.dir[0]);
   const p = G.players[m.pi], sim = { traj: m.traj, events: m.events, result: m.result, params: m.params }; ensureDisc(p, G.discId); p.discMesh.visible = true; UI.waiting(null); preview.visible = false;
   // Our own throw, confirmed: the athlete already swung to the release point while the request went out. Let it fly from there;
-  // winding up again from the start showed every guest its own throw twice. (.17 s into the release is the .62 launch point.)
-  if (G.phase === 'awaitThrow' && isMine(p)) { doThrow(m.pi, {}, sim); G.releaseT = .17; return; }
-  G.tween = { t: 0, dur: 0.7, fn: u => p.char.setPhase(u * 0.5), done: () => doThrow(m.pi, {}, sim) };
-  G.phase = 'windup'; p.char.setThrow(G.throwType); cam.mode = 'aim';
+  // winding up again from the start showed every guest its own throw twice. (HIT_T into the release is the .62 launch point.)
+  if (G.phase === 'awaitThrow' && isMine(p)) { doThrow(m.pi, {}, sim); G.releaseT = HIT_T + .001; return; }
+  G.phase = 'windup'; cam.mode = 'aim';
+  windUp(p, G.throwType, .7, () => doThrow(m.pi, {}, sim));
 }
 function toMenu() {
   if (G.net?.isHost) try { G.net.broadcast({ t: 'closed' }); } catch { /* best effort */ }
@@ -731,8 +802,23 @@ function aimSpotFor(lie, P, side, putt, halfW) {
   if (top - score0 < .15) best = 0;   // only a real obstruction moves the rig: a leaf card's worth of difference keeps the familiar framing
   aimSpot.key = key; aimSpot.k = best; aimSpot.scores = scores; return best;
 }
+// A watched run-up: the three-quarter view through the approach, dollying round behind the thrower from the hit to the end of
+// the follow-through hold (Gemini: "start offset so the run-up reads, then move behind the shoulder to centre the fairway and
+// hand over to the flight cam without a jarring cut"), so the chase takes over from the usual behind-the-thrower frame.
+const _runPos = new THREE.Vector3(), _runLook = new THREE.Vector3();
 function aimFrame(lie, d, putt, pos, look) {
-  const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P = portrait ? AIM.tall[putt ? 'putt' : 'drive'] : putt ? innerHeight > 520 ? AIM.putt : AIM.puttS : innerHeight > 520 ? AIM.drive : AIM.driveS;
+  const fov = aimFrameBase(lie, d, putt, pos, look), p = curP();
+  if (!p?.runUp || putt) return fov;
+  const C = RUNUP.cam, side = C.side * runCamSide(lie, d) * (p.appearance?.hand === 'left' ? -1 : 1), r = rightOf(d), portrait = camera.aspect < 1.2;
+  const x = lie.x - d[0] * C.back - r[0] * side, z = lie.z - d[1] * C.back - r[1] * side, at = p.char.joints?.root?.getWorldPosition(_v3) || lie;
+  _runPos.set(x, Math.max(lie.y, world.height(x, z)) + C.up, z); _runLook.set(at.x + d[0] * C.ahead, lie.y + C.lookY, at.z + d[1] * C.ahead);
+  const t = G.pending || G.phase === 'flight' ? Math.min(1, Math.max(0, (G.releaseT - .04) / .46)) : 0, b = t * t * (3 - 2 * t);
+  pos.lerpVectors(_runPos, pos, b); look.lerpVectors(_runLook, look, b);
+  return (portrait ? C.fov : C.wide) * (1 - b) + fov * b;
+}
+function aimFrameBase(lie, d, putt, pos, look) {
+  const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P0 = portrait ? AIM.tall[putt ? 'putt' : 'drive'] : putt ? innerHeight > 520 ? AIM.putt : AIM.puttS : innerHeight > 520 ? AIM.drive : AIM.driveS;
+  const P = P0;
   const vt = portrait ? Math.tan(P.fov * DEG / 2) : P.vfov ? Math.tan(P.vfov * DEG / 2) : Math.max(Math.tan((innerHeight > 520 && P.vmin || 14.5) * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least on a short phone, so it keeps headroom
   const side0 = P.side + (putt && P.nudge ? puttDodge(lie, P) : 0), [fb, fs] = AIM_SPOTS[aimSpotFor(lie, P, side0, putt, Math.atan(vt * camera.aspect))], back = P.back * fb, side = side0 * fs, rho = Math.hypot(back, side);
   pos.set(lie.x - d[0] * back - r[0] * side, lie.y, lie.z - d[1] * back - r[1] * side);
@@ -747,6 +833,21 @@ function aimFrame(lie, d, putt, pos, look) {
   const yaw = putt ? Math.atan2(side, bd) + Math.sign(fs) * Math.atan((P.x || 0) * vt * camera.aspect) : Math.sign(fs) * P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
   return 2 * Math.atan(vt) / DEG;
+}
+// The run-up camera's side for a lie: the thrower's chest side unless a trunk, a tent or a banner stands in the way of the
+// athlete (at the lie or the start of his run-up) or right in front of the lens, then the throwing side. Once per lie.
+const runCam = { key: '', side: 1 };
+function runCamSide(lie, d) {
+  const fore = G.throwType.startsWith('forehand') ? -1 : 1, key = `${G.holeIdx}:${lie.x.toFixed(1)}:${lie.z.toFixed(1)}:${fore}`; if (runCam.key === key) return runCam.side;   // a forehand's chest faces the other way
+  const r = rightOf(d), head = lie.y + 1.4, C = RUNUP.cam, score = sgn => {
+    const x = lie.x - d[0] * C.back - r[0] * C.side * sgn, z = lie.z - d[1] * C.back - r[1] * C.side * sgn, y = Math.max(lie.y, world.height(x, z)) + C.up;
+    const lens = [...world.treesNear(x, z).map(t => Math.hypot(t.x - x, t.z - z) - t.r), ...(world.camBlockers || world.capsules || []).map(c => Math.hypot((c.a[0] + c.b[0]) / 2 - x, (c.a[2] + c.b[2]) / 2 - z) - c.r)];
+    // the others waiting beside the pad (2.8 m to the thrower's left on a tee) or at their lies: none near the lens or in the way
+    const seg = (px, pz) => { const ex = lie.x - x, ez = lie.z - z, t = Math.max(0, Math.min(1, ((px - x) * ex + (pz - z) * ez) / (ex * ex + ez * ez || 1))); return Math.hypot(px - x - ex * t, pz - z - ez * t); };
+    const crowd = G.players.some(q => q !== curP() && (Math.hypot(q.char.group.position.x - x, q.char.group.position.z - z) < 2.2 || seg(q.char.group.position.x, q.char.group.position.z) < .7));
+    return clearFraction(world, lie.x, head, lie.z, x, y, z, .3, .15) + clearFraction(world, lie.x - d[0] * 1.5, head, lie.z - d[1] * 1.5, x, y, z, .3, .15) - (lens.some(m => m < 1.4) ? 1 : 0) - (crowd ? 1.5 : 0);
+  };
+  const chest = score(fore), arm = score(-fore); runCam.key = key; runCam.side = chest >= arm - .1 ? fore : -fore; return runCam.side;
 }
 // Putt background: a trunk standing behind the basket's band and flag reads as a pole growing out of the target. Each lie
 // scores the camera's lateral nudges (5 cm steps across P.nudge; + swings the athlete toward the frame edge, - toward the pin)
@@ -1004,14 +1105,16 @@ function loop(background = false) {
 }
 function frame(dt, rawDt, background) {
   if ((contextLost && !G.net?.isHost) || G.syncing || G.phase === 'loading') return;
+  const workFrom = performance.now();
   time += dt; input.update(dt);
   // Ignore background/paused frames; resolution changes never alter simulation time.
   if(fpsTag&&performance.now()>fpsNext){fpsNext=performance.now()+500;fpsTag.textContent=`${Math.round(1/frameAverage)} fps · ${G.settings.quality==='low'?'Mobile':'Desktop'} · ${Math.round(renderer.getPixelRatio()*100)/100}x · ${innerWidth}×${innerHeight} · sound ${audioState()}${isMuted() ? ' (muted)' : ''}`;}
-  if(!document.hidden && rawDt>.004 && rawDt<.25){frameAverage=frameAverage*.96+rawDt*.04;frameSamples++;
-    if(frameSamples>90 && time-lastResolutionChange>2){const budget=1/60;const old=resolutionScale;
-      if(frameAverage>budget*1.15)resolutionScale=Math.max(.5,resolutionScale-.08);
-      else if(frameAverage<budget*.82)resolutionScale=Math.min(1,resolutionScale+.04);
-      if(old!==resolutionScale){resize();lastResolutionChange=time;}
+  if(!document.hidden && rawDt>.004 && rawDt<.25){frameAverage=frameAverage*.96+rawDt*.04;frameSamples++;pace.dts[pace.n++%120]=rawDt;
+    if(frameSamples>120 && time-lastResolutionChange>2){
+      const sorted=Array.from(pace.dts).sort((a,b)=>a-b),cadence=sorted[24]<.0105?1/120:sorted[24]<.022?1/60:1/30,miss=sorted.filter(d=>d>cadence*1.5).length/120,old=resolutionScale;
+      if(miss>.2){resolutionScale=Math.max(.5,resolutionScale-.08);pace.raiseWait=Math.min(40,pace.raiseWait*2);}   // a fifth of the frames late: the GPU is behind; a lone hitch is not
+      else if(miss<.03&&pace.work<cadence*.5&&resolutionScale<1&&time-lastResolutionChange>pace.raiseWait)resolutionScale=Math.min(1,resolutionScale+.04);   // steady and idle: step back up, waiting longer after each drop
+      if(old!==resolutionScale){resize();lastResolutionChange=time;pace.dts.fill(cadence);}
     }
     slowTime = frameAverage > 1/48 && resolutionScale <= .58 ? slowTime + dt : Math.max(0, slowTime - dt);
     if (slowTime > 6 && post && postEnabled) { postEnabled = false; slowTime = 0; UI.toast('Graphics adjusted', 'Keeping your round smooth', 1600); }
@@ -1024,14 +1127,14 @@ function frame(dt, rawDt, background) {
     if (a !== flashA) flashEl.style.opacity = flashA = a; }
   if (G.inbox.length && (G.phase === 'aim' || G.phase === 'awaitThrow') && G.mode === 'online') applyRemoteThrow(G.inbox.shift());
   if (G.nextRequested && G.phase === 'holeEnd') { G.nextRequested = null; advanceHole(); }
-  if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
+  if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(tw.raw ? u : u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
   if (G.pending && (G.phase === 'release' || G.phase === 'flight' || G.phase === 'result')) {
     G.releaseT += dt; const p = G.players[G.pending.pi];
     const leadIn = G.pending.leadIn || 0;
     const u = leadIn ? Math.min(1, G.releaseT / leadIn) : 1;
-    const ph = G.releaseT < leadIn ? G.pending.startPhase + (.5 - G.pending.startPhase) * u * u * (3 - 2 * u) : .5 + Math.min(.5, (G.releaseT - leadIn) / .7 * .5); p.char.setPhase(ph);
+    const span = .5 - G.pending.startPhase, ph = G.releaseT < leadIn ? G.pending.startPhase + span * hermite(u, 1, HIT_RATE * leadIn / span) : releasePhase(G.releaseT - leadIn); p.char.setPhase(ph);   // the swipe's end eases into the hit at its speed
     if (!G.pending.fired && ph >= 0.62) { G.pending.fired = true; launchNow(); }
-    if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && p !== curP()) p.char.setPhase(null); else if (G.sessionId === session && G.phase === 'flight') p.char.setPhase(null); }, 350); }
+    if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && (p !== curP() || G.phase === 'flight')) { p.char.keepTravel?.(); p.char.setPhase(null); } }, 350); }   // the athlete stays where the follow-through carried him
   }
   if (G.flight) updateFlight(dt);
   if (background || contextLost) return; // Keep host authority alive without drawing an unavailable canvas.
@@ -1065,6 +1168,7 @@ function frame(dt, rawDt, background) {
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   trail.update(camera, !!G.flight);
   if(post && postEnabled) post.render(); else renderer.render(scene, camera);
+  pace.work = pace.work * .9 + (performance.now() - workFrom) / 1000 * .1;
 }
 
 // ---------- HUD / menu wiring ----------
@@ -1122,7 +1226,9 @@ try { G.settings.order = safeOrder(localStorage.getItem('chains.order')); } catc
 UI.seg('orderSeg', setOrder); UI.seg('setupOrderSeg', setOrder); setOrder(G.settings.order);
 $('qualSeg').querySelector(`[data-v="${G.settings.quality}"]`)?.classList.add('on'); $('qualSeg').querySelector(`[data-v="${G.settings.quality === 'low' ? 'high' : 'low'}"]`)?.classList.remove('on');
 let gfxSwitch = Promise.resolve();   // a graphics switch in flight: Play waits for it, and taps in a row apply in order
-UI.seg('qualSeg', v => { G.settings.quality = v; resize(); gfxSwitch = gfxSwitch.catch(() => {}).then(async () => { await loadModels(renderer, v); await loadCourse(G.courseId); makeHero(); }); });
+UI.seg('qualSeg', v => { G.settings.quality = v; resize(); gfxSwitch = gfxSwitch.catch(() => {}).then(async () => { await loadModels(renderer, v); await loadCourse(G.courseId); makeHero(); upgradeBodies(); }); });
+// Mobile's full-detail bodies land after the first frame: rebuild the clubhouse athlete on them, and the player on the tee
+function upgradeBodies() { fullBodies.then(async up => { while (warming) await warming; if (!up) return; if (hero?.group.visible) makeHero(); const p = curP(); if (p && !p.lod && G.phase === 'aim' && isMine(p) && !p.runUp) { p.lod = true; setPlayerDetail(p, false); } }); }
 for (const type of ['touchend', 'pointerup', 'click']) document.addEventListener(type, unlock, { capture: true, passive: true });   // audio.js: which gestures can start sound
 
 const me = () => ({ name: G.avatar.name.trim() || 'You', avatar: G.avatar });
@@ -1488,8 +1594,8 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await Promise.all([warmShaders(), assetsIdle()]);
-  UI.hide('loading'); loop();
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, resolveThrow, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
+  UI.hide('loading'); loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage

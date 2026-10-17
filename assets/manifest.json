@@ -135,7 +135,11 @@
     "golfer_hammer_left": "models/golfer-hammer_left.glb",
     "golfer_f": "models/golfer-f-premium.glb",
     "golfer_f_lod": "models/golfer-f-lod-premium.glb",
-    "headwear": "models/headwear.glb"
+    "headwear": "models/headwear.glb",
+    "golfer_xstep": "models/golfer-xstep.glb",
+    "golfer_xstep_left": "models/golfer-xstep_left.glb",
+    "golfer_fxstep": "models/golfer-fxstep.glb",
+    "golfer_fxstep_left": "models/golfer-fxstep_left.glb"
   },
   "skies": {
     "pine": "skies/pine.exr",

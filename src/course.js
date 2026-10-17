@@ -490,12 +490,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const decVariants = [0,1,2].map(variant => canopyGeometry('deciduous',variant));
   const bushGeo = shadeCrown(blob(1, 1, 0.6).scale(1, 0.75, 1).translate(0, 0.5, 0));
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
-  // Tree LOD. Full draws the Blender trees within treeNear (62 m) of the eye and a camera-facing impostor beyond; Lite draws
-  // impostors everywhere (treeNear 0). Both sides test the same eye, refreshed every quarter second by treeLod() from update(),
+  // Tree LOD. Full draws the Blender trees within treeNear (62 m) of the eye and a camera-facing impostor beyond; Mobile does the
+  // same within 26 m (it drew cards everywhere: the crown over a putt and a birch 8 m off a landing read as flat cut-outs). Both sides test the same eye, refreshed every quarter second by treeLod() from update(),
   // per tree in the vertex shader, so every tree is exactly one of the two. Each variant/material pair is one instanced mesh
   // that treeLod() refills from a 32 m grid with just the trees near the eye (plus a 4 m margin, so the shader decides), so
   // a frame submits one draw per pair and only near trees, and the tick's work scales with the trees near the eye.
-  const treeEye = { value: new THREE.Vector3(1e9, 0, 1e9) }, treeNear = { value: quality === 'low' ? 0 : 62 }, nearSets = [];
+  const treeEye = { value: new THREE.Vector3(1e9, 0, 1e9) }, treeNear = { value: quality === 'low' ? 26 : 62 }, nearSets = [];
   const treeDisc = { value: new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[2]), THREE.MathUtils.degToRad(def.sun[3])) };   // the sun's visible disc (the sky section's discDir)
   const treeKeep = { value: 0 };   // how much of the far squeeze below the putt gives back (update(): PUTT_AIR.keep)
   const treeAir = { value: 0 };   // 1 round the pin, 0 elsewhere (update(): PUTT_AIR's putt factor): how much of the glare exemptions below the putt's air takes back. The putt looks within ~20° of the low sun, where the tee's dark rim-lit silhouettes left the woods 30-80 m past the pin with half the haze and full contrast (w7-2: "far trunks as dark and saturated as the near birches")
@@ -587,7 +587,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // Full: the Blender trees (tools/build-trees.py over the tools/build-foliage.py atlas). A variant is a branch skeleton
   // ('bark' / 'bark_birch') plus leaf-spray cards ('leaves'), one near-tree set per variant and material (see treeLod) with a
   // per-tree tint. Wood and leaves share the wind, so the limbs carry their clumps as they sway, and both cast shadows.
-  const full = quality !== 'low', leafAtlas = full && texture('leaves', { clamp: true, flipY: false }), leafNormals = full && texture('leaves_n', { clamp: true, flipY: false, srgb: false });   // Lite never fetches them
+  const full = quality !== 'low', leafAtlas = texture('leaves', { clamp: true, flipY: false }), leafNormals = full && texture('leaves_n', { clamp: true, flipY: false, srgb: false });   // Mobile's near crowns go without the leaf normals
   // Canopy shading on top of three's PBR loop. Vertex colour rgb tints the albedo and its alpha is the build's sky visibility,
   // which dims ambient light fully and sunlight a little (the shadow map does the rest), so sunlit clumps stay bright while the
   // core of the crown and the limbs inside it fall dark. Leaves (leaf = true) also: the build bakes each leaf normal away from
@@ -686,7 +686,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     if (crown) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )')
       .replace('diffuseColor *= sampledDiffuseColor;', 'diffuseColor *= vec4(mix(sampledDiffuseColor.rgb, texture2D(map, vMapUv, 2.5).rgb, .75), sampledDiffuseColor.a);'));
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', `{ float l = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
-        diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, ${full ? '.8' : '.55'});   // Lite keeps 45%: it has no grade pass, and at 20% its crowns went lime (top-half foliage saturation .64 on the phone)
+        diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, ${full ? '.8' : '.66'});   // Mobile: .55 when it had no grade (at .8 its crowns went lime, top-half foliage saturation .64 on the phone); its tone curve grades now, and at .55 the foliage sat at .40-.47 against Desktop's .44-.55
         #ifdef CROWN
         // w6 verdicts ("no dark interior hollows", "no cooler, darker leaves inside the crown"): measured, the leaves we see sit
         // at .5-1.1 of the envelope, where depth squared barely dimmed them. Now the half-depth leaves go to a quarter, greyed
@@ -776,7 +776,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = (.85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3) * (s.kind === 'birch' ? .62 + noise(s.x * .29 + 9, s.z * .29 + 2) * .25 : 1); return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
   for (const b of [...bushes, ...shrubs]) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
   const planted = (name, spots, shadow = true, lod = true) => {
-    const src = quality !== 'low' && leafAtlas && model(name); if (!src) return false;
+    const src = leafAtlas && model(name); if (!src) return false;
     src.scene.updateMatrixWorld(true);
     src.scene.traverse(o => { if (!o.isMesh) return;
       const variant = o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
@@ -962,8 +962,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // hard line, a leaf 10 m up a 6 cm soft one, a pine crown 25 m up across the hill a 15 cm one. The near map spans only
   // 120-210 m from the light (30 m of casters above the focus, the slopes below it) for depth precision. sunPenumbra: per
   // map (near, far), texels of penumbra radius per unit of shadow depth (depth range x tan .34° / texel), and the widest.
-  const near = quality === 'low' ? null : new THREE.DirectionalLight(sunColor, 0), nearTexel = 24 / 2048;
-  if (near) { const c = near.shadow.camera; c.left = c.bottom = -12; c.right = c.top = 12; c.near = 120; c.far = 210; near.castShadow = true; near.shadow.mapSize.set(2048, 2048);
+  // Mobile runs it too, at 1024² (2.3 cm texels): its 120 m map alone (11.7 cm) gave the athlete a blob and the basket and pole no shadow at all.
+  const nearSize = quality === 'low' ? 1024 : 2048, near = new THREE.DirectionalLight(sunColor, 0), nearTexel = 24 / nearSize;
+  if (near) { const c = near.shadow.camera; c.left = c.bottom = -12; c.right = c.top = 12; c.near = 120; c.far = 210; near.castShadow = true; near.shadow.mapSize.set(nearSize, nearSize);
     near.shadow.bias = -.0003; near.shadow.normalBias = .03; scene.add(near, near.target);
     Object.assign(PENUMBRA, { x: (c.far - c.near) * .006 / nearTexel, y: 12, z: (sc2.far - sc2.near) * .006 / (extent * 2 / sm), w: 6 }); Object.assign(FLECK, { z: 24, w: c.far - c.near }); }
   // The shadow cameras' own axes (Object3D.lookAt from the sun toward the focus, up +y): update() snaps each camera's

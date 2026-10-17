@@ -642,7 +642,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     // Basket, same yaw as the hole so the flag flies broadside to the approach; a pair of feather flags stands
     // behind-left of the green, off the putt line and clear of the basket's silhouette from the approach.
     const ap = h.way[h.way.length - 2], adx = h.basket[0] - ap[0], adz = h.basket[1] - ap[1], al = Math.hypot(adx, adz), fx = adx / al, fz = adz / al, yawB = Math.atan2(-fx, -fz);   // the approach, past any dogleg
-    addBasket(K, pose(h.basket[0], h.basketY, h.basket[1], yawB), i, full);
+    addBasket(K, pose(h.basket[0], h.basketY, h.basket[1], yawB), i, true);   // full chains, footing and sleeve on Mobile too (~7k triangles a basket): Lite's 10 three-link chains read as a thin cage at the putt
     const green = (u, f, rot, sink = .03) => { const x = h.basket[0] - fz * u + fx * f, z = h.basket[1] + fx * u + fz * f; return clearOf(x, z, 1) && pose(x, height(x, z) - sink, z, yawB + rot); };
     if (full || i === 0) for (const [u, f, d] of [[-3.6, 6.2, i % 3], [-2.6, 9.8, (i + 1) % 3]]) { const w = green(u, f, .35 + (rnd() - .5) * .3, .05); if (w) addFeather(w, d); }
     if (full) { const b = green(-4.4, 1.9, -Math.PI / 2), c = green(-4.5, 3.9, 0); if (b) addBench(b); if (c) addCan(c); }   // a bench and a bin at the green's edge, left of the approach

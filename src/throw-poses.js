@@ -1,4 +1,5 @@
 // Eleven-joint throw contract shared by Lite and Blender authoring.
+import { SOLVED } from './throw-keys.js';
 export const JOINTS = ['root', 'spine', 'head', 'shR', 'elR', 'shL', 'elL', 'hipR', 'knR', 'hipL', 'knL'];
 export const IDLE = { root: [0, 0, 0], spine: [0.04, 0, 0], head: [0, 0, 0], shR: [0.28, 0, 0.26], elR: [0.5, 0, 0], shL: [0.15, 0, -0.2], elL: [0.4, 0, 0], hipR: [0, 0, 0.04], knR: [-0.05, 0, 0], hipL: [0, 0, -0.04], knL: [-0.05, 0, 0], rootY: 0 };
 
@@ -82,6 +83,15 @@ for(const [id,keys] of Object.entries(K)) {
   }
 }
 
+// The solved clips (tools/author-throws.mjs: inverse kinematics on the rig from a description of the body) replace the
+// hand-keyed ones they name. They carry the pelvis's travel (rootX/rootZ, metres in the athlete's frame): the weight goes back,
+// through the brace and on over the front foot, and every planted foot holds its spot and heading while the hips turn.
+// The run-ups (xstep into the backhand, fxstep into the forehand) are not throws of their own: they live beside K, are baked
+// with it, and hand over to the drive at its full coil (.35).
+const RUN_UPS = ['xstep', 'fxstep'];
+for (const [id, keys] of Object.entries(SOLVED)) if (!RUN_UPS.includes(id)) K[id] = keys;
+export const RUNUPS = Object.fromEntries(RUN_UPS.filter(id => SOLVED[id]).map(id => [id, SOLVED[id]]));
+
 // Authored bank variants preserve the base kinetic sequence and bank the shoulder plane.
 // The disc bank itself remains authoritative in THROWS; these are distinct visual clips.
 for (const base of ['backhand','forehand']) for (const [suffix,bank] of [['io',.24],['oi',-.24]]) {
@@ -90,15 +100,15 @@ for (const base of ['backhand','forehand']) for (const [suffix,bank] of [['io',.
 
 // Left-handers are the same motion reflected: swap sides, negate the yaw and roll of every joint.
 const MIRROR = { shR: 'shL', shL: 'shR', elR: 'elL', elL: 'elR', hipR: 'hipL', hipL: 'hipR', knR: 'knL', knL: 'knR' };
-export const mirrorPose = t => { const m = { rootY: t.rootY }; for (const j of JOINTS) { const v = t[MIRROR[j] || j]; m[j] = [v[0], -v[1], -v[2]]; } return m; };
-export const keysFor = t => K[t] || K[t.split('_')[0]] || K.backhand;
+export const mirrorPose = t => { const m = { rootY: t.rootY, rootX: -(t.rootX || 0), rootZ: t.rootZ || 0 }; for (const j of JOINTS) { const v = t[MIRROR[j] || j]; m[j] = [v[0], -v[1], -v[2]]; } return m; };
+export const keysFor = t => K[t] || RUNUPS[t] || K[t.split('_')[0]] || RUNUPS[t.split('_')[0]] || K.backhand;
 // Monotone cubic Hermite interpolation preserves momentum through release (.62).
 // Local extrema may settle, but every key no longer forces the entire body to stop.
 export function poseAt(keys, phase) {
   phase=Math.max(0,Math.min(1,phase));let n=0;
   while(n<keys.length-2&&phase>keys[n+1].t)n++;
   const a=keys[n],b=keys[n+1],h=b.t-a.t,u=(phase-a.t)/h;
-  const value=(k,j,c)=>j==='rootY'?(keys[k].rootY||0):(keys[k][j]||IDLE[j])[c];
+  const value=(k,j,c)=>j.startsWith('root')&&j!=='root'?(keys[k][j]||0):(keys[k][j]||IDLE[j])[c];
   const tangent=(k,j,c)=>{
     if(k===0||k===keys.length-1)return 0;
     const h0=keys[k].t-keys[k-1].t,h1=keys[k+1].t-keys[k].t;
@@ -107,7 +117,7 @@ export function poseAt(keys, phase) {
     return (w1+w2)/(w1/d0+w2/d1);
   };
   const interpolate=(j,c)=> (2*u*u*u-3*u*u+1)*value(n,j,c)+(u*u*u-2*u*u+u)*h*tangent(n,j,c)+(-2*u*u*u+3*u*u)*value(n+1,j,c)+(u*u*u-u*u)*h*tangent(n+1,j,c);
-  const out={};for(const j of JOINTS)out[j]=[0,1,2].map(c=>interpolate(j,c));out.rootY=interpolate('rootY',0);out.rootY=-Math.min(...soleHeights(out,false));return out;
+  const out={};for(const j of JOINTS)out[j]=[0,1,2].map(c=>interpolate(j,c));out.rootY=interpolate('rootY',0);out.rootX=interpolate('rootX',0);out.rootZ=interpolate('rootZ',0);out.rootY=-Math.min(...soleHeights(out,false));return out;
 }
 
 // Aim stances per throw family, absolute joint angles in the shared contract (right-handed; callers mirror), breathing
