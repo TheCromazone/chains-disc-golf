@@ -30,7 +30,7 @@ input { -webkit-user-select: text; user-select: text; }
 button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 10px 14px; font: inherit; font-weight: 650; color: inherit; border: 1px solid var(--border); border-radius: 10px; background: linear-gradient(155deg, #ffffffb8, #e5f6ff6b); box-shadow: inset 1px 1px 1px #fff, inset -1px -1px 1px #96c6da55, inset 0 0 9px #ffffff40, 0 3px 9px #17496918; backdrop-filter: blur(14px) saturate(1.45); -webkit-backdrop-filter: blur(14px) saturate(1.45); cursor: pointer; user-select: none; transition: transform 150ms var(--ease), background-color 120ms, border-color 120ms, color 120ms; }
 button:active:not(:disabled) { transform: scale(.96); }
 button:disabled { cursor: default; }
-button.primary { background: linear-gradient(135deg, #ff7c69e8, #f14e5ade); color: #fff; border-color: #ffc7ba; box-shadow: inset 1px 1px 1px #ffd5c9, inset -1px -1px 1px #c2395155, 0 3px 0 #bf344c55, 0 7px 20px #cb425b25; font-weight: 800; }
+button.primary { background: linear-gradient(180deg, #ffffff38, #ffffff00 52%), linear-gradient(135deg, #ff7c69f0, #ee4a57e8); color: #fff; border-color: #ffc7ba; box-shadow: inset 0 1px 1px #ffe3da, inset 0 -1px 1px #a0263c40, 0 1px 2px #0c111426, 0 8px 22px #0c111424; font-weight: 800; text-shadow: 0 1px 1px #a0263c55; }   /* liquid glass: a specular rim and a neutral drop, no coloured halo */
 button.on { color: #075d81; border-color: #42b2d1; background: #c9f1ffb8; box-shadow: inset 0 -2px var(--accent); }
 button:focus-visible, input:focus-visible { outline: 3px solid #087baf; outline-offset: 3px; }
 @media (hover: hover) { button:hover:not(:disabled) { background-color: #ffffffb8; border-color: #ffffff; } button.primary:hover { background: #ff7c78df; border-color: #fff0e5; } button.on:hover { background-color: #bbf0ff; border-color: var(--accent); } }
@@ -84,23 +84,29 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 .pcard > div { min-width: 0; }
 .pcard b { display: block; font-family: var(--display); font-size: 17px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; overflow: hidden; text-overflow: ellipsis; }
 .pcard .muted { font-size: 10px; }
-.hub-main { width: min(440px, 100%); gap: 10px; padding: 14px; border-radius: 26px; background: linear-gradient(145deg, #ffffff9e, #e4f7ff66); backdrop-filter: blur(22px) saturate(1.7); -webkit-backdrop-filter: blur(22px) saturate(1.7); }   /* thinner glass than the other sheets: the staged woods tint through */
-.hub-caption { display: flex; justify-content: space-between; align-items: center; padding: 1px 3px 0; }
-.hub-caption .muted { font-size: 10px; }
-.play-cta { min-height: 64px; justify-content: flex-start; gap: 13px; padding: 10px 16px; border-radius: 12px; margin-bottom: 3px; text-align: left; }
+.hub-main { width: min(440px, 100%); gap: 10px; padding: 14px; border-radius: 26px; background: linear-gradient(180deg, #ffffff47, #ffffff00 34%), linear-gradient(145deg, #ffffff9e, #e4f7ff66); box-shadow: inset 0 1px 1px #fff, inset 0 -1px 1px #ffffff70, inset 0 0 0 1px #ffffff40, 0 2px 6px #0c11141a, 0 18px 44px #0c111433; backdrop-filter: blur(22px) saturate(1.7); -webkit-backdrop-filter: blur(22px) saturate(1.7); }   /* thinner glass than the other sheets: the staged woods tint through */
+.play-cta { min-height: 68px; justify-content: flex-start; gap: 13px; padding: 10px 16px; border-radius: 12px; margin-bottom: 3px; text-align: left; }
 .play-cta > [data-icon=play] .icon { width: 26px; height: 26px; fill: currentColor; margin-left: 1px; }
 .play-cta .cta-copy { display: flex; flex: 1; flex-direction: column; gap: 1px; }
-.play-cta strong { font-family: var(--display); font-size: 28px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; line-height: 1; }
+.play-cta strong { font-family: var(--display); font-size: 31px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; line-height: 1; }
 .play-cta small { font-size: 11px; font-weight: 600; color: #fff3ef; }
 .play-cta .cta-end { display: flex; padding-left: 13px; border-left: 1px solid #242e2330; }
 .mode-btn { font-family: var(--display); font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; min-height: 44px; background: linear-gradient(145deg, #ffffffaa, #d7f0ff80); }
 .mode-btn .icon { width: 18px; height: 18px; color: #1884a5; }
-.round-settings { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; padding: 4px 0 0; }
-.round-settings .f { gap: 5px; font-family: var(--display); font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; }
-.round-settings .seg { letter-spacing: .4px; }
+.round-opts { border-radius: 12px; background: #ffffff33; box-shadow: inset 0 1px 1px #ffffffc0, inset 0 0 0 1px #ffffff55; }
+.round-opts summary { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px; list-style: none; cursor: pointer; font-family: var(--display); font-size: 14px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase; color: var(--ink); }
+.round-opts summary::-webkit-details-marker { display: none; }
+.round-opts summary .icon { width: 18px; height: 18px; color: var(--accent); }
+.round-opts summary:focus-visible { outline: 3px solid #087baf; outline-offset: 2px; border-radius: 12px; }
+.ro-title { white-space: nowrap; }
+.ro-sum { margin-left: auto; overflow: hidden; color: var(--muted); font-weight: 700; letter-spacing: .3px; white-space: nowrap; text-overflow: ellipsis; }
+.ro-chev { display: flex; flex: none; }
+.ro-chev .icon { width: 14px !important; height: 14px !important; color: var(--muted) !important; transition: transform 150ms var(--ease); }
+.round-opts[open] .ro-chev .icon { transform: rotate(90deg); }
+.round-settings { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; }
+.round-settings .f { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; font-family: var(--display); font-size: 12px; text-transform: uppercase; letter-spacing: 1.4px; }
+.round-settings .seg { flex: 0 1 210px; letter-spacing: .4px; }
 .round-settings .seg button { padding: 6px 7px; font-size: 13px; }
-#btnHelp { min-height: 28px; padding: 4px 8px; font-family: var(--display); font-size: 13px; text-transform: uppercase; letter-spacing: .8px; }
-#btnHelp .icon { width: 15px; height: 15px; }
 /* Course art is an actual destination preview, with a readable lower scrim. */
 .ccard { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 114px; padding: 16px; border-radius: 12px; text-align: left; overflow: hidden; isolation: isolate; background: #213f31; outline: 1px solid #ffffff1a; outline-offset: -1px; }
 .ccard .cmap { position: absolute; inset: 0; z-index: -2; }
@@ -337,9 +343,6 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 @media (hover: hover) { #score #btnScoreNext:hover { background: #1d262b; border-color: #1d262b; } #score #btnScoreMenu:hover:not(:disabled) { background-color: #0c11140f; border-color: #0c111466; } }
 /* Compact phones retain full labels and scroll only within the panel. */
 @media (max-width: 460px) {
-  .round-settings { grid-template-columns: auto 1fr; }
-  .round-settings .f:last-child { grid-column: 1/-1; flex-direction: row; align-items: center; justify-content: space-between; }
-  .round-settings .f:last-child .seg { min-width: 132px; }
   .hub-top { left: 14px; right: 14px; }
   .brand { font-size: 40px; }
   .panel { padding: 16px; }
@@ -361,6 +364,9 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 @media (min-width: 900px) {
   .overlay.hub, .overlay.locker { justify-content: flex-start; align-items: center; padding-left: 5vw; }
   .overlay.locker .panel, .overlay.hub .panel { max-height: 100%; }
+  .overlay.hub { padding-top: calc(136px + var(--sat)); }   /* the brand ends ~118 px down: the sheet never cuts the title */
+  .overlay.hub .panel { width: clamp(340px, 24vw, 410px); }
+  #btnCourses { min-height: 80px; }
   .hub-top { left: 5vw; right: 3vw; top: calc(26px + var(--sat)); }
   .brand { font-size: 60px; }
   .brand small { font-size: 12px; letter-spacing: 5px; }
@@ -383,20 +389,17 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #waiting { bottom: calc(84px + var(--sab)); }
   #toast { top: 18%; }
   .overlay.hub { align-items: flex-start; justify-content: flex-start; padding-left: 12px; padding-top: calc(72px + var(--sat)); }
-  .overlay.hub .panel { width: min(400px, 58%); max-height: 100%; }
+  .overlay.hub .panel { width: min(360px, 52%); max-height: 100%; }
   /* a landscape phone has ~300px under the brand: the whole card fits without scrolling */
   .hub-main { gap: 5px; padding: 10px; }
-  .hub-caption { display: none; }
   .play-cta { min-height: 50px; padding: 6px 14px; margin-bottom: 0; }
   .play-cta strong { font-size: 24px; }
   .mode-btn { min-height: 40px; padding: 8px 12px; }
   #btnCourses { min-height: 58px; padding: 7px 12px; }
   #btnCourses .cinfo b { font-size: 18px; margin: 1px 0 2px; }
   #btnCourses .cinfo .eyebrow { display: none; }   /* the card's art and name already say it; the eyebrow cost a line */
-  .round-settings { gap: 6px; padding: 0; }
-  .round-settings .f { gap: 3px; }
-  .round-settings .seg button { min-height: 28px; padding: 3px 6px; }
-  #btnHelp { min-height: 26px; }
+  .round-opts summary { min-height: 40px; }
+  .round-settings .seg button { min-height: 30px; padding: 3px 6px; }
   .overlay.locker { align-items: center; justify-content: flex-start; padding-left: 12px; }
   .overlay.locker .panel { width: min(400px, 55%); max-height: 100%; }
   .brand { font-size: 33px; }
@@ -538,7 +541,7 @@ body[data-phase='intro'] #pin i { height: 46px; }   /* the establishing shot see
 #shotPlan { position: absolute; left: 24px; top: calc(112px + var(--sat)); display: none; padding: 8px 10px; border-left: 2px solid var(--mint); background: #0c1114b5; border-radius: 0 6px 6px 0; color: #fff; pointer-events: none; font-variant-numeric: tabular-nums; }
 #shotPlan small { display: block; color: #d0e0da; font: 700 10px/1.4 var(--display); letter-spacing: 1px; }
 #shotPlan b { display: block; font: 700 17px/1.4 var(--display); }
-#shotPlan > span { display: block; color: var(--mint); font-size: 10px; }
+#shotPlan > span { display: block; color: var(--mint); font-size: 11px; font-weight: 700; }
 #shotPlan.danger { border-color: #ff9275; }
 #shotPlan.danger > span { color: #ffb19d; }
 #power .power-target { display: none; position: absolute; inset: -4px; border-radius: 50%; background: conic-gradient(transparent calc(var(--suggested, .72) * 1turn - 2deg), #ffd23f 0 calc(var(--suggested, .72) * 1turn + 2deg), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); }
@@ -548,6 +551,9 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
 @media (max-width: 700px) { #shotPlan { left: 12px; top: calc(102px + var(--sat)); padding: 6px 8px; } }
 @media (max-height: 520px) { #shotPlan { top: calc(12px + var(--sat)); left: auto; right: 128px; } }   /* clear of the sound and tools buttons */
 
+/* Dark HUD glass: every plate gets a specular top rim and a shaded lower lip under a saturated blur, so they read as glass
+   over the course instead of flat chips. Neutral shadows only. */
+#conditions, .equipment-summary > button, #btnMute, #btnUtilities, #pad .hint, #aimZone > span, #shotPlan, #waiting { box-shadow: inset 0 1px 0 #ffffff26, inset 0 -1px 0 #0000004d, 0 2px 8px #0006; backdrop-filter: blur(12px) saturate(1.5); -webkit-backdrop-filter: blur(12px) saturate(1.5); }
 /* Two thumbs on a wide touch screen: the left ~40% drags the aim, the right ~60% (under the score strip) takes the swipe,
    with the power ring under the swipe hand. One finger still works: drag on the left, swipe on the right. */
 @media (pointer: coarse) and (min-aspect-ratio: 6/5) {
@@ -626,18 +632,9 @@ body[data-coach='throw'][data-phase='aim'] #pad:not(.bad) .hint { opacity: 0; } 
 @media (pointer: coarse) { .touch-only { display: inline-flex !important; } }
 /* A GPU reset (context lost): the HUD's waiting line is hidden in the clubhouse, so the notice sits over every screen. */
 body.gfx-lost::after { content: 'Restoring graphics…'; position: fixed; left: 50%; top: 50%; z-index: 60; transform: translate(-50%, -50%); padding: 10px 18px; border-radius: 999px; background: #0c1114e0; color: #fff; font-family: var(--display); font-size: 15px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
-.round-settings #holesSeg button { min-width: 40px; }   /* a thumb-sized target (was 22 px wide) */
-
-/* ---------- Turns: the clubhouse row and the Pass & play sheet ---------- */
-.round-settings .f.turns { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; }
-.round-settings .turns .seg { min-width: 196px; }
+/* ---------- Turns: the Pass & play sheet ---------- */
 .setup-turns .seg { max-width: 300px; }
 .setup-turns .muted { font-size: 12px; }
-@media (max-width: 460px) {
-  .round-settings .f.gfx { grid-column: 1/-1; flex-direction: row; align-items: center; justify-content: space-between; }
-  .round-settings .f.gfx .seg { min-width: 176px; }
-  .round-settings .turns .seg { min-width: 176px; }
-}
 
 /* ---------- Waiting room ---------- */
 /* The online panel becomes the room: the code and the round on top, a jersey card per player, then ready / start. */

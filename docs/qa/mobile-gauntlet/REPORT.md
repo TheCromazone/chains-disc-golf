@@ -75,11 +75,12 @@ found:
 - **The full basket** on Mobile (24 + 12 chains, footing, sleeve; ~7k triangles a basket).
 - **Full-detail body for the player on the tee and the clubhouse**, fetched after the first frame (`models.js fullBodies`): the
   low-detail bake's 1024 albedo stair-stepped across the jersey. Bots elsewhere keep the light body.
-- **Adaptive resolution that recovers**: it compared the average interval with 13.7 ms, which a vsync-capped 60 Hz screen never
-  shows, so every hitch stepped resolution down for good (1.5× to 1.14× in one hole; Low Power Mode's 30 Hz slid to the floor).
-  Now it watches missed frames at the screen's own cadence, ignores lone hitches and steps back up when idle.
-- **Foliage colour** (leaf albedo .55 → .66, the tone curve's saturation 1.04 → 1.09), **grass** two blade tiles out to 19 m
-  (was one to 5.8 m), and a thinner clubhouse haze.
+- **Adaptive resolution** compared the average interval with 13.7 ms, which a vsync-capped 60 Hz screen never shows, so every
+  hitch stepped resolution down for good (1.5× to 1.14× in one hole; Low Power Mode's 30 Hz slid to the floor). This branch fixed
+  it by watching missed frames at the screen's cadence; master's gauntlet r2 fixed the same bug its own way (hitches over 100 ms
+  ignored, phones hold 30 fps), and the merge keeps master's.
+- **Foliage colour** (leaf albedo .55 → .66, the tone curve's saturation 1.04 → 1.09) and **grass** two blade tiles out to 19 m
+  (was one to 5.8 m). The clubhouse haze change was superseded by master's blurred snapshot backdrop on Mobile.
 
 Measured on the same seven moments (foliage saturation in the top half, sharpness as mean |Laplacian| of the bottom third):
 
@@ -94,10 +95,12 @@ Lakeshore and landscape moved the same way (+.03 to +.10 saturation; the referen
 [flyover](phone-2-flyover.jpg), [tee](phone-3-tee.jpg), [flight](phone-4-flight.jpg), [putt](phone-6-putt.jpg),
 [landscape](phone-landscape.jpg).
 
-**Cost** (GPU-synced render, headless Apple M6, median of three; indicative only): the tee is unchanged (Pine 2.6-2.8 ms, Lakeshore
-1.9-2.2, against 2.4-2.6 before); the putt costs ~1.4 ms more on Pine Hollow (3.8 ms: the near shadow pass ~1.0, the near 3D trees
-~0.6) and about the same on Lakeshore. A 1.75× pixel ratio was tried and dropped (+0.1-0.6 ms) to keep the earlier "no fps cost"
-ask. Real iOS Safari in the simulator ran the clubhouse, tee and flights at 57-60 fps, but the simulator renders on the Mac's GPU.
+**Cost** (GPU-synced render, headless Apple M6, median of three; indicative only), measured at 1.5× before the merge: the tee was
+unchanged (Pine 2.6-2.8 ms, Lakeshore 1.9-2.2, against 2.4-2.6 before); the putt cost ~1.4 ms more on Pine Hollow (3.8 ms: the
+near shadow pass ~1.0, the near 3D trees ~0.6) and about the same on Lakeshore. A 1.75× pixel ratio was tried and dropped here to
+keep the earlier "no fps cost" ask; master's gauntlet r2 has since moved phones to an exact 2× on purpose, and the merge keeps that
+(with master's 40 m near-tree radius on Mobile, which superseded this branch's 26 m). Real iOS Safari in the simulator ran the
+clubhouse, tee and flights at 57-60 fps before the merge, but the simulator renders on the Mac's GPU.
 
 ## Tools used
 
@@ -119,6 +122,7 @@ ask. Real iOS Safari in the simulator ran the clubhouse, tee and flights at 57-6
 ## Checks
 
 `npm test` (10 files, including the new `test/throws.test.mjs`: run-ups hand over exactly, planted feet hold, chest-height release,
-continuous travel), `npm run build`, `node tools/verify-browser.mjs --dist` (18/18, no browser or shader errors),
+continuous travel), `npm run build`, `node tools/verify-browser.mjs --dist` (18/18 after merging master, no browser or shader
+errors; its mobile resolution check now allows master's 2×),
 `node tools/verify-matches.mjs` (pass), `node tools/verify-rounds.mjs` (four courses, no browser errors), the cross-device swipe
 smoke (`tools/qa/devices.mjs`, iPhone portrait and landscape, desktop).

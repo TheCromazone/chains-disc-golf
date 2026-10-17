@@ -129,7 +129,7 @@ try {
   record('Desktop Space throw resolves with hidden host; returning guest catches up');
   // Resize during a gesture cannot release it; render dimensions stay within the mobile cap.
   await host.send('Emulation.setDeviceMetricsOverride',{width:844,height:390,deviceScaleFactor:3,mobile:true}); await pause(150);
-  assert.equal(await host.js('__chains.G.players[0].strokes'),1); assert((await host.js('__chains.renderer.getPixelRatio()')) <= 1.5); record('Portrait-to-landscape keeps round state and caps mobile rendering resolution');
+  assert.equal(await host.js('__chains.G.players[0].strokes'),1); assert((await host.js('__chains.renderer.getPixelRatio()')) <= 2); /* phones render at 2x since gauntlet r2 (main.js resize: a 2.1 M pixel cap) */ record('Portrait-to-landscape keeps round state and caps mobile rendering resolution');
   await host.screenshot('mobile-landscape');
   // Near-basket fixture exercises actual catch physics, celebrations, scorecards and advancing holes.
   await host.js(`(()=>{const c=__chains,g=c.G,h=c.holes[0],dx=h.tee[0]-h.basket[0],dz=h.tee[1]-h.basket[1],l=Math.hypot(dx,dz);g.flight=null;g.pending=null;g.tween=null;g.players.forEach(p=>{const x=h.basket[0]+dx/l*4.5,z=h.basket[1]+dz/l*4.5;p.lie=[x,c.world.height(x,z),z];p.lieDist=4.5;p.strokes=0;p.scores=[];p.done=false});c.setupTurn(0)})()`);

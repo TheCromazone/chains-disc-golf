@@ -160,6 +160,7 @@ sheet.save(out, quality=90)`;
 const stats = { size: o.size, dpr: +o.dpr, mobile: o.mobile, fps, ticks, seed: +o.seed, difficulty: o.difficulty, throw: o.throw, clips: {} };
 try {
   await send('Runtime.enable'); await send('Page.enable');
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.coach', '["aim","throw","both"]'); } catch {}` });   // a returning player: the first-round thumb coach covered a third of the phone tee frame
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `(${clock})(${+o.seed})` });
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: +o.dpr, mobile: o.mobile });
   if (o.mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
