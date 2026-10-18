@@ -744,7 +744,7 @@ function updatePreview() {
   G.shotPreview = { ...estimate, power: pw, rest: r.result.rest, guided };
   const lie = curP().lie, pts = (guided ? r.traj : r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7)))).filter((q, i, a) => i >= a.length - 2 || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);   // the ribbon starts at the thrower's shoulder instead of slashing across his back
   const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
-  for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); }
+  for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); l.visible = !(G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4); }   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the ground arrow aims it
   previewMat.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
   const p = curP(), d = aimDir(), ax = p.lie[0] + d[0] * 1.15, az = p.lie[2] + d[1] * 1.15, n = world.normal ? world.normal(ax, az) : [0, 1, 0];
   aimArrow.position.set(p.lie[0] + d[0] * 1.7, world.height(p.lie[0] + d[0] * 1.7, p.lie[2] + d[1] * 1.7) + .04, p.lie[2] + d[1] * 1.7);
