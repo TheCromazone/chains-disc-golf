@@ -1052,6 +1052,21 @@ function flightCam(f, dt) {
   const fr = clearFraction(world, D[0], D[1], D[2], cx, cy, cz, 1.2);   // wide of trunks and well under the arch's banner
   c.pull += (fr - c.pull) * (1 - Math.exp(-(fr < c.pull ? 7 : 2.5) * dt));   // in briskly past a trunk, out slowly; never a one-frame lurch
   const q = Math.max(.25, c.pull); cx = D[0] + (cx - D[0]) * q; cy = D[1] + (cy - D[1]) * q; cz = D[2] + (cz - D[2]) * q;
+  // beside the line, not on it: an upright blocker (the arch's 2.5 m pillars, a tent, a feather flag) the lens passes near filled
+  // a third of a portrait frame (QA: every Meadows tee shot past the BIRDIE BREW pillar). The chase spot steps sideways until the
+  // blocker's near edge clears the frame's half-width (a portrait lens is only ~17° each side, so one 6 m ahead still needs ~3 m),
+  // weighted smoothly in and out of the window and eased in time, with the side fixed per blocker so the lens never swaps across
+  // one: the tracker is fed the target's velocity, and any step in the push would show as a lurch.
+  { const rn = rightOf([hv.x, hv.z]), tw = Math.tan(Math.atan(Math.tan(chaseFov() * DEG / 2) * camera.aspect)); let want = 0; c.side ||= new Map();
+    (world.camBlockers || []).forEach((bk, k) => { if (Math.abs(bk.b[1] - bk.a[1]) < .5) return;
+      const ox = cx - bk.a[0], oz = cz - bk.a[2], ahead = -(ox * hv.x + oz * hv.z), side = ox * rn[0] + oz * rn[1];
+      const wA = S(ahead, -1.5, 0) * (1 - S(ahead, 5.5, 8)) * (1 - S(cy, Math.max(bk.a[1], bk.b[1]) + .5, Math.max(bk.a[1], bk.b[1]) + 2));
+      if (wA <= 0) { c.side.delete(k); return; }
+      if (!c.side.has(k)) c.side.set(k, side < 0 ? -1 : 1);
+      const sg = c.side.get(k), need = Math.min(3.2, bk.r + .5 + Math.max(0, ahead) * tw) - side * sg;
+      if (need > 0) want += sg * need * wA; });
+    want = Math.max(-3.2, Math.min(3.2, want));
+    c.nudge = (c.nudge || 0) + (want - (c.nudge || 0)) * (1 - Math.exp(-4 * dt)); cx += rn[0] * c.nudge; cz += rn[1] * c.nudge; }
   const ceil = beamCeiling(cx, cz, D[1] + .2), lift = CHASE.lift * Math.max(0, Math.min(1, (ceil - D[1] - 1) / 2));   // under the arch: level with the disc, the banner out of the top of frame
   cy = Math.min(Math.max(cy, D[1] + 1), ceil); cy = Math.max(cy, world.height(cx, cz) + 1.5);
   // the hand-off's blends run from the moment the chase took over: timed from the release, a run-up's late hand-off (camAt .55)

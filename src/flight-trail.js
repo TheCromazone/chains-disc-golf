@@ -37,7 +37,11 @@ export function createFlightTrail(scene) {
         const head = 1 - Math.min(1, Math.max(0, now - s.t) / TAIL), d = _v.length(), w = d * WIDE * (.35 + .65 * head);
         _s.crossVectors(_t, _v).normalize().multiplyScalar(w);
         pos.set([_p.x + _s.x, _p.y + _s.y, _p.z + _s.z, _p.x - _s.x, _p.y - _s.y, _p.z - _s.z], i * 6);
-        fade[i * 2] = fade[i * 2 + 1] = i < n ? .82 * head ** 1.6 * THREE.MathUtils.smoothstep(d, 1.5, 6) : 0;
+        // seen end-on (the chase camera rides the line, so the trail runs from the disc back toward the lens) a ribbon collapses to a
+        // thin line hanging under the disc, a "vertical stick" (QA on a phone): segments fade as they turn end-on, and stay from the
+        // side (the aim camera, a run-up's three-quarter view, the landing shot), where the curve of the flight reads
+        const tl = _t.length(), endOn = tl > 1e-6 ? Math.abs(_t.dot(_v)) / (tl * d) : 0;
+        fade[i * 2] = fade[i * 2 + 1] = i < n ? .82 * head ** 1.6 * THREE.MathUtils.smoothstep(d, 1.5, 6) * (1 - THREE.MathUtils.smoothstep(endOn, .72, .94)) : 0;
       }
       geo.attributes.position.needsUpdate = geo.attributes.fade.needsUpdate = true;
     },
