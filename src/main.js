@@ -221,6 +221,27 @@ const menuStage = { d: [0, 1], r: [-1, 0] };
 const blobCanvas = document.createElement('canvas'); blobCanvas.width = blobCanvas.height = 64; const blobInk = blobCanvas.getContext('2d'), blobGrad = blobInk.createRadialGradient(32, 32, 0, 32, 32, 32);
 blobGrad.addColorStop(0, 'rgba(0,0,0,.72)'); blobGrad.addColorStop(.38, 'rgba(0,0,0,.42)'); blobGrad.addColorStop(1, 'rgba(0,0,0,0)'); blobInk.fillStyle = blobGrad; blobInk.fillRect(0, 0, 64, 64);
 const menuBlob = new THREE.Mesh(heroBlob.geometry, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(blobCanvas), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); menuBlob.scale.setScalar(.62); menuBlob.visible = false; scene.add(menuBlob);
+// Contact shade under every athlete on the course (a blind critique, 2026-10-17: "no contact shadow under his feet at the putt"):
+// in a crown's shadow the sun casts none, and he stood on the turf like a cut-out. A soft dark disc under the pelvis, square to the
+// slope, following him through the throw's travel.
+const footBlobMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,   // the falloff drawn in the shader: the clubhouse blob's canvas map came out empty here
+  vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader: 'varying vec2 vUv;void main(){float r=length(vUv-.5)*2.;float a=.72*pow(1.-smoothstep(0.,1.,r),1.4);gl_FragColor=vec4(0.,0.,0.,a);}' }), footBlobs = new Map(), _vBlob = new THREE.Vector3();
+const teeMatTop = (x, z) => {   // the tee's turf mat (props.js: 1.6 x 5 m, its top face at teeY + .07) stands proud of the ground the blob would sit on
+  const h = holes[G.holeIdx]; if (!h) return -Infinity;
+  const dx = x - h.tee[0], dz = z - h.tee[1], c = Math.cos(h.yaw), s = Math.sin(h.yaw), lx = c * dx - s * dz, lz = s * dx + c * dz;
+  return Math.abs(lx) < .8 && Math.abs(lz + .9) < 2.5 ? h.teeY + .07 : -Infinity;
+};
+function updateFootBlobs() {
+  for (const [p, m] of footBlobs) if (!G.players.includes(p)) { scene.remove(m); footBlobs.delete(p); }
+  const onCourse = !['menu', 'locker', 'courses'].includes(cam.mode);
+  for (const p of G.players) {
+    let m = footBlobs.get(p); if (!m) { m = new THREE.Mesh(heroBlob.geometry, footBlobMat); m.scale.setScalar(.5); m.renderOrder = 1; scene.add(m); footBlobs.set(p, m); }
+    m.visible = onCourse && p.char.group.visible; if (!m.visible) continue;
+    const r = p.char.joints?.root ? p.char.joints.root.getWorldPosition(_vBlob) : p.char.group.position, n = world.normal(r.x, r.z);
+    m.position.set(r.x, Math.max(world.height(r.x, r.z) + .03, teeMatTop(r.x, r.z) + .01), r.z); m.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]));
+  }
+}
 // Key art: a kicker raking the hero's far edge and a sheet of haze standing just behind him, so he poses in front of the woods
 // instead of being pasted on them. The kicker is patched into the hero's own materials (a scene light would recompile every
 // course material on the way in and out of the clubhouse); the haze is depth tested, so it veils only what stands behind him.
@@ -1175,6 +1196,7 @@ function frame(dt, rawDt, background) {
     if (b) p.char.lookAt?.(_gazeTarget.set(at ? at[0] : b.x, at ? at[1] : b.y + 1.35, at ? at[2] : b.z));
     p.char.update(p.animationDt); p.animationDt = 0;
   } }
+  updateFootBlobs();
   if (hero?.group.visible) { hero.update(dt); if (heroDisc) { heroDisc.visible = true; hero.group.getWorldDirection(_v2); holdDisc(hero, heroDisc, [_v2.x * .25, 1, _v2.z * .25], time * .3); } } else if (heroDisc) heroDisc.visible = false;
   const p = curP();
   if (p && (G.phase === 'aim' || G.phase === 'windup' || (G.phase === 'release' && G.pending && !G.pending.fired))) {
