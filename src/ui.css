@@ -563,6 +563,9 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
   #aimZone { top: auto; left: 16px; bottom: calc(76px + var(--sab)); }
   #power, #powerLabel, #waiting { left: 63%; }   /* clear of the wind plate on a 390-430 pt tall phone on its side */
   #pad { padding-bottom: calc(108px + var(--sab)); }   /* the hint rides over the wind plate, not into it */
+  /* the wind plate under the score plate: at the bottom right it sat on the athlete's hip, who stands in the right third over
+     the swipe pad (AIM.driveS), and the left column between the score and the aim pill is open sky and trees */
+  #conditions { right: auto; left: 12px; bottom: auto; top: calc(84px + var(--sat)); flex-direction: column; align-items: flex-start; gap: 3px; }
 }
 /* A phone on its side: the notch or Dynamic Island takes ~50 px of one long edge (viewport-fit=cover), where the score plate
    and the menu button used to sit. */

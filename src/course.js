@@ -767,14 +767,16 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // lowest whorl (1.8 m up, 2.2 m out) and the Scots pines' dead branches (1.6-2.7 m up, to 1.65 m out) carry no foliage that shows
   // at eye height (frond and needle cards are flat and vanish edge-on), so from a lie among them each read as a bare black rod
   // across the frame, through the athlete's head. A tree's wood over .75 m off its stem and under limbCut m up (model space)
-  // is dropped (the stubs reach .65 m at most and stay; bushes keep every branch: limbCut -1). And anything within ~1.3 m of the
+  // is dropped (the stubs reach .65 m at most and stay; bushes keep every branch: limbCut -1), as are its limbs within ~4.5 m of the
+  // lens anywhere (the chase camera crosses crowns, where the cards round a limb turn edge-on). And anything within ~1.3 m of the
   // lens dissolves in a screen-door dither, so a trunk or a crown the camera brushes is never a wall across the frame.
   const nearClip = (mat, limbCut = null) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
     s.uniforms.limbCut = limbCut || { value: -1 };
     s.vertexShader = 'varying vec3 vLimb;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vLimb = position;');
     s.fragmentShader = 'uniform float limbCut;varying vec3 vLimb;\n' + s.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-      if (vLimb.y < limbCut && dot(vLimb.xz, vLimb.xz) > .5625) discard;
-      if (length(vViewPosition) < mix(.5, 1.3, fract(52.98 * fract(dot(gl_FragCoord.xy, vec2(.06711, .00584)))))) discard;`); };
+      { float ign = fract(52.98 * fract(dot(gl_FragCoord.xy, vec2(.06711, .00584)))), eye = length(vViewPosition);
+        if (limbCut > 0. && (dot(vLimb.xz, vLimb.xz) > .5625 && (vLimb.y < limbCut || eye < mix(3.5, 5.5, ign)) || vLimb.y > 1.5 && dot(vLimb.xz, vLimb.xz) > .3 && eye < mix(2.5, 4., ign))) discard;   // and its stubs within ~3 m
+        if (eye < mix(.5, 1.3, ign)) discard; }`); };
     mat.customProgramCacheKey = () => prevKey.call(mat) + '|nearClip'; return mat; };
   const TREE_LIMBS = { value: 4.2 }, BUSH_LIMBS = { value: -1 };
   const wood = (map, limbs) => map && nearClip(near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false)), limbs);

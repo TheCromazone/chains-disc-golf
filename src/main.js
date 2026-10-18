@@ -983,7 +983,9 @@ function flightPlan(f) {
     const score = fr * 2 + sight * (.4 + .6 * both) + both * .5 - Math.abs(up - 3.4) * .06 - Math.abs(ang) * .12 - (reach < 6 ? .35 : 0) - (out < 2.2 ? 3 : 0) - crowded(P) * .8;
     if (score > best) { best = score; LP = P; }
   }
-  if (LP.distanceTo(_v.set(R[0], ry, R[2])) < 2.2) LP.set(R[0] - ux * 1.2, ry + 2.6, R[2] - uz * 1.2);   // boxed in: look down on it from just over its head
+  if (LP.distanceTo(_v.set(R[0], ry, R[2])) < 2.2) {   // boxed in: look down on it from over its head, on the side clearest of anyone waiting there (QA: a disc at a waiting player's feet framed the top of his cap)
+    let far = -1; for (const [a, b] of [[-ux, -uz], [rs[0], rs[1]], [-rs[0], -rs[1]], [ux, uz]]) { const x = R[0] + a * 2, z = R[2] + b * 2, clear = Math.min(9, ...G.players.map(q => q.char.group.position).filter(q => Math.hypot(q.x - R[0], q.z - R[2]) < 4).map(q => Math.hypot(q.x - x, q.z - z))); if (clear > far + .3) { far = clear; LP.set(x, ry + 3.4, z); } }
+  }
   // aim between the disc at rest and the basket so both hold the frame (the disc low, the pin and the tree line beyond it, not a wall of hillside); a far pin: down the line
   const la = Math.min(bd * .45, 9), LL = new THREE.Vector3(R[0] + ux * la, ry + .25 + la * .06, R[2] + uz * la);
   if (bd > 2 && bd < 45) { _v.set(R[0], ry, R[2]).sub(LP).normalize(); _v2.set(...T).sub(LP).normalize();
