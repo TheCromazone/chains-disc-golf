@@ -121,7 +121,19 @@ then the loudest 50 and 400 ms windows.
 | Tree, splash, tray, roll | original (the rebuilds lost) | 6.5 vs 4.5, 6 vs 3, 7.5 vs 4, 4.5 vs 2.5 |
 | Ambience | original (a live 14 s recording of each; a leaf-rustle layer read as static) | 7.5 vs 4 |
 
-Real recordings would still beat synthesis for the chains, the gallery's applause and the "ohh".
+**Real recordings (2026-10-18, with the owner's OK to download):** two Gemini videos (chain hits; a gallery's "ohh" then
+applause) were sliced, cleaned (rumble cut, chain rings notched out of the gallery, longer fades, room-tone and nasal dips) and
+judged blind against the synthesis, loudness-matched:
+
+| Sound | Recording vs synthesis |
+|---|---|
+| Chains (the hard-putt take; the clip's soft and last takes lost) | 8.5 vs 1.5 |
+| Chain-out | 7.8 vs 3.8 |
+| Gallery "ohh" | 6.2 vs 2.5 |
+| Applause | 8.1 vs 5.2 |
+
+The chains take's gain and pitch follow the putt's power. Recordings play at their own phone-measured levels (`SAMPLE_DB`),
+and the synthesis stays as the fallback. 100 KB in all; prompts and cuts are in `art/sfx/prompts.json`.
 
 ## Reactions
 
@@ -131,10 +143,10 @@ A miss now puts both hands on the head for about a second before the slump clip:
 
 ## Still open
 
-- Real recordings for the chains, the applause and the "ohh": two Gemini videos are generated and waiting for the owner's OK
-  to download.
-- On a 0.4 m tap-in the athlete still covers part of the basket, and at 1.2 m he sits at the frame's edge.
+- In the aim view of a 0.4 m tap-in the athlete still covers part of the basket, and at 1.2 m he sits at the frame's edge.
 - Landing shots in dense woods can still miss the pin when no spot clears the trunks.
+- Bots' drives into trees and the Meadows arch: PR #34 (the bot-planning session) penalises those lines.
+- Frame times on a physical iPhone are unmeasured (the Simulator renders on the Mac's GPU).
 
 ## Checks
 
