@@ -17,7 +17,7 @@ const server = spawn(process.execPath, ['serve.mjs', ...(process.argv.includes('
 let signalServer;
 const signal = report.transport.startsWith('local') ? PeerServer({ port: peerPort, path: '/' }, server => { signalServer = server; }) : null;
 const chrome = spawn(CHROME, ['--headless=new', '--mute-audio', `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
-process.once('exit', () => { try { chrome.kill(); } catch {} try { server?.kill(); } catch {} });   // a run that throws still takes its Chrome and server with it (crashed runs left them on the suite's fixed ports, and the next run, or another session's, talked to the orphans)
+process.once('exit', () => { try { chrome.kill('SIGKILL'); } catch {} try { server?.kill(); } catch {} });   // a run that throws still takes its Chrome and server with it (crashed runs left them on the suite's fixed ports, and the next run, or another session's, talked to the orphans)
 const pause = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, label, ms = 30000) { for (const t = Date.now(); Date.now() - t < ms; await pause(100)) { if (await fn()) return; } throw new Error('Timed out: ' + label); }
 const sessions = [];
@@ -28,7 +28,7 @@ async function page({ mobile = false, thin = false } = {}) {
   const target = (await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json()).find(t => t.id === targetId);
   const ws = new WebSocket(target.webSocketDebuggerUrl); await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
   let seq = 0; const pending = new Map();
-  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id) { const p = pending.get(m.id); pending.delete(m.id); if (m.error) p.reject(Error(m.error.message)); else p.resolve(m.result); }
+  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); if (m.error) p.reject(Error(m.error.message)); else p.resolve(m.result); }
     if (m.method === 'Runtime.exceptionThrown') report.errors.push(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text);
     if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') report.errors.push(m.params.args.map(a => a.value || a.description).join(' ')); };
   const send = (method, params = {}) => new Promise((resolve, reject) => { const id = ++seq; const timeout = setTimeout(() => { pending.delete(id); reject(Error('CDP timed out: ' + method)); }, 20000); pending.set(id, { resolve: v => { clearTimeout(timeout); resolve(v); }, reject: e => { clearTimeout(timeout); reject(e); } }); ws.send(JSON.stringify({ id, method, params })); });

@@ -97,7 +97,7 @@ const ws = new WebSocket(wsUrl); await new Promise((r, j) => { ws.onopen = r; ws
 let seq = 0, stage = 'boot'; const pending = new Map(), errors = [];
 ws.onmessage = ev => {
   const m = JSON.parse(ev.data);
-  if (m.id) { const p = pending.get(m.id); pending.delete(m.id); return m.error ? p.reject(new Error(m.error.message)) : p.resolve(m.result); }
+  if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); return m.error ? p.reject(new Error(m.error.message)) : p.resolve(m.result); }
   if (m.method === 'Runtime.exceptionThrown') errors.push({ stage, text: m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text });
   if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push({ stage, text: m.params.args.map(a => a.value ?? a.description).join(' ').slice(0, 4000) });
 };
