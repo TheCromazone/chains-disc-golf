@@ -27,7 +27,7 @@
     },
     "backhand_io_left": {
       "file": "assets/models/golfer-backhand_io_left.glb",
-      "bytes": 21508,
+      "bytes": 21504,
       "duration": 1,
       "meshes": 0
     },
@@ -45,7 +45,7 @@
     },
     "backhand_oi_left": {
       "file": "assets/models/golfer-backhand_oi_left.glb",
-      "bytes": 21508,
+      "bytes": 21504,
       "duration": 1,
       "meshes": 0
     },
@@ -75,7 +75,7 @@
     },
     "forehand": {
       "file": "assets/models/golfer-forehand.glb",
-      "bytes": 21504,
+      "bytes": 21500,
       "duration": 1,
       "meshes": 0
     },
@@ -159,7 +159,7 @@
     },
     "putt": {
       "file": "assets/models/golfer-putt.glb",
-      "bytes": 21500,
+      "bytes": 21496,
       "duration": 1,
       "meshes": 0
     },
@@ -219,7 +219,7 @@
     },
     "xstep": {
       "file": "assets/models/golfer-xstep.glb",
-      "bytes": 21500,
+      "bytes": 21496,
       "duration": 1,
       "meshes": 0
     },

@@ -6,7 +6,7 @@ not copied); this round judged the phone (iPhone 390×844 and 844×390, the Mobi
 
 | Area | Before | After | What changed |
 |---|---:|---:|---|
-| A bot's drive (realism) | 3 | 7 | Solved throw clips, an x-step run-up, a camera that shows it |
+| A bot's drive (realism) | 2-3 | 7.5 | Solved throw clips, an x-step run-up, a three-quarter camera (Gemini, blind A/B) |
 | Phone putt | 5 | 7 | 3D crowns near the eye, the full basket, close-range shadows |
 | Phone tee | 6 | 7 | The same, plus the full-detail body for the player on the tee |
 | Phone flyover / flight | 6.5 / 5.5 | 7.5 / 6.5 | Resolution that recovers, richer foliage, more grass |
@@ -25,13 +25,19 @@ player threw from a standstill, and the windup eased to a stop just before the p
   the hips turn over it, with anatomical limits and a pull toward the previous frame so no limb hops branches. Output:
   `src/throw-keys.js` (backhand, forehand, putt and two run-ups), baked through the existing Blender step
   (`tools/extract-poses.mjs`, `tools/author-golfer-clips.py`). `?liveclips` draws throws straight from the keys for iteration.
+  A channel eases only between the beats that set it. Until round 8, a beat that only moved a foot carried every other channel
+  forward, so the "rear foot lets go" beat froze the arm and chest for 25 ms right at the release: both critics called it "no
+  whip" without knowing why.
 - **The pelvis travels** (`rootX/rootZ` in the keys): weight back into the rear leg, a stride that plants the front foot, the hips
   braced over it through the hit, then on as the rear leg swings round. `keepTravel()` hands the travel to the player's position
   at the end of the throw, so nobody slides back to the lie. The flying disc leaves the hand where it was drawn and eases onto the
   physics path over 0.16 s (physics, release point and multiplayer are unchanged).
-- **The drive** now peaks straight back at chest height as the front foot plants, the hips open ~26° while the chest stays back,
-  the elbow leads the disc in at the sternum, the hand meets the disc's release point at 1.15 m, and the rear foot lets go at once
-  and lands past the front foot as the arm wraps. **The forehand** loads on the rear foot, plants the front, whips from the elbow
+- **The drive** now reaches back nearly straight-armed at chest height as the front foot plants, with the shoulders coiled to
+  about 200° (the back to the target). The hips fire first (~40 ms before the chest), and the elbow starts for the target while
+  the disc stays back. The disc comes into a tight pocket at the chest with the off arm tucked across the sternum. The front knee
+  absorbs the plant and posts up through the hit. The hand meets the disc's release point at 1.1 m and keeps flying round the body
+  after it. The rear foot pivots on its ball while the hips open, leaves the ground only after the hit, and swings round to land
+  past the front foot. The finish stays low over the plant leg. **The forehand** loads on the rear foot, plants the front, whips from the elbow
   and steps through. **The putt** loads, pushes straight out at the chains and holds, feet planted.
   [Drive, side view](drive-clip.jpg) · [forehand and putt](forehand-putt-clips.jpg)
 - **Timing**: the release half is explosive then decelerating (fastest through the hit, 0.1 s from 0.5 to the release), and a
@@ -39,29 +45,52 @@ player threw from a standstill, and the windup eased to a stop just before the p
 - **Run-ups**: a bot or remote player more than 40 m out, with a clear path behind the lie, waits at the back of the pad and runs
   in: an x-step into the backhand (0.8 s, handing over at the full coil) or a crow hop into the forehand. Your own swipe throws
   stay standstill and as responsive as before.
-- **The camera for a watched run-up**: a three-quarter view on the thrower's chest side (the throwing side when the waiting group
-  or a prop is there), following him, held 0.4 s past the release and dollying round behind him so the chase cam takes over from
-  the usual frame. From straight behind the reach-back pointed into the lens and the strides ran along the line of sight.
+- **The camera for a watched run-up**: a three-quarter view (~30° off the line) on the thrower's chest side, or the throwing side
+  when the waiting group, a tee sign or a bench is in the way (rays from the lens to the athlete along his run-up). It follows him,
+  stays still through the hit, then dollies round behind him from 0.2 s after the release, so the chase cam takes over from the
+  usual frame. From straight behind, the reach-back pointed into the lens and the strides ran along the line of sight. A side-on
+  view (90°) was tried in round 7 and dropped: Gemini read the approach as "walking backward blindly" and the flight as hidden.
   [Before and after on the phone](bot-drive-phone.jpg) · [before](bot-drive-before.mp4) · [after](bot-drive-after.mp4)
 
 ### Outside critics (ChatGPT, Gemini)
 
-Blind A/B sheets of the bot's drive, old against new, rows swapped between rounds
-([1](critique-drive.jpg), [2](critique-drive-2.jpg), [3](critique-drive-3.jpg), [4](critique-drive-4.jpg)):
+Blind A/B sheets of the bot's drive, the original against the new one, rows swapped between rounds, and from round 5 a
+single-row sheet for ChatGPT (it showed a position bias on A/B sheets):
+[1](critique-drive.jpg), [2](critique-drive-2.jpg), [3](critique-drive-3.jpg), [4](critique-drive-4.jpg),
+[5](critique-drive-5.jpg), [6](critique-drive-6.jpg), [7](critique-drive-7.jpg), [8](critique-drive-8.jpg) ([solo](critique-drive-8-solo.jpg)),
+[9](critique-drive-9.jpg) ([solo](critique-drive-9-solo.jpg)). The final drive on the phone: [clip](bot-drive-r3.mp4).
 
-| Round | New in row | ChatGPT new / old | Gemini new / old |
-|---|---|---:|---:|
-| 1 (run-up, camera straight behind) | A | 3.5 / 6.5 | - |
-| 2 (three-quarter camera) | A | 3.5 / 6.5 | 6.5 / 2.5 |
-| 3 (reach-back at the plant, hip lead, camera hold) | B | 6.5 / 4.5 | 6.5 / 2.5 |
-| 4 (brace, earlier rear foot, dolly) | A | 4.5 / 6.5 | 6.5 / 3 |
+| Round | What changed | New in row | ChatGPT new / old | Gemini new / old |
+|---|---|---|---:|---:|
+| 1 | Run-up, camera straight behind | A | 3.5 / 6.5 | - |
+| 2 | Three-quarter camera | A | 3.5 / 6.5 | 6.5 / 2.5 |
+| 3 | Reach-back at the plant, hip lead, camera hold | B | 6.5 / 4.5 | 6.5 / 2.5 |
+| 4 | Brace, earlier rear foot, dolly | A | 4.5 / 6.5 | 6.5 / 3 |
+| 5 | Shoulders coiled to the back, hips first, bounding x-step | A | 5.5 (solo) | 6 / - |
+| 6 | The same, tuned | - | 5.5 (solo) | - |
+| 7 | Side-on camera | A | 5.5 (solo) | **3 / 7.5** |
+| 8 | Three-quarter camera back; the release freeze fixed; front leg posts, rear foot pivots, longer wrap | B | 6.5 (solo) | 7 / 3 |
+| 9 | Elbow-led pocket, off arm tucked, straight-armed reach-back, head turns with the coil | A | 5.5 (solo) | **7.5 / 2** |
 
-ChatGPT gave row B 6.5 in all four rounds whichever version sat there, so its verdicts measure position more than motion; Gemini
-picked the new drive in all three rounds it answered, from either row. Their notes agreed. What both asked for, and what changed in response: the reach-back must peak at the plant instead of being
-carried ("camping"); the hips lead the chest with an elbow-led power pocket; the pelvis stops over a braced front knee; the rear
-foot lets go right after release; the run-up posture lower and more athletic; the camera holds through the follow-through.
-Gemini's last round still wants a deeper shoulder coil (the back of the shirt to the target), the hips visibly firing before the
-chest at the plant, and more forward lean over the plant leg in the finish: the next round's list.
+ChatGPT gave row B 6.5 in all four A/B rounds whichever version sat there, and its single-row scores swing by a point between
+near-identical versions (6.5 then 5.5, with notes such as "the reach-back is almost nonexistent" for a near-straight arm), so its
+lists of faults were more useful than its scores. Gemini picked the new drive in every round but one, from either row; the
+exception was the side-on camera, where it preferred the original's view from behind. Its last verdict: "It actually feels like a
+disc golf throw", with the camera "great: it shows the full body mechanics, the tee pad, the release point, and the flight path".
+
+What both asked for, and what changed in response, over the rounds:
+- The reach-back must peak at the plant instead of being carried.
+- The hips must lead the chest, with an elbow-led power pocket.
+- The pelvis must stop over a braced front knee.
+- The rear foot should stay down through the hit, then swing round.
+- The off arm should tuck in during the pull.
+- The camera should hold through the follow-through.
+
+Both critics' remaining notes are the next round's list:
+- A shoulder turn that reads deeper at the reach-back. Its 30 ms peak falls between the 0.1 s frames.
+- The off arm punching down and in during the pull.
+- A visible compression into the brace before the hips snap up.
+- The disc visibly leaving the hand, with its trail lined up with the hand's path.
 
 ## The phone's look
 
@@ -105,7 +134,7 @@ clubhouse, tee and flights at 57-60 fps before the merge, but the simulator rend
 ## Tools used
 
 - **Blender 5.2**: bakes every solved clip (and the two new run-up clips) into the shipped GLBs.
-- **ChatGPT and Gemini** (the signed-in Chrome on the Mac mini): blind critiques of the bot's drive, four rounds.
+- **ChatGPT and Gemini** (the signed-in Chrome on the Mac mini): blind critiques of the bot's drive, nine rounds.
 - **iOS Simulator (Safari / WebKit)**: the round played on a real Safari engine, with the fps overlay.
 - **Unreal 5.8 and Unity 6.6**: not used. The game rig has 11 joints and no hands or feet, so neither engine's retargeting or mocap
   helps (see `art/unreal/REPORT.md`, `art/unity/REPORT.md`); Unity's motion generation also needs the editor terms and paid credits.

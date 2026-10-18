@@ -1058,7 +1058,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
-  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs } };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one)
+  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs }, props: dressing.meshes };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one); props: the built dressing, for the run-up camera's line-of-sight rays
 }
 
 // Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 8 m (not
