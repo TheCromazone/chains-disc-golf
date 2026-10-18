@@ -55,6 +55,21 @@ the aim camera 0.6 m behind a trunk, and the whole screen was bark.
 
 [Splash, before and after](splash.jpg)
 
+## Third pass: holes 2 and 3 on every course
+
+Bot-played 3-hole rounds on Pine Hollow, Lakeshore and Meadows (portrait) and Gull Point Bluffs (landscape), shooting each
+phase change plus 1.2 s into every flight and result:
+- **Birch landing:** a disc resting 0.64 m from a birch got a landing shot that was only bark. `flightPlan`'s line test kept a
+  1 m berth round trunks, so the disc sat inside it and every spot read as blocked. The berth now shrinks to the room the disc
+  has, and the landing spot also counts a trunk filling the front of the lens.
+- **Tap-in reactions:** after a tap-in the athlete stood in the basket's footprint, and every short par's reaction shot was
+  through the cage. He now steps back to arm's length as the camera cuts (visual only: his lie and the scores are untouched).
+  Players who have holed out wait 2.6 m off the basket.
+- **Locker:** "Ready to play" stays pinned to the bottom of the scrolling panel. On a landscape phone it had sat below the fold.
+- **Ambience birds:** pushing them back into the canopy (a lowpass, a 2.8 kHz dip, more reverb) lost a blind pair 4.5 to 7,
+  so it wasn't shipped.
+- **Real iOS Safari (Simulator):** menu 61 fps, tee 60, a throw's landing 58, with the new tree shaders and HUD.
+
 ## Landscape HUD
 
 The wind and elevation plate sat on the athlete's hip at the bottom right. It now sits under the score plate.
