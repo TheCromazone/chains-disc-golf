@@ -133,7 +133,10 @@ const warmFrom = family => { const r = readyPose(family, 0, RIGS.glb); return { 
 // stays low over the plant leg. ChatGPT, after: "no distinct elbow-led pocket", "the off-arm hangs away": the elbow now starts for
 // the target at .47 with the disc still back, the pocket is tighter at the chest, and the off arm tucks across the sternum
 // through the pull and opens only after the release. Gemini, after (7/10): "the elbow is still bent at the reach-back", "the
-// head eyes the target": the arm reaches out nearly straight at the plant and the head turns back with the coil.
+// head eyes the target": the arm reaches out nearly straight at the plant and the head turns back with the coil (Gemini: 7.5/10).
+// Rounds 10-12 chased each critique's notes (a brace dip, the off arm driven down, a later reach-back, the weight forward, a
+// 45-degree camera) and both critics' scores fell (Gemini 6, 5.5, 5.5), so this is the round-9 drive again, plus the rear
+// toe kept on the pad through the hit (a raised sole y lifted the whole foot 2-6 cm).
 const BH = [
   { t: 0, at: [0, -.08, 0], pelvis: [-7, 70, 0], chest: [-17, 80, 6], head: [-16, -100, -7],
     handR: [-.23, 0, .53], elbowR: [.04, -.02, .29], rollR: 0, handL: [-.04, -.58, -.10], elbowL: [-.03, -.29, .02], rollL: 0,
@@ -149,15 +152,15 @@ const BH = [
   { t: .47, pelvis: [-9, 80, -1], chest: [-17, 120, 2], head: [1, -94, 0], handR: [.10, -.11, .42], elbowR: [.07, -.07, .0] },   // the hips go first: the chest holds its coil ~40 ms longer, and the elbow starts for the target while the disc stays back
   { t: .5, at: [-.02, -.145, .01], pelvis: [-8, 55, 0], chest: [-16, 128, 2], head: [0, -100, 0],
     handR: [.03, -.13, .15], elbowR: [.06, -.08, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10 },
-  { t: .53, pelvis: [-8, 45, 0], chest: [-16, 112, 0], head: [0, -90, 0], handR: [-.12, -.12, .12], elbowR: [.04, -.09, -.25] },   // the disc swings in front of the sternum, not through the shoulder
+  { t: .53, pelvis: [-8, 45, 0], chest: [-16, 112, 0], head: [0, -90, 0], handR: [-.12, -.12, .12], elbowR: [.04, -.09, -.25], soleL: [-.27, 0, .28], footL: 60 },   // the rear heel turns in as the hips fire (a sole's y is its lowest point: the toe stays down)   // the disc swings in front of the sternum, not through the shoulder
   { t: .565, at: [-.01, -.13, -.005], pelvis: [-8, 38, 0], chest: [-15, 82, -2], head: [0, -76, 0],
     handR: [-.23, -.10, -.06], elbowR: [.06, -.09, -.26], handL: [.04, -.32, -.14], elbowL: [-.06, -.25, -.06], rollR: 20 },
   { t: .62, at: [0, -.115, -.01], pelvis: [-7, 30, 0], chest: [-14, 64, -6], head: [0, -60, 0],
     handR: [-.04, -.12, -.48], elbowR: [.04, -.08, -.22], handL: [-.08, -.38, -.02], elbowL: [-.07, -.26, .02], rollR: 30 },
-  { t: .66, soleL: [-.28, .03, .26], footL: 48, handR: [-.28, -.10, -.50], elbowR: [-.10, -.06, -.25] },   // the rear foot pivots on its ball as the hips finish opening; the arm flies on across
+  { t: .66, soleL: [-.28, .01, .26], footL: 48, handR: [-.28, -.10, -.50], elbowR: [-.10, -.06, -.25] },   // the rear foot pivots on its ball as the hips finish opening; the arm flies on across
   { t: .7, at: [-.015, -.10, -.06], pelvis: [-9, 10, 0], chest: [-18, 45, -6], head: [0, -42, 0],
     handR: [-.42, -.06, -.40], elbowR: [-.18, -.03, -.22], handL: [-.24, -.42, .22], elbowL: [-.12, -.25, .11],
-    soleL: [-.30, .06, .20], footL: 32, footR: 80 },
+    soleL: [-.30, .04, .20], footL: 32, footR: 80 },
   { t: .74, soleL: [-.33, .15, .04], footL: 20, handR: [-.56, -.01, -.20], elbowR: [-.27, .0, -.14] },   // ...and only then lets go and swings round the posted front leg
   { t: .8, at: [-.06, -.10, -.20], pelvis: [-14, -20, 0], chest: [-27, 16, -2], head: [4, -6, 0],
     handR: [-.60, .02, -.04], elbowR: [-.29, .03, -.08], handL: [-.32, -.38, .26], elbowL: [-.15, -.23, .13],
