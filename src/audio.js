@@ -98,12 +98,12 @@ const chainCascade = (t0, hits, loud, { lo = 1800, hi = 4200, span = 1 } = {}) =
 };
 // the disc's plastic rim deforming against steel: a short mid-band crack and a thump that drops in pitch
 const chainImpact = (t0, k = 1) => { burst(.025, { f0: 1300, q: 1.2, gain: .5 * k, t0, attack: .001 }); partial(300, .035, .3 * k, { f1: 90, t0 }); burst(.012, { f0: 5200, q: .8, gain: .06 * k, t0, attack: .0008 }); };
-const trayDrop = (t0, k = 1) => {  // disc settling on the basket tray: dull steel pan clank, the welded wire ringing, and a chatter of
-  ring(rnd(300, 360), [1, 1.83, 2.71], [1, 0.4, 0.2], 0.22, 0.2 * k, { t0, send: 0.4 });   // bounces closing up as its spin dies
+const trayDrop = (t0, k = 1) => {  // disc settling on the basket tray: dull steel pan clank + two smaller bounces (a blind A/B kept this over a
+  // rebuilt one with the wire ringing and a chatter of bounces: 7.5 to 4)
+  ring(rnd(300, 360), [1, 1.83, 2.71], [1, 0.4, 0.2], 0.22, 0.2 * k, { t0, send: 0.4 });
   burst(0.07, { f0: 900, f1: 260, q: 0.6, gain: 0.22 * k, type: 'lowpass', t0 });
-  partial(rnd(660, 700), .16, .07 * k, { t0, send: .4 }); partial(rnd(1500, 1600), .14, .045 * k, { t0, send: .4 });
-  let t = t0 + rnd(.08, .1), g = .45;
-  for (const gap of [.055, .03, .016]) { ring(rnd(320, 400), [1, 1.83, 2.4], [1, .4, .2], .06, .12 * k * g, { t0: t, send: .3 }); burst(.015, { f0: 1500, q: 1, gain: .12 * k * g, t0: t, attack: .001 }); t += gap; g *= .55; }
+  ring(rnd(310, 380), [1, 1.83], [1, 0.4], 0.1, 0.07 * k, { t0: t0 + rnd(0.1, 0.14), send: 0.3 });
+  ring(rnd(320, 400), [1, 1.83], [1, 0.4], 0.07, 0.035 * k, { t0: t0 + rnd(0.2, 0.26), send: 0.3 });
 };
 
 export const sfx = {
@@ -129,22 +129,16 @@ export const sfx = {
     partial(105, 0.16, 0.34 * k, { f1: 48, t0 }); burst(0.09, { f0: 420, f1: 120, q: 0.7, gain: 0.3 * k, type: 'lowpass', t0 }); burst(0.24, { f0: 2600, f1: 1500, q: 0.4, gain: 0.07 * k, type: 'highpass', t0: t0 + 0.01, attack: 0.02 }); },
   skip() { if (!ctx) return; if (play('skip')) return; const t0 = now(); burst(0.07, { f0: 800, f1: 300, q: 0.7, gain: 0.22, t0 }); partial(150, 0.07, 0.18, { f1: 70, t0 }); burst(0.14, { f0: 3000, f1: 1800, q: 0.4, gain: 0.05, type: 'highpass', t0 });
     burst(0.045, { f0: 2400, f1: 1200, q: 0.9, gain: 0.16, t0, attack: 0.002 }); },   // the plastic's slap, where a phone hears it
-  // plastic on bark: a woody whack (a falling knock through three hollow-trunk modes), the plastic's slap on the rough bark, then the
-  // crown shivering a beat later
+  // (a blind A/B kept this knock over a rebuilt one with hollow trunk modes, 6.5 to 4.5: 'a soft object on a hollow door')
   tree() { if (!ctx) return; if (play('tree')) return; const t0 = now();
-    partial(rnd(230, 260), .035, .32, { f1: 110, type: 'triangle', t0 });
-    for (const [F, d, g] of [[rnd(260, 300), .12, 1.4], [rnd(540, 620), .1, 1], [rnd(1080, 1220), .08, .6]]) burst(d, { f0: F, q: 8, gain: g, t0, attack: .001, send: .3 });
-    burst(.016, { f0: 2600, q: .8, gain: .35, t0, attack: .0008 });
-    for (let i = 0; i < 3; i++) burst(rnd(.2, .3), { f0: rnd(3200, 6000), f1: 2600, q: .5, gain: .045, t0: t0 + .1 + i * rnd(.03, .07), attack: .05, lfo: [rnd(18, 28), .6] }); },
+    burst(0.025, { f0: 1600, f1: 500, q: 0.5, gain: 0.35, t0 }); ring(rnd(190, 320), [1, 2.3, 3.9, 5.4], [1, 0.45, 0.3, 0.15], 0.1, 0.45, { t0, send: 0.35, detune: 0.03 });
+    partial(rnd(90, 120), 0.09, 0.2, { f1: 60, t0 }); for (let i = 0; i < 3; i++) burst(rnd(0.12, 0.3), { f0: rnd(2000, 3500), f1: 1500, q: 0.4, gain: 0.05, type: 'highpass', t0: t0 + 0.03 + i * rnd(0.04, 0.09), attack: 0.02 }); },
   leaves() { if (!ctx) return; if (play('leaves')) return; const t0 = now(); for (let i = 0; i < 4; i++) burst(rnd(0.1, 0.3), { f0: rnd(1800, 3800), f1: 1400, q: 0.4, gain: rnd(0.05, 0.09), type: 'highpass', t0: t0 + i * rnd(0.03, 0.1), attack: 0.02 }); for (let i = 0; i < 5; i++) burst(0.012, { f0: rnd(2500, 5000), q: 2, gain: 0.05, t0: t0 + rnd(0, 0.35) }); },
-  // a disc slicing into a pond: the slap on the surface, the plume of spray falling back, air cavities collapsing (pitch rising as
-  // each closes) and droplets, over the body of the water
+  // (a blind A/B kept this staged splash, 6 to 3, over a rebuilt one whose noise plume read as 'a steam hiss')
   splash() { if (!ctx) return; if (play('splash')) return; const t0 = now();
-    burst(.035, { f0: 2400, q: .4, gain: .55, type: 'highpass', t0, attack: .001 });
-    burst(0.12, { f0: 650, f1: 160, q: 0.6, gain: 0.3, type: 'lowpass', t0 }); partial(150, 0.2, 0.12, { f1: 60, t0 });
-    burst(.5, { f0: 2500, f1: 420, q: .7, gain: .3, attack: .02, t0: t0 + .02, send: .4, lfo: [rnd(22, 28), .6] });
-    for (let i = 0; i < 3; i++) partial(rnd(170, 200), .07, .09, { f1: rnd(480, 560), t0: t0 + rnd(.04, .22) });
-    for (let i = 0; i < 8; i++) partial(rnd(1400, 3600), 0.03, 0.04, { f1: 900, t0: t0 + rnd(0.15, 0.6) }); },
+    burst(0.12, { f0: 650, f1: 160, q: 0.6, gain: 0.45, type: 'lowpass', t0 }); partial(150, 0.28, 0.24, { f1: 42, t0 });
+    burst(0.75, { f0: 1900, f1: 700, q: 0.5, gain: 0.16, attack: 0.05, t0: t0 + 0.03, send: 0.4, lfo: [rnd(7, 11), 0.5] });
+    for (let i = 0; i < 6; i++) partial(rnd(1400, 3600), 0.03, 0.04, { f1: 900, t0: t0 + rnd(0.12, 0.55) }); },
   // a disc rolling on its rim: the rim's whirr through the grass (the band a phone's speaker plays) over the turf's rumble
   roll() { if (!ctx) return; if (play('roll')) return; burst(0.9, { f0: 320, f1: 140, q: 0.5, gain: 0.12, type: 'lowpass', attack: 0.03, lfo: [rnd(4, 7), 0.6] });
     burst(0.95, { f0: rnd(1300, 1700), f1: 650, q: 0.9, gain: 0.07, attack: 0.04, lfo: [rnd(10, 15), 0.7] }); },
@@ -192,7 +186,7 @@ export const sfx = {
 // 350 Hz, EBU R128 momentary maximum): the chains came out at -21, the applause at -46, the near-miss "ohh" at -50 and a skip or
 // a roll at -54, so on an iPhone the gallery, the misses and the landings were all but silent beside the chains. Each now plays at
 // its place in the mix (chains first, the gallery and the verdicts close behind, impacts under them, UI clicks and rolls lowest).
-const TRIM_DB = { applause: 23, ohh: -1, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 16, leaves: 7, splash: 11, band: 1.5, pole: 3, chainout: 10, drop: 5, skip: 22, roll: 14, click: 20 };   // dB
+const TRIM_DB = { applause: 23, ohh: -1, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 10, leaves: 7, splash: 11, band: 1.5, pole: 3, chainout: 10, drop: 5, skip: 22, roll: 14, click: 20 };   // dB
 for (const [k, f] of Object.entries(sfx)) sfx[k] = function (...a) { const prev = trim; trim = prev * 10 ** ((TRIM_DB[k] || 0) / 20); try { return f.apply(this, a); } finally { trim = prev; } };
 
 function ambient() { // wind bed with slow gusts + bird calls (frequency-swept chirps, trills)
