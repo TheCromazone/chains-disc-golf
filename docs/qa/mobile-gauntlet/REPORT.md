@@ -45,6 +45,10 @@ player threw from a standstill, and the windup eased to a stop just before the p
 - **Run-ups**: a bot or remote player more than 40 m out, with a clear path behind the lie, waits at the back of the pad and runs
   in: an x-step into the backhand (0.8 s, handing over at the full coil) or a crow hop into the forehand. Your own swipe throws
   stay standstill and as responsive as before.
+- **The hand-off to the chase camera** after a watched run-up: the chase's blends (its rise, its look onto the disc, the lens)
+  were timed from the release, but a run-up hands over 0.55 s later, so the chase began with its look already on the disc and
+  its rise 84% done. The frame cut from behind the thrower to a side view of the arch, then turned into a banner on a forehand
+  (reported by the parallel session). The blends now run from the moment the chase takes over.
 - **The camera for a watched run-up**: a three-quarter view (~30° off the line) on the thrower's chest side, or the throwing side
   when the waiting group, a tee sign or a bench is in the way (rays from the lens to the athlete along his run-up). It follows him,
   stays still through the hit, then dollies round behind him from 0.2 s after the release, so the chase cam takes over from the
@@ -76,11 +80,14 @@ single-row sheet for ChatGPT (it showed a position bias on A/B sheets):
 | 11 | The off arm swung round after the hit, rear heel turned in, a longer finish, a 45-degree camera | A | - | 5.5 / 2.5 |
 | 12 | A later reach-back, the weight forward onto the front leg, more spine lean, 30 degrees again | B | 5.5 (solo) | 5.5 / 3 |
 | 13 | **Shipped:** round 9's drive, plus the rear toe kept on the pad and the disc held on its plane through the pull | A | 5.5 (solo) | 4.5 / 2 |
+| 13, again | The same sheet, a fresh chat | A | - | 5.5 / 2.5 |
 
 Rounds 10 to 12 each acted on the previous round's notes, and both critics' scores fell, so round 13 went back to round 9's
 drive. Round 13 is that same drive with two small fixes, yet Gemini scored it 4.5 where it had scored round 9 7.5. Its round-13
 notes also describe things the clip does not show ("zero X-step, he stays planted on the same spot"; the run-up travels 1.5 m).
-For the same motion, then, a still-frame critique swings by about ±1.5 points. The notes contradict each other from round to
+For the same motion, then, a still-frame critique swings by about ±1.5 points. Across Gemini's three blind samples of this
+drive (7.5, 4.5, 5.5) it averages about 5.8 against about 2.2 for the original; ChatGPT gave it 5.5 both times. On the critics'
+own scale, it reads as a recognisable, mid-range disc golf drive, not yet a convincingly real one. The notes contradict each other from round to
 round: the off arm "tight to the ribs", then "hanging loose"; the weight "must stop over the plant", then "must move forward 15-20
 cm". The one result that held in every round is relative: the new drive beat the original by 2.5 to 5 points, from either row.
 A blind video A/B, which would judge the timing properly, was not run: Gemini asks for agreement to its video-upload terms first,
@@ -112,6 +119,9 @@ Blind look critique, round 13 ([Pine Hollow](critique-look-pine.jpg), the new bu
 the new build in row A). Each sheet shows four phone moments from the start of this round against the same moments now.
 - **Gemini, Pine Hollow:** the new build 8/10 overall against 6.5, "by a significant margin". Lighting went 6.5 → 8.5, foliage
   7 → 8, athlete 7 → 7.5; "it looks like a released game with active color grading", the old build "a raw editor viewport".
+- **ChatGPT, Pine Hollow at the phone's real size** ([sheet](critique-look-pine-full.jpg), new in row A): the old build 7.7, the new
+  7.3, "subtle; at actual phone size most players would struggle to distinguish these builds". Once more it preferred row B: in
+  all six of its A/B rounds it picked row B, whichever version sat there.
 - **ChatGPT, Lakeshore:** the old build 7.5, the new 7.1. The old build sat in row B, the row ChatGPT favours, and it called the
   difference "incremental".
 
