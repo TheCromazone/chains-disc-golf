@@ -70,19 +70,29 @@ then the loudest 50 and 400 ms windows.
 | Chains (hero) | -27.5 | -22 |
 | Applause (good throw, birdie) | -50.8 | -25 |
 | Near-miss "ohh" | -50.3 | -29 |
-| Skip / roll | -55 / -55 | -36 / -35 |
+| Skip | -55 | -36 |
 | Tree knock | -44.6 | -30 |
 | Ambience (wind, leaves) | -59.3 | -43 |
 
 - A 12:1 bus compressor at -20 dBFS squeezed the whole mix. It is now a peak limiter behind a 60 Hz high-pass, with per-sound
   trims (`TRIM_DB`) in a chains-first order. A holed birdie putt (chains, then the jingle and applause) plays at -19 LUFS,
   peaking at -5 dBFS.
-- Sounds with nothing a phone can play were reworked: the "ohh" is voiced through formants, the roll has a rim whirr, the skip
-  a plastic slap, and the ambience a leaf-rustle layer that follows the gusts.
-- Gemini judged the synthesis blind: chains 3/10, tray 4, tree 3.5, splash 2, applause 1.5 ("frying bacon"), ohh 1. The tree,
-  splash, tray, applause and womp were rebuilt to its notes (hollow trunk modes and a leaf shiver; a surface slap, spray and
-  rising bubbles; the welded wire ringing; eight clappers with their own palm resonance; a brass filter that opens with the
-  breath). Its top three to replace with real recordings are the chains, the "ohh" and the applause.
+- The ambience gained a leaf-rustle layer that follows the gusts (its wind bed sits under ~500 Hz, which a phone barely plays).
+- **Every synthesis change was judged blind by Gemini.** Each pair was loudness-matched, with old and new swapped between rows,
+  and a change shipped only when it won its pair. Gemini's absolute scores drift from chat to chat (its first verdict rated the
+  original tray 4/10, a later blind pair 7.5), so only the pairwise wins count.
+
+| Sound | Kept | Blind pair (old vs new, /10) |
+|---|---|---|
+| Chains | new: an impact, a cascade of struck links with their own inharmonic modes, the pole's clank, settling links | 2.5 vs 4.5, then 4.5 vs 6, then 6-7 vs 4.5 for a choked-ring variant (dropped) |
+| Chain-out | new: a narrow crack, the outer link's zing, a gap with two or three lazy clinks | 5 vs 6.5 |
+| Applause | new: six clappers, each with their own palm resonance, skin snap and tempo | 4 vs 5.5 (an eight-clapper version lost 4 vs 2) |
+| Near-miss "ohh" | new: voices low-passed, vowel closing "ah" to "oh", breath and sigh | 1 vs 2.5 vs 5 |
+| Womp | new: the brass filter opens with each note's breath | 3 vs 5.5 |
+| Skip | new: a plastic slap on top | 4 vs 6.5 |
+| Tree, splash, tray, roll | original (the rebuilds lost) | 6.5 vs 4.5, 6 vs 3, 7.5 vs 4, 4.5 vs 2.5 |
+
+Real recordings would still beat synthesis for the chains, the gallery's applause and the "ohh".
 
 ## Reactions
 
