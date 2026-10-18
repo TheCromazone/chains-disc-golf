@@ -985,7 +985,7 @@ function flightPlan(f) {
     const dd = _v.dot(_v2), th = Math.acos(Math.min(1, dd)), halfW = Math.atan(Math.tan(chaseFov() * DEG / 2) * camera.aspect);
     const pin = Math.min(dd > .72 ? .5 : dd > .55 ? .3 : 0, th > 1e-3 ? .6 * halfW / th : .5);   // the pin shares the frame only while it stands near the disc's bearing; the disc stays inside 60% of the half-width
     LL.copy(LP).addScaledVector(_v.multiplyScalar(1 - pin).addScaledVector(_v2, pin).normalize(), 10); }
-  return { H: cam.pos.clone(), HL: cam.look.clone(), F0: cam.fov, S0: cam.shift, dir: new THREE.Vector3(f.params.dir[0], 0, f.params.dir[1]).normalize(), pull: 1, tLand, LP, LL };
+  return { H: cam.pos.clone(), HL: cam.look.clone(), F0: cam.fov, S0: cam.shift, t0: f.t, dir: new THREE.Vector3(f.params.dir[0], 0, f.params.dir[1]).normalize(), pull: 1, tLand, LP, LL };   // t0: when the chase took over (a watched run-up hands over at camAt, not at the release)
 }
 function flightCam(f, dt) {
   const D = f.pos, c = f.cam || (f.cam = flightPlan(f)), S = THREE.MathUtils.smoothstep;
@@ -996,7 +996,9 @@ function flightCam(f, dt) {
   const q = Math.max(.25, c.pull); cx = D[0] + (cx - D[0]) * q; cy = D[1] + (cy - D[1]) * q; cz = D[2] + (cz - D[2]) * q;
   const ceil = beamCeiling(cx, cz, D[1] + .2), lift = CHASE.lift * Math.max(0, Math.min(1, (ceil - D[1] - 1) / 2));   // under the arch: level with the disc, the banner out of the top of frame
   cy = Math.min(Math.max(cy, D[1] + 1), ceil); cy = Math.max(cy, world.height(cx, cz) + 1.5);
-  const w = S(f.t, CHASE.hold, CHASE.hold + CHASE.blend), wl = S(f.t, CHASE.hold * .5, CHASE.hold + CHASE.blend * .8), wg = S(f.t, c.tLand - CHASE.land, c.tLand + CHASE.land * 1.4);
+  // the hand-off's blends run from the moment the chase took over: timed from the release, a run-up's late hand-off (camAt .55)
+  // found the look already swung onto the disc and the arc 84% done, and the frame jumped from behind the thrower to the disc
+  const ct = f.t - (c.t0 || 0), w = S(ct, CHASE.hold, CHASE.hold + CHASE.blend), wl = S(ct, CHASE.hold * .5, CHASE.hold + CHASE.blend * .8), wg = S(f.t, c.tLand - CHASE.land, c.tLand + CHASE.land * 1.4);
   const arc = Math.sin(Math.PI * w), rt = rightOf([hv.x, hv.z]); _v.set(cx - rt[0] * arc, cy + arc * 1.5, cz - rt[1] * arc);   // up and past the thrower's left shoulder (the aim camera's side), never through his head
   // A critically damped tracker on the chase spot, fed its velocity: the camera leaves the follow-through at rest and eases up
   // to the disc's speed. (Lerping from the fixed aim spot to a target running away at 25 m/s made it sit still, then race the
@@ -1004,7 +1006,7 @@ function flightCam(f, dt) {
   if (!c.p) { c.p = c.H.clone(); c.pv = new THREE.Vector3(); c.T = _v.clone(); }
   if (dt > 0) {
     _v2.copy(_v).sub(c.T).divideScalar(dt); c.T.copy(_v);
-    if (f.t > CHASE.hold) for (let i = 0, n = Math.ceil(dt / .008), h = dt / n, W = CHASE.track; i < n; i++) {
+    if (ct > CHASE.hold) for (let i = 0, n = Math.ceil(dt / .008), h = dt / n, W = CHASE.track; i < n; i++) {
       c.pv.addScaledVector(_v3.copy(_v).sub(c.p), W * W * h).addScaledVector(_v3.copy(_v2).sub(c.pv), 2 * W * h); c.p.addScaledVector(c.pv, h);
     }
   }
