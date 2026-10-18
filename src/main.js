@@ -779,7 +779,7 @@ AIM.driveS = { back: 3.4, side: .95, up: 1.55, pitch: 5, yaw: 0, vfov: 38 };   /
 // closer) by a clear line from the athlete's head to the lens, clear air over the first 8 m ahead of it and the athlete where the
 // rig puts him across the frame (a phone's portrait lens is narrow: a wider shoulder put him out of it), and keeps the best, the
 // rig's own spot on a tie. Once per lie, measured down the line to the pin, so aiming never swaps sides.
-const AIM_SPOTS = [[1, 1], [1, -1], [1, 1.8], [1, -1.8], [1, .3], [.8, -1], [.8, 1], [.65, -.5], [.65, .5]];   // back and side factors
+const AIM_SPOTS = [[1, 1], [1, -1], [1, 1.8], [1, -1.8], [1, .3], [.8, -1], [.8, 1], [.65, -.5], [.65, .5], [.85, 2.6], [.85, -2.6]];   // back and side factors; the last two stand wide beside a trunk right behind the lie (QA: one 1.5 m behind blocked every other spot), the lens turning to keep him in
 const aimSpot = { key: '', k: 0 };
 function aimSpotFor(lie, P, side, putt, halfW) {
   const h = holes[G.holeIdx], key = `${G.seed}|${G.holeIdx}|${lie.x.toFixed(1)}|${lie.z.toFixed(1)}|${putt}|${P === AIM.tall.putt || P === AIM.tall.drive}`;
@@ -969,13 +969,18 @@ function flightPlan(f) {
   // result shot was bark.
   // metres a spot stands inside a crown's leaf spread (the cards reach past the collider) or a trunk's berth
   const crowded = P => world.treesNear(P.x, P.z).reduce((m, t) => Math.max(m, t.fr * 1.3 - Math.hypot(t.x - P.x, t.y + t.fy - P.y, t.z - P.z), t.r + 1.2 - Math.hypot(t.x - P.x, t.z - P.z)), 0);
+  // and, with the pin near (2-45 m), a spot from which the disc and the basket fit one frame: a portrait phone's lens is ~17° each
+  // side of centre, so a spot round the side of the disc (QA: a roller 7 m short of the pin among birches) showed turf and trunks
+  // with the pin out of shot
+  const halfW = Math.atan(Math.tan(chaseFov() * DEG / 2) * camera.aspect), _d = new THREE.Vector3(), _t = new THREE.Vector3();
   let LP = null, best = -Infinity;
   for (const ang of [.35, -.35, .9, -.9, 1.5, -1.5, 2.3, -2.3]) for (const reach of [6.4, 3.8]) for (const up of [2.2, 3.4, 4.6, 6]) {   // 2.2: under a low canopy
     const ca = Math.cos(ang), sa = Math.sin(ang) * pref, dx = -ux * ca + rs[0] * sa, dz = -uz * ca + rs[1] * sa;
     const x = R[0] + dx * reach, z = R[2] + dz * reach, y = Math.max(world.height(x, z) + up * reach / 6.4 + .1, ry + up * reach / 6.4);
     const fr = clearFraction(world, R[0], ry, R[2], x, y, z, 1, 1.2, 1.05), P = new THREE.Vector3(R[0] + (x - R[0]) * fr, ry + (y - ry) * fr, R[2] + (z - R[2]) * fr), out = P.distanceTo(_v.set(R[0], ry, R[2]));
     const sight = bd > 2 && bd < 45 ? clearFraction(world, P.x, P.y, P.z, T[0], T[1], T[2], .2, .3, .7) : 1;
-    const score = fr * 2 + sight - Math.abs(up - 3.4) * .06 - Math.abs(ang) * .12 - (reach < 6 ? .35 : 0) - (out < 2.2 ? 3 : 0) - crowded(P) * .8;
+    const both = bd > 2 && bd < 45 ? Math.max(0, Math.min(1, 1 - (_d.set(R[0], ry, R[2]).sub(P).normalize().angleTo(_t.set(...T).sub(P).normalize()) - 1.2 * halfW) / halfW)) : 1;
+    const score = fr * 2 + sight * (.4 + .6 * both) + both * .5 - Math.abs(up - 3.4) * .06 - Math.abs(ang) * .12 - (reach < 6 ? .35 : 0) - (out < 2.2 ? 3 : 0) - crowded(P) * .8;
     if (score > best) { best = score; LP = P; }
   }
   if (LP.distanceTo(_v.set(R[0], ry, R[2])) < 2.2) LP.set(R[0] - ux * 1.2, ry + 2.6, R[2] - uz * 1.2);   // boxed in: look down on it from just over its head
@@ -1071,7 +1076,13 @@ function updateCamera(dt) {
       const mx = (lie.x + basketPos()[0]) / 2, mz = (lie.z + basketPos()[1]) / 2;
       cam.tPos.set(mx - d[0] * dist * 0.22, world.height(mx, mz) + Math.max(45, dist * 0.95), mz - d[1] * dist * 0.22); cam.tLook.set(mx, world.height(mx, mz), mz); k = 4;
     } else if (cam.mode === 'result') {
-      const r=rightOf(d);cam.tPos.set(lie.x+d[0]*3.8+r[0]*.7,lie.y+1.45,lie.z+d[1]*3.8+r[1]*.7);
+      // the reaction from in front of the athlete; when he holed out from inside 6.5 m the pin stands on that line, so the lens
+      // swings 40° to the clearer side (QA on a phone: a tap-in's reaction framed him through the basket's chains and cage)
+      const key = `${G.cur}|${lie.x.toFixed(2)}|${lie.z.toFixed(2)}`;
+      if (cam.react?.key !== key) { const bd = distToBasket(lie.x, lie.z), side = sgn => { const a = .7 * sgn, ux = d[0] * Math.cos(a) + rightOf(d)[0] * Math.sin(a), uz = d[1] * Math.cos(a) + rightOf(d)[1] * Math.sin(a); return clearFraction(world, lie.x, lie.y + 1.4, lie.z, lie.x + ux * 3.8, lie.y + 1.45, lie.z + uz * 3.8, .3, .15); };
+        cam.react = { key, a: bd < 6.5 ? (side(1) >= side(-1) ? .7 : -.7) : 0 }; }
+      const r=rightOf(d), ca = Math.cos(cam.react.a), sa = Math.sin(cam.react.a), fx = d[0] * ca + r[0] * sa, fz = d[1] * ca + r[1] * sa;
+      cam.tPos.set(lie.x+fx*3.8+r[0]*.7*ca,lie.y+1.45,lie.z+fz*3.8+r[1]*.7*ca);
       cam.tLook.set(lie.x,lie.y+.92,lie.z); k=5; fov=camera.aspect<1.2?54:38;
     }
     else fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
