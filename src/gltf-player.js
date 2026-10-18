@@ -9,7 +9,7 @@ import { repairPlayerSkinning } from './player-skinning.js';
 import { createPlayerHeadwear } from './player-headwear.js';
 import { createAthleteMotion } from './athlete-motion.js';
 import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL } from './body-material.js';
-import { JOINTS, RIGS, readyPose, heroPose, clapPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
+import { JOINTS, RIGS, readyPose, heroPose, clapPose, dismayPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
 const SLOT = { hair: { roughness: .7, rim: .22 }, headwear: { roughness: .8 }, trim: { roughness: .78 }, frame: { roughness: .42, color: '#1a1c22' }, lens: { roughness: .15, color: '#14171c', metalness: .3, opacity: .86 } };
@@ -447,7 +447,7 @@ export function createGLTFCharacter(avatar) {
   // The menu hero, whose disc holdDisc carries outside any throw (carry()), gets the cover-shot pose instead; bystanders,
   // who hold no visible disc, keep the relaxed idle clip rather than raising an empty hand. ponytail: inferred rather than
   // a setStance() call because main.js is shared; add the call if a second consumer needs the state.
-  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand', clapFor = 0, clapW = 0;
+  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand', clapFor = 0, clapW = 0, dismayW = 0;
   // The mixer writes a bone only when its sampled value differs from the last one it wrote (PropertyMixer.apply), so while a
   // swipe holds still every bone keeps last frame's overlays and the overlays land on top of them again: the backhand's
   // quarter-turn forearm roll spun the hand 90° a frame late in the windup, the gaze and the leg scale crept. Each update
@@ -479,6 +479,7 @@ export function createGLTFCharacter(avatar) {
     }
     if (heroW > 0) { let pose = heroPose(time, RIGS.glb); if (lefty) pose = mirrorPose(pose); blendTo(pose, heroW); }
     if (clapW > 0) { blendTo(clapPose(time, RIGS.glb), clapW); }   // symmetric: no mirror for lefties
+    if (dismayW > 0) blendTo(dismayPose(time, RIGS.glb), dismayW);   // hands to the head over the slump clip's start
     // Backhand grip roll through the windup. The scan's palms face forward, so the clip's bent elbow turns the palm up and the
     // disc would sit on it like a tray; rolling the forearm a quarter turn puts the palm against the rim with the thumb on
     // top. The clip's release hand is already thumb-up with the palm trailing, so the roll unwinds through the pull. The set-up
@@ -548,6 +549,7 @@ export function createGLTFCharacter(avatar) {
       // instead of popping onto the bare clip) and lets go once the release starts
       readyW = aiming ? Math.min(1, readyW + dt / .22) : runUp() ? 0 : phase !== null && phase <= .5 ? readyW : Math.max(0, readyW - dt / .22);
       heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
+      dismayW = mood?.name.startsWith('slump') ? smooth(0, .28, mood.t) * (1 - smooth(1.15, 1.7, mood.t)) : 0;
       clapFor = Math.max(0, clapFor - dt); clapW = clapFor > 0 && phase === null && !mood && !aiming ? Math.min(1, clapW + dt / .25) : Math.max(0, clapW - dt / .3);
       // the disc hand hooks round the rim while it holds one (a bystander's hands hang open) and lets go just after release;
       // the free hand keeps half the curl (straight scanned fingers, and a third of the curl, read as a flat paddle; the female scan's mitten shards past a third). In the set-up the
