@@ -605,7 +605,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // e^-.6 per metre through), and it gates the back-light glow and the leaf-to-leaf fill, so a crown against the sun is dark at
   // its core with only the thin rim lit, not lit through. The leaves' albedo is 20% desaturated on Full (saturation round, 2026-10-07:
   // 45% left every crown grey-olive, foliage saturation .24-.41 in the top half of a frame against Disc Golf Masters' .40-.54).
-  const canopy = (mat, leaf = true, crown = null) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
+  // Mobile's near crowns read the leaf atlas 1.5 mip levels softer, colour and coverage alike. Each spray's 3-10 cm leaves land on
+  // 1-3 phone pixels, and at full detail they speckled into "noisy green masses with crunchy bright edges" (ChatGPT, blind A/B);
+  // Desktop's bloom and grade pass soften the same atlas, and Mobile has no post pass. Coarser texels at the same coverage threshold
+  // merge them into soft leafy clumps, still ragged at the rim. It replaces the one lookup, so it costs nothing.
+  const LEAF_BIAS = 1.5, softLeaf = s => { s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', `texture2D( map, vMapUv, ${LEAF_BIAS.toFixed(1)} )`)); };
+  const canopy = (mat, leaf = true, crown = null) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); if (leaf && crown && !full) softLeaf(s);
     if (crown) {   // a 3D crown: where this fragment sits in its variant's crown envelope (see crownOf, per instance scale), and a random per clump
       s.uniforms.treeCrown = { value: crown };
       s.vertexShader = 'uniform vec4 treeCrown;varying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;\n' + s.vertexShader.replace('#include <fog_vertex>', `#include <fog_vertex>
@@ -749,7 +754,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       #else
       #include <alphatest_fragment>
       #endif`); };
-    mat.customProgramCacheKey = () => prevKey.call(mat) + (leaf ? '|leaf' : '|wood') + (crown ? '|crown' : ''); return mat; };
+    mat.customProgramCacheKey = () => prevKey.call(mat) + (leaf ? '|leaf' : '|wood') + (crown ? '|crown' : '') + (leaf && crown && !full ? '|soft' : ''); return mat; };
   // alphaToCoverage: both tiers draw into multisampled targets (Full's 4x scene target, Lite's antialiased canvas), so the
   // alpha-tested edge resolves to sample coverage and leaf silhouettes come out soft instead of stair-stepped.
   // One leaf material per variant (they share one program): its crown envelope, from the variant's own leaves, about the trunk:
