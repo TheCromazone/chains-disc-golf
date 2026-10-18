@@ -1,8 +1,8 @@
 // The solved throws (tools/author-throws.mjs -> src/throw-keys.js): run-ups hand over to their drive exactly, planted feet hold
 // their spot through the hit, the disc leaves the hand at chest height, and the travel stays continuous.
 import assert from 'node:assert/strict';
-import { K, RUNUPS, poseAt, JOINTS } from '../src/throw-poses.js';
-import { fk } from '../tools/throw-fk.mjs';
+import { K, RUNUPS, poseAt, JOINTS, soleHeights } from '../src/throw-poses.js';
+import { fk, GROUND } from '../tools/throw-fk.mjs';
 
 // 1. Each run-up ends on its drive's full coil (.35): every joint angle and the pelvis travel, so the handover cannot pop.
 for (const [run, drive] of [['xstep', 'backhand'], ['fxstep', 'forehand']]) {
@@ -20,6 +20,11 @@ const slide = (keys, side, t0, t1) => { const p0 = fk(poseAt(keys, t0))['sole' +
 assert(slide(K.backhand, 'R', .43, .9) < .05, `backhand front foot holds through the hit (${slide(K.backhand, 'R', .43, .9).toFixed(3)} m)`);
 assert(slide(K.forehand, 'L', .43, 1) < .05, `forehand front foot holds (${slide(K.forehand, 'L', .43, 1).toFixed(3)} m)`);
 for (const s of ['R', 'L']) assert(slide(K.putt, s, 0, .62) < .04, `putt ${s} foot holds through the stroke (${slide(K.putt, s, 0, .62).toFixed(3)} m)`);
+// ...and both of the drive's feet touch the ground from the plant to the release: the front heel lands at .43, and the rear foot
+// pivots on its toe rather than hovering (a sole target's y is its lowest point, so "heel up" written as a raised y lifted the
+// whole foot 2-6 cm off the pad through the hit)
+for (let t = .43; t <= .62 + 1e-9; t += .01) { const h = soleHeights(poseAt(K.backhand, t), false, GROUND), m = Math.min(...h);
+  assert(h[0] - m < .015 && h[1] - m < .015, `backhand feet on the ground at ${t.toFixed(2)} (front ${(h[0] - m).toFixed(3)}, rear ${(h[1] - m).toFixed(3)} m)`); }
 console.log('Planted feet hold their spot through the hit.');
 
 // 3. The hit: the throwing hand at chest height and ahead of the body (the hand-keyed drive released at the waist, 1.0 m), and

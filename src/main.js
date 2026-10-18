@@ -43,8 +43,9 @@ const RUNUP = { dur: .8, pull: .15, min: 40, cam: { back: 3.4, side: 2.0, up: 1.
 // 3.5/10), and even 13 degrees off the line the arm reaching back into the lens foreshortened to "a disc held at the chest".
 // A three-quarter view instead, ~30 degrees off the line on the thrower's chest side (side > 0: the left of a right-hander,
 // mirrored for a left-hander), following the athlete's own travel, aimed only `ahead` m in front of him (at .8 the reach-back
-// ran off the edge of a portrait frame). A side-on view (90 degrees) was tried and dropped: Gemini read the approach as
-// "walking backward blindly" and the flight as hidden, and scored it 3/10 (this view: 7-7.5 in the same blind A/B).
+// ran off the edge of a portrait frame). Wider was worse with Gemini, in the same blind A/B: at 45 degrees the reach-back read
+// longer but the shot "stares at the woods instead of down the fairway" (5.5), and side-on (90) the approach read as "walking
+// backward blindly" with the flight hidden (3). This view: 7-7.5.
 // Shader warm-up, bounded: compileAsync polls KHR_parallel_shader_compile, and on a busy GPU (several tabs, an old phone) a program
 // can report incomplete forever and the game sat on its loading screen. After 6 s, carry on: the first frames compile what is left.
 let warming = null;   // a warm-up in flight: nothing may dispose a material it is polling (compileAsync throws on one and never resolves)
@@ -305,6 +306,10 @@ function holdDisc(char, mesh, n, spin, throwType) {
     _gr.copy(_v).addScaledVector(_gh, .1); _nrm.addScaledVector(_gt.subVectors(camera.position, _v).normalize(), GRIP_TIP * w).normalize();
     _gt.set(1, 0, 0).applyQuaternion(camera.quaternion); _nrm.addScaledVector(_gt, -_nrm.dot(_gt) * w).normalize();   // and rolled about the view so its rim runs level across the frame: tipped sideways the plate read as a pink blade stabbing down past the hand
     _v.copy(_gr).addScaledVector(_gh.addScaledVector(_nrm, -_gh.dot(_nrm)).normalize(), -.1).addScaledVector(_nrm, -GRIP_SINK * w); }
+  // through the pull the plate stays near its release plane instead of following the forearm, which pitched it nose-up in the
+  // pocket (Gemini: "the disc flips nearly vertical as the elbow bends"); at .62 the forearm's own frame gives that plane anyway
+  const ph = rel ? char.getPhase() : null;
+  if (ph > .4 && ph < .62) { const u = Math.min(1, (ph - .4) / .07), k = .7 * u * u * (3 - 2 * u); _nrm.lerp(_gt.set(n[0], n[1], n[2]), k).normalize(); }
   setDiscPose(mesh, [_v.x, _v.y, _v.z], [_nrm.x, _nrm.y, _nrm.z], spin);
 }
 function updateHub() { const i = COURSES.findIndex(c => c.id === G.courseId); UI.setHub({ name: G.avatar.name, jersey: G.avatar.jersey, course: COURSES[i], holes: LAYOUTS[i], img: asset('courses', G.courseId) }); }

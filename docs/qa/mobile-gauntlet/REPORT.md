@@ -58,7 +58,8 @@ Blind A/B sheets of the bot's drive, the original against the new one, rows swap
 single-row sheet for ChatGPT (it showed a position bias on A/B sheets):
 [1](critique-drive.jpg), [2](critique-drive-2.jpg), [3](critique-drive-3.jpg), [4](critique-drive-4.jpg),
 [5](critique-drive-5.jpg), [6](critique-drive-6.jpg), [7](critique-drive-7.jpg), [8](critique-drive-8.jpg) ([solo](critique-drive-8-solo.jpg)),
-[9](critique-drive-9.jpg) ([solo](critique-drive-9-solo.jpg)). The final drive on the phone: [clip](bot-drive-r3.mp4).
+[9](critique-drive-9.jpg) ([solo](critique-drive-9-solo.jpg)), [10](critique-drive-10.jpg), [11](critique-drive-11.jpg),
+[12](critique-drive-12.jpg), [13](critique-drive-13.jpg) ([solo](critique-drive-13-solo.jpg)). The final drive on the phone: [clip](bot-drive-r3.mp4).
 
 | Round | What changed | New in row | ChatGPT new / old | Gemini new / old |
 |---|---|---|---:|---:|
@@ -71,6 +72,19 @@ single-row sheet for ChatGPT (it showed a position bias on A/B sheets):
 | 7 | Side-on camera | A | 5.5 (solo) | **3 / 7.5** |
 | 8 | Three-quarter camera back; the release freeze fixed; front leg posts, rear foot pivots, longer wrap | B | 6.5 (solo) | 7 / 3 |
 | 9 | Elbow-led pocket, off arm tucked, straight-armed reach-back, head turns with the coil | A | 5.5 (solo) | **7.5 / 2** |
+| 10 | A dip into the brace, the off arm driven down, a deeper coil | B | 4.5 (solo) | 6 / 3 |
+| 11 | The off arm swung round after the hit, rear heel turned in, a longer finish, a 45-degree camera | A | - | 5.5 / 2.5 |
+| 12 | A later reach-back, the weight forward onto the front leg, more spine lean, 30 degrees again | B | 5.5 (solo) | 5.5 / 3 |
+| 13 | **Shipped:** round 9's drive, plus the rear toe kept on the pad and the disc held on its plane through the pull | A | 5.5 (solo) | 4.5 / 2 |
+
+Rounds 10 to 12 each acted on the previous round's notes, and both critics' scores fell, so round 13 went back to round 9's
+drive. Round 13 is that same drive with two small fixes, yet Gemini scored it 4.5 where it had scored round 9 7.5. Its round-13
+notes also describe things the clip does not show ("zero X-step, he stays planted on the same spot"; the run-up travels 1.5 m).
+For the same motion, then, a still-frame critique swings by about ±1.5 points. The notes contradict each other from round to
+round: the off arm "tight to the ribs", then "hanging loose"; the weight "must stop over the plant", then "must move forward 15-20
+cm". The one result that held in every round is relative: the new drive beat the original by 2.5 to 5 points, from either row.
+A blind video A/B, which would judge the timing properly, was not run: Gemini asks for agreement to its video-upload terms first,
+which is the user's call.
 
 ChatGPT gave row B 6.5 in all four A/B rounds whichever version sat there, and its single-row scores swing by a point between
 near-identical versions (6.5 then 5.5, with notes such as "the reach-back is almost nonexistent" for a near-straight arm), so its
@@ -93,6 +107,24 @@ Both critics' remaining notes are the next round's list:
 - The disc visibly leaving the hand, with its trail lined up with the hand's path.
 
 ## The phone's look
+
+Blind look critique, round 13 ([Pine Hollow](critique-look-pine.jpg), the new build in row B; [Lakeshore](critique-look-lake.jpg),
+the new build in row A). Each sheet shows four phone moments from the start of this round against the same moments now.
+- **Gemini, Pine Hollow:** the new build 8/10 overall against 6.5, "by a significant margin". Lighting went 6.5 → 8.5, foliage
+  7 → 8, athlete 7 → 7.5; "it looks like a released game with active color grading", the old build "a raw editor viewport".
+- **ChatGPT, Lakeshore:** the old build 7.5, the new 7.1. The old build sat in row B, the row ChatGPT favours, and it called the
+  difference "incremental".
+
+The upgrades are real but small at thumbnail size: 3D crowns near the eye, the full basket, close shadows, richer foliage.
+Gemini's remaining list:
+- the speckled grass and dirt texture in the flight and putt views;
+- a thin aim line and HUD text over busy foliage;
+- no contact shadow under the athlete's feet at the putt;
+- no sun shafts, and no specular sheen on the chains. Its list
+for a bigger step is general art work on both tiers: tree crowns with more varied silhouettes and gaps, terrain detail within
+10-20 m of the camera, basket and prop materials, athlete skin and cloth shading. A denser Mobile grass carpet (16 blades a clump,
+a third tile to 52 m) was tried and dropped: it cost 1.6 ms at the putt (headless M-series, GPU-synced) and barely showed,
+because the tee stands on turf and the putt on wood chips.
 
 A measured audit of the Mobile tier first (both tiers, both orientations, Pine Hollow and Lakeshore), then fixes ranked by what it
 found:
@@ -134,7 +166,8 @@ clubhouse, tee and flights at 57-60 fps before the merge, but the simulator rend
 ## Tools used
 
 - **Blender 5.2**: bakes every solved clip (and the two new run-up clips) into the shipped GLBs.
-- **ChatGPT and Gemini** (the signed-in Chrome on the Mac mini): blind critiques of the bot's drive, nine rounds.
+- **ChatGPT and Gemini** (the signed-in Chrome on the Mac mini): blind critiques of the bot's drive (thirteen rounds) and of the
+  phone's look.
 - **iOS Simulator (Safari / WebKit)**: the round played on a real Safari engine, with the fps overlay.
 - **Unreal 5.8 and Unity 6.6**: not used. The game rig has 11 joints and no hands or feet, so neither engine's retargeting or mocap
   helps (see `art/unreal/REPORT.md`, `art/unity/REPORT.md`); Unity's motion generation also needs the editor terms and paid credits.
@@ -150,7 +183,8 @@ clubhouse, tee and flights at 57-60 fps before the merge, but the simulator rend
 
 ## Checks
 
-`npm test` (10 files, including the new `test/throws.test.mjs`: run-ups hand over exactly, planted feet hold, chest-height release,
+`npm test` (10 files, including the new `test/throws.test.mjs`: run-ups hand over exactly, planted feet hold and both feet touch
+the pad from the plant to the release, chest-height release,
 continuous travel), `npm run build`, `node tools/verify-browser.mjs --dist` (18/18 after merging master, no browser or shader
 errors; its mobile resolution check now allows master's 2×),
 `node tools/verify-matches.mjs` (pass), `node tools/verify-rounds.mjs` (four courses, no browser errors), the cross-device swipe
