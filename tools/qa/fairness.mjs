@@ -1,40 +1,47 @@
-// Fair-play check for a course layout: the game's own medium bot (src/bot.js, the real physics and its execution error)
-// plays every hole N times in a headless page, nothing rendered, wind calm. Math.random is seeded per hole and run, so two
-// layouts compared run for run throw identically until a tree changes a flight. Prints, per hole and for the course:
-// mean strokes against par, tee shots that touch a tree, tee shots resting on the fairway, throws that touch a tree, OB,
-// and throws that come to rest inside a plant the disc passes through (the edge bushes, the woods shrubs: course.scenery).
-//   node tools/qa/fairness.mjs <pine|meadow|lake|bluff> [--runs 40] [--port 8460] [--json out.json]
+// Fair-play check for a course layout: the game's own bot (src/bot.js, the real physics and its execution error; medium
+// unless --difficulty says otherwise) plays every hole N times in a headless page, wind calm (--wind game: each hole's own
+// wind, as startHole() in src/main.js sets it from the course seed). The game's frame loop is parked while it measures and
+// Math.random is seeded per hole and run, so a run is repeatable and two layouts (or planners) compared run for run throw
+// identically until something changes a flight. Prints, per hole and for the course: mean strokes against par, tee shots
+// that touch a tree, tee shots off the event arch, tee shots resting on the fairway, throws that touch a tree, OB, and
+// throws that come to rest inside a plant the disc passes through (the edge bushes, the woods shrubs: course.scenery).
+//   node tools/qa/fairness.mjs <pine|meadow|lake|bluff> [--runs 40] [--difficulty easy|medium|hard] [--wind calm|game] [--port 8460] [--json out.json]
 import { launch, pause } from './cdp.mjs';
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const args = process.argv.slice(2), course = args[0] || 'pine', opt = (k, d) => args.includes(k) ? args[args.indexOf(k) + 1] : d;
-const runs = +opt('--runs', 40), port = +opt('--port', 8460), out = opt('--json', null);
+const runs = +opt('--runs', 40), port = +opt('--port', 8460), out = opt('--json', null), difficulty = opt('--difficulty', 'medium'), gameWind = opt('--wind', 'calm') === 'game';
 const server = spawn(process.execPath, ['serve.mjs'], { cwd: resolve(import.meta.dirname, '../..'), env: { ...process.env, PORT: String(port) }, stdio: 'ignore' });
 const b = await launch({ port: port + 1000 }), page = await b.newPage(), url = `http://localhost:${port}/?mute=1`;
 try {
   await pause(800); await page.device({ width: 640, height: 360 });
-  await page.goto(url); await page.eval(`localStorage.setItem('chains.course', '${course}')`); await page.goto(url);
-  await page.waitFor('!!window.__chains && !!__chains.course && !!__chains.holes', 120000);
+  // the first load saves its own course as it starts (main.js), so pick the course only once that load is up
+  await page.goto(url); await page.waitFor('!!window.__chains && !!__chains.course && !!__chains.holes', 120000);
+  await page.eval(`localStorage.setItem('chains.course', '${course}')`); await page.goto(url);
+  await page.waitFor(`!!window.__chains && !!__chains.course && !!__chains.holes && __chains.course.def.id === '${course}'`, 120000);
   const res = await page.eval(`(async () => {
-    const { planBotThrow } = await import('/src/bot.js'), { simulate, discById, releasePos } = await import('/src/physics.js');
+    const { planBotThrow } = await import('/src/bot.js'), { simulate, discById, releasePos } = await import('/src/physics.js'), { makeRng } = await import('/src/course.js');
     const C = __chains, world = C.world, holes = C.holes, real = Math.random; let seed = 1;
+    window.requestAnimationFrame = () => 0;   // park the frame loop: its effects could draw on the seeded Math.random between the planner's yields
+    await new Promise(r => setTimeout(r, 100));
     Math.random = () => (seed = Math.imul(seed ^ (seed >>> 15), 2246822519) + 0x6d2b79f5 >>> 0) / 4294967296;
-    const calm = [0, 0]; Object.defineProperty(world, 'wind', { get: () => calm, set: () => {}, configurable: true });
+    let wind = [0, 0]; Object.defineProperty(world, 'wind', { get: () => wind, set: () => {}, configurable: true });
     const sc = C.course.scenery || { bushes: [], shrubs: [] }, inside = (list, p) => list.some(b => Math.hypot(b.x - p[0], b.z - p[2]) < 2.2 * b.s);   // a bush card is ~5 m across at scale 1
     const rows = [];
     for (const [i, h] of holes.entries()) {
       C.course.setHole(i);
-      const row = { hole: i + 1, par: h.par, strokes: 0, teeTree: 0, teeFair: 0, throws: 0, tree: 0, ob: 0, bush: 0, shrub: 0 };
+      if (${gameWind}) { const rng = makeRng(C.course.def.seed * 31 + i * 7 + 1), ws = rng() * 3.5 * C.course.def.wind, wa = rng() * Math.PI * 2; wind = [Math.cos(wa) * ws, Math.sin(wa) * ws]; }
+      const row = { hole: i + 1, par: h.par, strokes: 0, teeTree: 0, teeArch: 0, teeFair: 0, throws: 0, tree: 0, ob: 0, bush: 0, shrub: 0 };
       for (let run = 0; run < ${runs}; run++) {
         seed = (i + 1) * 7919 + run * 104729 + 1;
         let pos = [h.tee[0], world.height(h.tee[0], h.tee[1]), h.tee[1]], n = 0;
         for (;;) {
-          const plan = await planBotThrow({ pos, world, difficulty: 'medium' }), dir = plan.dir;
+          const plan = await planBotThrow({ pos, world, difficulty: '${difficulty}' }), dir = plan.dir;
           const sim = simulate({ throwType: plan.throwType, disc: discById(plan.discId), power: plan.power, hyzer: plan.hyzer, yawOffset: plan.yawOffset, launchOffset: 0, dir, pos: releasePos(world, pos, dir), lefty: false }, world);
           const r = sim.result, hit = sim.state.events.some(e => e === 'tree' || e === 'branch');
-          if (n === 0) { row.teeTree += hit; row.teeFair += !r.ob && !r.holed && world.rough(r.rest[0], r.rest[2]) < .5; }
+          if (n === 0) { row.teeTree += hit; row.teeArch += sim.state.events.includes('arch'); row.teeFair += !r.ob && !r.holed && world.rough(r.rest[0], r.rest[2]) < .5; }
           n++; row.throws++; row.tree += hit;
           if (r.holed) break;
           if (!r.ob) { row.bush += inside(sc.bushes, r.rest); row.shrub += inside(sc.shrubs, r.rest); }
@@ -48,12 +55,12 @@ try {
     Math.random = real; delete world.wind;
     return rows;
   })()`, 3600000);
-  const pct = (a, n) => (100 * a / n).toFixed(0).padStart(3) + '%', tot = { par: 0, strokes: 0, teeTree: 0, teeFair: 0, throws: 0, tree: 0, ob: 0, bush: 0, shrub: 0 };
-  console.log(`${course}, ${runs} medium-bot plays a hole, calm\nhole par  mean  tee:tree fairway  throws:tree  OB  rest in bush/shrub`);
+  const pct = (a, n) => (100 * a / n).toFixed(0).padStart(3) + '%', tot = { par: 0, strokes: 0, teeTree: 0, teeArch: 0, teeFair: 0, throws: 0, tree: 0, ob: 0, bush: 0, shrub: 0 };
+  console.log(`${course}, ${runs} ${difficulty}-bot plays a hole, ${gameWind ? "each hole's game wind" : 'calm'}\nhole par  mean  tee:tree arch fairway  throws:tree  OB  rest in bush/shrub`);
   for (const r of res) { for (const k in tot) tot[k] += r[k] * (k === 'par' ? runs : 1);
-    console.log(`${String(r.hole).padStart(4)} ${String(r.par).padStart(3)} ${(r.strokes / runs).toFixed(2).padStart(5)}      ${pct(r.teeTree, runs)}    ${pct(r.teeFair, runs)}         ${pct(r.tree, r.throws)} ${String(r.ob).padStart(3)}  ${r.bush}/${r.shrub}`); }
+    console.log(`${String(r.hole).padStart(4)} ${String(r.par).padStart(3)} ${(r.strokes / runs).toFixed(2).padStart(5)}      ${pct(r.teeTree, runs)} ${pct(r.teeArch, runs)}    ${pct(r.teeFair, runs)}         ${pct(r.tree, r.throws)} ${String(r.ob).padStart(3)}  ${r.bush}/${r.shrub}`); }
   const n = runs * res.length;
-  console.log(` all ${(tot.par / n).toFixed(2)} ${(tot.strokes / n).toFixed(2).padStart(5)}      ${pct(tot.teeTree, n)}    ${pct(tot.teeFair, n)}         ${pct(tot.tree, tot.throws)} ${String(tot.ob).padStart(3)}  ${tot.bush}/${tot.shrub} of ${tot.throws} throws   (over par per hole ${((tot.strokes - tot.par) / n).toFixed(2)})`);
-  if (out) writeFileSync(out, JSON.stringify({ course, runs, holes: res }, null, 2));
+  console.log(` all ${(tot.par / n).toFixed(2)} ${(tot.strokes / n).toFixed(2).padStart(5)}      ${pct(tot.teeTree, n)} ${pct(tot.teeArch, n)}    ${pct(tot.teeFair, n)}         ${pct(tot.tree, tot.throws)} ${String(tot.ob).padStart(3)}  ${tot.bush}/${tot.shrub} of ${tot.throws} throws   (over par per hole ${((tot.strokes - tot.par) / n).toFixed(2)})`);
+  if (out) writeFileSync(out, JSON.stringify({ course, runs, difficulty, wind: gameWind ? 'game' : 'calm', holes: res }, null, 2));
   if (page.errors.length) console.log('errors', page.errors);
 } finally { await page.close(); b.close(); server.kill(); }
