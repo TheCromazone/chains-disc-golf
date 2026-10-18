@@ -406,7 +406,10 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .hub-top { top: calc(10px + var(--sat)); }
   .hub-brand { flex-direction: row; align-items: center; gap: 14px; }   /* the host's pill beside the brand: no height to stack it */
   .host-home { order: 2; margin: 0; }
-  body[data-phase='result'] #toast, body.result-mode #toast { top: 23%; }
+  /* the verdict card in the left third, low: at 23% from the top it sat on the athlete's face in the reaction shot, which frames
+     him mid-screen (QA on Gull Point Bluffs), and the controls it would meet there are hidden for the result */
+  body[data-phase='result'] #toast, body.result-mode #toast { top: auto; bottom: calc(16% + var(--sab)); left: calc(25% + var(--sal) / 2); width: 46%; }
+  body[data-phase='result'] #react, body.result-mode #react { left: calc(25% + var(--sal) / 2); bottom: calc(16% + 92px + var(--sab)); }
   body[data-phase='result'] #toast b, body.result-mode #toast b { font-size: 42px; }
   #score .panel { --gutter: 20px; width: min(620px, 100%); }
   #score .eyebrow { padding: 5px 12px 4px; }

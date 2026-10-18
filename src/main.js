@@ -1127,7 +1127,7 @@ function updateCamera(dt) {
         cam.react = { key, a: best }; }
       const r=rightOf(d), ca = Math.cos(cam.react.a), sa = Math.sin(cam.react.a), fx = d[0] * ca + r[0] * sa, fz = d[1] * ca + r[1] * sa;
       cam.tPos.set(lie.x+fx*3.8+r[0]*.7*ca,lie.y+1.45,lie.z+fz*3.8+r[1]*.7*ca);
-      cam.tLook.set(lie.x,lie.y+.92,lie.z); k=5; fov=camera.aspect<1.2?54:38;
+      cam.tLook.set(lie.x,lie.y+(camera.aspect<1.2?.92:1.08),lie.z); k=5; fov=camera.aspect<1.2?54:38;   // wide: a raised fist (2.2 m) left the top of a 38° frame
     }
     else fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
