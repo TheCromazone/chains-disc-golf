@@ -843,7 +843,7 @@ function aimFrameBase(lie, d, putt, pos, look) {
   const pitch = (putt ? P.lo ? 0 : Math.max(-4, Math.min(14, Math.min(band - Math.atan2(bh - up, bd), eye - Math.atan2(eh - up, rho)) / DEG)) : P.pitch) - G.aim.pitch;   // drag up = look up
   let yaw = putt ? Math.atan2(side, bd) + Math.sign(fs) * Math.atan((P.x || 0) * vt * camera.aspect) : Math.sign(fs) * P.yaw * DEG;
   if (!putt) {   // a drive's lens turns as far as it must to keep the athlete whole (QA, a portrait phone in the woods: a wide-shoulder spot round a trunk left him cut in half at the edge of the ~15° half-width)
-    const th = Math.atan2(side, back), lim = Math.atan(vt * camera.aspect) - Math.atan(.42 / Math.max(1, rho)) - 1.5 * DEG;
+    const th = Math.atan2(side, back), lim = Math.atan(vt * camera.aspect) - Math.atan(.3 / Math.max(1, rho)) - .5 * DEG;   // the rig's own spots never reach it, so a run-up's dolly ends where it always did
     yaw = Math.max(th - lim, Math.min(th + lim, yaw));
   }
   const fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
