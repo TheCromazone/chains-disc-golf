@@ -824,6 +824,10 @@ function aimFrameBase(lie, d, putt, pos, look) {
   const vt = portrait ? Math.tan(P.fov * DEG / 2) : P.vfov ? Math.tan(P.vfov * DEG / 2) : Math.max(Math.tan((innerHeight > 520 && P.vmin || 14.5) * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least on a short phone, so it keeps headroom
   const side0 = P.side + (putt && P.nudge ? puttDodge(lie, P) : 0), [fb, fs] = AIM_SPOTS[aimSpotFor(lie, P, side0, putt, Math.atan(vt * camera.aspect))], back = P.back * fb, side = side0 * fs, rho = Math.hypot(back, side);
   pos.set(lie.x - d[0] * back - r[0] * side, lie.y, lie.z - d[1] * back - r[1] * side);
+  // a tap-in: from behind the shoulder the athlete's back hid the whole basket, and the chains' slow-motion catch played to his
+  // jersey (QA on a phone). The lens climbs over his throwing shoulder and looks down into the basket instead.
+  const tapL = Math.hypot(h.basket[0] - lie.x, h.basket[1] - lie.z), tap = putt && tapL < 1.8, tapS = side * (1.4 + (1.8 - tapL) * .8);   // the nearer the pin, the wider round his shoulder
+  if (tap) { pos.set(lie.x - d[0] * 1.5 - r[0] * tapS, lie.y + 2.55, lie.z - d[1] * 1.5 - r[1] * tapS); look.set(h.basket[0], h.basketY + .75, h.basket[1]); return 2 * Math.atan(vt) / DEG; }
   const bd = Math.hypot(h.basket[0] - pos.x, h.basket[1] - pos.z), bh = h.basketY - lie.y + 1.4, eye = putt && Math.atan(P.eye * vt), band = putt && Math.atan(P.band * vt);   // bh: band centre over the lie
   const B = putt && P.lo ? Math.max(P.band, P.base + 1.4 / bd / vt) : P.band;   // a short putt's basket looms: lift the band until its base plate (1.4 m under it) stays over P.base
   const eh = (curP()?.char.headY || 1.72) - .09;   // eyes in the putting stance, which sinks them ~9 cm
