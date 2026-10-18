@@ -72,12 +72,10 @@ then the loudest 50 and 400 ms windows.
 | Near-miss "ohh" | -50.3 | -29 |
 | Skip | -55 | -36 |
 | Tree knock | -44.6 | -30 |
-| Ambience (wind, leaves) | -59.3 | -43 |
 
 - A 12:1 bus compressor at -20 dBFS squeezed the whole mix. It is now a peak limiter behind a 60 Hz high-pass, with per-sound
   trims (`TRIM_DB`) in a chains-first order. A holed birdie putt (chains, then the jingle and applause) plays at -19 LUFS,
   peaking at -5 dBFS.
-- The ambience gained a leaf-rustle layer that follows the gusts (its wind bed sits under ~500 Hz, which a phone barely plays).
 - **Every synthesis change was judged blind by Gemini.** Each pair was loudness-matched, with old and new swapped between rows,
   and a change shipped only when it won its pair. Gemini's absolute scores drift from chat to chat (its first verdict rated the
   original tray 4/10, a later blind pair 7.5), so only the pairwise wins count.
@@ -91,6 +89,7 @@ then the loudest 50 and 400 ms windows.
 | Womp | new: the brass filter opens with each note's breath | 3 vs 5.5 |
 | Skip | new: a plastic slap on top | 4 vs 6.5 |
 | Tree, splash, tray, roll | original (the rebuilds lost) | 6.5 vs 4.5, 6 vs 3, 7.5 vs 4, 4.5 vs 2.5 |
+| Ambience | original (a live 14 s recording of each; a leaf-rustle layer read as static) | 7.5 vs 4 |
 
 Real recordings would still beat synthesis for the chains, the gallery's applause and the "ohh".
 
