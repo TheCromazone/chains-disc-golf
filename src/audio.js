@@ -63,9 +63,11 @@ function ring(base, ratios, gains, dur, gain, { t0 = now(), send = 0.3, detune =
   ratios.forEach((r, i) => { const f = base * r * rnd(1 - detune, 1 + detune); partial(f * (1 + sharp), dur * (1 - i * 0.18), gain * gains[i], { t0, send, f1: f }); });
 }
 // a hand clap: the palms meet in a quick flam of micro-transients, then the cupped air rings briefly in a band
-function clap(t0, f, gain, send) {   // f: the clapper's cupped-palm resonance (750-1600 Hz), which stays his own clap after clap
-  for (let i = 0; i < 2; i++) burst(.01, { f0: f * rnd(1.6, 2.6), q: .8, gain: gain * .45, t0: t0 + i * rnd(.002, .006), attack: .0008 });   // skin on skin
-  burst(rnd(.04, .055), { f0: f * rnd(.97, 1.03), f1: f * .85, q: 3, gain: gain * 2.2, t0: t0 + .008, attack: .0015, send });   // the hollow of the palms
+function clap(t0, f, gain, send) {   // f: the clapper's cupped-palm resonance (750-1900 Hz); each clap jitters it ±12%
+  const fc = f * rnd(.88, 1.12), d = rnd(.004, .009);
+  burst(.011, { f0: rnd(2500, 5500), q: .9, gain: gain * .38, t0, attack: .003 });   // fingers meeting: a bright skin snap
+  burst(rnd(.028, .04), { f0: fc, f1: fc * .88, q: rnd(2.5, 3.5), gain: gain * 1.6, t0: t0 + d, attack: .0015, send });   // then the palms' hollow pop
+  if (Math.random() < .5) burst(rnd(.015, .025), { f0: rnd(800, 1200), q: 3, gain: gain * 1.2, t0: t0 + d, attack: .0015 });   // a cupped clap's body (round 3: "thin and papery")
 }
 // a muted brass note: sawtooth and square through a resonant low-pass that opens and closes like a plunger ("wah")
 function brass(f0, t0, dur, { f1 = f0, vib = 0, gain = .15 } = {}) {
@@ -148,11 +150,13 @@ export const sfx = {
     burst(0.95, { f0: rnd(1300, 1700), f1: 650, q: 0.9, gain: 0.07, attack: 0.04, lfo: [rnd(10, 15), 0.7] }); },
   click() { if (!ctx) return; if (play('click', { gain: 0.6 })) return; partial(2300, 0.03, 0.05, { f1: 1600 }); burst(0.012, { f0: 4200, q: 1.5, gain: 0.04 }); },
   // the group on the tee claps: a few people, each at their own rate and hand size, starting raggedly and tailing off
-  applause(people = 8, dur = 2.3) { if (!ctx) return; if (play('applause')) return;
+  // (a blind A/B, 2026-10-17: eight clappers at up to 5.5 claps a second blurred into "rain on a tent"; six at 3.2-4.4, each with
+  // their own palm and their own start and finish, keep the claps distinct)
+  applause(people = 6, dur = 2.3) { if (!ctx) return; if (play('applause')) return;
     const t0 = now() + .04;
     for (let p = 0; p < people; p++) {
-      const rate = rnd(3.5, 5.5), f = rnd(750, 1600), level = rnd(.05, .1);
-      for (let t = rnd(0, .3); t < dur; t += rnd(.85, 1.15) / rate) clap(t0 + t, f, level * Math.min(1, (dur - t) / (dur * .35)), .32);
+      const rate = rnd(3.2, 4.4), f = rnd(750, 1900), level = rnd(.05, .1), stop = dur - rnd(0, .5);
+      for (let t = rnd(0, .35); t < stop; t += 1 / rate + rnd(-.015, .015)) clap(t0 + t, f, level * Math.min(1, (stop - t) / (stop * .35)), .32);
     }
   },
   claps() { this.applause(3, 1.5); },
@@ -162,15 +166,22 @@ export const sfx = {
   // the gallery's "ohh" at a near miss: a few voices gliding down on an open "o" (formants ~500 and ~900 Hz carry it on a phone,
   // where the old bare triangle tones at 190-285 Hz all but vanished). Wordless; never presented as a recording.
   ohh() { if (!ctx) return; if (play('ohh')) return;
+    // round 2 (a blind A/B: "a kazoo choir, formants frozen"): the buzz low-passed off the voice, a breath of "h" before it and a
+    // sigh after, the vowel closing from "ah" to "oh", and every voice with its own flutter and its own droop
     const t0 = now() + .03;
-    for (let v = 0; v < 5; v++) {
-      const f0 = rnd(110, 240), dur = rnd(1.1, 1.5), t = t0 + rnd(0, .12), o = ctx.createOscillator(); o.type = 'sawtooth';
-      o.frequency.setValueAtTime(f0 * 1.06, t); o.frequency.exponentialRampToValueAtTime(f0, t + .25); o.frequency.exponentialRampToValueAtTime(f0 * .72, t + dur);
+    for (let v = 0; v < 7; v++) {
+      const f0 = v < 4 ? rnd(105, 150) : rnd(195, 255), dur = rnd(.85, 1.3), t = t0 + rnd(0, .22), drop = Math.pow(2, -rnd(2, 5) / 12), o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0 * 1.04, t); o.frequency.exponentialRampToValueAtTime(f0, t + .18); o.frequency.exponentialRampToValueAtTime(f0 * drop, t + dur * rnd(.65, .95));
+      const vib = ctx.createOscillator(), vg = ctx.createGain(); vib.frequency.value = rnd(4.5, 6.5); vg.gain.value = f0 * rnd(.009, .015); vib.connect(vg); vg.connect(o.frequency);
+      const soft = ctx.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = 2200; soft.Q.value = .5; o.connect(soft);
       const g = ctx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.05, t + .16); g.gain.setValueAtTime(.05, t + dur * .45); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-      for (const [F, Q, k] of [[rnd(460, 560), 5, 1], [rnd(820, 960), 7, .55], [rnd(2400, 2800), 9, .12]]) { const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = F; f.Q.value = Q; const fg = ctx.createGain(); fg.gain.value = k * 2.2; o.connect(f); f.connect(fg); fg.connect(g); }
-      out(g, .45); o.start(t); o.stop(t + dur + .05);
+      for (const [a, z, Q, k] of [[rnd(600, 640), rnd(410, 430), 5, 1], [rnd(1020, 1080), rnd(760, 800), 7, .55], [rnd(2400, 2800), rnd(2400, 2800), 9, .12]]) {   // F1 and F2 close from "ah" to "oh"
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = Q; f.frequency.setValueAtTime(a, t); f.frequency.setValueAtTime(a, t + .15); f.frequency.exponentialRampToValueAtTime(z, t + .8);
+        const fg = ctx.createGain(); fg.gain.value = k * 2.2; soft.connect(f); f.connect(fg); fg.connect(g); }
+      out(g, .45); for (const n of [o, vib]) { n.start(t); n.stop(t + dur + .05); }
     }
-    burst(1.2, { f0: 700, f1: 450, q: 1.2, gain: .025, attack: .15, t0, send: .4 }); },
+    burst(.14, { f0: 1600, q: .7, gain: .05, attack: .02, t0, send: .3 });   // the breath before it
+    burst(.45, { f0: 1200, f1: 700, q: .8, gain: .03, attack: .1, t0: t0 + .75, send: .4 }); },   // and the sigh after
   fanfare(kind) { if (!ctx) return; if ((['birdie','eagle','ace'].includes(kind) && play('birdie_jingle')) || play('fanfare_' + kind)) return;
     const seq = kind === 'ace' ? [523, 659, 784, 1047, 1319] : kind === 'eagle' ? [523, 659, 784, 1047] : kind === 'birdie' ? [659, 784, 1047] : [523, 659];
     seq.forEach((f, i) => { const t0 = now() + i * 0.12; partial(f, 0.4, 0.13, { t0, send: 0.5 }); partial(f * 4, 0.07, 0.03, { t0, send: 0.3 }); }); },  // marimba-ish
@@ -181,7 +192,7 @@ export const sfx = {
 // 350 Hz, EBU R128 momentary maximum): the chains came out at -21, the applause at -46, the near-miss "ohh" at -50 and a skip or
 // a roll at -54, so on an iPhone the gallery, the misses and the landings were all but silent beside the chains. Each now plays at
 // its place in the mix (chains first, the gallery and the verdicts close behind, impacts under them, UI clicks and rolls lowest).
-const TRIM_DB = { applause: 15, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 16, leaves: 7, splash: 11, band: 1.5, pole: 3, chainout: 10, drop: 5, skip: 22, roll: 14, click: 20 };   // dB
+const TRIM_DB = { applause: 23, ohh: -1, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 16, leaves: 7, splash: 11, band: 1.5, pole: 3, chainout: 10, drop: 5, skip: 22, roll: 14, click: 20 };   // dB
 for (const [k, f] of Object.entries(sfx)) sfx[k] = function (...a) { const prev = trim; trim = prev * 10 ** ((TRIM_DB[k] || 0) / 20); try { return f.apply(this, a); } finally { trim = prev; } };
 
 function ambient() { // wind bed with slow gusts + bird calls (frequency-swept chirps, trills)
