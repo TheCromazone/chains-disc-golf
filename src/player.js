@@ -97,7 +97,8 @@ export function createCharacter(opts = {}) {
   const cur = {}; for (const j of JOINTS) cur[j] = [...IDLE[j]]; cur.rootY = 0;
   let throwType = 'backhand', phase = null, time = Math.random() * 10, mood = null, locomotion = null;
   let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, aimType = 'backhand';   // aiming = faceDir steered and the disc gripped for a throw every frame; the cover shot needs a carried disc (see gltf-player.js)
-  const apply = () => { for (const j of JOINTS) joints[j].rotation.set(cur[j][0], cur[j][1], cur[j][2]); root.position.y = ROOT_Y + cur.rootY; };
+  let kept = false;   // keepTravel(): the throw's travel moved into the group's position
+  const apply = () => { for (const j of JOINTS) joints[j].rotation.set(cur[j][0], cur[j][1], cur[j][2]); root.position.set(0, ROOT_Y + cur.rootY, 0); };
   const frames = new Map(), _gi = new THREE.Quaternion();
   function releaseFrame(t) {
     if (phase === null) { aimType = t; gripHit = true; }
@@ -108,14 +109,15 @@ export function createCharacter(opts = {}) {
     const handJ = lefty ? L.hand : R.hand, elbowJ = lefty ? L.elbow : R.elbow;
     const q = handJ.getWorldQuaternion(new THREE.Quaternion()).premultiply(_gi);
     const dir = handJ.getWorldPosition(new THREE.Vector3()).sub(elbowJ.getWorldPosition(new THREE.Vector3())).normalize().applyQuaternion(_gi);
-    apply(); g.updateMatrixWorld(true);
+    const shown = root.position.clone(); apply(); root.position.x = shown.x; root.position.z = shown.z; g.updateMatrixWorld(true);
     const frame = { qInv: q.invert(), dir }; frames.set(key, frame); return frame;
   }
 
   return {
     group: g, hand: lefty ? L.hand : R.hand, elbow: lefty ? L.elbow : R.elbow, headY: 1.39*tall, joints, avatar: a, source: 'procedural', releaseFrame, clips: ['idle','practice',...Object.keys(K),'celebrate','slump','walk'], faceParts: face.parts, setFace: face.setFace,
     setThrow(t) { throwType = t; },
-    setPhase(p) { phase = p; if(p!==null)mood=null; },                       // null = idle
+    setPhase(p) { if (p === null || phase === null) kept = false; phase = p; if(p!==null)mood=null; },                       // null = idle
+    keepTravel() { if (phase === null || kept) return; g.updateMatrixWorld(true); const a = root.getWorldPosition(new THREE.Vector3()); root.position.x = root.position.z = 0; g.updateMatrixWorld(true); const b = root.getWorldPosition(new THREE.Vector3()); g.position.x += a.x - b.x; g.position.z += a.z - b.z; kept = true; },
     react(name) { mood={name,t:0};phase=null; },
     play(name) { locomotion=name;phase=null;mood=null;time=0; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },
@@ -146,10 +148,11 @@ export function createCharacter(opts = {}) {
         if(lefty){a0=mirrorPose(a0);a1=mirrorPose(a1);}
         for(const j of JOINTS){motionA.setFromEuler(motionEuler.fromArray([...a0[j],'XYZ']));motionB.setFromEuler(motionEuler.fromArray([...a1[j],'XYZ']));joints[j].quaternion.copy(motionA).slerp(motionB,u);}
         root.position.y=ROOT_Y+a0.rootY+(a1.rootY-a0.rootY)*u;
-        if(phase<STANCE_FADE&&aimFrames>=2){   // the swipe starts from the coiled aim stance and morphs into the clip across the windup
+        if(!kept){root.position.x=a0.rootX+(a1.rootX-a0.rootX)*u;root.position.z=a0.rootZ+(a1.rootZ-a0.rootZ)*u;}
+        if(phase<STANCE_FADE&&aimFrames>=2&&!/^f?xstep/.test(throwType)){   // a run-up starts from its own standing pose   // the swipe starts from the coiled aim stance and morphs into the clip across the windup
           const w=stanceFade(phase);let r=readyPose(aimType,time);if(lefty)r=mirrorPose(r);
           for(const j of JOINTS)joints[j].quaternion.slerp(motionA.setFromEuler(motionEuler.fromArray([...r[j],'XYZ'])),w);
-          root.position.y+=(ROOT_Y+r.rootY-root.position.y)*w;
+          root.position.y+=(ROOT_Y+r.rootY-root.position.y)*w; root.position.x*=1-w; root.position.z*=1-w;
         }
       }
     },

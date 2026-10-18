@@ -686,7 +686,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     if (crown) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )')
       .replace('diffuseColor *= sampledDiffuseColor;', 'diffuseColor *= vec4(mix(sampledDiffuseColor.rgb, texture2D(map, vMapUv, 2.5).rgb, .75), sampledDiffuseColor.a);'));
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', `{ float l = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
-        diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, ${full ? '.8' : '.55'});   // Lite keeps 45%: it has no grade pass, and at 20% its crowns went lime (top-half foliage saturation .64 on the phone)
+        diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, ${full ? '.8' : '.66'});   // Mobile: .55 when it had no grade (at .8 its crowns went lime, top-half foliage saturation .64 on the phone); its tone curve grades now, and at .55 the foliage sat at .40-.47 against Desktop's .44-.55
         #ifdef CROWN
         // w6 verdicts ("no dark interior hollows", "no cooler, darker leaves inside the crown"): measured, the leaves we see sit
         // at .5-1.1 of the envelope, where depth squared barely dimmed them. Now the half-depth leaves go to a quarter, greyed
@@ -962,8 +962,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // hard line, a leaf 10 m up a 6 cm soft one, a pine crown 25 m up across the hill a 15 cm one. The near map spans only
   // 120-210 m from the light (30 m of casters above the focus, the slopes below it) for depth precision. sunPenumbra: per
   // map (near, far), texels of penumbra radius per unit of shadow depth (depth range x tan .34° / texel), and the widest.
-  const near = quality === 'low' ? null : new THREE.DirectionalLight(sunColor, 0), nearTexel = 24 / 2048;
-  if (near) { const c = near.shadow.camera; c.left = c.bottom = -12; c.right = c.top = 12; c.near = 120; c.far = 210; near.castShadow = true; near.shadow.mapSize.set(2048, 2048);
+  // Mobile runs it too, at 1024² (2.3 cm texels): its 120 m map alone (11.7 cm) gave the athlete a blob and the basket and pole no shadow at all.
+  const nearSize = quality === 'low' ? 1024 : 2048, near = new THREE.DirectionalLight(sunColor, 0), nearTexel = 24 / nearSize;
+  if (near) { const c = near.shadow.camera; c.left = c.bottom = -12; c.right = c.top = 12; c.near = 120; c.far = 210; near.castShadow = true; near.shadow.mapSize.set(nearSize, nearSize);
     near.shadow.bias = -.0003; near.shadow.normalBias = .03; scene.add(near, near.target);
     Object.assign(PENUMBRA, { x: (c.far - c.near) * .006 / nearTexel, y: 12, z: (sc2.far - sc2.near) * .006 / (extent * 2 / sm), w: 6 }); Object.assign(FLECK, { z: 24, w: c.far - c.near }); }
   // The shadow cameras' own axes (Object3D.lookAt from the sun toward the focus, up +y): update() snaps each camera's
@@ -1043,7 +1044,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
-  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs } };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one)
+  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs }, props: dressing.meshes };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one); props: the built dressing, for the run-up camera's line-of-sight rays
 }
 
 // Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 8 m (not
