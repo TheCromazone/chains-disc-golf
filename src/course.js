@@ -605,12 +605,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // e^-.6 per metre through), and it gates the back-light glow and the leaf-to-leaf fill, so a crown against the sun is dark at
   // its core with only the thin rim lit, not lit through. The leaves' albedo is 20% desaturated on Full (saturation round, 2026-10-07:
   // 45% left every crown grey-olive, foliage saturation .24-.41 in the top half of a frame against Disc Golf Masters' .40-.54).
-  // Mobile's near crowns read the leaf atlas 1.5 mip levels softer, colour and coverage alike. Each spray's 3-10 cm leaves land on
-  // 1-3 phone pixels, and at full detail they speckled into "noisy green masses with crunchy bright edges" (ChatGPT, blind A/B);
-  // Desktop's bloom and grade pass soften the same atlas, and Mobile has no post pass. Coarser texels at the same coverage threshold
-  // merge them into soft leafy clumps, still ragged at the rim. It replaces the one lookup, so it costs nothing.
-  const LEAF_BIAS = 1.5, softLeaf = s => { s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', `texture2D( map, vMapUv, ${LEAF_BIAS.toFixed(1)} )`)); };
-  const canopy = (mat, leaf = true, crown = null) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); if (leaf && crown && !full) softLeaf(s);
+  const canopy = (mat, leaf = true, crown = null) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
     if (crown) {   // a 3D crown: where this fragment sits in its variant's crown envelope (see crownOf, per instance scale), and a random per clump
       s.uniforms.treeCrown = { value: crown };
       s.vertexShader = 'uniform vec4 treeCrown;varying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;\n' + s.vertexShader.replace('#include <fog_vertex>', `#include <fog_vertex>
@@ -688,8 +683,13 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // w3 verdicts: at 640 px the crowns read as per-pixel speckle, a lit leaf beside a dark one on every texel, where the
     // reference varies clump to clump. So the leaf shape (alpha) stays sharp but its colour comes 2.5 mips blurrier: one spray
     // is one soft tone and the variation that reads is the clumps' light and shade, not leaf-to-leaf albedo noise.
-    if (crown) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )')
-      .replace('diffuseColor *= sampledDiffuseColor;', 'diffuseColor *= vec4(mix(sampledDiffuseColor.rgb, texture2D(map, vMapUv, 2.5).rgb, .75), sampledDiffuseColor.a);'));
+    // Mobile instead reads shape and colour together 1.5 mips softer, in one lookup (one fetch fewer): on a phone each spray's
+    // 3-10 cm leaves land on 1-3 pixels, and the sharp cut-outs speckled into "noisy green masses with crunchy bright edges"
+    // (ChatGPT, blind A/B; Desktop's bloom and grade soften the same edges, Mobile has no post pass). The coarser coverage merges
+    // the small leaves into soft clumps that stay ragged at the rim (Gemini, blind A/B at phone size: 6.5 against 6.2).
+    if (crown) s.fragmentShader = s.fragmentShader.replace('#include <map_fragment>', full ? THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )')
+      .replace('diffuseColor *= sampledDiffuseColor;', 'diffuseColor *= vec4(mix(sampledDiffuseColor.rgb, texture2D(map, vMapUv, 2.5).rgb, .75), sampledDiffuseColor.a);')
+      : THREE.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, 1.5 )'));
     if (leaf) s.fragmentShader = s.fragmentShader.replace('#include <lights_physical_fragment>', `{ float l = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
         diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, ${full ? '.8' : '.66'});   // Mobile: .55 when it had no grade (at .8 its crowns went lime, top-half foliage saturation .64 on the phone); its tone curve grades now, and at .55 the foliage sat at .40-.47 against Desktop's .44-.55
         #ifdef CROWN
