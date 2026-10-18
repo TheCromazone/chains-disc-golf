@@ -89,6 +89,18 @@
     "land_dirt": [
       "sfx/land_dirt_1.mp3",
       "sfx/land_dirt_2.mp3"
+    ],
+    "chains": [
+      "sfx/chains_1.mp3"
+    ],
+    "chainout": [
+      "sfx/chainout_1.mp3"
+    ],
+    "ohh": [
+      "sfx/ohh_1.mp3"
+    ],
+    "applause": [
+      "sfx/applause_1.mp3"
     ]
   },
   "models": {

@@ -109,7 +109,7 @@ const trayDrop = (t0, k = 1) => {  // disc settling on the basket tray: dull ste
 export const sfx = {
   whoosh(power = 1) { if (!ctx) return; if (play('whoosh', { gain: 0.5 + power * 0.5, rate: 0.9 + power * 0.25 })) return;
     burst(0.4 + power * 0.55, { f0: 900 + power * 1500, f1: 220, q: 0.7, gain: 0.1 + power * 0.22, attack: 0.012, lfo: [rnd(17, 26), 0.35] }); },
-  chains(power = 0.6) { if (!ctx) return; if (play(power < 0.35 ? 'chains_soft' : power > 0.75 ? 'chains_fast' : 'chains_medium') || play('chains')) return;
+  chains(power = 0.6) { if (!ctx) return; if (play(power < 0.35 ? 'chains_soft' : power > 0.75 ? 'chains_fast' : 'chains_medium') || play('chains', { gain: .55 + .5 * power, rate: .97 + .06 * power })) return;   // one recorded take: a soft putt quieter and a touch lower
     const t0 = now(); chainImpact(t0, .8 + power * .4);
     ring(rnd(400, 440), [1, 2.62], [1, .45], .3, .16, { t0: t0 + .04, send: .4 });   // the chains wrapping into the pole: a hollow tube clank
     const len = chainCascade(t0, Math.round(22 + power * 12), 0.2 + power * .06);
@@ -224,9 +224,14 @@ async function loadSamples() {
     })));
   } catch { /* Optional recordings retain their synth fallback independently. */ }
 }
+// Recordings sit at their own level in the mix (SAMPLE_DB, measured through a phone speaker's response like the synthesis was),
+// not the synthesis trims: chains first, the gallery and the verdicts close behind, landings and whooshes under them.
+const SAMPLE_DB = { chains: 6, chainout: 8, applause: -3, ohh: -11, whoosh: 1, land_grass: 5, land_dirt: 5 };   // dB
 function play(name, { gain = 1, rate = 1, loop = false, send = 0.25 } = {}) {
   const takes = samples[name]; if (!takes?.length) return false; const b = takes[Math.floor(Math.random() * takes.length)];
   const s = ctx.createBufferSource(); s.buffer = b; s.loop = loop; s.playbackRate.value = rate * (loop ? 1 : rnd(0.97, 1.03));
-  const g = ctx.createGain(); g.gain.value = gain; s.connect(g); out(g, loop ? 0 : send); s.start();
+  const g = ctx.createGain(); g.gain.value = gain * 10 ** ((SAMPLE_DB[name] || 0) / 20); s.connect(g);
+  g.connect(master); if (!loop && send > 0) { const v = ctx.createGain(); v.gain.value = send; g.connect(v); v.connect(verb); }   // not out(): the synthesis trims don't apply
+  s.start();
   return true;
 }
