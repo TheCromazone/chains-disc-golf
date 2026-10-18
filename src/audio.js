@@ -59,8 +59,8 @@ function burst(dur, { f0 = 800, f1 = f0, q = 1, gain = 0.5, type = 'bandpass', a
   s.start(t0); s.stop(t0 + dur + 0.05);
 }
 // metallic / wooden modal ring: inharmonic partials, higher ones die faster
-function ring(base, ratios, gains, dur, gain, { t0 = now(), send = 0.3, detune = 0.012 } = {}) {
-  ratios.forEach((r, i) => partial(base * r * rnd(1 - detune, 1 + detune), dur * (1 - i * 0.18), gain * gains[i], { t0, send }));
+function ring(base, ratios, gains, dur, gain, { t0 = now(), send = 0.3, detune = 0.012, sharp = 0 } = {}) {   // sharp: start that much high and settle (a struck link flexing)
+  ratios.forEach((r, i) => { const f = base * r * rnd(1 - detune, 1 + detune); partial(f * (1 + sharp), dur * (1 - i * 0.18), gain * gains[i], { t0, send, f1: f }); });
 }
 // a hand clap: the palms meet in a quick flam of micro-transients, then the cupped air rings briefly in a band
 function clap(t0, f, gain, send) {   // f: the clapper's cupped-palm resonance (750-1600 Hz), which stays his own clap after clap
@@ -80,7 +80,22 @@ function brass(f0, t0, dur, { f1 = f0, vib = 0, gain = .15 } = {}) {
   o1.connect(lp); m2.connect(lp); lp.connect(g); out(g, .25);
   for (const o of [o1, o2]) { o.start(t0); o.stop(t0 + dur + .05); }
 }
-const CHAIN = { r: [1, 1.47, 2.09, 2.86], g: [1, 0.55, 0.32, 0.16] };
+// Chains (rebuilt 2026-10-17 from a blind critique, 3/10: "coins on a desk, stops dead at 400 ms"). Each struck link rings its own
+// inharmonic modes (1 : 2.14 : 3.41 : 5.18 of a 1.8-4.2 kHz fundamental, the higher ones dying faster); the hits come dense for the
+// first ~150 ms as the disc tears into the curtain, then thin out over most of a second as the links swing back and settle.
+const CHAIN = { r: [1, 2.14, 3.41, 5.18], g: [1, 0.5, 0.28, 0.14] };
+const chainCascade = (t0, hits, loud, { lo = 1800, hi = 4200, span = 1 } = {}) => {  // returns when the last hit lands
+  let t = 0;
+  for (let i = 0; i < hits; i++) {
+    const k = i / hits;   // (choking the crash's rings to 15-75 ms with a flex in pitch scored lower in a third blind round: kept as is)
+    ring(rnd(lo, hi), CHAIN.r, CHAIN.g, rnd(.08, .4) * (1 - k * .45), loud * (1 - k * .78) * rnd(.45, 1), { t0: t0 + t, send: 0.35, detune: .02 });   // a drier send: the reverb's noise tail read as fizz on a phone
+    t += span * (k < .4 ? rnd(.004, .012) : rnd(.018, .065));
+  }
+  partial(rnd(4600, 5600), 0.9, loud * 0.1, { t0: t0 + 0.04, send: 0.7 }); partial(rnd(3500, 4200), 0.7, loud * 0.08, { t0: t0 + 0.06, send: 0.7 });
+  return t;
+};
+// the disc's plastic rim deforming against steel: a short mid-band crack and a thump that drops in pitch
+const chainImpact = (t0, k = 1) => { burst(.025, { f0: 1300, q: 1.2, gain: .5 * k, t0, attack: .001 }); partial(300, .035, .3 * k, { f1: 90, t0 }); burst(.012, { f0: 5200, q: .8, gain: .06 * k, t0, attack: .0008 }); };
 const trayDrop = (t0, k = 1) => {  // disc settling on the basket tray: dull steel pan clank, the welded wire ringing, and a chatter of
   ring(rnd(300, 360), [1, 1.83, 2.71], [1, 0.4, 0.2], 0.22, 0.2 * k, { t0, send: 0.4 });   // bounces closing up as its spin dies
   burst(0.07, { f0: 900, f1: 260, q: 0.6, gain: 0.22 * k, type: 'lowpass', t0 });
@@ -88,25 +103,22 @@ const trayDrop = (t0, k = 1) => {  // disc settling on the basket tray: dull ste
   let t = t0 + rnd(.08, .1), g = .45;
   for (const gap of [.055, .03, .016]) { ring(rnd(320, 400), [1, 1.83, 2.4], [1, .4, .2], .06, .12 * k * g, { t0: t, send: .3 }); burst(.015, { f0: 1500, q: 1, gain: .12 * k * g, t0: t, attack: .001 }); t += gap; g *= .55; }
 };
-const chainCascade = (t0, hits, loud) => {  // N link collisions, dense then sparse, bright ringing tail
-  let t = 0;
-  for (let i = 0; i < hits; i++) {
-    const k = i / hits;
-    ring(rnd(2300, 5100), CHAIN.r, CHAIN.g, rnd(0.05, 0.09) + (1 - k) * 0.1, loud * (1 - k * 0.75) * rnd(0.5, 1), { t0: t0 + t, send: 0.55 });
-    t += 0.005 + k * 0.03 + rnd(0, 0.014);
-  }
-  partial(rnd(4600, 5600), 0.75, loud * 0.12, { t0: t0 + 0.04, send: 0.7 }); partial(rnd(3500, 4200), 0.55, loud * 0.1, { t0: t0 + 0.06, send: 0.7 });
-  return t;
-};
 
 export const sfx = {
   whoosh(power = 1) { if (!ctx) return; if (play('whoosh', { gain: 0.5 + power * 0.5, rate: 0.9 + power * 0.25 })) return;
     burst(0.4 + power * 0.55, { f0: 900 + power * 1500, f1: 220, q: 0.7, gain: 0.1 + power * 0.22, attack: 0.012, lfo: [rnd(17, 26), 0.35] }); },
   chains(power = 0.6) { if (!ctx) return; if (play(power < 0.35 ? 'chains_soft' : power > 0.75 ? 'chains_fast' : 'chains_medium') || play('chains')) return;
-    const t0 = now(); burst(0.05, { f0: 2600, f1: 1100, q: 0.5, gain: 0.45, t0 });
-    const len = chainCascade(t0, Math.round(rnd(20, 30)), 0.22); trayDrop(t0 + Math.max(0.2, len * 0.8)); },
+    const t0 = now(); chainImpact(t0, .8 + power * .4);
+    ring(rnd(400, 440), [1, 2.62], [1, .45], .3, .16, { t0: t0 + .04, send: .4 });   // the chains wrapping into the pole: a hollow tube clank
+    const len = chainCascade(t0, Math.round(22 + power * 12), 0.2 + power * .06);
+    for (let i = 0; i < 5; i++) ring(rnd(2000, 4000), CHAIN.r, CHAIN.g, rnd(.06, .14), .035 * rnd(.5, 1), { t0: t0 + len + rnd(.05, .6), send: .6, detune: .02 });   // a last few links settling
+    trayDrop(t0 + Math.max(0.22, len * 0.55)); },
   drop() { if (!ctx) return; if (play('tray') || play('chains', { gain: 0.6 })) return; const t0 = now(); chainCascade(t0, 6, 0.12); trayDrop(t0 + 0.08, 1.1); },
-  chainout() { if (!ctx) return; if (play('chainout')) return; const t0 = now(); burst(0.04, { f0: 3000, f1: 1500, q: 0.5, gain: 0.35, t0 }); chainCascade(t0, 9, 0.2); },
+  // a chain-out glances off the outer links: a narrow plastic crack, the struck outer link's own bright zing, and a few sparse clinks
+  // as it deflects away (round 2 of a blind A/B preferred this short glance to a longer, busier one that "sounds like a make")
+  chainout() { if (!ctx) return; if (play('chainout')) return; const t0 = now(); burst(0.04, { f0: 2400, f1: 1300, q: 0.8, gain: 0.32, t0 });
+    for (const dt of [.005, .045]) ring(rnd(2100, 2200), [1, 1.81, 2.99], [1, .6, .35], .095, .09, { t0: t0 + dt, send: .45, detune: .01, sharp: .03 });
+    for (const [dt, g] of [[.03, .09], [.07, .06], [rnd(.15, .18), .035], [rnd(.26, .29), .03], [rnd(.39, .43), .022]]) ring(rnd(2300, 4800), CHAIN.r, CHAIN.g, .09, g, { t0: t0 + dt, send: .4, detune: .02 }); },   // a brief flurry, then a gap with two or three lazy clinks as the outer chain swings back (round 3: a dense rattle to 0.4 s read close to a made putt)
   band() { if (!ctx) return; if (play('band')) return; const t0 = now();
     burst(0.05, { f0: 1800, f1: 600, q: 0.5, gain: 0.35, t0 }); ring(rnd(820, 980), [1, 1.58, 2.32, 3.1], [1, 0.5, 0.3, 0.15], 0.32, 0.3, { t0, send: 0.45 }); partial(170, 0.12, 0.16, { f1: 90, t0 }); chainCascade(t0 + 0.02, 4, 0.08); },
   pole() { if (!ctx) return; if (play('band', { rate: 0.7 })) return; const t0 = now(); burst(0.04, { f0: 1200, f1: 500, q: 0.6, gain: 0.3, t0 }); ring(rnd(480, 560), [1, 2.76, 5.4], [1, 0.35, 0.15], 0.22, 0.3, { t0, send: 0.4 }); },
@@ -169,7 +181,7 @@ export const sfx = {
 // 350 Hz, EBU R128 momentary maximum): the chains came out at -21, the applause at -46, the near-miss "ohh" at -50 and a skip or
 // a roll at -54, so on an iPhone the gallery, the misses and the landings were all but silent beside the chains. Each now plays at
 // its place in the mix (chains first, the gallery and the verdicts close behind, impacts under them, UI clicks and rolls lowest).
-const TRIM_DB = { applause: 15, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 16, leaves: 7, splash: 11, band: 1.5, pole: 3, chainout: 3, drop: 5, skip: 22, roll: 14, click: 20 };   // dB
+const TRIM_DB = { applause: 15, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 16, leaves: 7, splash: 11, band: 1.5, pole: 3, chainout: 10, drop: 5, skip: 22, roll: 14, click: 20 };   // dB
 for (const [k, f] of Object.entries(sfx)) sfx[k] = function (...a) { const prev = trim; trim = prev * 10 ** ((TRIM_DB[k] || 0) / 20); try { return f.apply(this, a); } finally { trim = prev; } };
 
 function ambient() { // wind bed with slow gusts + bird calls (frequency-swept chirps, trills)
