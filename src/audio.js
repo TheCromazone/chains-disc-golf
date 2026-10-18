@@ -188,17 +188,14 @@ export const sfx = {
 const TRIM_DB = { applause: 23, ohh: -1, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 10, leaves: 7, splash: 11, band: 1.5, pole: 3, chainout: 10, drop: 5, skip: 22, roll: 6, click: 20 };   // dB
 for (const [k, f] of Object.entries(sfx)) sfx[k] = function (...a) { const prev = trim; trim = prev * 10 ** ((TRIM_DB[k] || 0) / 20); try { return f.apply(this, a); } finally { trim = prev; } };
 
+// (a live 14 s recording, blind and loudness-matched, preferred this bed over one with a leaf-rustle layer following the gusts:
+// 7.5 to 4, 'static, unmodulated noise' under a whole round)
 function ambient() { // wind bed with slow gusts + bird calls (frequency-swept chirps, trills)
   if (play('ambient', { loop: true, gain: 1 })) return;
   const wind = ctx.createBufferSource(); wind.buffer = noiseBuf; wind.loop = true;
   const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 420; f.Q.value = 0.4;
   const g = ctx.createGain(); g.gain.value = 0.03; wind.connect(f); f.connect(g); g.connect(master); wind.start();
-  // leaves stirring with each gust: the part of the air a phone's speaker plays (the wind bed sits under ~500 Hz, so on an iPhone
-  // the course was silent between throws)
-  const rs = ctx.createBufferSource(); rs.buffer = noiseBuf; rs.loop = true; rs.playbackRate.value = .93;
-  const rf = ctx.createBiquadFilter(); rf.type = 'bandpass'; rf.frequency.value = 3600; rf.Q.value = .45;
-  const rg = ctx.createGain(); rg.gain.value = .006; rs.connect(rf); rf.connect(rg); rg.connect(master); rs.start();
-  const gust = () => { if (!muted) { const k = Math.random(); f.frequency.setTargetAtTime(rnd(260, 760), now(), 1.2); g.gain.setTargetAtTime(.018 + k * .042, now(), 1.4); rg.gain.setTargetAtTime(.003 + k * .011, now(), 1.1); } setTimeout(gust, rnd(1500, 4000)); };
+  const gust = () => { if (!muted) { f.frequency.setTargetAtTime(rnd(260, 760), now(), 1.2); g.gain.setTargetAtTime(rnd(0.018, 0.06), now(), 1.4); } setTimeout(gust, rnd(1500, 4000)); };
   gust();
   const chirp = () => {
     if (ctx.state === 'running' && !muted) {
@@ -206,7 +203,7 @@ function ambient() { // wind bed with slow gusts + bird calls (frequency-swept c
       for (let i = 0; i < notes; i++) {
         const t0 = now() + i * (trill ? 0.07 : rnd(0.11, 0.2)), f0 = base * rnd(0.9, 1.15);
         const o = ctx.createOscillator(); o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f0 * rnd(1.25, 1.6), t0 + 0.04); o.frequency.exponentialRampToValueAtTime(f0 * rnd(0.85, 1.05), t0 + 0.09);
-        const gg = ctx.createGain(); gg.gain.setValueAtTime(0.0001, t0); gg.gain.exponentialRampToValueAtTime(0.03, t0 + 0.015); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
+        const gg = ctx.createGain(); gg.gain.setValueAtTime(0.0001, t0); gg.gain.exponentialRampToValueAtTime(0.022, t0 + 0.015); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
         o.connect(gg); out(gg, 0.6); o.start(t0); o.stop(t0 + 0.12);
       }
     }
