@@ -1009,17 +1009,24 @@ function flightPlan(f) {
   // with the pin out of shot
   const halfW = Math.atan(Math.tan(chaseFov() * DEG / 2) * camera.aspect), _d = new THREE.Vector3(), _t = new THREE.Vector3();
   let LP = null, best = -Infinity;
+  // a disc at a trunk's foot sits inside the 1 m berth the line test keeps, so every spot read as blocked and the shot fell back
+  // to looking straight down past the bark (QA: a disc 0.64 m from a birch): the berth shrinks to the room the disc has
+  const berth = Math.max(.15, Math.min(1, ...world.treesNear(R[0], R[2]).map(t => Math.hypot(t.x - R[0], t.z - R[2]) - t.r - .1)));
   for (const ang of [.35, -.35, .9, -.9, 1.5, -1.5, 2.3, -2.3]) for (const reach of [6.4, 3.8]) for (const up of [2.2, 3.4, 4.6, 6]) {   // 2.2: under a low canopy
     const ca = Math.cos(ang), sa = Math.sin(ang) * pref, dx = -ux * ca + rs[0] * sa, dz = -uz * ca + rs[1] * sa;
     const x = R[0] + dx * reach, z = R[2] + dz * reach, y = Math.max(world.height(x, z) + up * reach / 6.4 + .1, ry + up * reach / 6.4);
-    const fr = clearFraction(world, R[0], ry, R[2], x, y, z, 1, 1.2, 1.05), P = new THREE.Vector3(R[0] + (x - R[0]) * fr, ry + (y - ry) * fr, R[2] + (z - R[2]) * fr), out = P.distanceTo(_v.set(R[0], ry, R[2]));
+    const fr = clearFraction(world, R[0], ry, R[2], x, y, z, berth, 1.2, 1.05), P = new THREE.Vector3(R[0] + (x - R[0]) * fr, ry + (y - ry) * fr, R[2] + (z - R[2]) * fr), out = P.distanceTo(_v.set(R[0], ry, R[2]));
     const sight = bd > 2 && bd < 45 ? clearFraction(world, P.x, P.y, P.z, T[0], T[1], T[2], .2, .3, .7) : 1;
     const both = bd > 2 && bd < 45 ? Math.max(0, Math.min(1, 1 - (_d.set(R[0], ry, R[2]).sub(P).normalize().angleTo(_t.set(...T).sub(P).normalize()) - 1.2 * halfW) / halfW)) : 1;
     const score = fr * 2 + sight * (.4 + .6 * both) + both * .5 - Math.abs(up - 3.4) * .06 - Math.abs(ang) * .12 - (reach < 6 ? .35 : 0) - (out < 2.2 ? 3 : 0) - crowded(P) * .8;
     if (score > best) { best = score; LP = P; }
   }
-  if (LP.distanceTo(_v.set(R[0], ry, R[2])) < 2.2) {   // boxed in: look down on it from over its head, on the side clearest of anyone waiting there (QA: a disc at a waiting player's feet framed the top of his cap)
-    let far = -1; for (const [a, b] of [[-ux, -uz], [rs[0], rs[1]], [-rs[0], -rs[1]], [ux, uz]]) { const x = R[0] + a * 2, z = R[2] + b * 2, clear = Math.min(9, ...G.players.map(q => q.char.group.position).filter(q => Math.hypot(q.x - R[0], q.z - R[2]) < 4).map(q => Math.hypot(q.x - x, q.z - z))); if (clear > far + .3) { far = clear; LP.set(x, ry + 3.4, z); } }
+  if (LP.distanceTo(_v.set(R[0], ry, R[2])) < 2.2) {   // boxed in: look down on it from over its head, from the side with a clear line to it, no trunk at the lens and nobody waiting there (QA: a disc at a waiting player's feet framed the top of his cap; one at a birch's foot put the lens against the bark)
+    let top = -Infinity; for (const [a, b] of [[-ux, -uz], [rs[0], rs[1]], [-rs[0], -rs[1]], [ux, uz]]) { const x = R[0] + a * 2, z = R[2] + b * 2, y = ry + 3.4;
+      const people = Math.min(9, ...G.players.map(q => q.char.group.position).filter(q => Math.hypot(q.x - R[0], q.z - R[2]) < 4).map(q => Math.hypot(q.x - x, q.z - z)));
+      const bark = Math.min(3, ...world.treesNear(x, z).map(t => Math.hypot(t.x - x, t.z - z) - t.r));
+      const sc = clearFraction(world, R[0], ry, R[2], x, y, z, .4, .2, 1) * 2 + Math.min(1, bark / 1.5) * 1.5 + Math.min(1, people / 2);
+      if (sc > top) { top = sc; LP.set(x, y, z); } }
   }
   // aim between the disc at rest and the basket so both hold the frame (the disc low, the pin and the tree line beyond it, not a wall of hillside); a far pin: down the line
   const la = Math.min(bd * .45, 9), LL = new THREE.Vector3(R[0] + ux * la, ry + .25 + la * .06, R[2] + uz * la);
@@ -1661,7 +1668,7 @@ setTimeout(async () => {
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await Promise.all([warmShaders(), assetsIdle()]);
   UI.hide('loading'); loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, flightPlan, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage
