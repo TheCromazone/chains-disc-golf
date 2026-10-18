@@ -424,6 +424,8 @@ function parkOthers(idx) {
     const d = [bx - q.lie[0], bz - q.lie[2]], L = Math.hypot(d[0], d[1]) || 1; d[0] /= L; d[1] /= L;
     const r = rightOf(d);
     let x = q.lie[0], z = q.lie[2];
+    // someone who has holed out waits a couple of metres off the basket, not inside its footprint where his tap-in left him
+    if (q.done) { const ox = x - bx, oz = z - bz, od = Math.hypot(ox, oz); if (od < 2.6) { const ux = od > .05 ? ox / od : -d[0], uz = od > .05 ? oz / od : -d[1]; x = bx + ux * 2.6; z = bz + uz * 2.6; } }
     // step out of the thrower's line: anyone standing within 1.6 m of the lie→basket segment moves to its side
     const [ax, az] = taken[0], ex = bx - ax, ez = bz - az, EL = Math.hypot(ex, ez) || 1, rn = rightOf([ex / EL, ez / EL]);
     const along = ((x - ax) * ex + (z - az) * ez) / EL, across = (x - ax) * rn[0] + (z - az) * rn[1];
@@ -603,6 +605,10 @@ function resolveThrow(pi, r, f = null) {
     p.done = true; p.scores[G.holeIdx] = p.strokes;
     if (isMine(p)) buzz([30, 40, 60]);
     p.char.react?.(p.strokes<h.par?'celebrate':p.strokes>h.par?'slump':'idle');
+    // a tap-in leaves him standing in the basket's footprint, where no lens parts him from the cage (QA: every short par was shot
+    // through the chains): he steps back to arm's length as the camera cuts to the reaction, as a player does once he's holed out
+    { const [bx, bz] = basketPos(), g = p.char.group.position, dx = g.x - bx, dz = g.z - bz, dd = Math.hypot(dx, dz);
+      if (dd < 1.25) { const ad = aimDir(), ux = dd > .05 ? dx / dd : -ad[0], uz = dd > .05 ? dz / dd : -ad[1], x = bx + ux * 1.3, z = bz + uz * 1.3; g.set(x, world.height(x, z), z); } }
     title = UI.scoreName(p.strokes, h.par); sub = `${p.name} · ${p.strokes} throw${p.strokes > 1 ? 's' : ''}`;
     if (p.strokes <= h.par) { sfx.fanfare(p.strokes === 1 ? 'ace' : p.strokes - h.par <= -2 ? 'eagle' : p.strokes - h.par === -1 ? 'birdie' : 'par'); sfx.applause(); }
     if (!reducedMotion && p.strokes <= h.par) { const at = p.char.group.position; celebration.burst([at.x, at.y, at.z], p.strokes === 1 || p.strokes < h.par - 1); }
@@ -1018,7 +1024,10 @@ function flightPlan(f) {
     const fr = clearFraction(world, R[0], ry, R[2], x, y, z, berth, 1.2, 1.05), P = new THREE.Vector3(R[0] + (x - R[0]) * fr, ry + (y - ry) * fr, R[2] + (z - R[2]) * fr), out = P.distanceTo(_v.set(R[0], ry, R[2]));
     const sight = bd > 2 && bd < 45 ? clearFraction(world, P.x, P.y, P.z, T[0], T[1], T[2], .2, .3, .7) : 1;
     const both = bd > 2 && bd < 45 ? Math.max(0, Math.min(1, 1 - (_d.set(R[0], ry, R[2]).sub(P).normalize().angleTo(_t.set(...T).sub(P).normalize()) - 1.2 * halfW) / halfW)) : 1;
-    const score = fr * 2 + sight * (.4 + .6 * both) + both * .5 - Math.abs(up - 3.4) * .06 - Math.abs(ang) * .12 - (reach < 6 ? .35 : 0) - (out < 2.2 ? 3 : 0) - crowded(P) * .8;
+    // a trunk close in front of the lens fills a portrait frame even when the line to the disc is clear (QA: half a landing shot was bark)
+    const lens = world.treesNear(P.x, P.z).reduce((m, t) => { const tx = t.x - P.x, tz = t.z - P.z, D = Math.hypot(tx, tz) || 1e-3, a = _d.set(tx, 0, tz).normalize().angleTo(_t.set(R[0] - P.x, 0, R[2] - P.z).normalize());
+      return a - Math.asin(Math.min(1, (t.r + .2) / D)) < halfW ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);
+    const score = fr * 2 + sight * (.4 + .6 * both) + both * .5 - Math.abs(up - 3.4) * .06 - Math.abs(ang) * .12 - (reach < 6 ? .35 : 0) - (out < 2.2 ? 3 : 0) - crowded(P) * .8 - lens * .8;
     if (score > best) { best = score; LP = P; }
   }
   if (LP.distanceTo(_v.set(R[0], ry, R[2])) < 2.2) {   // boxed in: look down on it from over its head, from the side with a clear line to it, no trunk at the lens and nobody waiting there (QA: a disc at a waiting player's feet framed the top of his cap; one at a birch's foot put the lens against the bark)
