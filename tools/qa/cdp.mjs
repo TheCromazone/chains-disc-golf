@@ -28,7 +28,7 @@ async function newPage(browser) {
   let seq = 0; const pend = new Map(); const logs = []; const errors = []; const listeners = new Map();
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
-    if (m.id) { const p = pend.get(m.id); pend.delete(m.id); m.error ? p.rej(Error(m.error.message)) : p.res(m.result); }
+    if (m.id && pend.has(m.id)) { const p = pend.get(m.id); pend.delete(m.id); m.error ? p.rej(Error(m.error.message)) : p.res(m.result); }
     if (m.method && listeners.has(m.method)) for (const fn of listeners.get(m.method)) fn(m.params);
     if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text);
     if (m.method === 'Runtime.consoleAPICalled') { const s = m.params.args.map(a => a.value ?? a.description ?? '').join(' '); logs.push(`[${m.params.type}] ${s}`); if (m.params.type === 'error') errors.push(s); }

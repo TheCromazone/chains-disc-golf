@@ -406,7 +406,10 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .hub-top { top: calc(10px + var(--sat)); }
   .hub-brand { flex-direction: row; align-items: center; gap: 14px; }   /* the host's pill beside the brand: no height to stack it */
   .host-home { order: 2; margin: 0; }
-  body[data-phase='result'] #toast, body.result-mode #toast { top: 23%; }
+  /* the verdict card in the left third, low: at 23% from the top it sat on the athlete's face in the reaction shot, which frames
+     him mid-screen (QA on Gull Point Bluffs), and the controls it would meet there are hidden for the result */
+  body[data-phase='result'] #toast, body.result-mode #toast { top: auto; bottom: calc(16% + var(--sab)); left: calc(25% + var(--sal) / 2); width: 46%; }
+  body[data-phase='result'] #react, body.result-mode #react { left: calc(25% + var(--sal) / 2); bottom: calc(16% + 92px + var(--sab)); }
   body[data-phase='result'] #toast b, body.result-mode #toast b { font-size: 42px; }
   #score .panel { --gutter: 20px; width: min(620px, 100%); }
   #score .eyebrow { padding: 5px 12px 4px; }
@@ -453,7 +456,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 .sw-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 9px; padding: 3px; }
 .sw-row button { width: 100%; height: 38px; min-height: 38px; background: linear-gradient(140deg, #ffffff38, transparent), var(--swatch); border-color: #ffffffbd; border-radius: 9px; }
 .sw-row button.on { border-color: white; outline-color: #087baf; box-shadow: inset 0 -3px 5px #0001; }
-#btnLockerDone { min-height: 44px; }
+#btnLockerDone { min-height: 44px; position: sticky; bottom: 0; z-index: 2; box-shadow: 0 -6px 18px #f4fbff, 0 4px 14px #e0576140; }   /* the panel scrolls (the Hair tab runs long; a landscape phone shows ~370 px of it): Ready to play stays on screen, pinned to its bottom edge */
 @media (min-width: 900px) {
   .overlay.locker .panel { max-height: calc(100% - 60px); }
   .locker-preview-label { left: auto; right: 5vw; top: 32px; text-align: right; }
@@ -563,6 +566,9 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
   #aimZone { top: auto; left: 16px; bottom: calc(76px + var(--sab)); }
   #power, #powerLabel, #waiting { left: 63%; }   /* clear of the wind plate on a 390-430 pt tall phone on its side */
   #pad { padding-bottom: calc(108px + var(--sab)); }   /* the hint rides over the wind plate, not into it */
+  /* the wind plate under the score plate: at the bottom right it sat on the athlete's hip, who stands in the right third over
+     the swipe pad (AIM.driveS), and the left column between the score and the aim pill is open sky and trees */
+  #conditions { right: auto; left: 12px; bottom: auto; top: calc(84px + var(--sat)); flex-direction: column; align-items: flex-start; gap: 3px; }
 }
 /* A phone on its side: the notch or Dynamic Island takes ~50 px of one long edge (viewport-fit=cover), where the score plate
    and the menu button used to sit. */

@@ -214,6 +214,17 @@ export function clapPose(time, rig = RIGS.lite) {
   pose.rootY = -Math.min(...soleHeights(pose, false, rig));
   return pose;
 }
+// A miss (the "womp womp" verdict, QA on a phone 2026-10-17: the slump clip's 9° stoop and 15° nod barely showed at the result
+// camera's distance): both hands go up to the head, the head rocking, before the slump clip lets them fall. DISMAY holds the arms.
+export const DISMAY = { sh: [2.45, .4, .5], el: 2.35, spine: -.06, head: .12 };
+export function dismayPose(time, rig = RIGS.lite) {
+  const pose = { rootY: 0 }; for (const j of JOINTS) pose[j] = [...IDLE[j]];
+  const [x, y, z] = DISMAY.sh, sway = .04 * Math.sin(time * 2.1);
+  pose.shR = [x, y, z + sway]; pose.elR = [DISMAY.el, 0, 0]; pose.shL = [x, -y, -z - sway]; pose.elL = [DISMAY.el, 0, 0];
+  pose.spine[0] += DISMAY.spine; pose.head[0] += DISMAY.head; pose.head[1] += .12 * Math.sin(time * 1.6);
+  pose.rootY = -Math.min(...soleHeights(pose, false, rig));
+  return pose;
+}
 // The swipe morphs the stance into the clip across most of the windup rather than its first few percent: the coiled,
 // knee-loaded set-up and the clip's reach-back share their shape, and a short fade bobbed the athlete upright between them.
 export const STANCE_FADE = .4;

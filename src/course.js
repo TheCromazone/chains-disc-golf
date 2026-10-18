@@ -762,9 +762,29 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const ys = pts.map(v => v[0]), y0 = q(ys, .03), y1 = q(ys, .97), ym = (y0 + y1) / 2;
     const lo = q(pts.filter(v => v[0] < ym).map(v => v[1]), .95), hi = q(pts.filter(v => v[0] >= ym).map(v => v[1]), .95);
     return new THREE.Vector4(ym, lo, Math.max(2 * hi - lo, .3, hi * .25), (y1 - y0) / 2); };
-  const leafFull = g => near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.3, -.3), alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock), true, crownOf(g)));
-  const wood = map => map && near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false));
-  const woodMats = { bark: wood(bark), bark_birch: wood(texture('bark_birch')) };
+  const leafFull = g => nearClip(near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.3, -.3), alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock), true, crownOf(g))));
+  // Wood and leaves of the 3D plants near the eye (QA from lies in the woods on a phone, 2026-10-17). Bare low limbs: the spruces'
+  // lowest whorl (1.8 m up, 2.2 m out) and the Scots pines' dead branches (1.6-2.7 m up, to 1.65 m out) carry no foliage that shows
+  // at eye height (frond and needle cards are flat and vanish edge-on), so from a lie among them each read as a bare black rod
+  // across the frame, through the athlete's head. A tree's wood over .75 m off its stem and under limbCut m up (model space)
+  // retracts into the stem (the stubs reach .65 m at most and stay; bushes keep every branch: limbCut -1), as do its limbs within
+  // ~4.5 m of the lens anywhere and its stubs within ~3 m (the chase camera crosses crowns, where the cards round a limb turn
+  // edge-on). Leaves within ~1.3 m of the lens dissolve in a screen-door dither, so a crown the camera brushes is never a wall.
+  const nearClip = (mat, limbCut = null) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
+    if (limbCut) {   // wood: limbs retract into the stem in the vertex shader (a discard here would cost an iPhone's hidden-surface removal on every near trunk)
+      s.uniforms.limbCut = limbCut;
+      s.vertexShader = 'uniform float limbCut;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+        if (limbCut > 0.) { float r = length(position.xz), eye = distance((modelMatrix * instanceMatrix * vec4(position, 1.)).xyz, cameraPosition);
+          float keep = r > .75 ? (position.y < limbCut ? 0. : smoothstep(3.5, 5.5, eye)) : r > .55 && position.y > 1.5 ? smoothstep(2.5, 4., eye) : 1.;
+          if (keep < 1.) transformed.xz = mix(position.xz * (.1 / max(r, .1)), transformed.xz, keep); }
+        #endif`);
+    } else s.fragmentShader = s.fragmentShader.replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
+      if (length(vViewPosition) < mix(.5, 1.3, fract(52.98 * fract(dot(gl_FragCoord.xy, vec2(.06711, .00584)))))) discard;`); };   // leaves: they cut out already
+    mat.customProgramCacheKey = () => prevKey.call(mat) + (limbCut ? '|limbs' : '|nearClip'); return mat; };
+  const TREE_LIMBS = { value: 4.2 }, BUSH_LIMBS = { value: -1 };
+  const wood = (map, limbs) => map && nearClip(near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false)), limbs);
+  const woodMats = { bark: wood(bark, TREE_LIMBS), bark_birch: wood(texture('bark_birch'), TREE_LIMBS) }, bushWood = { bark: wood(bark, BUSH_LIMBS), bark_birch: wood(texture('bark_birch'), BUSH_LIMBS) };
   // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
   // conifers sit darker than the broadleaves (a deep green, not grey-blue); stands drift yellower or bluer, lighter or darker by
@@ -780,7 +800,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     src.scene.updateMatrixWorld(true);
     src.scene.traverse(o => { if (!o.isMesh) return;
       const variant = o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
-      const mat = key === 'leaves' ? leafFull(g) : woodMats[key] || trunkMat, tint = key === 'leaves' ? leafTint : barkTint;
+      const mat = key === 'leaves' ? leafFull(g) : (name === 'bush' ? bushWood : woodMats)[key] || trunkMat, tint = key === 'leaves' ? leafTint : barkTint;
       if (mine.length) inst(g, mat, mine, tint, shadow, lod); });
       // Every tree casts. The edge stand's open side and young trees, the clearing groves and the back woods used to skip the
       // shadow pass (it triples a tree's triangles), so from the tee they stood as trunks on evenly sunlit grass (tee-stands

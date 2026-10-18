@@ -11,7 +11,21 @@
       "name": "landings",
       "prompt": "Locked-off camera at ground level beside a short-mown grass fairway in a quiet park on a calm sunny afternoon. A red plastic disc golf disc flies in fast and low from the left, spinning, cutting through the air right past the camera, then hits the grass, skids a short way and wobbles flat to a stop. A second later a blue disc does the same on a hard packed dirt path in the foreground. Realistic, crisp sound only: the airy spinning whoosh of each disc as it passes the microphone and the dull thump, brushing slide and little wobble as it lands. No music, no voices, no wind noise, no birds.",
       "takes": "python3 tools/process-sfx.py land_grass landing.wav --peak -6 --at 1.92-2.95,1.94-2.5 && python3 tools/process-sfx.py land_dirt landing.wav --peak -6 --at 5.93-6.95,7.3-7.98"
+    },
+    {
+      "name": "chain hits",
+      "made": "2026-10-18",
+      "prompt": "Close-up, locked-off camera on a tripod right beside a disc golf basket in a quiet park on a calm afternoon. Plastic golf discs fly in from the right one at a time, a few seconds apart, and hit the hanging steel chains: first a hard, fast putt that slams into the chains with a loud crashing metallic rattle and drops clattering into the wire basket tray; then a soft putt that jingles the chains gently and drops in with a light clank; then a disc that clips the outer chains, rattles them and spits out, falling onto the grass with a soft thud; then one more firm putt that crashes into the chains and settles in the basket. Realistic, crisp, close-miked sound only: heavy steel chains rattling and ringing, the plastic disc hitting the chains, the disc clattering into the metal basket. No music, no voices, no wind, no birds.",
+      "takes": "chains_1.mp3 = 1.62-3.35 s (the hard putt), chainout_1.mp3 = 7.32-8.62 s; high-pass 170 Hz, 8 ms fade in, 0.28-0.35 s quarter-sine fade out, peak -6/-7 dBFS (python snippet in the PR session; tools/process-sfx.py has a fixed 90 ms fade)",
+      "blind A/B": "chains 8.5 vs synthesis 1.5 (the soft and last takes lost); chain-out 7.8 vs 3.8"
+    },
+    {
+      "name": "gallery reactions",
+      "made": "2026-10-18",
+      "prompt": "A small group of eight spectators stands on the grass beside a disc golf basket in a sunny park, filmed from a few metres away at standing height. A player's putt clips the chains and bounces out, and the whole group lets out a long, disappointed, wordless \"ohhh\" together. A few seconds later the player sinks a putt with a crash of chains and the group breaks into warm, polite golf applause, clapping steadily for a few seconds with a couple of pleased wordless cheers. Realistic, natural outdoor sound of the people only: the collective ohhh and real hand clapping. No music, no commentary, no speech or words.",
+      "takes": "chain rings notched first (4.8 kHz -30 dB, 2.05 kHz -18 dB); ohh_1.mp3 = 2.18-4.45 s with a 2.5 dB dip at 1.2 kHz and a 0.45 s fade; applause_1.mp3 = 7.36-10.0 s with a 3.5 dB cut at 500 Hz and a 0.5 s fade",
+      "blind A/B": "ohh 6.2 vs synthesis 2.5; applause 8.1 vs 5.2"
     }
   ],
-  "runtime": "src/audio.js: whoosh on release (gain and pitch follow power), land_grass / land_dirt on first ground contact by surface (gain follows impact speed); a random take each time, synthesis as the fallback."
+  "runtime": "src/audio.js: whoosh on release (gain and pitch follow power), land_grass / land_dirt on first ground contact by surface (gain follows impact speed); a random take each time, synthesis as the fallback. Since 2026-10-18 also chains (gain and pitch follow putt power), chainout, ohh and applause; recordings play at SAMPLE_DB levels in src/audio.js, the synthesis stays as the fallback."
 }

@@ -16,6 +16,7 @@ const external = arg('--url', null), base = external || `http://localhost:${port
 const profile = mkdtempSync(join(tmpdir(), 'chains-rounds-'));
 const server = external ? null : spawn(process.execPath, ['serve.mjs', '--dist'], { cwd: root, env: { ...process.env, PORT: '' + port }, stdio: 'ignore' });
 const chrome = spawn(CHROME, ['--headless=new', '--mute-audio', `--remote-debugging-port=${dbg}`, `--user-data-dir=${profile}`, '--no-first-run', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
+process.once('exit', () => { try { chrome.kill('SIGKILL'); } catch {} try { server?.kill(); } catch {} });   // a run that throws still takes its Chrome and server with it (crashed runs left them on the suite's fixed ports, and the next run, or another session's, talked to the orphans)
 const pause = ms => new Promise(r => setTimeout(r, ms));
 const errors = [];
 try {
@@ -23,7 +24,7 @@ try {
   const tab = (await (await fetch(`http://127.0.0.1:${dbg}/json/list`)).json()).find(t => t.type === 'page');
   const ws = new WebSocket(tab.webSocketDebuggerUrl); await new Promise(r => ws.onopen = r);
   let seq = 0; const pend = new Map();
-  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id) { const p = pend.get(m.id); pend.delete(m.id); m.error ? p.rej(Error(m.error.message)) : p.res(m.result); }
+  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { const p = pend.get(m.id); pend.delete(m.id); m.error ? p.rej(Error(m.error.message)) : p.res(m.result); }
     if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text);
     if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push(m.params.args.map(a => a.value || a.description).join(' ')); };
   const send = (method, params = {}) => new Promise((res, rej) => { pend.set(++seq, { res, rej }); ws.send(JSON.stringify({ id: seq, method, params })); });
