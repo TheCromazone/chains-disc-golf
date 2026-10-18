@@ -139,9 +139,8 @@ export const sfx = {
     burst(0.12, { f0: 650, f1: 160, q: 0.6, gain: 0.45, type: 'lowpass', t0 }); partial(150, 0.28, 0.24, { f1: 42, t0 });
     burst(0.75, { f0: 1900, f1: 700, q: 0.5, gain: 0.16, attack: 0.05, t0: t0 + 0.03, send: 0.4, lfo: [rnd(7, 11), 0.5] });
     for (let i = 0; i < 6; i++) partial(rnd(1400, 3600), 0.03, 0.04, { f1: 900, t0: t0 + rnd(0.12, 0.55) }); },
-  // a disc rolling on its rim: the rim's whirr through the grass (the band a phone's speaker plays) over the turf's rumble
-  roll() { if (!ctx) return; if (play('roll')) return; burst(0.9, { f0: 320, f1: 140, q: 0.5, gain: 0.12, type: 'lowpass', attack: 0.03, lfo: [rnd(4, 7), 0.6] });
-    burst(0.95, { f0: rnd(1300, 1700), f1: 650, q: 0.9, gain: 0.07, attack: 0.04, lfo: [rnd(10, 15), 0.7] }); },
+  // (a blind A/B kept this low rumble over one with a rim whirr layered on, 4.5 to 2.5: subtle on a phone, as a roll is)
+  roll() { if (!ctx) return; if (play('roll')) return; burst(0.9, { f0: 320, f1: 140, q: 0.5, gain: 0.2, type: 'lowpass', attack: 0.03, lfo: [rnd(4, 7), 0.6] }); },
   click() { if (!ctx) return; if (play('click', { gain: 0.6 })) return; partial(2300, 0.03, 0.05, { f1: 1600 }); burst(0.012, { f0: 4200, q: 1.5, gain: 0.04 }); },
   // the group on the tee claps: a few people, each at their own rate and hand size, starting raggedly and tailing off
   // (a blind A/B, 2026-10-17: eight clappers at up to 5.5 claps a second blurred into "rain on a tent"; six at 3.2-4.4, each with
@@ -186,7 +185,7 @@ export const sfx = {
 // 350 Hz, EBU R128 momentary maximum): the chains came out at -21, the applause at -46, the near-miss "ohh" at -50 and a skip or
 // a roll at -54, so on an iPhone the gallery, the misses and the landings were all but silent beside the chains. Each now plays at
 // its place in the mix (chains first, the gallery and the verdicts close behind, impacts under them, UI clicks and rolls lowest).
-const TRIM_DB = { applause: 23, ohh: -1, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 10, leaves: 7, splash: 11, band: 1.5, pole: 3, chainout: 10, drop: 5, skip: 22, roll: 14, click: 20 };   // dB
+const TRIM_DB = { applause: 23, ohh: -1, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 10, leaves: 7, splash: 11, band: 1.5, pole: 3, chainout: 10, drop: 5, skip: 22, roll: 6, click: 20 };   // dB
 for (const [k, f] of Object.entries(sfx)) sfx[k] = function (...a) { const prev = trim; trim = prev * 10 ** ((TRIM_DB[k] || 0) / 20); try { return f.apply(this, a); } finally { trim = prev; } };
 
 function ambient() { // wind bed with slow gusts + bird calls (frequency-swept chirps, trills)
