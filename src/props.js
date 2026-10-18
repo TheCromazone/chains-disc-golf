@@ -432,7 +432,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const blobs = [], shadeUnder = (world, hx, hz, core, k, ox = 0, oz = 0) => { const e = world.elements; blobs.push([e[12] + e[0] * ox + e[8] * oz, e[14] + e[2] * ox + e[10] * oz, Math.atan2(e[8], e[10]), hx, hz, core, k]); };
   const feather = featherGeometry(full);
   const addFeather = (world, design) => {
-    { const c = new THREE.Vector3().setFromMatrixPosition(world); camCapsules.push({ a: [c.x, c.y + .3, c.z], b: [c.x, c.y + 2.9, c.z], r: .55, tag: 'feather' }); }   // cameras keep the banner out of the lens (a putt's rig once stood behind one: 'CHAINS OPEN' backwards across the green)
+    { const c = new THREE.Vector3(.39, 0, 0).applyMatrix4(world); camCapsules.push({ a: [c.x, c.y + .3, c.z], b: [c.x, c.y + 3.6, c.z], r: .6, tag: 'feather' }); }   // on the cloth's middle (it flies .78 m to one side of the pole) and up to its 3.7 m top: on the pole the chase cam cleared it by ~1 m of cloth   // cameras keep the banner out of the lens (a putt's rig once stood behind one: 'CHAINS OPEN' backwards across the green)
     K.cloth(feather.cloth.clone().applyMatrix4(world), 'feather' + design);
     K.steel(tube(feather.pole, .012, full ? 12 : 4, 4).applyMatrix4(world), '#d9dcdc');
     K.steel(box(.7, .025, .05).applyMatrix4(world), '#3a3d40'); K.steel(box(.05, .025, .7).applyMatrix4(world), '#3a3d40');

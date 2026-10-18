@@ -185,6 +185,12 @@ clubhouse, tee and flights at 57-60 fps before the merge, but the simulator rend
 
 ## Still open
 
+- **The hard bot's drive on Pine Hollow hole 1:** with that hole's wind (2.2 m/s), every right-handed hard bot throws a forehand
+  that curves into the woods by the arch, and 20-22 of 30 seeded tee shots touch a tree. That is master's bot planning
+  (`src/bot.js`, unchanged here), so the run-up just puts it on show. The same probe on master and this branch gives the same
+  throw types and tree hits (`scratchpad` teeprobe). The chase camera then passes the arch's BIRDIE BREW pillar banner, which
+  fills the portrait frame for ~0.3 s.
+
 - On a landscape phone the swipe hint, wind plate and ring sit over the athlete's legs at the tee (ergonomic layout, left alone).
 - From the chase camera the flight ribbon can read as a vertical stick.
 - Leaf cards seen from inside the woods (a disc deep in the trees) read as large flat blades, now on Mobile too.
