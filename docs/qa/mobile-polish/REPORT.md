@@ -33,6 +33,28 @@ the aim camera 0.6 m behind a trunk, and the whole screen was bark.
 
 [Reaction and tap-in, before and after](reaction-tapin.jpg)
 
+## Second pass: what a second sweep and a blind critique turned up
+
+- **Contact shade:** every athlete on the course has a soft shadow under the pelvis, square to the slope and on the tee mat's top
+  face. In a crown's shadow he had none and stood on the turf like a cut-out.
+- **Aim line on a phone:** its width was set in buffer pixels, so a phone's 2× buffer drew a 1.6 pt thread that vanished over
+  foliage. Widths are CSS px now, with a darker outline. Inside 4 m a putt's ribbon was a stub seen end-on that stood up like a
+  white pole in his hand. It hides there, and the ground arrow aims the putt.
+- **Leaf litter:** its contrast eases toward the tile's mean with distance, as the gravel's does, so it no longer speckles.
+- **Feather flags and tents** count against aim spots like trunks (one a metre off the lens filled a third of the frame). The
+  holed-out reaction picks the side with nobody else in the lens. A 0.3 m tap-in is shot side-on, the only view that parts the
+  athlete from the basket.
+- **Landscape verdict card:** it moved from 23% down the screen (on the athlete's face in the reaction shot) to the left third,
+  low. The wide reaction lens keeps his raised fist.
+- **Landing debris (two bugs):** particles were clamped at world y 0, so on low ground they popped up and on high ground they
+  sank into the hill. Their point size used a fixed 220 px per metre, about 2 px for a 5 cm clod 7 m out on a phone. A splash
+  now also throws a crown of spray and rings the water.
+- **Cost:** tree limbs retract in the vertex shader, not by discarding bark fragments, which would have turned off an iPhone
+  GPU's hidden-surface removal on every near trunk. Measured against PR #31 at the tee, three woods lies and a putt (headless,
+  GPU-synced, median of 9): within run-to-run noise. The only difference is one draw call and two triangles for the contact shade.
+
+[Splash, before and after](splash.jpg)
+
 ## Landscape HUD
 
 The wind and elevation plate sat on the athlete's hip at the bottom right. It now sits under the score plate.
