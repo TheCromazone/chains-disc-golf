@@ -809,6 +809,9 @@ AIM.driveS = { back: 3.4, side: .95, up: 1.55, pitch: 5, yaw: 0, vfov: 38 };   /
 // rig's own spot on a tie. Once per lie, measured down the line to the pin, so aiming never swaps sides.
 const AIM_SPOTS = [[1, 1], [1, -1], [1, 1.8], [1, -1.8], [1, .3], [.8, -1], [.8, 1], [.65, -.5], [.65, .5], [.85, 2.6], [.85, -2.6]];   // back and side factors; the last two stand wide beside a trunk right behind the lie (QA: one 1.5 m behind blocked every other spot), the lens turning to keep him in
 const aimSpot = { key: '', k: 0 };
+// the upright camera blockers (feather flags, tents, the arch's legs) as trunk-like records: a feather flag a metre off the lens
+// filled a third of a portrait frame beside the athlete (QA on Lakeshore), and only trees counted against a spot
+const uprights = () => (world.camBlockers || []).filter(c => Math.abs(c.b[1] - c.a[1]) > .5).map(c => ({ x: c.a[0], z: c.a[2], r: c.r }));
 function aimSpotFor(lie, P, side, putt, halfW) {
   const h = holes[G.holeIdx], key = `${G.seed}|${G.holeIdx}|${lie.x.toFixed(1)}|${lie.z.toFixed(1)}|${putt}|${P === AIM.tall.putt || P === AIM.tall.drive}`;
   if (aimSpot.key === key) return aimSpot.k;
@@ -822,7 +825,7 @@ function aimSpotFor(lie, P, side, putt, halfW) {
     if (k === 0) off0 = off;   // the rig's composition (a phone's portrait putt keeps him half out at the edge, over the shoulder)
     const framed = Math.max(0, 1 - Math.abs(off - off0) / (halfW * .5));
     // a trunk close in front of the lens fills the frame even when it blocks neither line (the QA birch: 1 m out, 11° off centre)
-    const lens = world.treesNear(x, z).reduce((m, t) => { const tx = t.x - x, tz = t.z - z, D = Math.hypot(tx, tz) || 1e-3, a = Math.abs(Math.atan2(vx * tz - vz * tx, vx * tx + vz * tz));
+    const lens = [...world.treesNear(x, z), ...uprights()].reduce((m, t) => { const tx = t.x - x, tz = t.z - z, D = Math.hypot(tx, tz) || 1e-3, a = Math.abs(Math.atan2(vx * tz - vz * tx, vx * tx + vz * tz));
       return a - Math.asin(Math.min(1, (t.r + .2) / D)) < halfW + .2 ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);   // the trunk's own width counts (with its stubs): one 1 m off the lens filled a portrait frame from 33° off its centre line
     const score = see + ahead * .6 + framed * .8 - lens - k * .02;   // the nearest alternative wins a tie
     scores.push(+score.toFixed(3));
@@ -1113,8 +1116,15 @@ function updateCamera(dt) {
       // the reaction from in front of the athlete; when he holed out from inside 6.5 m the pin stands on that line, so the lens
       // swings 40° to the clearer side (QA on a phone: a tap-in's reaction framed him through the basket's chains and cage)
       const key = `${G.cur}|${lie.x.toFixed(2)}|${lie.z.toFixed(2)}`;
-      if (cam.react?.key !== key) { const bd = distToBasket(lie.x, lie.z), side = sgn => { const a = .7 * sgn, ux = d[0] * Math.cos(a) + rightOf(d)[0] * Math.sin(a), uz = d[1] * Math.cos(a) + rightOf(d)[1] * Math.sin(a); return clearFraction(world, lie.x, lie.y + 1.4, lie.z, lie.x + ux * 3.8, lie.y + 1.45, lie.z + uz * 3.8, .3, .15); };
-        cam.react = { key, a: bd < 6.5 ? (side(1) >= side(-1) ? .7 : -.7) : 0 }; }
+      if (cam.react?.key !== key) { const bd = distToBasket(lie.x, lie.z), swing = bd < 1.5 ? 1.2 : .7, me = curP();   // a tap-in stands at the basket: only a side view parts them
+        // a side's score: the line to the athlete clear of trunks and props, and nobody else standing near it (QA: a partner a
+        // metre off the lens filled half the reaction shot)
+        const side = a => { const ux = d[0] * Math.cos(a) + rightOf(d)[0] * Math.sin(a), uz = d[1] * Math.cos(a) + rightOf(d)[1] * Math.sin(a), cx = lie.x + ux * 3.8, cz = lie.z + uz * 3.8;
+          const crowd = G.players.some(q => { if (q === me) return false; const o = q.char.group.position, t = Math.max(0, Math.min(1, ((o.x - lie.x) * ux + (o.z - lie.z) * uz) / 3.8)); return Math.hypot(o.x - lie.x - ux * 3.8 * t, o.z - lie.z - uz * 3.8 * t) < .9 && t > .15; });
+          return clearFraction(world, lie.x, lie.y + 1.4, lie.z, cx, lie.y + 1.45, cz, .3, .15) - (crowd ? 1 : 0); };
+        const opts = bd < 6.5 ? [swing, -swing] : [0, .5, -.5];   // a long make keeps the straight-on view unless someone stands in it
+        let best = opts[0], top = -Infinity; for (const a of opts) { const sc = side(a) - Math.abs(a) * .05; if (sc > top + .01) { top = sc; best = a; } }
+        cam.react = { key, a: best }; }
       const r=rightOf(d), ca = Math.cos(cam.react.a), sa = Math.sin(cam.react.a), fx = d[0] * ca + r[0] * sa, fz = d[1] * ca + r[1] * sa;
       cam.tPos.set(lie.x+fx*3.8+r[0]*.7*ca,lie.y+1.45,lie.z+fz*3.8+r[1]*.7*ca);
       cam.tLook.set(lie.x,lie.y+.92,lie.z); k=5; fov=camera.aspect<1.2?54:38;
