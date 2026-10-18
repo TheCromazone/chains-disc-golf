@@ -2,9 +2,9 @@
 // wood knocks for trees, filtered-noise bursts for grass/water/air) and sits in a short synthetic
 // outdoor reverb. Real recordings override any effect: list them under "sfx" in assets/manifest.json
 // (see docs/codex-asset-prompts.md) and they are decoded on unlock and used instead of the synth.
-let ctx = null, master = null, verb = null, noiseBuf = null, muted = false;
+let ctx = null, master = null, verb = null, noiseBuf = null, muted = false, trim = 1;   // trim: the playing sound's level (TRIM_DB), set round each sfx call
 const samples = {};
-const VOL = 0.22;
+const VOL = 0.9;
 
 // Phones only let audio start inside a gesture that counts as one: touchend, pointerup or click, never a touch's pointerdown (the
 // old trigger, so on phones the context was born suspended and stayed so). main.js calls this on each of them, which also wakes a
@@ -14,8 +14,12 @@ export function unlock() {
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
   session(); try { ctx = new AC(); } catch { return; } prime();   // refused (a locked-down browser): no sound, and no error on every tap
   master = ctx.createGain(); master.gain.value = muted ? 0 : VOL;
-  const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -20; lim.knee.value = 10; lim.ratio.value = 12; lim.attack.value = 0.002; lim.release.value = 0.12;
-  master.connect(lim); lim.connect(ctx.destination);
+  // a peak limiter, not a bus compressor (it squeezed everything over -20 dBFS at 12:1, so the chains and a fanfare ducked each
+  // other and the mix sat ~10 dB under a phone's other apps), after a high-pass that keeps sub-bass a phone can't play from
+  // driving it
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 60; hp.Q.value = .6;
+  const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -7; lim.knee.value = 3; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.15;
+  master.connect(hp); hp.connect(lim); lim.connect(ctx.destination);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   // outdoor "air": short, dark, fast-decaying reverb
@@ -36,7 +40,7 @@ export const isMuted = () => muted;
 
 const now = () => ctx.currentTime;
 const rnd = (a, b) => a + Math.random() * (b - a);
-function out(g, send) { g.connect(master); if (send > 0) { const s = ctx.createGain(); s.gain.value = send; g.connect(s); s.connect(verb); } }
+function out(g, send) { let o = g; if (trim !== 1) { o = ctx.createGain(); o.gain.value = trim; g.connect(o); } o.connect(master); if (send > 0) { const s = ctx.createGain(); s.gain.value = send; o.connect(s); s.connect(verb); } }
 // one decaying sine partial
 function partial(f0, dur, gain, { f1 = f0, type = 'sine', t0 = now(), send = 0, attack = 0.003 } = {}) {
   const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t0); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
@@ -107,7 +111,8 @@ export const sfx = {
   thud(k = 1, surface = 'grass') { if (!ctx) return;   // k: impact speed (1 = a typical landing); recorded takes per surface first
     if (play(surface === 'dirt' ? 'land_dirt' : 'land_grass', { gain: Math.min(1.25, .45 + .45 * k), rate: rnd(.94, 1.06) }) || play('grass', {gain:k}) || play('thud', { gain: k, rate: rnd(0.9, 1.1) })) return; const t0 = now();
     partial(105, 0.16, 0.34 * k, { f1: 48, t0 }); burst(0.09, { f0: 420, f1: 120, q: 0.7, gain: 0.3 * k, type: 'lowpass', t0 }); burst(0.24, { f0: 2600, f1: 1500, q: 0.4, gain: 0.07 * k, type: 'highpass', t0: t0 + 0.01, attack: 0.02 }); },
-  skip() { if (!ctx) return; if (play('skip')) return; const t0 = now(); burst(0.07, { f0: 800, f1: 300, q: 0.7, gain: 0.22, t0 }); partial(150, 0.07, 0.18, { f1: 70, t0 }); burst(0.14, { f0: 3000, f1: 1800, q: 0.4, gain: 0.05, type: 'highpass', t0 }); },
+  skip() { if (!ctx) return; if (play('skip')) return; const t0 = now(); burst(0.07, { f0: 800, f1: 300, q: 0.7, gain: 0.22, t0 }); partial(150, 0.07, 0.18, { f1: 70, t0 }); burst(0.14, { f0: 3000, f1: 1800, q: 0.4, gain: 0.05, type: 'highpass', t0 });
+    burst(0.045, { f0: 2400, f1: 1200, q: 0.9, gain: 0.16, t0, attack: 0.002 }); },   // the plastic's slap, where a phone hears it
   tree() { if (!ctx) return; if (play('tree')) return; const t0 = now();
     burst(0.025, { f0: 1600, f1: 500, q: 0.5, gain: 0.35, t0 }); ring(rnd(190, 320), [1, 2.3, 3.9, 5.4], [1, 0.45, 0.3, 0.15], 0.1, 0.45, { t0, send: 0.35, detune: 0.03 });
     partial(rnd(90, 120), 0.09, 0.2, { f1: 60, t0 }); for (let i = 0; i < 3; i++) burst(rnd(0.12, 0.3), { f0: rnd(2000, 3500), f1: 1500, q: 0.4, gain: 0.05, type: 'highpass', t0: t0 + 0.03 + i * rnd(0.04, 0.09), attack: 0.02 }); },
@@ -116,7 +121,9 @@ export const sfx = {
     burst(0.12, { f0: 650, f1: 160, q: 0.6, gain: 0.45, type: 'lowpass', t0 }); partial(150, 0.28, 0.24, { f1: 42, t0 });
     burst(0.75, { f0: 1900, f1: 700, q: 0.5, gain: 0.16, attack: 0.05, t0: t0 + 0.03, send: 0.4, lfo: [rnd(7, 11), 0.5] });
     for (let i = 0; i < 6; i++) partial(rnd(1400, 3600), 0.03, 0.04, { f1: 900, t0: t0 + rnd(0.12, 0.55) }); },
-  roll() { if (!ctx) return; if (play('roll')) return; burst(0.9, { f0: 320, f1: 140, q: 0.5, gain: 0.2, type: 'lowpass', attack: 0.03, lfo: [rnd(4, 7), 0.6] }); },
+  // a disc rolling on its rim: the rim's whirr through the grass (the band a phone's speaker plays) over the turf's rumble
+  roll() { if (!ctx) return; if (play('roll')) return; burst(0.9, { f0: 320, f1: 140, q: 0.5, gain: 0.12, type: 'lowpass', attack: 0.03, lfo: [rnd(4, 7), 0.6] });
+    burst(0.95, { f0: rnd(1300, 1700), f1: 650, q: 0.9, gain: 0.07, attack: 0.04, lfo: [rnd(10, 15), 0.7] }); },
   click() { if (!ctx) return; if (play('click', { gain: 0.6 })) return; partial(2300, 0.03, 0.05, { f1: 1600 }); burst(0.012, { f0: 4200, q: 1.5, gain: 0.04 }); },
   // the group on the tee claps: a few people, each at their own rate and hand size, starting raggedly and tailing off
   applause(people = 6, dur = 2.3) { if (!ctx) return; if (play('applause')) return;
@@ -130,21 +137,42 @@ export const sfx = {
   // womp womp: two sagging muted-trombone notes, the second leaning on a slow vibrato
   womp() { if (!ctx) return; if (play('womp')) return;
     const t0 = now() + .05; brass(233, t0, .42, { f1: 220 }); brass(207, t0 + .5, 1.15, { f1: 182, vib: 1 }); },
+  // the gallery's "ohh" at a near miss: a few voices gliding down on an open "o" (formants ~500 and ~900 Hz carry it on a phone,
+  // where the old bare triangle tones at 190-285 Hz all but vanished). Wordless; never presented as a recording.
   ohh() { if (!ctx) return; if (play('ohh')) return;
-    // Wordless descending vowel fallback; never represented as a recording.
-    for (const f of [190,238,285]) partial(f,1.3,.035,{f1:f*.66,type:'triangle',send:.45,attack:.12}); },
+    const t0 = now() + .03;
+    for (let v = 0; v < 5; v++) {
+      const f0 = rnd(110, 240), dur = rnd(1.1, 1.5), t = t0 + rnd(0, .12), o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0 * 1.06, t); o.frequency.exponentialRampToValueAtTime(f0, t + .25); o.frequency.exponentialRampToValueAtTime(f0 * .72, t + dur);
+      const g = ctx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.05, t + .16); g.gain.setValueAtTime(.05, t + dur * .45); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      for (const [F, Q, k] of [[rnd(460, 560), 5, 1], [rnd(820, 960), 7, .55], [rnd(2400, 2800), 9, .12]]) { const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = F; f.Q.value = Q; const fg = ctx.createGain(); fg.gain.value = k * 2.2; o.connect(f); f.connect(fg); fg.connect(g); }
+      out(g, .45); o.start(t); o.stop(t + dur + .05);
+    }
+    burst(1.2, { f0: 700, f1: 450, q: 1.2, gain: .025, attack: .15, t0, send: .4 }); },
   fanfare(kind) { if (!ctx) return; if ((['birdie','eagle','ace'].includes(kind) && play('birdie_jingle')) || play('fanfare_' + kind)) return;
     const seq = kind === 'ace' ? [523, 659, 784, 1047, 1319] : kind === 'eagle' ? [523, 659, 784, 1047] : kind === 'birdie' ? [659, 784, 1047] : [523, 659];
     seq.forEach((f, i) => { const t0 = now() + i * 0.12; partial(f, 0.4, 0.13, { t0, send: 0.5 }); partial(f * 4, 0.07, 0.03, { t0, send: 0.3 }); }); },  // marimba-ish
   bad() { if (!ctx) return; if (play('bad')) return; partial(230, 0.35, 0.1, { f1: 140, type: 'triangle', send: 0.3 }); },
 };
 
+// Levels for a phone (2026-10-17). Each sound was rendered offline and measured through a small speaker's response (high-pass at
+// 350 Hz, EBU R128 momentary maximum): the chains came out at -21, the applause at -46, the near-miss "ohh" at -50 and a skip or
+// a roll at -54, so on an iPhone the gallery, the misses and the landings were all but silent beside the chains. Each now plays at
+// its place in the mix (chains first, the gallery and the verdicts close behind, impacts under them, UI clicks and rolls lowest).
+const TRIM_DB = { applause: 19, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 10, leaves: 7, splash: 13, band: 1.5, pole: 3, chainout: 3, drop: 5, skip: 22, roll: 14, click: 20 };   // dB
+for (const [k, f] of Object.entries(sfx)) sfx[k] = function (...a) { const prev = trim; trim = prev * 10 ** ((TRIM_DB[k] || 0) / 20); try { return f.apply(this, a); } finally { trim = prev; } };
+
 function ambient() { // wind bed with slow gusts + bird calls (frequency-swept chirps, trills)
   if (play('ambient', { loop: true, gain: 1 })) return;
   const wind = ctx.createBufferSource(); wind.buffer = noiseBuf; wind.loop = true;
   const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 420; f.Q.value = 0.4;
   const g = ctx.createGain(); g.gain.value = 0.03; wind.connect(f); f.connect(g); g.connect(master); wind.start();
-  const gust = () => { if (!muted) { f.frequency.setTargetAtTime(rnd(260, 760), now(), 1.2); g.gain.setTargetAtTime(rnd(0.018, 0.06), now(), 1.4); } setTimeout(gust, rnd(1500, 4000)); };
+  // leaves stirring with each gust: the part of the air a phone's speaker plays (the wind bed sits under ~500 Hz, so on an iPhone
+  // the course was silent between throws)
+  const rs = ctx.createBufferSource(); rs.buffer = noiseBuf; rs.loop = true; rs.playbackRate.value = .93;
+  const rf = ctx.createBiquadFilter(); rf.type = 'bandpass'; rf.frequency.value = 3600; rf.Q.value = .45;
+  const rg = ctx.createGain(); rg.gain.value = .006; rs.connect(rf); rf.connect(rg); rg.connect(master); rs.start();
+  const gust = () => { if (!muted) { const k = Math.random(); f.frequency.setTargetAtTime(rnd(260, 760), now(), 1.2); g.gain.setTargetAtTime(.018 + k * .042, now(), 1.4); rg.gain.setTargetAtTime(.003 + k * .011, now(), 1.1); } setTimeout(gust, rnd(1500, 4000)); };
   gust();
   const chirp = () => {
     if (ctx.state === 'running' && !muted) {
@@ -152,7 +180,7 @@ function ambient() { // wind bed with slow gusts + bird calls (frequency-swept c
       for (let i = 0; i < notes; i++) {
         const t0 = now() + i * (trill ? 0.07 : rnd(0.11, 0.2)), f0 = base * rnd(0.9, 1.15);
         const o = ctx.createOscillator(); o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f0 * rnd(1.25, 1.6), t0 + 0.04); o.frequency.exponentialRampToValueAtTime(f0 * rnd(0.85, 1.05), t0 + 0.09);
-        const gg = ctx.createGain(); gg.gain.setValueAtTime(0.0001, t0); gg.gain.exponentialRampToValueAtTime(0.022, t0 + 0.015); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
+        const gg = ctx.createGain(); gg.gain.setValueAtTime(0.0001, t0); gg.gain.exponentialRampToValueAtTime(0.03, t0 + 0.015); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
         o.connect(gg); out(gg, 0.6); o.start(t0); o.stop(t0 + 0.12);
       }
     }
