@@ -138,5 +138,6 @@ A miss now puts both hands on the head for about a second before the slump clip:
 
 ## Checks
 
-`npm test` (10 files), `npm run build`, `node tools/verify-browser.mjs --dist` (18/18, no browser or shader errors),
-`node tools/verify-matches.mjs` (pass).
+On the final branch (merged with master after PR #31): `npm test` (10 files, including the updated `test/trail.test.mjs`),
+`npm run build`, `node tools/verify-browser.mjs --dist` (18/18, no browser or shader errors), `node tools/verify-matches.mjs`
+(8/8). Real iOS Safari (Simulator): menu 61 fps, tee 60, landing 58.
