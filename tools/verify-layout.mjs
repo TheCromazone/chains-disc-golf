@@ -34,6 +34,7 @@ const chrome = spawn(o.chrome, ['--headless=new', '--mute-audio', `--remote-debu
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--ignore-gpu-blocklist',
   '--disable-gpu-vsync', '--disable-frame-rate-limit',   // uncapped rAF, so frameMs compares builds instead of reading the display's refresh
   `--window-size=${w},${h}`, 'about:blank'], { stdio: 'ignore' });
+process.once('exit', () => { try { chrome.kill(); } catch {} try { server?.kill(); } catch {} });   // a run that throws still takes its Chrome and server with it (crashed runs left them on the suite's fixed ports, and the next run, or another session's, talked to the orphans)
 process.on('exit', () => { chrome.kill(); server.kill(); try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* temp dir, harmless */ } });
 
 async function poll(fn, what, ms = 30000) { for (const t = Date.now(); Date.now() - t < ms; await sleep(100)) { const v = await fn().catch(() => null); if (v) return v; } throw new Error('timed out: ' + what); }

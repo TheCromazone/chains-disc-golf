@@ -16,6 +16,7 @@ const external = arg('--url', null), base = external || `http://localhost:${port
 const profile = mkdtempSync(join(tmpdir(), 'chains-rounds-'));
 const server = external ? null : spawn(process.execPath, ['serve.mjs', '--dist'], { cwd: root, env: { ...process.env, PORT: '' + port }, stdio: 'ignore' });
 const chrome = spawn(CHROME, ['--headless=new', '--mute-audio', `--remote-debugging-port=${dbg}`, `--user-data-dir=${profile}`, '--no-first-run', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
+process.once('exit', () => { try { chrome.kill(); } catch {} try { server?.kill(); } catch {} });   // a run that throws still takes its Chrome and server with it (crashed runs left them on the suite's fixed ports, and the next run, or another session's, talked to the orphans)
 const pause = ms => new Promise(r => setTimeout(r, ms));
 const errors = [];
 try {

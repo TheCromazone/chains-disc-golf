@@ -17,6 +17,7 @@ const server = spawn(process.execPath, ['serve.mjs', ...(process.argv.includes('
 let signalServer;
 const signal = report.transport.startsWith('local') ? PeerServer({ port: peerPort, path: '/' }, server => { signalServer = server; }) : null;
 const chrome = spawn(CHROME, ['--headless=new', '--mute-audio', `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
+process.once('exit', () => { try { chrome.kill(); } catch {} try { server?.kill(); } catch {} });   // a run that throws still takes its Chrome and server with it (crashed runs left them on the suite's fixed ports, and the next run, or another session's, talked to the orphans)
 const pause = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, label, ms = 30000) { for (const t = Date.now(); Date.now() - t < ms; await pause(100)) { if (await fn()) return; } throw new Error('Timed out: ' + label); }
 const sessions = [];
