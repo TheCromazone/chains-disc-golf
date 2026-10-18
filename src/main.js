@@ -1227,7 +1227,7 @@ function frame(dt, rawDt, background) {
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : G.phase === 'result' && cam.hold ? cam.look : p ? p.char.group.position : cam.look;
   if (!G.flight && G.phase !== 'result') nearFocus.copy(focus);
   course.update(dt, time, focus, camera.position, nearFocus);
-  puffs.update(dt); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera);
+  puffs.update(dt, camera, renderer); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera);
   previewMat.dashOffset -= dt * 1.6; previewEdge.dashOffset = previewMat.dashOffset;
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
