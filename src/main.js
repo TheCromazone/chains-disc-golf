@@ -598,7 +598,7 @@ function resolveThrow(pi, r, f = null) {
   cam.hold = r.holed ? null : { fov: cam.fov, shift: cam.shift };   // a miss holds the landing shot (or the putt's locked frame); only a holed throw cuts to the reaction
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
-  setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') nextTurn(); UI.fade(false); }, 320); } }, 2400);
+  setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') { nextTurn(); cam.snap = true; } UI.fade(false); }, 320); } }, 2400);
 }
 function endHole() {
   G.phase = 'holeEnd'; preview.visible = false; UI.setControlsEnabled(false);
@@ -794,7 +794,7 @@ function aimSpotFor(lie, P, side, putt, halfW) {
     const framed = Math.max(0, 1 - Math.abs(off - off0) / (halfW * .5));
     // a trunk close in front of the lens fills the frame even when it blocks neither line (the QA birch: 1 m out, 11° off centre)
     const lens = world.treesNear(x, z).reduce((m, t) => { const tx = t.x - x, tz = t.z - z, D = Math.hypot(tx, tz) || 1e-3, a = Math.abs(Math.atan2(vx * tz - vz * tx, vx * tx + vz * tz));
-      return a < halfW + .2 ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);
+      return a - Math.asin(Math.min(1, (t.r + .2) / D)) < halfW + .2 ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);   // the trunk's own width counts (with its stubs): one 1 m off the lens filled a portrait frame from 33° off its centre line
     const score = see + ahead * .6 + framed * .8 - lens - k * .02;   // the nearest alternative wins a tie
     scores.push(+score.toFixed(3));
     if (k === 0) score0 = score;
@@ -831,7 +831,12 @@ function aimFrameBase(lie, d, putt, pos, look) {
   pos.y += up;
   if (putt && P.lo) cam.tShift = Math.max(-.3, Math.min(1, Math.min(B - (bh - up) / bd / vt, P.eye - (eh - up) / rho / vt)));   // slide the lens, don't tip it: the green drops into frame and the trunks stay upright
   const pitch = (putt ? P.lo ? 0 : Math.max(-4, Math.min(14, Math.min(band - Math.atan2(bh - up, bd), eye - Math.atan2(eh - up, rho)) / DEG)) : P.pitch) - G.aim.pitch;   // drag up = look up
-  const yaw = putt ? Math.atan2(side, bd) + Math.sign(fs) * Math.atan((P.x || 0) * vt * camera.aspect) : Math.sign(fs) * P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
+  let yaw = putt ? Math.atan2(side, bd) + Math.sign(fs) * Math.atan((P.x || 0) * vt * camera.aspect) : Math.sign(fs) * P.yaw * DEG;
+  if (!putt) {   // a drive's lens turns as far as it must to keep the athlete whole (QA, a portrait phone in the woods: a wide-shoulder spot round a trunk left him cut in half at the edge of the ~15° half-width)
+    const th = Math.atan2(side, back), lim = Math.atan(vt * camera.aspect) - Math.atan(.42 / Math.max(1, rho)) - 1.5 * DEG;
+    yaw = Math.max(th - lim, Math.min(th + lim, yaw));
+  }
+  const fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
   return 2 * Math.atan(vt) / DEG;
 }
