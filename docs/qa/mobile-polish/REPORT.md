@@ -70,6 +70,21 @@ phase change plus 1.2 s into every flight and result:
   so it wasn't shipped.
 - **Real iOS Safari (Simulator):** menu 61 fps, tee 60, a throw's landing 58, with the new tree shaders and HUD.
 
+## Fourth pass: the chase camera, and the QA harness
+
+- **Flight ribbon:** seen end-on from the chase camera, the ribbon collapsed into a thin line hanging off the disc (the PR #31
+  report's "vertical stick"). Segments now fade as they turn end-on and stay visible from the side: the aim camera, a run-up's
+  three-quarter view, the landing shot. `test/trail.test.mjs` covers both views.
+- **Pillars, tents and flags:** the chase spot steps sideways until the blocker's near edge clears the portrait frame's
+  half-width. The step is weighted smoothly in and out of its window, eased in time, and keeps its side per blocker. Measured:
+  peak camera acceleration in flight is unchanged (the existing hand-off cut dominates), and the step stays under 0.75 m. On
+  Meadows hole 1 the bots' tee shots fly into the arch pillar itself, so no camera can avoid it there. That's a bot-planner
+  issue (it scores landing distance only, so a carom off the pillar can win), handed to the session fixing bot planning, with a
+  fairness baseline.
+- **QA harness:** under load, a CDP reply arriving after its 20 s timeout crashed every verify/capture script before its
+  cleanup, leaving Chrome on the suite's fixed ports, where the next run (or another session's) connected to it and timed out.
+  Late replies are now ignored, and every script SIGKILLs its Chrome and stops its server on exit.
+
 ## Landscape HUD
 
 The wind and elevation plate sat on the athlete's hip at the bottom right. It now sits under the score plate.
