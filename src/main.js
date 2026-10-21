@@ -608,12 +608,20 @@ function updateFlight(dt) {
   const nn = [a[3] + (b[3] - a[3]) * u, a[4] + (b[4] - a[4]) * u, a[5] + (b[5] - a[5]) * u];
   if (a.length > 6) f.spinRate = a[6] + (b[6] - a[6]) * u; else f.spinRate *= (1 - 0.12 * dt);   // older peers send six-wide records
   f.spin += f.spinRate * dt;
+  // The putt's hero pass (r3 m-putt 0/4: "a tiny orange sliver beside the hand, lost in the basket"): seen from the locked frame
+  // behind him a 21 cm putter flies dead level ~1 m under the lens, a 2 cm edge-on line. Out of the hand it grows to PUTT_HERO
+  // and tips its plate PUTT_TIP toward the lens, so a lit ellipse travels to the chains; from just after the first contact it
+  // eases back to true size and the physics' own tilt, so the catch and the drop into the tray are the real disc.
+  const hit = f.events[0]?.[0] ?? n / 60, hw = f.params.throwType === 'putt' ? THREE.MathUtils.smoothstep(f.t, 0, .12) * (1 - THREE.MathUtils.smoothstep(f.t, hit + .04, hit + .22)) : 0;
+  if (hw > 0) { _v.set(camera.position.x - pos[0], camera.position.y - pos[1], camera.position.z - pos[2]).normalize(); nn[0] += _v.x * PUTT_TIP * hw; nn[1] += _v.y * PUTT_TIP * hw; nn[2] += _v.z * PUTT_TIP * hw; }
+  const hs = 1 + (PUTT_HERO - 1) * hw; p.discMesh.scale.set(hs, .6 * hs, hs);   // createDiscMesh's .6 thickness
   setDiscPose(p.discMesh, pos, nn, f.spin * THROWS[f.params.throwType].spin * (f.params.lefty ? -1 : 1));
   f.pos = pos; f.hv = [b[0] - a[0], 0, b[2] - a[2]]; trail.push(pos, f.t);
   while (f.ei < f.events.length && f.events[f.ei][0] <= f.t) { onFlightEvent(f.events[f.ei][1]); f.ei++; }
   UI.setHud({ dist: Math.hypot(basketPos()[0] - pos[0], basketPos()[1] - pos[2]) });
   if (i >= n - 1 && f.t > n / 60 + 0.6) { G.flight = null; resolveThrow(f.pi, f.result, f); }
 }
+const PUTT_HERO = 1.4, PUTT_TIP = .4;   // updateFlight's putt hero pass: scale in the air, and the plate's tip toward the lens (~22 deg)
 const SURFACE_AT = p => world.inWater(p[0], p[2]) ? 'water' : world.rough(p[0], p[2]) > 0.5 ? 'dirt' : 'grass';
 function onFlightEvent(e) {
   if (document.hidden) return;
@@ -1300,7 +1308,7 @@ function frame(dt, rawDt, background) {
     const u = leadIn ? Math.min(1, G.releaseT / leadIn) : 1;
     const span = .5 - G.pending.startPhase, ph = G.releaseT < leadIn ? G.pending.startPhase + span * hermite(u, 1, HIT_RATE * leadIn / span) : releasePhase(G.releaseT - leadIn); p.char.setPhase(ph);   // the swipe's end eases into the hit at its speed
     if (!G.pending.fired && ph >= 0.62) { G.pending.fired = true; launchNow(); }
-    if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && (p !== curP() || G.phase === 'flight')) { p.char.keepTravel?.(); p.char.setPhase(null); } }, 350); }   // the athlete stays where the follow-through carried him
+    if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && (p !== curP() || G.phase === 'flight')) { p.char.keepTravel?.(); p.char.setPhase(null); } }, G.lastParams?.throwType === 'putt' ? 0 : 350); }   // the athlete stays where the follow-through carried him; a putt's finish starts sinking at once (gltf-player PUTT_RELAX), as DGM's arm drops while the disc is still in the air
   }
   if (G.flight) updateFlight(dt);
   if (background || contextLost) return; // Keep host authority alive without drawing an unavailable canvas.
