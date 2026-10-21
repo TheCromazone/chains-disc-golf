@@ -27,7 +27,8 @@ plus round 2's unshipped work). If it is not a fast-forward, stop and say so in 
 uses base..base+2 and +1000) captures phone/, desktop/ and motion/. Then
 `python tools/gauntlet/prep.py <label> art/qa/<your-dir> --pieces <yours> --k 2` writes the same blind pairs the critics
 get (prompt.md + A.jpg + B.jpg under art/qa/judge/<label>/, key on stdout). Look at them with the Read tool and be harsh:
-if the reference still wins, keep working. `art/qa/` is gitignored. Stats per moment (draw calls, triangles, frame ms,
+if the reference still wins, keep working. `art/qa/` is gitignored. Captures are deterministic (tools/vclock.mjs): one build always gives the same pixels, and the build-vs-build
+judge skips any piece whose frames did not change, so only a visible change can win. Stats per moment (draw calls, triangles, frame ms,
 console errors) are in each capture's stats.json: zero console errors, budgets held.
 
 ## Tools you may use
