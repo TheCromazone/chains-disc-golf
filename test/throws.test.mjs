@@ -33,9 +33,7 @@ for (const id of ['backhand', 'forehand', 'putt']) {
   const r = fk(poseAt(K[id], .62)); assert(r.handR[1] > 1.0 && r.handR[1] < 1.35, `${id} releases at chest height (${r.handR[1].toFixed(2)} m)`);
   assert(r.handR[2] < -.2, `${id} releases ahead of the body (${r.handR[2].toFixed(2)} m)`);
 }
-// (r9: the peak is the full coil at .35, where the run-ups hand over; from the plant at .40 the disc is in the pocket at the chest)
-{ const r = fk(poseAt(K.backhand, .35)); assert(r.handR[1] > 1.05 && r.handR[2] > .45, `backhand reach-back peaks behind at chest height (${r.handR.map(v => v.toFixed(2))})`); }
-{ const r = fk(poseAt(K.backhand, .43)); assert(r.handR[1] > 1.05 && Math.abs(r.handR[2]) < .3, `backhand pocket at the chest by .43 (${r.handR.map(v => v.toFixed(2))})`); }
+{ const r = fk(poseAt(K.backhand, .43)); assert(r.handR[1] > 1.05 && r.handR[2] > .45, `backhand reach-back peaks behind at chest height (${r.handR.map(v => v.toFixed(2))})`); }
 console.log('Releases at chest height; the reach-back peaks straight back.');
 
 // 4. Travel is smooth: no step of more than 4 cm between 1% phase samples (the root never teleports between keys).

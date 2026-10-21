@@ -272,19 +272,6 @@ function handMorphs(mesh, handOffset, lod) {
     // Scan folds can overestimate the wrist envelope. Keep the replacement hand
     // within an anatomical wrist width instead of inheriting a swollen cuff.
     ax = THREE.MathUtils.clamp(ax, .018, .032); bx = THREE.MathUtils.clamp(bx, .012, .025);
-    // r9 athlete (menu critic: "a visible seam or cuff band at both wrists, the hands read as bolted-on parts"): the modelled
-    // hand's wrist stub was an upright oval sized to the forearm's extents, but the forearm's section is a turned oval, so the
-    // stub's top stood a few millimetres out of the skin all round as a ring. The forearm's own radius by direction (the
-    // narrowest of the measured ring per 15 deg) lets the stub be drawn inside the skin above the joint (handGeo below), so the
-    // hand comes out of the forearm at the wrist crease instead of standing on it like a cuff
-    const BINS = 24, profile = pts => {
-      const prof = new Array(BINS).fill(Infinity), bin = (x, z) => Math.floor(((Math.atan2(z - cz, x - cx) / (2 * Math.PI) + 1) % 1) * BINS) % BINS;
-      pts.forEach(r => { const i = bin(r.x, r.z); prof[i] = Math.min(prof[i], Math.hypot(r.x - cx, r.z - cz)); });
-      for (let pass = 0; pass < BINS && prof.some(v => v === Infinity); pass++) prof.forEach((v, i) => { if (v === Infinity) prof[i] = Math.min(prof[(i + 1) % BINS], prof[(i + BINS - 1) % BINS]); });
-      if (prof[0] === Infinity) prof.fill(Math.min(ax, bx));
-      return (x, z) => { const u = ((Math.atan2(z - cz, x - cx) / (2 * Math.PI) + 1) % 1) * BINS - .5, i = Math.floor(u), f = u - i; return prof[(i + BINS) % BINS] * (1 - f) + prof[(i + 1) % BINS] * f; };
-    };
-    const skinR = profile(arm);
     wrists[name] = { position: [W.x - E.x + cx * side, W.y - E.y + .032, W.z - E.z + cz], x: THREE.MathUtils.clamp(bx, .012, .03), z: THREE.MathUtils.clamp(ax, .018, .038) };
     const mg = modelledHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod, false), gh = mg || gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod);
     // the wrist flex, blended across the joint; the grip hand and the tucked scan bend together
@@ -297,20 +284,13 @@ function handMorphs(mesh, handOffset, lod) {
     const qg = qw.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...GRIP.cock, 'XYZ')));
     // tuck: the scanned hand folds into a small core inside the grip hand's palm
     const taper = v => { const s = taperAt(v.y); v.x = cx + (v.x - cx) * s; v.z = cz + (v.z - cz) * s; return v; };
-    const TP = R.map(r => { const t = smooth(.006, -.005, r.y); return bend(taper(new THREE.Vector3(r.x + (cx + (r.x - cx) * .15 - r.x) * t, r.y + (-.016 + (r.y + .016) * .08 - r.y) * t, r.z + (cz + (r.z - cz) * .15 - r.z) * t))); });   // all of it inside the grip palm: half-tucked, the scan's thumb base stood out of it as a flap. r9: the fold starts at the joint, not 1.4 cm above it, so the forearm's own skin runs down over the hand's (now inset) stub to the wrist crease
+    const TP = R.map(r => { const t = smooth(.014, -.004, r.y); return bend(taper(new THREE.Vector3(r.x + (cx + (r.x - cx) * .15 - r.x) * t, r.y + (-.016 + (r.y + .016) * .08 - r.y) * t, r.z + (cz + (r.z - cz) * .15 - r.z) * t))); });   // all of it inside the grip palm: half-tucked, the scan's thumb base stood out of it as a flap
     const FP = fore.map(i => bend(taper(local(i).clone()))), FN = fore.map(i => new THREE.Vector3(nrm.getX(i) * side, nrm.getY(i), nrm.getZ(i)));   // the forearm above the hand: tapered only
     const c = gh.seat.clone().applyQuaternion(qg), cn = gh.seatN.applyQuaternion(qg);
     seats[name] = { c: new THREE.Vector3(c.x * side + W.x - E.x, c.y + W.y - E.y, c.z + W.z - E.z), n: new THREE.Vector3(cn.x * side, cn.y, cn.z) };
     // the grip hand's geometry in the forearm bone's frame (bind orientation is identity), mirrored for the left
     const handGeo = (h, q) => {
-      const gp = new Float32Array(h.p.length); for (let i = 0; i < h.p.length; i += 3) {
-        bend(_v.set(h.p[i], h.p[i + 1], h.p[i + 2]), q);
-        // above the joint the stub stays inside the (tapered) forearm skin, whatever the wrist's bend turned it to; at the joint the
-        // hand's heel eases out to its own width
-        const dx = _v.x - cx, dz = _v.z - cz, r = Math.hypot(dx, dz), R = .95 * skinR(_v.x, _v.z) * taperAt(_v.y), u = smooth(-.006, .006, _v.y);
-        if (u > 0 && r > R) { const s = 1 + u * (R / r - 1); _v.x = cx + dx * s; _v.z = cz + dz * s; }
-        gp[i] = _v.x * side + W.x - E.x; gp[i + 1] = _v.y + W.y - E.y; gp[i + 2] = _v.z + W.z - E.z;
-      }
+      const gp = new Float32Array(h.p.length); for (let i = 0; i < h.p.length; i += 3) { bend(_v.set(h.p[i], h.p[i + 1], h.p[i + 2]), q); gp[i] = _v.x * side + W.x - E.x; gp[i + 1] = _v.y + W.y - E.y; gp[i + 2] = _v.z + W.z - E.z; }
       const gi = side > 0 ? h.i : h.i.map((v, i) => i % 3 === 1 ? h.i[i + 1] : i % 3 === 2 ? h.i[i - 1] : v);
       const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(gp, 3)); geo.setIndex(gi); geo.computeVertexNormals();
       // a vertex whose triangles all collapsed (a cap ring shrunk to its tip) gets a zero normal, normalize() in the shader
