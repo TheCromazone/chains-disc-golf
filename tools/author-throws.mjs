@@ -246,11 +246,19 @@ const PUTT = [
   // (gltf-player.js releaseFrame), and a changed .62 changed the putt camera's still (r3 c1: camera 0/4).
   { t: .62, at: [0, -.03, -.07], pelvis: [-5, 10, 0], chest: [-6, -2, 0], head: [6, -2, 0],
     handR: [-.12, -.14, -.55], elbowR: [-.01, -.10, -.25], handL: [-.14, -.43, -.03], elbowL: [-.09, -.26, .04] },
-  { t: .7, at: [0, -.02, -.10], pelvis: [-5, 11, 0], chest: [-6, 7, 0], head: [6, -15, 0],
-    handR: [-.22, -.11, -.60], elbowR: [-.08, -.06, -.29] },
-  { t: .8, at: [0, -.01, -.12], pelvis: [-5, 12, 0], chest: [-6, 13, 0], head: [6, -22, 0],
-    handR: [-.28, -.12, -.58], elbowR: [-.11, -.05, -.29], handL: [-.12, -.49, -.01], elbowL: [-.08, -.27, .03], soleL: [-.24, .03, -.12] },
-  { t: 1, at: [0, -.02, -.12], handR: [-.28, -.13, -.57], elbowR: [-.11, -.06, -.29], handL: [-.12, -.50, -.01], soleL: [-.24, .015, -.12] },
+  // r3 putt c2 (m-putt critics: "the arm swings out sideways, square to the line", "the body stays square and stiff with no leg
+  // drive or weight shift", "the follow-through drops to the hip with no extension"): the hand stayed at shoulder height
+  // crossing 10 cm past his midline, so from the lens behind his left side the arm read as a flat T. Now the weight goes on
+  // through the hit: the pelvis rides ~25 cm forward over the planted front foot, the trunk leans ~25 deg into the line with
+  // the head down on the chains, the rear heel lets go, and the arm reaches on down the line, sloping from the shoulder onto the
+  // basket (on screen, from behind his left side) instead of out flat. Tried: the same lean with the hand less across his
+  // midline (-.17..-.24) put the whole arm behind his head and back; only the off elbow showed, a worse "arm out to the side".
+  { t: .7, at: [-.01, -.02, -.14], pelvis: [-9, 10, 0], chest: [-9, 6, 0], head: [10, -10, 0],
+    handR: [-.25, -.15, -.57], elbowR: [-.08, -.07, -.29] },
+  { t: .8, at: [-.02, -.03, -.21], pelvis: [-12, 10, 0], chest: [-11, 11, 0], head: [14, -16, 0],
+    handR: [-.33, -.19, -.50], elbowR: [-.13, -.06, -.27], handL: [-.12, -.49, -.01], elbowL: [-.08, -.27, .03], soleL: [-.24, .05, -.12] },
+  { t: 1, at: [-.02, -.03, -.25], pelvis: [-13, 10, 0], chest: [-12, 12, 0], head: [15, -17, 0],
+    handR: [-.33, -.24, -.46], elbowR: [-.13, -.09, -.26], handL: [-.12, -.50, -.01], elbowL: [-.08, -.28, .03], soleL: [-.24, .06, -.12] },
 ];
 // the stroke up to the release is eased toward the r3 c2 finish (its throwing arm and torso), so the release key and the
 // disc the aim stance seats from it stay exactly as shipped; the new finish takes over after .62
