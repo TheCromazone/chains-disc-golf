@@ -473,6 +473,18 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 #toast span:empty { display: none; }
 #toast.show { transform: translate(-50%, -8px) rotate(-3deg); }
 @media (prefers-reduced-motion: reduce) { #toast.show { transform: translate(-50%, -8px); } }
+/* Calls during a flight ("Chains!", "Tree!") ride high and smaller: at 22% down and 60 px a putt's "CHAINS!" covered the basket
+   through its slow-motion catch, the shot the putt is for. The verdict after it keeps the big type. */
+body[data-phase='flight'] #toast { top: calc(5% + var(--sat)); }
+body[data-phase='flight'] #toast b { font-size: clamp(26px, 5vw, 38px); }
+/* The release grade over the power ring (ui.js releaseTag), held into the flight as DGM holds "Perfect Throw". */
+#releaseTag { position: absolute; left: 50%; bottom: calc(100px + var(--sab)); z-index: 2; pointer-events: none; padding: 4px 11px 3px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; color: #fff; font-size: 15px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3); opacity: 0; transform: translate(-50%, 6px); transition: opacity .25s, transform .25s; }
+#releaseTag.show { opacity: 1; transform: translate(-50%, 0); }
+#releaseTag.perfect { border-color: transparent; background: var(--mint); color: var(--black); }
+#releaseTag.wobbly { border-color: transparent; background: #ff9275eb; color: var(--black); }
+body[data-phase='result'] #releaseTag, body[data-phase='aim'] #releaseTag { display: none; }
+@media (max-height: 520px) and (min-aspect-ratio: 5/4) { #releaseTag { bottom: calc(80px + var(--sab)); font-size: 13px; } }
+#holeTitle small { display: inline-block; margin-top: 14px; padding: 6px 12px 5px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; font-family: var(--display); font-size: 14px; letter-spacing: .08em; line-height: 1; text-shadow: none; }
 
 .ccard .cinfo b, .ccard .chev { color: #fff; }
 /* ---------- hole intro: flyover title, HUD hidden while the camera flies ---------- */
@@ -562,7 +574,7 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
 @media (pointer: coarse) and (min-aspect-ratio: 6/5) {
   #pad { left: 40%; top: calc(70px + var(--sat)); height: auto; padding-left: 12px; padding-right: 12px; }
   #aimZone { top: auto; left: 16px; bottom: calc(76px + var(--sab)); }
-  #power, #powerLabel, #waiting { left: 63%; }   /* clear of the wind plate on a 390-430 pt tall phone on its side */
+  #power, #powerLabel, #waiting, #releaseTag { left: 63%; }   /* clear of the wind plate on a 390-430 pt tall phone on its side */
   #pad { padding-bottom: calc(108px + var(--sab)); }   /* the hint rides over the wind plate, not into it */
   /* the wind plate under the score plate: at the bottom right it sat on the athlete's hip, who stands in the right third over
      the swipe pad (AIM.driveS), and the left column between the score and the aim pill is open sky and trees */

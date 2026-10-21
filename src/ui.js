@@ -57,6 +57,14 @@ export function react(kind) {
   el.innerHTML = kind === 'good' ? '<span>👏</span>' : [...'WOMP WOMP'].map((c, i) => c === ' ' ? '<b></b>' : `<i style="--i:${i}">${c}</i>`).join('');
   el.className = kind;
 }
+// DGM grades every release over its ring ("-1.3°, Perfect Throw"). Ours names the swipe's power, the pull a shaky stroke put
+// on the line (main.js onGesture) and a grade, so a throw that drifted off line says why.
+let releaseTimer = null;
+export function releaseTag(power, wobble, pull) {
+  const el = $('releaseTag'), grade = wobble < .15 ? 'perfect' : wobble < .4 ? 'good' : 'wobbly';
+  el.textContent = `${Math.round(power * 100)}% · ${pull < 0 ? '−' : '+'}${Math.abs(pull).toFixed(1)}° · ${grade} release`;
+  el.className = 'show ' + grade; clearTimeout(releaseTimer); releaseTimer = setTimeout(() => { el.className = grade; }, 1700);
+}
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
 export function setHud({ hole, par, len, dist, holed, playerName, throwNo, toPar, windText, windDeg, circle, elev }) {
   if (toPar !== undefined) $('toPar').textContent = toPar === 0 ? 'E' : toPar > 0 ? `+${toPar}` : `−${-toPar}`;
