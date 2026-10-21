@@ -795,9 +795,11 @@ function updatePreview() {
   // from behind his shoulder its first metre runs behind his body, so it emerges from him instead of dropping in from the upper
   // right (its first 1.5 m, rising, sat over his head in the putt lens) or painting over him.
   for (const m of [previewMat, previewEdge]) m.depthTest = !assist;
-  // A putt's line stops ~1.2 m short of the pole, pointing into the chains: run on into the cage its last dashes crossed the
+  // A putt's line stops ~1.7 m short of the pole, pointing into the chains: run on into the cage its last dashes crossed the
   // band and chains, 'a row of white dashes cutting through the top of the basket' (r3 camera), and the basket is the target.
-  const lie = curP().lie, pts = (guided ? r.traj : assist ? r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))) : basketLine(o, world).traj.filter((q, i) => i < 2 || distToBasket(q[0], q[2]) > 1.2)).filter((q, i, a) => i >= a.length - 2 || !assist || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);
+  // 1.2 m still left a stub over the chains' near edge: the line closes on the cage from the lens's side, so its last metres
+  // project onto it.
+  const lie = curP().lie, pts = (guided ? r.traj : assist ? r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))) : basketLine(o, world).traj.filter((q, i) => i < 2 || distToBasket(q[0], q[2]) > 1.7)).filter((q, i, a) => i >= a.length - 2 || !assist || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);
   const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
   for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); l.visible = !(G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4); }   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the ground arrow aims it
   previewMat.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
