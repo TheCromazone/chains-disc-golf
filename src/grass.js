@@ -25,7 +25,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   // neighbouring clumps overlap into an even carpet instead of reading as tufts. A 20 px blade barely shows curvature,
   // and one triangle per blade buys three times the blades.
   let s = seed >>> 0 || 1; const rnd = () => (s = Math.imul(s, 1664525) + 1013904223 >>> 0) / 4294967296;
-  const B = lite ? 7 : 34, P = [], S = [], N = [], U = [];
+  const B = lite ? 10 : 34, P = [], S = [], N = [], U = [];
   for (let b = 0; b < B; b++) {
     const a = rnd() * 6.283, r = Math.sqrt(rnd()) * .12, x0 = Math.cos(a) * r, z0 = Math.sin(a) * r;
     const h = .1 * (.45 + rnd() * .55), w = .0035 + rnd() * .003, fa = rnd() * 3.1416, fx = Math.cos(fa), fz = Math.sin(fa);
@@ -39,8 +39,9 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   // Tiles: [size m, anchor distance ahead of the camera m, thinning from, gone at (m from the eye), roots per side].
   // Each clump drops out at its own random distance inside the thinning band, so density falls off smoothly instead of
   // stepping at a fade line; the far tile's clumps spread twice as wide (its spacing is three times the near one's).
-  // Mobile: the two near tiles, sparser (~19k triangles): its single 5.8 m tile left the turf a flat colour from a few metres out
-  const layers = lite ? [[11, 4.5, 3.5, 8.5, 40], [34, 14, 9, 19, 34]] : [[11, 4.5, 3.5, 8.5, 80], [34, 14, 9, 19, 60], [76, 39, 24, 62, 80], [130, 66, 55, 95, 48]], roots = [];
+  // Mobile: the two near tiles, sparser (~42k triangles): its single 5.8 m tile left the turf a flat colour from a few metres out, and at
+  // 19 m the tee's mid lawn up to the arch was still "a smooth painted green with no blades" (gauntlet r3 ground 1/4), so the far one reaches 25 m
+  const layers = lite ? [[11, 4.5, 3.5, 8.5, 46], [36, 15, 9, 25, 46]] : [[11, 4.5, 3.5, 8.5, 80], [34, 14, 9, 19, 60], [76, 39, 24, 62, 80], [130, 66, 55, 95, 48]], roots = [];
   layers.forEach(([, , , , m], l) => { for (let i = 0; i < m; i++) for (let k = 0; k < m; k++) roots.push((i + rnd()) / m, (k + rnd()) / m, rnd(), l); });
   geo.setAttribute('aRoot', new THREE.InstancedBufferAttribute(new Float32Array(roots), 4)); geo.instanceCount = roots.length / 4;
 

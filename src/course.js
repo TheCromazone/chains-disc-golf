@@ -725,7 +725,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // the ridge's trunks at 50-60 m kept their near red-brown contrast. Eased toward the sun's disc, where crowns stay dark rim-lit shapes
       { float fd = smoothstep(20., 100., length(vViewPosition)) * (1. - .7 * (1. - treeAir) * pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.)), l = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
         fd *= 1. - treeKeep;   // the putt keeps some of a far crown's own light and shade and green inside its haze (w12-2: "trees 30-80 m away turn into low-contrast grey cardboard layers")
-        outgoingLight = mix(vec3(l), outgoingLight, 1. - .2 * fd) * (.15 * pow(l / .15, 1. - .4 * fd) / l); }   // DGM round: .45/.55 left the far stands grey cardboard (top-half green-lead .11-.35 against the reference's .5-.78)
+        outgoingLight = mix(vec3(l), outgoingLight, 1. - .2 * fd) * (.15 * pow(l / .15, 1. - .4 * fd) / l);   // DGM round: .45/.55 left the far stands grey cardboard (top-half green-lead .11-.35 against the reference's .5-.78)
+        ${full ? '' : `{ float ld = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4); outgoingLight = mix(vec3(ld), outgoingLight, 1. - .35 * smoothstep(45., 140., length(vViewPosition)) * (1. - treeKeep)); }   // Mobile ("the background trees are no hazier than the foreground ones", trees 0/4): rows past 45 m lose up to a further 35% of their green, so the stand steps back in layers; Full has effects.js's aerial pass`}
+      }
       #include <opaque_fragment>`);
     // w6 verdicts ("evenly sized clumps, each lit the same saturated yellow-green on its lit side: stacked sprite cards"): every
     // clump's baked normal gave it its own lit face, so the crown had no light and shade of its own. The leaf normal now leans
@@ -784,14 +786,15 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     mat.customProgramCacheKey = () => prevKey.call(mat) + (limbCut ? '|limbs' : '|nearClip'); return mat; };
   const TREE_LIMBS = { value: 4.2 }, BUSH_LIMBS = { value: -1 };
   const wood = (map, limbs) => map && nearClip(near3d(canopy(windMaterial(toonMaterial({ map, vertexColors: true, roughness: .92 }), windClock), false)), limbs);
-  const woodMats = { bark: wood(bark, TREE_LIMBS), bark_birch: wood(texture('bark_birch'), TREE_LIMBS) }, bushWood = { bark: wood(bark, BUSH_LIMBS), bark_birch: wood(texture('bark_birch'), BUSH_LIMBS) };
+  const birchBark = texture('bark_birch', { repeat: [1, .5] });   // the tile spans 5 m (tools/build-birch-bark.py): at 2.5 m a stem repeated the same marks three times, evenly spaced black dashes ("barcodes", gauntlet r3 trees 0/4)
+  const woodMats = { bark: wood(bark, TREE_LIMBS), bark_birch: wood(birchBark, TREE_LIMBS) }, bushWood = { bark: wood(bark, BUSH_LIMBS), bark_birch: wood(birchBark, BUSH_LIMBS) };
   // Summer canopy in a low warm sun samples yellow-olive in the reference (hue 62-67 deg), so the tint leans warm, and the
   // atlas leaves (linear green ~.1) are lifted ~1.45x to sit with the turf the exposure is set for, as real leaves do;
   // conifers sit darker than the broadleaves (a deep green, not grey-blue); stands drift yellower or bluer, lighter or darker by
   // about 12%, and each tree differs from its neighbours by as much again, so no two crowns in a row read the same.
-  const KIND_TINT = { spruce: [.78, .9, .8], scots: [.84, .88, .76] };
+  const KIND_TINT = { spruce: [.74, .87, .82], scots: [.84, .88, .76], birch: [1.07, 1.08, .84], broad: [.92, .94, .96] };   // birch crowns a lighter yellow-green, broadleaves a step deeper and cooler, spruce bluer: one green everywhere read "a near-solid wall of the same mid-green clumps" (gauntlet r3 trees)
   const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5 + (noise(s.x * .53 + 7, s.z * .53 + 3) - .5) * .8, k = KIND_TINT[s.kind] || [1, 1, 1];
-    return col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.88 + noise(s.x * .61 + 11, s.z * .61 + 17) * .26)); };
+    return col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.8 + noise(s.x * .61 + 11, s.z * .61 + 17) * .4)); };   // .8-1.2 (was .88-1.14, same mean): neighbouring crowns differ
   // Bark differs tree to tree as well (a stem greyer or redder, lighter or darker by ~15%), so a stand is not one repeated pole.
   const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = (.85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3) * (s.kind === 'birch' ? .62 + noise(s.x * .29 + 9, s.z * .29 + 2) * .25 : 1); return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
   for (const b of [...bushes, ...shrubs]) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
