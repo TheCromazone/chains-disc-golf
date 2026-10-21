@@ -162,6 +162,12 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         // fetched outside the box test: a mipmapped read inside the branch picks a coarse mip along the box edge, which drew a faint outline round the print
         float ink = texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * step(0., q.x) * step(q.x, 1.) * step(0., q.y) * step(q.y, 1.);
         diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, ink * chainsJersey); }
+      // sublimated print, tone on tone: critics set our plain shirt, "a smooth painted shell", against the reference's printed
+      // jersey. Chevrons 4.2 cm apart, darkest over the hem and gone by the chest, the way a fade print climbs a team shirt. The
+      // lines are ~1.4 cm (10 px at the tee) with filtered edges, and drop out entirely before a period shrinks under ~5 px
+      { vec3 j = vJerseyPos; float v = (j.y + abs(j.x) * .7) / .042, aa = fwidth(v) + 1e-4, s = abs(fract(v) - .5);
+        float band = (1. - smoothstep(.17 - aa, .17 + aa, s)) * (1. - smoothstep(.12, .22, aa)) * (1. - smoothstep(uFold.x + .02, uFold.y - .08, j.y));
+        diffuseColor.rgb *= 1. - .3 * band * chainsJersey; }
       diffuseColor.rgb *= 1. + chainsKnit;   // the knit runs under the print too`).replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Chains', 'chainsSkin')}
       // cloth sheen (Charlie distribution, fibre-tinted): the knit's loose fibres scatter light back toward grazing views, so
