@@ -86,6 +86,12 @@ float chainsFolds(vec3 p, float armW) {
   h += .0042 * sin(p.y * 180. + 3. * chainsNoise(p * vec3(11., 4., 11.))) * band * brk * (.45 + .55 * smoothstep(.05, .13, ax)) * torso;
   vec2 d = vec2(ax - uFold.w, p.y - uFold.y); float r = length(d), a = atan(d.y, -d.x);
   h += .003 * sin(a * 9. + 1.5 * chainsNoise(p * 18.)) * (1. - smoothstep(.04, .14, r)) * smoothstep(.0, .025, r) * (1. - smoothstep(-.3, .9, a)) * torso;
+  // the loose cut hangs from the chest in long soft folds round the torso (~10 round it, 5 mm deep, deepest over the hem where it
+  // gathers, leaning with a 15 cm noise so no two run parallel), and the armpit's drag folds run on 28 cm across the chest in
+  // broader ridges: "blotchy, painterly shading with no fold structure" against the reference's draped jersey (round 13 body c2)
+  float th = atan(p.x, -p.z), dn = chainsNoise(p * vec3(6., 2.5, 6.));
+  h += .0051 * sin(th * 10. + 4. * dn + (p.y - uFold.x) * 6.) * (1. - smoothstep(uFold.x + .1, uFold.y, p.y)) * (.4 + .6 * chainsNoise(p * vec3(9., 3., 9.) + 11.)) * torso;
+  h += .0045 * sin(a * 6. + 1.5 * chainsNoise(p * 9.)) * smoothstep(.12, .16, r) * (1. - smoothstep(.14, .28, r)) * (1. - smoothstep(-.3, .9, a)) * torso;
   vec2 n0 = vec2(.062, uFold.z - .015), n1 = vec2(uFold.w - .005, uFold.y - .005), e = n1 - n0; float t = clamp(dot(vec2(ax, p.y) - n0, e) / dot(e, e), 0., 1.);
   float sd = length(vec2(ax, p.y) - n0 - e * t); h -= .0016 * exp(-sd * sd / 1.6e-5) * torso;
   return h;
@@ -295,10 +301,13 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         float grain = fract(sin(dot(floor(vMapUv * 1100.), vec2(12.9898, 78.233))) * 43758.5453);
         col = mix(col, uHair * (.5 + .5 * clamp(lum / uMean[0], .3, 1.4)), zone * (.6 + .4 * grain));
         chainsKnit = (texture2D(uKnit, vec2(vJerseyPos.x * .7 + vJerseyPos.z * .7, vJerseyPos.y) * 16.).r - .49) * ${knitAmp.toFixed(2)} * (w[1] + .5 * w[2] + .6 * w[4]);   // bind-pose projection: ~3 mm cells, the same scale on every island
-        // crease lines along the same rumples the bump draws (a ridge where the noise crosses its mid value): the torso sits in
-        // shade at the tee, where a bump alone shows nothing, so the folds also carry a little occlusion in the cloth's tone
+        // a little occlusion in the cloth's tone along the same rumples the bump draws: the torso sits in shade at the tee, where a
+        // bump alone shows nothing. It follows the noise itself, one soft side to the other. Crease lines where the noise crossed
+        // its mid value (24 % darker within a narrow band, doubled either side of each ridge) laid the shade side of the shirt in
+        // hard-edged parallel bars: with the sun shadow off him entirely the bars stayed, and critics read them as "posterized,
+        // almost like a paint filter". Same mean tone (-.058), a third of the swing
         { vec3 fp = vJerseyPos * mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW)); float n = chainsNoise(fp) * .7 + chainsNoise(fp * 2.3) * .3;
-          chainsKnit += w[1] * (.06 - .3 * smoothstep(.72, .97, 1. - abs(2. * n - 1.))); }
+          chainsKnit += w[1] * (.35 * (n - .5) - .058); }
         // the fold valleys and seams hold a little shade in the cloth's own tone (the torso is in shade at the tee, where a bump shows little)
         chainsFoldH = chainsFolds(vJerseyPos, vArmW) * w[1]; chainsKnit += clamp(chainsFoldH / .0035, -1., 1.) * .16 * w[1]; chainsCloth = w[1] + .4 * w[2];
         // cloth roughness ~.75 with ~3 cm variation (a uniform .89 lit the shirt as one even gradient)
