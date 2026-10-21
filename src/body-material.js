@@ -268,10 +268,13 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         float grain = fract(sin(dot(floor(vMapUv * 1100.), vec2(12.9898, 78.233))) * 43758.5453);
         col = mix(col, uHair * (.5 + .5 * clamp(lum / uMean[0], .3, 1.4)), zone * (.6 + .4 * grain));
         chainsKnit = (texture2D(uKnit, vec2(vJerseyPos.x * .7 + vJerseyPos.z * .7, vJerseyPos.y) * 16.).r - .49) * ${knitAmp.toFixed(2)} * (w[1] + .5 * w[2] + .6 * w[4]);   // bind-pose projection: ~3 mm cells, the same scale on every island
-        // crease lines along the same rumples the bump draws (a ridge where the noise crosses its mid value): the torso sits in
-        // shade at the tee, where a bump alone shows nothing, so the folds also carry a little occlusion in the cloth's tone
+        // crease shade along the same rumples the bump draws (where the noise crosses its mid value): the torso sits in shade at
+        // the tee, where a bump alone shows nothing, so the folds also carry a little occlusion in the cloth's tone. Soft and
+        // broad: a 30 % dip within a narrow band laid the shade side in hard-edged diagonal bars (debug renders with the sun off
+        // him kept them; without them they were gone), which critics read as "posterized, almost like a paint filter". Half the
+        // swing, no hard edge, and a step deeper on average (-.066 against -.058) so the shirt's mean holds (phone tee luma 55.85 -> 55.81). (Round 13 c1 also softened them but added periodic drape folds: plaid/moire.)
         { vec3 fp = vJerseyPos * mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW)); float n = chainsNoise(fp) * .7 + chainsNoise(fp * 2.3) * .3;
-          chainsKnit += w[1] * (.06 - .3 * smoothstep(.72, .97, 1. - abs(2. * n - 1.))); }
+          chainsKnit += w[1] * (.024 - .17 * smoothstep(.55, 1., 1. - abs(2. * n - 1.))); }
         // the fold valleys and seams hold a little shade in the cloth's own tone (the torso is in shade at the tee, where a bump shows little)
         chainsFoldH = chainsFolds(vJerseyPos, vArmW) * w[1]; chainsKnit += clamp(chainsFoldH / .0035, -1., 1.) * .16 * w[1]; chainsCloth = w[1] + .4 * w[2];
         // cloth roughness ~.75 with ~3 cm variation (a uniform .89 lit the shirt as one even gradient)
