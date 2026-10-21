@@ -105,6 +105,19 @@ export function placePin(x, y, alpha) {
   const el = $('pin'); el.style.opacity = key ? alpha.toFixed(2) : '0';
   if (key) el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, calc(-100% + 2.5px))`;
 }
+// DGM's "To Throw 61m": the planned landing's distance on a stem hung from the reticle at (x, y) CSS px. Phones fold the top-left
+// suggestion card into it while it shows (ui.css #hud.land-tag). Written only when it changes.
+let landAt = '';
+export function placeLandTag(x, y, on, est = null) {
+  const key = on && est ? `${x.toFixed(1)} ${y.toFixed(1)} ${est.range.toFixed(1)} ${est.left.toFixed(1)} ${est.surface}` : '';
+  if (key === landAt) return; landAt = key;
+  const el = $('landTag'); el.style.opacity = key ? '1' : '0'; $('hud').classList.toggle('land-tag', !!key);
+  if (!key) return;
+  el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, 0)`;
+  $('landDist').textContent = `${est.range.toFixed(est.range < 20 ? 1 : 0)} m`;
+  $('landLeft').textContent = est.danger ? est.surface : est.surface === 'Chains' ? 'in the chains' : `${est.left.toFixed(est.left < 20 ? 1 : 0)} m left${est.surface === 'Rough' ? ' · rough' : ''}`;
+  el.classList.toggle('danger', !!est.danger);
+}
 const equipmentPickers = { throwRow: 'btnThrowPicker', discRow: 'btnDiscPicker' };
 let openEquipment = null;
 function closeUtilities(returnFocus = false) {

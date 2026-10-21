@@ -1221,6 +1221,13 @@ function updateCamera(dt) {
   // the camera closes inside ~20 m, where the basket itself is the target. This frame's matrices, so it never trails the drone.
   if (/^(intro|aim|windup|release|flight)$/.test(G.phase)) { camera.updateMatrixWorld(); _v.set(h.basket[0], h.basketY + 2.3, h.basket[1]); const fade = THREE.MathUtils.smoothstep(_v.distanceTo(camera.position), 14, 22); _v.project(camera); UI.placePin((_v.x + 1) / 2 * innerWidth, (1 - _v.y) / 2 * innerHeight, _v.z < 1 ? fade : 0); }
   else UI.placePin(0, 0, 0);
+  // The landing tag (DGM's "To Throw 61m") hangs under the reticle while a planned shot is aimed: down the line a landing short of
+  // the pin sits just under it on screen, so a tag standing over the reticle ran into the pin's own tag. Off the frame it bows out.
+  const sp = G.shotPreview;
+  if (G.phase === 'aim' && preview.visible && sp?.guided && sp.rest) {
+    camera.updateMatrixWorld(); _v.set(sp.rest[0], sp.rest[1] + .05, sp.rest[2]).project(camera);
+    UI.placeLandTag((_v.x + 1) / 2 * innerWidth, (1 - _v.y) / 2 * innerHeight, _v.z < 1 && Math.abs(_v.x) < .92 && _v.y > -.72 && _v.y < .95, sp);
+  } else UI.placeLandTag(0, 0, false);
 }
 
 // ---------- main loop ----------
