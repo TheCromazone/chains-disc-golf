@@ -40,11 +40,22 @@ export function createTemporal() {
   // every near-Nyquist residue (the jersey knit, grass and leaf speckle, chain links, the last step of a silhouette) back up
   // into a hard pixel checker that critics read as "crisp hard-cut edges, stippled dots". At 2 px the gain is 1.4x on 4 px
   // texture detail (what the turf and bark carry), 1.2x at 8 px and exactly 1x at the pixel grid: texture sharp, edges as resolved.
+  // Contrast-adaptive, like AMD's CAS: the gain fades out where the 4 px neighbourhood spans a big luma step (a silhouette, not
+  // texture), and there the pixel takes a small tent of its 1 px neighbours instead. Turf, bark and mulch (median step ~.1) keep
+  // the full sharpen; leaf cards against the sky, the athlete's outline, basket wires and the flag pole (steps of .4-.8) stop
+  // being steepened and land over ~3 px, Disc Golf Masters' filmic edge (gauntlet r3 crisp: "foliage ends in hard, high-contrast
+  // alpha cut-out leaf edges... the basket wires and flag pole look over-sharpened... drop the sharpening").
   const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, uTexel: u.uTexel }, vertexShader: VS, depthTest: false, depthWrite: false,
-    fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel;varying vec2 vUv;void main(){ vec2 d=2.*uTexel;
+    defines: { EDGE_LO: '.2', EDGE_HI: '.5', EDGE_SOFT: '1.' },
+    fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel;varying vec2 vUv;void main(){ vec2 d=2.*uTexel,p=uTexel;
       vec3 c=texture2D(tCur,vUv).rgb,n=texture2D(tCur,vUv+vec2(0.,d.y)).rgb,s=texture2D(tCur,vUv-vec2(0.,d.y)).rgb,
-        e=texture2D(tCur,vUv+vec2(d.x,0.)).rgb,w=texture2D(tCur,vUv-vec2(d.x,0.)).rgb;
-      gl_FragColor=vec4(clamp(c+(4.*c-n-s-e-w)*.1,min(c,min(min(n,s),min(e,w))),max(c,max(max(n,s),max(e,w)))),1.); }` }));
+        e=texture2D(tCur,vUv+vec2(d.x,0.)).rgb,w=texture2D(tCur,vUv-vec2(d.x,0.)).rgb,
+        lo=min(c,min(min(n,s),min(e,w))),hi=max(c,max(max(n,s),max(e,w)));
+      float edge=smoothstep(EDGE_LO,EDGE_HI,dot(hi-lo,vec3(.299,.587,.114)));
+      vec3 o=clamp(c+(4.*c-n-s-e-w)*.1*(1.-edge),lo,hi);
+      if(edge>0.){ vec3 b=(texture2D(tCur,vUv+.5*p).rgb+texture2D(tCur,vUv-.5*p).rgb+texture2D(tCur,vUv+vec2(.5,-.5)*p).rgb
+        +texture2D(tCur,vUv-vec2(.5,-.5)*p).rgb)*.25; o=mix(o,b,edge*EDGE_SOFT); }   // four bilinear taps: a 3x3 [1 2 1] tent
+      gl_FragColor=vec4(o,1.); }` }));
   const lastW = new THREE.Matrix4(), lastP = new THREE.Matrix4(), held = new THREE.Matrix4(), size = new THREE.Vector2();
   let n = 0, w = 0, h = 0, cur = null, hist = null;
   const draw = (renderer, quad) => { const auto = renderer.autoClear; renderer.autoClear = false; quad.render(renderer); renderer.autoClear = auto; };
@@ -72,7 +83,7 @@ export function createTemporal() {
       if (!cur || cur.image.width !== w || cur.image.height !== h) {
         cur?.dispose(); hist?.dispose(); u.uAlpha.value = 1;
         cur = new THREE.FramebufferTexture(w, h); hist = new THREE.FramebufferTexture(w, h);
-        for (const x of [cur, hist]) Object.assign(x, { format: THREE.RGBFormat, internalFormat: 'RGB8' });   // copyTexSubImage2D may only drop channels, never add alpha
+        for (const x of [cur, hist]) Object.assign(x, { format: THREE.RGBFormat, internalFormat: 'RGB8', minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });   // copyTexSubImage2D may only drop channels, never add alpha; linear for the sharpen's half-pixel tent (every other tap sits on a texel centre)
       }
       renderer.copyFramebufferToTexture(cur); t.resolve(renderer, cur, hist); renderer.copyFramebufferToTexture(hist);
       u.tCur.value = hist; draw(renderer, sharpen);
