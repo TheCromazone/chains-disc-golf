@@ -49,17 +49,11 @@ const vec3s = a => `vec3(${a.map(x => x.toFixed(4)).join(',')})`;
 export const GROUND_GLSL = `
 float gHash(vec2 p){vec3 q=fract(p.xyx*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}   // no sin(): cheap and stable on phones
 float gNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(gHash(i),gHash(i+vec2(1,0)),f.x),mix(gHash(i+vec2(0,1)),gHash(i+vec2(1,1)),f.x),f.y);}
-vec2 gCell(vec2 p){   // Voronoi: x = F2-F1 (0 on a border between two tufts), y = the tuft's own random vigour
-  vec2 i=floor(p),f=p-i;float d1=8.,d2=8.,id=0.;
-  for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 g=vec2(x,y),o=g+.15+.7*vec2(gHash(i+g),gHash(i+g+37.1))-f;float d=dot(o,o);
-    if(d<d1){d2=d1;d1=d;id=gHash(i+g+71.3);}else d2=min(d2,d);}
-  return vec2(sqrt(d2)-sqrt(d1),id);
-}
 #ifdef GROUND_LITE   // Lite: one octave each for the edge fingers and the drift, no warm patches, clover or patchy litter, so the phone shader stays under the old one
 float gBreak(vec2 p){return gNoise(p*1.3+5.)*.6+gNoise(p*4.1+17.)*.4-.5;}   // both octaves: one alone left path edges smooth 0.8 m lobes, a clean decal border (blind critics: "a flat tan ribbon with a hard edge")
 #define gMacro(p) gNoise(p/19.+5.)
 #define gWarm(p,rough) 1.
-#define gPatch(p) (gNoise(p/1.3+23.)*.65+gNoise(p/.45+7.)*.35)   /* Mobile too: damp and sun-bleached patches in the litter (its putt floor read "one flat, uniform brown") */
+#define gPatch(p) .5
 #define gPatchy(p) gNoise(p/4.7+71.)
 #define gOlive .7   /* Lite has no grade to ease greens toward olive: the turf does it alone */
 #define gThin(p) 0.
@@ -73,6 +67,12 @@ vec2 gSpot(vec2 p,float edge){   // sparse bare-soil scuffs (x) and clover/broad
   return vec2(step(h,.025+edge*.35),step(.92-edge*.1,h))*(1.-smoothstep(.7,1.,r));
 }
 float gEdge(float g,vec2 trail){return max(smoothstep(.02,.25,g)*(1.-smoothstep(.4,.7,g)),trail.y*smoothstep(.45,.65,abs(trail.x))*(1.-smoothstep(.8,1.6,abs(trail.x))));}   // the worn margin of gravel beds and trails
+vec2 gCell(vec2 p){   // Voronoi: x = F2-F1 (0 on a border between two tufts), y = the tuft's own random vigour
+  vec2 i=floor(p),f=p-i;float d1=8.,d2=8.,id=0.;
+  for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 g=vec2(x,y),o=g+.15+.7*vec2(gHash(i+g),gHash(i+g+37.1))-f;float d=dot(o,o);
+    if(d<d1){d2=d1;d1=d;id=gHash(i+g+71.3);}else d2=min(d2,d);}
+  return vec2(sqrt(d2)-sqrt(d1),id);
+}
 #define gWorn(p) smoothstep(.47,.76,gNoise(p/7.+91.)*.7+gNoise(p/1.5+37.)*.3)   /* scattered worn, sun-scorched patches 2-8 m across, frayed at 1.5 m: straw through the green */
 #define gPatchy(p) (gNoise(p/5.3+71.)*.65+gNoise(p/1.7+13.)*.35)
 #define gOlive .62
@@ -118,13 +118,13 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         detail*=mix(vec3(1.),gTile(gMottle,mat2(.6,.8,-.8,.6)*p,8.,${vec3s(TILE_MEAN.mottle)}),.7);   // two orientations break the photo's diagonal mowing bands into patches
         detail*=mix(1.,dot(gTile(gRough,mat2(-.28,.96,-.96,-.28)*p,5.5,${vec3s(TILE_MEAN.rough)}),vec3(.33)),.45);   // clumps 0.5-2 m wide that still read at 20-80 m, where the fine tiles have gone to their mean (Mobile too: two fetches, mean 1; its mid lawn read "a smooth painted green", ground 1/4)
         vec3 c=gTurf(p,vColor,vTurf.xy,dry)*mix(detail,vec3(dot(detail,vec3(.33))),dry*.4);
-        vec2 fp=fwidth(p); float fw=max(fp.x,fp.y);   // metres per pixel along the view: the tee camera sees the slope at ~8 degrees, so ~.1 m at 20 m. Mobile too (gauntlet r3 ground: its mid hill read "oversaturated, smooth green with a painted look"): two 9-tap cells, the phone's only loop
+        ${lite ? '' : `vec2 fp=fwidth(p); float fw=max(fp.x,fp.y);   // metres per pixel along the view: the tee camera sees the slope at ~8 degrees, so ~.1 m at 20 m
         float lv=clamp(log2(fw*14./.3),0.,6.),l0=floor(lv),lt=lv-l0,s0=.3*exp2(l0);   // tufts stay ~14 px wide at every distance (7 at the critics' 640 px): a fine octave hands over to one twice as coarse instead of fading to a smooth mean, so the far hill keeps its clumps
         vec2 k0=gCell(p/s0+l0*17.),k1=gCell(p/(s0*2.)+l0*17.+17.);
         float gp=mix(1.-smoothstep(0.,.07+fw*1.4/s0,k0.x),1.-smoothstep(0.,.07+fw*.7/s0,k1.x),lt),cl=mix(k0.y,k1.y,lt)*(1.-gp*.75);   // dark soil and shadow between tufts; each tuft its own vigour
-        c=mix(c*mix(.82,1.26,smoothstep(.3,.85,cl)),mix(c*.42,${vec3s([.15, .095, .05])},max(dry,gWorn(p)*.6)*.7),(1.-smoothstep(.12,.35,cl))*${lite ? '.6' : '.8'});   // light clumps over dark thatch, bare soil where it is dry: what a photo tile averaged to its mean cannot show at 20 m
+        c=mix(c*mix(.82,1.26,smoothstep(.3,.85,cl)),mix(c*.42,${vec3s([.15, .095, .05])},max(dry,gWorn(p)*.6)*.7),(1.-smoothstep(.12,.35,cl))*.8);   // light clumps over dark thatch, bare soil where it is dry: what a photo tile averaged to its mean cannot show at 20 m
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.25,1.12,.6),smoothstep(.75,1.,cl)*.3);   // the odd tuft gone to seed, olive-tan
-        ${lite ? '' : `br+=(cl-.45)*1.1;   // every cover edge frays at clump scale: tufts into the gravel, bare fingers into the turf (not Mobile: its cover splats are coarser, and a tuft's hard cell edge cut 0.5 m turf and gravel blocks into the putt's litter)
+        br+=(cl-.45)*1.1;   // every cover edge frays at clump scale: tufts into the gravel, bare fingers into the turf
         vec2 sp=gSpot(p,gEdge(vSplat.x,vTurf.zw));
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.02,.72)*mix(.95,mix(.7,1.25,step(.55,gNoise(p*21.))),1.-smoothstep(.015,.04,fw)),sp.y*.8);   // clover: round leaves, bluer and darker than the grass
         c=mix(c,mix(${vec3s([.2, .14, .085])},c*.6,step(.62,gNoise(p*9.+4.))*(1.-smoothstep(.04,.1,fw))),sp.x);   // scuffed to soil, a few blades left`}
@@ -132,25 +132,21 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.25,.28),u*.75)*(1.-u*.18);   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo or bare soil
         vec3 cov=gCover(vSplat,vTurf.zw,br);
         float reach=smoothstep(.02,.4,vSplat.z+br*.5);   // beyond the litter's edge single leaves stray into the turf (Mobile too: its mulch ended on a clean blend)
-        if(reach>0.){ vec3 l=texture2D(gDuff,p/2.3).rgb; float dp=gPatch(p),em=(dot(l,vec3(.3,.59,.11))-dot(texture2D(gDuff,p/2.3+vec2(.0035,.0025)).rgb,vec3(.3,.59,.11)))*(1.-smoothstep(2.,9.,d));   // relief: the tile against itself 7 mm over, so a chip has a lit edge and drops a shadow on the next (gauntlet r3 ground: the putt floor read "soft, smeared, no depth"); gone by 9 m, where it would speckle
+        if(reach>0.){ vec3 l=texture2D(gDuff,p/2.3).rgb; float dp=gPatch(p);
           l=mix(l,texture2D(gDuff,mat2(.6,-.8,.8,.6)*p/1.2+.3).rgb,smoothstep(.35,.65,gNoise(p/.9+41.)));   // finer, fresher shreds in drifts: chip size varies (Mobile too: one tile read "a flat, uniform brown")
           l=mix(l,texture2D(gDuff,p/2.3,8.).rgb,.12+smoothstep(3.,18.,d)*.4);   // its contrast eases with distance toward the tile's own mean, as the gravel's does: chip-scale flecks read as speckle on a phone (a blind critique, 2026-10-17)
           float ll=dot(l,vec3(.3,.59,.11));
           l=mix(l,vec3(ll),.2+dp*.3)*vec3(2.4,2.6,2.1)*mix(.62,1.3,dp);   // shredded bark and leaves, 2-6 cm, lit to DGM's (sunlit ~#b08a60, shade ~#5a4632): damp dark patches, sun-bleached ones
-          l*=1.+clamp(em*3.,-.4,.4);
-          { float gv=dot(texture2D(gGravel,p/3.4+.5).rgb,vec3(.3,.59,.11)),gs=dot(texture2D(gGravel,p/3.4+.5+vec2(.004,.003)).rgb,vec3(.3,.59,.11)),dm=smoothstep(.52,.68,gNoise(p*.7+29.)*.75+gNoise(p*2.9+3.)*.25)*(1.-smoothstep(5.,12.,d)),pb=smoothstep(.4,.48,gv)*dm;
-            l*=1.-.5*max(smoothstep(.4,.48,gs)-smoothstep(.4,.48,gv),0.)*dm; l=mix(l,vec3(gv)*vec3(1.25,1.2,1.08)*(1.+clamp((gv-gs)*2.5,-.4,.3)),pb*.85); }   // stones scattered through the trodden litter in drifts, the gravel tile's brightest pebbles ("no real pebbles"); 3-12 cm, gone by 12 m
           c=mix(c,l,max(cov.z,reach*smoothstep(.1,.2,ll)*.85)); }
-        if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.3).rgb; float ge=(dot(g,vec3(.3,.59,.11))-dot(texture2D(gGravel,p/1.3+vec2(.003,.002)).rgb,vec3(.3,.59,.11)))*(1.-smoothstep(2.,10.,d));   // pebble relief, as the litter's ("flat, uniform grey tiles with no stones or depth")   // packed pea gravel, shaded per pebble in the tile; its contrast eases with distance so it cannot speckle
+        if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.3).rgb;   // packed pea gravel, shaded per pebble in the tile; its contrast eases with distance so it cannot speckle
           g=mix(g,${vec3s([.328, .306, .271])},smoothstep(3.,16.,d)*.25)*vec3(1.5,1.43,1.25)*mix(1.,.62,smoothstep(.55,.85,gNoise(p*.8+3.)))*mix(1.,dot(texture2D(gGravel,mat2(.6,.8,-.8,.6)*p/4.1).rgb,vec3(1.12)),.55);   // packed earth shows in patches; stones three times the size keep a grain at 20 m (Mobile too: its trail read as a flat beige decal)
-          g*=1.+clamp(ge*2.2,-.45,.45);
           c=mix(c,g,cov.x)*(1.-cov.x*(1.-cov.x)*.6); }   // a damp trodden rim at the turf
         if(cov.y>0.) c=mix(c,texture2D(gSand,p*.32).rgb,cov.y);
         ${lite ? '' : `float pd=1e3; for(int i=0;i<${pads.length};i++){ vec2 q=p-gPads[i].xy; q=vec2(q.x*gPads[i].z-q.y*gPads[i].w,q.x*gPads[i].w+q.y*gPads[i].z); pd=min(pd,max(abs(q.x)-.8,abs(q.y)-1.6)); }
         c*=1.-.45*(1.-smoothstep(0.,.25,pd));   // contact shade where the pad sits on the ground`}
         diffuseColor.rgb=c; }`);
   };
-  material.customProgramCacheKey = () => 'chains-ground-v12' + (lite ? '-lite' : '');
+  material.customProgramCacheKey = () => 'chains-ground-v11' + (lite ? '-lite' : '');
   return material;
 }
 
