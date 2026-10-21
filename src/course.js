@@ -260,7 +260,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
   const pads = holes.flatMap(h => [[-.65, -.45], [.65, -.45], [-.65, 2.45], [.65, 2.45]].map(([u, k]) => [h.tee[0] + Math.cos(h.yaw) * u - Math.sin(h.yaw) * k, h.tee[1] - Math.sin(h.yaw) * u - Math.cos(h.yaw) * k, Math.cos(h.yaw), Math.sin(h.yaw)]));   // 1.6 x 3.2 m rectangles the ground shades round and the carpet stays off: four tile each tee's gravel bed round its 5 m mat (props.js BED), 15 cm short of its edging so the turf's blades spill over it
   // Lite drops the blade normal map: the turf photo already carries the grain, and the fetch buys back the splat cost.
-  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, lite: quality === 'low' }));
+  const pin = { value: new THREE.Vector4(0, 0, 1.5, 0) };   // the hole in play's pin (x, z): gapHole below, aimed by setHole(); the ground and the carpet fray the putting circle round it
+  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, pin, lite: quality === 'low' }));
   terrain.receiveShadow = true; group.add(terrain);
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their
@@ -557,7 +558,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // and the trodden approach keeps more of its canopy (.75 -> .4) from the pin itself (gapAim.z -1 -> 0), so the pin, its
   // shadow and the lawn stand in sun and the floor nearest the lens in open shade, as in the reference (floor luma at
   // 640x360: mid band 107 -> 116, the reference 129; bottom band 62 -> 72, the reference 69).
-  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = { value: new THREE.Vector4(0, 0, 1.5, 0) }, gapAim = { value: new THREE.Vector4(0, 1, 0, .4) }, gapReach = { value: new THREE.Vector3(15, 35, 3.2) };   // gapReach: where gapHole's cut gives way to the course-wide one (m from the pin, where the shadow lands); update() widens it at the putt
+  const gapSun = { value: new THREE.Vector4(...new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1])).toArray(), .95) }, gapHole = pin, gapAim = { value: new THREE.Vector4(0, 1, 0, .4) }, gapReach = { value: new THREE.Vector3(15, 35, 3.2) };   // gapReach: where gapHole's cut gives way to the course-wide one (m from the pin, where the shadow lands); update() widens it at the putt
   const canopyGaps = (mat, open = 1) => { if (!mat.alphaTest) return mat; const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s); s.uniforms.gapSun = gapSun; s.uniforms.gapHole = gapHole; s.uniforms.gapAim = gapAim; s.uniforms.gapReach = gapReach;
     s.vertexShader = 'varying vec3 vGap;\n' + (s.vertexShader.includes('#include <project_vertex>') ? s.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       { vec4 g = vec4(position, 1.);
@@ -918,7 +919,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
   // rough, gone on gravel, litter, sand and the pads. Blade tufts stand where mowers miss: at the sign post, along
   // every gravel edge and round the putting circle's rim.
-  group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }));
+  const carpet = grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, pin, lite: quality === 'low', seed }); group.add(carpet);
   // Tufts and fallen leaves are geometry, not photo cards (r4 ground: "sparse billboard cards that stand out as pasted-on
   // sprites"; the putting circle "a smeared brown texture with no real leaf or twig detail"). Both are per hole and only the
   // hole in play draws (setHole), on both tiers: nothing this small reads from another hole, and Full's tee sat at its 2.3M budget.
@@ -961,6 +962,21 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const tuftMat = windMaterial(toonMaterial({ color: cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), windCompile = tuftMat.onBeforeCompile;
     tuftMat.onBeforeCompile = s => { windCompile(s); s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
     tuftMat.customProgramCacheKey = () => 'chains-tuft-blades';
+    // Round the pin the tufts grow out of what they stand in (grass.js gTuftTint, the carpet's own ground data): the lower
+    // third of every blade fades into the ground at its root (mulch, gravel, or that turf in shade) before windMaterial's root
+    // shade, a contact shadow in the ground's own colour, so a clump on brown mulch is no longer a lime card standing on it (r3
+    // ground: "isolated billboard cards stuck onto a flat plane"). Above that the blades keep their own green: tinted to the lawn
+    // round the pin (40%, or wholly in r3 nature c1) they went straw-olive, "pale and hazy" to the putt's haze critic, and on the
+    // tee's ridge they vanished into the dirt (light and trees 1/4). The tee's tufts keep tuftMat: the tee frame does not change.
+    const gr = carpet.userData.ground, rimMat = windMaterial(toonMaterial({ color: cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), rimCompile = rimMat.onBeforeCompile;
+    rimMat.onBeforeCompile = s => { rimCompile(s); Object.assign(s.uniforms, gr.uniforms);
+      s.vertexShader = `varying vec3 vTuftBlade,vTuftSoil;${gr.glsl}\n` + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+        gTuftTint((modelMatrix*vec4(instanceMatrix[3].xyz,1.)).xz,vTuftBlade,vTuftSoil);
+        #endif`);
+      s.fragmentShader = 'varying vec3 vTuftBlade,vTuftSoil;\n' + s.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb=mix(vTuftSoil,diffuseColor.rgb,smoothstep(0.,.35,vBladeY));')
+        .replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
+    rimMat.customProgramCacheKey = () => 'chains-tuft-rim-' + quality;
     const fringeAt = (x, z) => {   // 1 on the turf just outside the ground shader's gravel (gCover without its noise)
       const ax = Math.abs(at4(turf, 2, x, z)), sx = at4(splats, 0, x, z);
       return Math.max(smooth(.25, .5, at4(turf, 3, x, z)) * smooth(.4, .52, ax) * (1 - smooth(.62, .85, ax)), smooth(.1, .28, sx) * (1 - smooth(.38, .55, sx)));   // the trail's 1 m strip, the apron and worn earth
@@ -997,16 +1013,18 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       spots = rim;
       // The putting circle's rim: no lone tufts at the pole (they read as stickers on the dirt), but clumps crowding the
       // turf's edge where the litter thins out, so the circle frays into grass instead of fading.
-      // In crowds of 2-7, 10-34 cm, round a seed (r3 ground: one-by-one they read 'sparse, evenly spaced billboard sprites').
-      for (let k = 0; k < 4200; k++) {
+      // In crowds of 3-9, 10-34 cm, round a seed (r3 ground: one-by-one they read 'sparse, evenly spaced billboard sprites'),
+      // and the crowds bunched into drifts 3-5 m long (a slow noise): thick in some arcs of the rim, bare in others, about as
+      // many tufts in all (r3 ground: "evenly spaced billboard clumps"; the phone putt sits at 981k of 1.0M triangles).
+      for (let k = 0; k < 5800; k++) {
         const a = trng() * 6.283, r = 1 + Math.sqrt(trng()) * 10, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r, l = at4(splats, 2, x, z);
-        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29))) {
+        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29)) * smooth(.42, .68, noise(x / 3.8 + 7, z / 3.8 + 91))) {
           const big = .1 + trng() ** 1.5 * .24, dry = trng() < .2;
-          for (let j = 2 + trng() * 6 | 0; j > 0; j--) { const b = trng() * 6.283, d = Math.sqrt(trng()) * (.08 + big * .7); add(x + Math.cos(b) * d, z + Math.sin(b) * d, big * (.45 + trng() * .65), dry && trng() < .7); } }
+          for (let j = 3 + trng() * 7 | 0; j > 0; j--) { const b = trng() * 6.283, d = Math.sqrt(trng()) * (.1 + big * 1.1); add(x + Math.cos(b) * d, z + Math.sin(b) * d, big * (.4 + trng() * .7), dry && trng() < .7); } }
       }
       for (const t of trees) if (Math.hypot(t.x - h.basket[0], t.z - h.basket[1]) < 20) foot(t);   // and round the pin, in front of the putt lens
     }
-    perHole(tuftGeo, tuftMat, tee, teeStarts); perHole(tuftGeo, tuftMat, rim, rimStarts);
+    perHole(tuftGeo, quality === 'low' ? tuftMat : rimMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);   // Full's tee tufts root in the ground too: phones' light and trees critics judge the tee frame, and the Mobile tee stays as it was
   }
   {
     // Fallen leaves and twigs on the putting circle's litter, as geometry: a leaf is 4 triangles, cupped (its edges curl up
