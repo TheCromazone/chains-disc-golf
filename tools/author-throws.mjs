@@ -212,18 +212,15 @@ const PUTT = [
   { t: .3, at: [0, -.08, .03], chest: [-14, -10, 0], handR: [-.21, -.38, -.17], handL: [-.06, -.40, -.21] },
   { t: .5, at: [0, -.11, .04], pelvis: [-8, 12, 0], chest: [-16, -8, 0], head: [12, -3, 0],
     handR: [-.19, -.40, -.13], elbowR: [.02, -.28, .10], handL: [-.06, -.40, -.17], elbowL: [-.08, -.27, .10] },
-  { t: .565, at: [0, -.07, -.03], chest: [-10, -4, 0], head: [9, -2, 0], handR: [-.12, -.26, -.38], elbowR: [.02, -.20, -.10], handL: [-.08, -.46, -.05] },
-  // r3 athlete c1 (all four m-putt critics: "the arm hangs at his side, no stroke, no follow-through"): the arm did push out
-  // and hold, but at shoulder height straight down the line, which the putt camera (1.4 m to his left, 3.6 m back, at head
-  // height) sees end-on behind his head and torso. It now rises through the release and holds reaching up the line over the
-  // chains, the hand clear above the head, with the chest leaning a little off the throwing side, so the stroke and the held
-  // finish read from behind.
+  { t: .565, at: [0, -.07, -.03], chest: [-10, -4, 0], head: [9, -2, 0], handR: [-.13, -.30, -.38], elbowR: [.02, -.20, -.10], handL: [-.08, -.46, -.05] },
+  // r3 athlete c1 tried a finish held high over the chains so the putt camera (1.4 m to his left, 3.6 m back, at head height)
+  // could see it: any forward reach from the right shoulder projects onto his head and torso from there, and a hand raised
+  // clear of the head read as a hand on the head. Unchanged; the visible stroke needs the camera on the throwing side.
   { t: .62, at: [0, -.03, -.07], pelvis: [-5, 10, 0], chest: [-6, -2, 0], head: [6, -2, 0],
-    handR: [-.03, -.06, -.54], elbowR: [.01, -.08, -.27], handL: [-.06, -.52, .02], elbowL: [-.06, -.28, .05] },
-  { t: .7, chest: [-6, 0, 4], handR: [.02, .16, -.53], elbowR: [.03, .0, -.29] },
-  { t: .8, at: [0, -.01, -.10], pelvis: [-4, 6, 0], chest: [-6, 2, 8], head: [4, 0, -4],
-    handR: [.05, .30, -.47], elbowR: [.04, .10, -.27], handL: [-.08, -.55, .04], elbowL: [-.05, -.28, .04], soleL: [-.24, .03, -.12] },
-  { t: 1, at: [0, -.02, -.10], handR: [.05, .28, -.48], elbowR: [.04, .09, -.27], soleL: [-.24, .015, -.12] },
+    handR: [-.08, -.20, -.52], elbowR: [0, -.12, -.24], handL: [-.06, -.52, .02], elbowL: [-.06, -.28, .05] },
+  { t: .8, at: [0, -.01, -.10], pelvis: [-4, 6, 0], chest: [-4, 0, 0], head: [4, 0, 0],
+    handR: [-.06, -.06, -.60], elbowR: [-.01, -.03, -.30], handL: [-.08, -.55, .04], elbowL: [-.05, -.28, .04], soleL: [-.24, .03, -.12] },
+  { t: 1, at: [0, -.02, -.10], handR: [-.06, -.09, -.59], elbowR: [-.01, -.05, -.30], soleL: [-.24, .015, -.12] },
 ];
 
 // ============ the forehand (sidearm) ============
