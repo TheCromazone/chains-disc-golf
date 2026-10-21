@@ -12,7 +12,7 @@ import { createWindFx } from './wind.js';
 import { createShotGuide } from './shot-guide.js';
 import { suggestPower, basketLine, puttPower } from './shot-planning.js';
 import { createFlightTrail } from './flight-trail.js';
-import { createTemporal } from './temporal.js';
+import { createTemporal, ATHLETE_STENCIL } from './temporal.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -89,7 +89,7 @@ const strHash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ 
 
 // ---------- renderer / scene ----------
 const canvas = $('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true, powerPreference: 'high-performance' });   // stencil: athletes tag their pixels for the phone resolve's soft outline (temporal.js)
 renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .74;   // sunlit turf lands mid-high and shade keeps a real dark; ACES rolls the sun's haze and aureole off instead of clipping them
 // Mobile's finish: Desktop grades the frame in a full-screen pass after ACES (effects.js GRADE: gain and lift, a gentle
 // S-curve, saturation about luma, greens toward olive, a cool-shade/warm-sun split tone, a cool veil in the deepest darks).
@@ -176,11 +176,14 @@ const netSend = msg => { if (G.mode !== 'online' || !G.net) return; G.net.isHost
 const buzz = pattern => { try { navigator.vibrate?.(pattern); } catch { /* no haptics */ } };   // Android only; iOS Safari ignores it
 
 // ---------- players ----------
+// Every athlete (players, the clubhouse hero) tags its pixels in the stencil, so the phone resolve softens his outline into
+// the scene (temporal.js) instead of leaving a cut-out edge. The disc is a separate mesh and keeps its crisp rim.
+const athlete = c => { c.group.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) Object.assign(m, ATHLETE_STENCIL); }); return c; };
 function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerId = null, avatar = null, hand }, i) {
   // bots and unnamed humans get a deterministic random look (same on every online client) in their player colour
   color = safeColor(color, COLORS[i % COLORS.length]); avatar = avatar && sanitizeAvatar(avatar); name = safeName(name);   // a room's config comes off the network
   const appearance = avatar ? { ...avatar, jersey: color } : randomAvatar(makeRng(strHash(name) + i * 97), { jersey: color, name, ...(hand ? { hand } : {}) });
-  const char = createCharacter({ ...appearance, lod: i > 0 });
+  const char = athlete(createCharacter({ ...appearance, lod: i > 0 }));
   char.setGround?.((x, z) => world.height(x, z));
   scene.add(char.group);
   const marker = new THREE.Mesh(new THREE.RingGeometry(0.27, 0.4, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false }));
@@ -190,7 +193,7 @@ function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerI
 function setPlayerDetail(p, lod) {
   if (p.lod === lod) return;
   if (warming) { warming.then(() => setPlayerDetail(p, lod)); return; }   // swap once the warm-up has let go of the old body's materials   // Mobile too: the player on the tee gets the full-detail body once it has loaded (models.js fullBodies)
-  const next = createCharacter({ ...p.appearance, lod });
+  const next = athlete(createCharacter({ ...p.appearance, lod }));
   next.setGround?.((x, z) => world.height(x, z));
   next.group.position.copy(p.char.group.position); next.group.rotation.copy(p.char.group.rotation);
   scene.remove(p.char.group); p.char.dispose(); p.char = next; p.lod = lod; scene.add(next.group);
@@ -331,7 +334,7 @@ function stageClubhouse() {
   const n = world.normal(x, z); menuBlob.position.set(x, y + .03, z); menuBlob.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]));
 }
 let heroDisc = null;
-function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); hero.group.visible = G.phase === 'menu'; hero.setGround?.((x, z) => world.height(x, z)); kickLight(hero.group); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
+function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = athlete(createCharacter(G.avatar)); hero.group.visible = G.phase === 'menu'; hero.setGround?.((x, z) => world.height(x, z)); kickLight(hero.group); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
 // Disc in the hand. Idle: carried by the rim at the thigh, plate hanging beside the leg. Throwing: gripped so the
 // plate rides the wrist through the windup and is exactly level with the planned release normal at phase .62.
 const _qh = new THREE.Quaternion(), _qg = new THREE.Quaternion(), _off = new THREE.Vector3(), _nrm = new THREE.Vector3(), _gp = new THREE.Vector3(), _gn = new THREE.Vector3();
