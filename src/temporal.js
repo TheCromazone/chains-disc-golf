@@ -2,7 +2,7 @@
 // hair, thin chains that break into dots, stepped dash ends"; Disc Golf Masters gets its soft edges from Unreal's TAA).
 // While the camera holds still the projection is jittered by a sub-pixel Halton offset each frame and the frame is blended
 // into a history, clamped to the current frame's 3x3 neighbourhood: a held frame (aim, putt, a paused flyover) converges
-// on a ~10x supersampled image and wind-moved leaves never ghost (the athlete takes no history on phones: canvas()). No reprojection: the moment the
+// on a ~10x supersampled image and wind-moved leaves never ghost (on phones the athlete's interior takes none: canvas()). No reprojection: the moment the
 // camera moves the jitter stops and the frame shows as rendered (MSAA, plus FXAA on Desktop), so motion never smears.
 // ponytail: still-camera only; add depth reprojection if moving shots ever need the same edges.
 import * as THREE from 'three';
@@ -15,7 +15,7 @@ export const MOVE_EPS = 2e-5;
 export const moved = (a, b, eps = MOVE_EPS) => a.some((v, i) => Math.abs(v - b[i]) > eps);
 // Athlete surfaces write this into the stencil (the canvas has one: main.js), so the phone resolve can find his outline
 export const ATHLETE_STENCIL = { stencilWrite: true, stencilRef: 1, stencilZPass: THREE.ReplaceStencilOp };
-// His modelled hands (gltf-player.js hold_/rest_ meshes) add bit 2: they take no history and a narrower outline (canvas())
+// His modelled hands (gltf-player.js hold_/rest_ meshes) add bit 2: a narrower outline ramp (canvas())
 export const HAND_STENCIL = { ...ATHLETE_STENCIL, stencilRef: 3 };
 
 const VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
