@@ -537,7 +537,7 @@ function doThrow(pi, o, sim = null) {
   p.char.setThrow(G.throwType); UI.setControlsEnabled(false); preview.visible = false;
 }
 function runSim(params) {
-  const s = launch({ ...params, disc: discById(params.discId) });
+  const s = launch({ ...params, disc: discById(params.discId) }, world.basket);
   const traj = [], events = []; let i = 0, le = 0;
   const rnd = v => Math.round(v * 1000) / 1000;
   while (!isDone(s) && s.t < 25) {
@@ -1308,7 +1308,7 @@ function frame(dt, rawDt, background) {
     const d = aimDir(); p.char.faceDir(d[0], d[1]);
     // disc in hand, oriented like the release
     const lat = G.phase === 'windup' ? G.gesture.lateral : 0;
-    const s0 = launch(gestureParams(0.5, lat));
+    const s0 = launch(gestureParams(0.5, lat), world.basket);
     holdDisc(p.char, p.discMesh, s0.n, time * 0.4, G.throwType);
     updatePreview();
   }
