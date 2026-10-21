@@ -41,23 +41,26 @@ export function createTemporal() {
   // into a hard pixel checker that critics read as "crisp hard-cut edges, stippled dots". At 2 px the gain is 1.4x on 4 px
   // texture detail (what the turf and bark carry), 1.2x at 8 px and exactly 1x at the pixel grid: texture sharp, edges as resolved.
   // Edges only, the same pass softens instead (r4 crisp: "hard one-pixel cut-out outline on the athlete's hair, ear and forearm,
-  // stair-stepped flag pole, stepped long shadow diagonals"; Disc Golf Masters lands a silhouette over 2-3 px). A silhouette is
-  // a step that survives a 2x2 box: the luma gradient of four 2x2 means 1.5 px out on the diagonals (bilinear taps) carries
-  // most of the 2 px neighbourhood's range, where turf speckle, bark plates and leaf texture average away (ratio < .5). There
-  // the pixel blends toward a blur laid along the edge (+-1, +-2 px: no stair steps) and across it (+-1, +-2 px: a ~3 px
-  // ramp), unsharpened. Guard view (1280 x 720): turf and crowns move ~2/255 on average. r4's global wider resolve won crisp but softened turf and leaves (ground 0/4, trees 0/4).
-  const Q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new Map(), E = (Q.get('edge') || '.04,.11,.45,.8,3,1').split(',').map(Number);
-  const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, uTexel: u.uTexel, uGate: { value: new THREE.Vector4(...E) }, uEdge: { value: new THREE.Vector2(E[4], E[5]) } }, vertexShader: VS, depthTest: false, depthWrite: false,
-    defines: { DBG: String(typeof location !== 'undefined' && /[?&]edgedbg/.test(location.search)) },   // QA: ?edgedbg shows the soften mask
-    fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel,uEdge;uniform vec4 uGate;varying vec2 vUv;
+  // stair-stepped flag pole, stepped long shadow diagonals"; Disc Golf Masters lands a silhouette over 3-4 px). A silhouette is
+  // a strong step (.07+ luma) that survives a 2x2 box: the luma gradient of four 2x2 means 1.5 px out on the diagonals (bilinear
+  // taps) carries most of the 2 px neighbourhood's range, where turf speckle, bark plates and leaf texture average away (ratio
+  // < .5); and it is a contour, not a cluster: the same gradient 3 px either way along the edge still points across it with
+  // most of the strength. That last test keeps leaf clumps, turf tufts and mulch out (their outlines turn every pixel or two),
+  // so the athlete's outline and hair, the pole, trunks and the arch soften while foliage and ground keep their texture (cycle
+  // 1's ungated ramp softened crown edges and moved twice the guard pixels). There the pixel blends toward a blur laid along
+  // the edge (+-1, +-2 px: no stair steps) and across it (+-2, +-4 px: a ~4 px ramp), unsharpened. Guard view (1280 x 720):
+  // ~4% of pixels move more than 8/255, all on outlines. r4's global wider resolve won crisp but softened turf and leaves (ground 0/4, trees 0/4).
+  const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, uTexel: u.uTexel }, vertexShader: VS, depthTest: false, depthWrite: false,
+    defines: { DBG: String(typeof location !== 'undefined' && /[?&]edgedbg/.test(location.search)) },   // QA: ?edgedbg shows the soften mask in white
+    fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel;varying vec2 vUv;
       vec3 T(vec2 o){ return texture2D(tCur,vUv+o*uTexel).rgb; } float L(vec3 c){ return dot(c,vec3(.299,.587,.114)); }
       vec2 G(vec2 p){ float a=L(T(p+vec2(-1.5))),b=L(T(p+vec2(1.5,-1.5))),f=L(T(p+vec2(-1.5,1.5))),g=L(T(p+vec2(1.5))); return vec2(b+g-a-f,f+g-a-b)*.5; }
       void main(){
       vec3 c=T(vec2(0.)),n=T(vec2(0.,2.)),s=T(vec2(0.,-2.)),e=T(vec2(2.,0.)),w=T(vec2(-2.,0.)),lo=min(c,min(min(n,s),min(e,w))),hi=max(c,max(max(n,s),max(e,w)));
       vec3 o=clamp(c+(4.*c-n-s-e-w)*.1,lo,hi);
-      vec2 gr=G(vec2(0.)); float m=length(gr),k=smoothstep(uGate.x,uGate.y,m)*smoothstep(.5,.8,m/max(L(hi)-L(lo),1e-3));
-      if(k>0.){ vec2 x=gr/m,t=vec2(-x.y,x.x);
-        if(uEdge.x>0.) k*=smoothstep(uGate.z,uGate.w,min(dot(G(uEdge.x*t),x),dot(G(-uEdge.x*t),x))/m); vec2 y=x*uEdge.y;
+      vec2 gr=G(vec2(0.)); float m=length(gr),k=smoothstep(.07,.16,m)*smoothstep(.5,.8,m/max(L(hi)-L(lo),1e-3));
+      if(k>0.){ vec2 x=gr/m,t=vec2(-x.y,x.x),y=2.*x;
+        k*=smoothstep(.45,.8,min(dot(G(3.*t),x),dot(G(-3.*t),x))/m);
         vec3 bl=c+T(t)+T(-t)+.5*(T(2.*t)+T(-2.*t))+2.*(T(y)+T(-y))+T(2.*y)+T(-2.*y);
         o=mix(o,bl/10.,k); }
       gl_FragColor=vec4(DBG?vec3(k):o,1.); }` }));
