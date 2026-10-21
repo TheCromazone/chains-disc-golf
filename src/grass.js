@@ -106,8 +106,8 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         vec2 spot=gSpot(root,gEdge(sp.x,ga.zw));grow*=1.-spot.x*.92;   // bare scuffs keep only a few blades; clover mats hold them low
         float keep=mix(.55,1.,fract(ar.z*23.9))*mix(1.,.5,through*cov.z);   // each clump drops its own subset of blades: no two share a silhouette
         float sc=k*step(mix(.06,.5,fract(ar.z*5.3)),grow)*step(fract(aBlade.y*13.1+ar.z*7.3),keep),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // each clump gives up at its own point of the thinning into path, gravel and litter: a ragged edge of whole tufts, not a fade
-        if(dr){vec2 tp=gPin.xy-gEye.xz,tr=root-gEye.xz;float pl=max(length(tp),.1),al=dot(tr,tp)/pl;   // none at the pole or in the lens's line just past the basket: the cage reads against clean turf (r3 camera)
-          sc*=smoothstep(1.6,3.,distance(root,gPin.xy))*(1.-step(pl-1.,al)*(1.-smoothstep(.07,.13,abs(tr.x*tp.y-tr.y*tp.x)/pl/max(al,1.))));}
+        if(dr){vec2 tp=gPin.xy-gEye.xz,tr=root-gEye.xz;float pl=max(length(tp),.1),al=dot(tr,tp)/pl;   // none within ~8 m of the pole or in a wide wedge of the lens's line past the basket: the cage and the putter read against clean turf (r3 camera: drifts 1.6-9 m round the basket "add clutter around the target", 0/4)
+          sc*=smoothstep(6.,9.,distance(root,gPin.xy))*(1.-step(pl-1.,al)*(1.-smoothstep(.16,.26,abs(tr.x*tp.y-tr.y*tp.x)/pl/max(al,1.))));}
         float hs=(dr?1.1+cl*1.2:mix(.9+cl*.8,.55+cl*.4,fair))*(.8+.4*fract(ar.z*13.7))*sc;   // a drift stands as tall in the fairway as in the rough   // x the 4.5-10 cm blades, in 0.3-1 m clumps: rough 3-17 cm, fairway 2-9 cm
         hs*=1.+(1.-smoothstep(.5,.9,grow))*(.6+cl*1.4);
         hs*=mix(1.1,.7,gThin(root))*(1.-spot.y*.55)*(1.-gWorn(root)*.3)*(dr?1.25+smoothstep(12.,26.,dCam)*.45:1.);   // drifts a third taller at 26 m, so they still read there   // thin patches stand lower as well as paler   // the fringe a mower misses stands taller: tufts to 40 cm along every trail, apron and bed edge
