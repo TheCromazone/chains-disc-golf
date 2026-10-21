@@ -69,7 +69,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         float k=smoothstep(drop+.6,drop,dCam)*(aRoot.w>2.5?smoothstep(42.,54.,dCam):aRoot.w>1.5?smoothstep(13.,18.,dCam):1.)*smoothstep(L.x*.5,L.x*.5-.8,max(abs(rel.x),abs(rel.y)));   // zero at the wrap edge: roots jump unseen
         vec2 guv=(root+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W / nx)},${f(segZ / H / nz)})+vec2(${f(.5 / nx)},${f(.5 / nz)});
         vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,ga.zw,br);
-        float through=step(.9,fract(aRoot.z*7.7));   // one clump in ten pushes up through the litter, ragged
+        float through=step(.9,fract(aRoot.z*7.7))*(1.-smoothstep(.6,.95,cov.z));   // one clump in ten pushes up through the litter's thin edge, ragged (not out of its deep middle: lone sprigs on the putting circle read as stickers, r4 ground)
         float grow=1.-max(max(cov.x,cov.y),cov.z*(1.-through));
         for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);grow*=smoothstep(.05,.3,max(abs(q.x)-.8,abs(q.y)-1.6));}
         vec2 spot=gSpot(root,gEdge(sp.x,ga.zw));grow*=1.-spot.x*.92;   // bare scuffs keep only a few blades; clover mats hold them low
