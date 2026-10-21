@@ -660,9 +660,9 @@ function resolveThrow(pi, r, f = null) {
   G.skipResult = advance; G.resultAt = performance.now(); setTimeout(advance, 2400);
 }
 // A tap on the course cuts the flyover to its flash, and a verdict short once it has been seen (.6 s). Not online: the host
-// paces a room's turns. Taps on buttons, the pad and dialogs are theirs.
+// paces a room's turns. Taps on buttons and dialogs are theirs (the swipe pad is idle in both beats, and covers half the glass).
 function skipBeat(e) {
-  if (G.mode === 'online' || e.target.closest?.('button,a,input,select,textarea,dialog,#pad,#controls,.overlay:not(#hud)')) return;
+  if (G.mode === 'online' || e.target.closest?.('button,a,input,select,textarea,dialog,.overlay')) return;
   if (G.phase === 'intro') G.introT = Math.max(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH);
   else if (G.phase === 'result' && G.skipResult && performance.now() - G.resultAt > 600) G.skipResult();
 }
