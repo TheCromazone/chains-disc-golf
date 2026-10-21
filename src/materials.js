@@ -44,7 +44,7 @@ export function cartoonSky() {
 // cover the turf by splat weight (gravel/earth, sand, litter, dry) through one shared noisy edge with a damp rim.
 // GROUND_GLSL is shared with the blade carpet (grass.js): its vertex shader tints and thins each blade with the same
 // functions at the blade's root, so the carpet is the ground it grows from.
-const TILE_MEAN = { lawn: [.1715, .2665, .0543], rough: [.129, .1734, .0524], mottle: [.1503, .2229, .0626] };
+const TILE_MEAN = { lawn: [.1715, .2665, .0543], rough: [.129, .1734, .0524], mottle: [.1503, .2229, .0626], chips: [.157, .1099, .0712] };
 const vec3s = a => `vec3(${a.map(x => x.toFixed(4)).join(',')})`;
 export const GROUND_GLSL = `
 float gHash(vec2 p){vec3 q=fract(p.xyx*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}   // no sin(): cheap and stable on phones
@@ -94,19 +94,21 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
   geometry.setAttribute('splat', new THREE.BufferAttribute(splat, 4)); geometry.setAttribute('turf', new THREE.BufferAttribute(turf, 4));
   const tiles = { gLawn: texture('grass'), gRough: texture('turf_rough'), gMottle: texture('turf_mottle'), gGravel: texture('gravel'), gSand: texture('sand'), gDuff: texture('litter') };
   if (!Object.values(tiles).every(Boolean)) return material;
+  const chips = [texture('chips', { flipY: false }), texture('chips_n', { flipY: false, srgb: false })];   // tools/build-chips.py: rows run with +z, so no flip (its normal's y is d/dz)
+  if (chips.every(Boolean)) Object.assign(tiles, { gChips: chips[0], gChipsN: chips[1] });
   for (const t of Object.values(tiles)) t.anisotropy = lite ? 8 : 16;   // the tee camera sees the ground at a grazing angle; at 4x phones' turf and mulch read "smeared" under the temporal resolve (blind check vs round 1, ground 0/4)
   const tile = (name, s) => `gTile(${name},p,${s},${vec3s(TILE_MEAN[name.slice(1).toLowerCase()])})`;
   material.onBeforeCompile = s => {
     for (const k in tiles) s.uniforms[k] = { value: tiles[k] };
     s.uniforms.gPads = { value: pads.map(p => new THREE.Vector4(...p)) };
     s.vertexShader = 'attribute vec4 splat,turf;varying vec4 vSplat,vTurf;varying vec2 vGround;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSplat=splat;vTurf=turf;vGround=position.xz;');
-    s.fragmentShader = `${lite ? '#define GROUND_LITE\n' : ''}uniform sampler2D gLawn,gRough,gMottle,gGravel,gSand,gDuff;uniform vec4 gPads[${pads.length}];varying vec4 vSplat,vTurf;varying vec2 vGround;${GROUND_GLSL}
+    s.fragmentShader = `${lite ? '#define GROUND_LITE\n' : ''}${tiles.gChips ? '#define GROUND_CHIPS\nuniform sampler2D gChips,gChipsN;' : ''}vec3 gChipN=vec3(0.);uniform sampler2D gLawn,gRough,gMottle,gGravel,gSand,gDuff;uniform vec4 gPads[${pads.length}];varying vec4 vSplat,vTurf;varying vec2 vGround;${GROUND_GLSL}
       vec3 gTile(sampler2D t,vec2 p,float s,vec3 mean){
         vec3 a=texture2D(t,p/s).rgb;
         ${lite ? '' : `vec3 b=texture2D(t,mat2(.8,-.6,.6,.8)*p/(s*1.9)+.37).rgb; float w=smoothstep(.3,.7,gNoise(p/(s*2.7)+11.));
         a=mean+(mix(a,b,w)-mean)*inversesqrt(w*w+(1.-w)*(1.-w));`}
         return a/mean;
-      }\n` + s.fragmentShader.replace('#include <color_fragment>', `{ vec2 p=vGround; float br=gBreak(p),dry=gDry(vSplat.w,br);
+      }\n` + s.fragmentShader.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal=normalize(normal+(viewMatrix*vec4(gChipN.x,0.,gChipN.y,0.)).xyz*gChipN.z);').replace('#include <color_fragment>', `{ vec2 p=vGround; float br=gBreak(p),dry=gDry(vSplat.w,br);
         vec3 detail=mix(${tile('gRough', 1.7)},${tile('gLawn', .9)},vTurf.x);
         detail*=mix(vec3(1.),gTile(gMottle,mat2(.6,.8,-.8,.6)*p,8.,${vec3s(TILE_MEAN.mottle)}),.7);   // two orientations break the photo's diagonal mowing bands into patches
         detail*=mix(1.,dot(gTile(gRough,mat2(-.28,.96,-.96,-.28)*p,5.5,${vec3s(TILE_MEAN.rough)}),vec3(.33)),.45);   // clumps 0.5-2 m wide that still read at 20-80 m, where the fine tiles have gone to their mean (Mobile too: two fetches, mean 1; its mid lawn read "a smooth painted green", ground 1/4)
@@ -130,6 +132,18 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
           l=mix(l,texture2D(gDuff,p/2.3,8.).rgb,.12+smoothstep(3.,18.,d)*.4);   // its contrast eases with distance toward the tile's own mean, as the gravel's does: chip-scale flecks read as speckle on a phone (a blind critique, 2026-10-17)
           float ll=dot(l,vec3(.3,.59,.11));
           l=mix(l,vec3(ll),.2+dp*.3)*vec3(2.4,2.6,2.1)*mix(.62,1.3,dp);   // shredded bark and leaves, 2-6 cm, lit to DGM's (sunlit ~#b08a60, shade ~#5a4632): damp dark patches, sun-bleached ones
+          #ifdef GROUND_CHIPS
+          // Near the eye the flat litter photo (no relief, magnified ~1.5x in front of the putt lens: "a soft, blurry decal", r3 ground 0/4)
+          // gives way to a wood-chip tile (tools/build-chips.py): sharp chips, bark flakes and twigs over dark soil, cavities baked in and
+          // a normal the sun lights. 0.7 m a tile at the feet; out to the pin the same tile at 1.7 m, turned (coarser nuggets, as mulch
+          // is), so the relief carries to the basket; gone where its chips would fall under ~4 px. Divided by its mean: the palette holds.
+          float f0=1.-smoothstep(.007,.018,fw),f1=(1.-f0)*(1.-smoothstep(.02,.045,fw)),nk=(f0+f1)*max(cov.z,reach*.6);
+          if(nk>0.){ vec2 cq=p/.7,cr=mat2(.6,-.8,.8,.6)*p/1.7+.31;
+            vec3 ch=(texture2D(gChips,cq).rgb*f0+texture2D(gChips,cr).rgb*f1)/(f0+f1)/${vec3s(TILE_MEAN.chips)};
+            vec3 lm=texture2D(gDuff,p/2.3,9.).rgb*vec3(2.4,2.6,2.1)*mix(.62,1.3,dp);   // the photo's own mean: its blotches give way to the chips
+            l=mix(l,mix(lm,vec3(dot(lm,vec3(.3,.59,.11))),.25),nk*.55)*mix(vec3(1.),pow(mix(vec3(dot(ch,vec3(.3,.59,.11))),ch,.5),vec3(1.3))*.9,nk);   // a touch less orange, as real mulch is: DGM's sits at ~#77614d
+            gChipN=vec3(((texture2D(gChipsN,cq).xy*2.-1.)*f0+((texture2D(gChipsN,cr).xy*2.-1.)*mat2(.6,-.8,.8,.6))*f1)/(f0+f1),nk); }   // the turned tile's slope turned back to world x, z
+          #endif
           c=mix(c,l,max(cov.z,reach*smoothstep(.1,.2,ll)*.85)); }
         if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.3).rgb;   // packed pea gravel, shaded per pebble in the tile; its contrast eases with distance so it cannot speckle
           g=mix(g,${vec3s([.328, .306, .271])},smoothstep(3.,16.,d)*.25)*vec3(1.5,1.43,1.25)*mix(1.,.62,smoothstep(.55,.85,gNoise(p*.8+3.)))*mix(1.,dot(texture2D(gGravel,mat2(.6,.8,-.8,.6)*p/4.1).rgb,vec3(1.12)),.55);   // packed earth shows in patches; stones three times the size keep a grain at 20 m (Mobile too: its trail read as a flat beige decal)
@@ -139,7 +153,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         c*=1.-.45*(1.-smoothstep(0.,.25,pd));   // contact shade where the pad sits on the ground`}
         diffuseColor.rgb=c; }`);
   };
-  material.customProgramCacheKey = () => 'chains-ground-v12' + (lite ? '-lite' : '');
+  material.customProgramCacheKey = () => 'chains-ground-v13' + (lite ? '-lite' : '');
   return material;
 }
 

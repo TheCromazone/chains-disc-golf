@@ -311,8 +311,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const VARIANTS = {}; for (const v in IMPOSTOR) VARIANTS[v.replace(/\d+$/, '')] = (VARIANTS[v.replace(/\d+$/, '')] || 0) + 1;   // how many each species has
   // wide: an open-side or clearing stand tree varies twice as much, no taller or stouter than the most (w6: the pines behind
   // the arch read as cloned straight poles of one girth); the rest keep the narrow range
+  // Conifers' height varies +-17% more on a finer hash, so neighbours along the skyline differ (r3 trees: 'pine silhouettes along the skyline repeat identically').
   const plant = (x, z, s, rot, kind, pine, wide = 0) => {
-    const y = height(x, z), D = DIMS[kind], sy = 1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16), g = 1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36), lean = wide ? .22 : .12;
+    const y = height(x, z), D = DIMS[kind], sy = 1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16) - (kind === 'spruce' || kind === 'scots' ? (noise(x * 1.37 + 71, z * 1.37 + 3) - .5) * .34 : 0), g = 1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36), lean = wide ? .22 : .12;
     (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.min(VARIANTS[kind] - 1, Math.floor(noise(x * .37 + 13, z * .37 + 5) * VARIANTS[kind])), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * lean, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * lean, sy, g });
     const t = { x, y, z, r: D[0] * s * g, h: D[1] * s * sy, fy: D[2] * s * sy, fr: D[3] * s * (g + sy) / 2 }; trees.push(t); return t;
   };
@@ -967,6 +968,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const tee = [], teeStarts = [], rim = [], rimStarts = []; let spots = tee;   // two meshes a hole: the tee's are culled behind the putt lens
     const add = (x, z, s, dry) => spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, 0, 0, s * (.85 + trng() * .3), s * (.8 + trng() * .4), s * (.85 + trng() * .3)),
       c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : col.setRGB(.85 + trng() * .25, .8 + trng() * .25, .75 + trng() * .3).clone() });   // a third of the fringe gone to seed, straw-olive
+    // Grass the mower cannot reach at a trunk's foot (build-vs-build critics, trees: "trunks stuck into a lawn", "add irregular
+    // undergrowth around the trunk bases"): 10-28 clumps, 20-62 cm (to ~1 m and fewer, 45 m out), in a broken ring out to ~1.6 m, thickest on one side.
+    const foot = (t, g = 1) => { const n = (10 + trng() * 18) / g | 0, side = trng() * 6.283;   // g: farther trees, fewer and bigger clumps (they still read at 60 m)
+      for (let k = 0; k < n; k++) { const a = side + (trng() - .5) * (trng() < .7 ? 3.2 : 6.283), r = t.r + .12 + trng() ** 1.6 * 1.5 * g;
+        add(t.x + Math.cos(a) * r, t.z + Math.sin(a) * r, (.2 + trng() ** 2 * .42) * g, trng() < .3); } };
     for (const h of holes) {
       teeStarts.push(tee.length); rimStarts.push(rim.length); spots = tee;
       const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), at = (u, w) => [h.tee[0] + u * cy + w * sy, h.tee[1] - u * sy + w * cy];
@@ -974,7 +980,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // Ragged fringe: tufts the mower and the rake miss, 12-30 cm, strung along the gravel's edge (trail, apron, worn
       // earth) and the bed's timbers on the ground the tee camera sees, so every grass-to-gravel border breaks into clumps
       // that lean over it instead of a clean cut. Placed where the shader's own gravel cover (same grid data) turns from turf.
-      for (let k = 0; k < 90000; k++) {
+      for (let k = 0; k < 150000; k++) {
         const u = (trng() - .5) * 44, w = 5 - trng() * 32, [x, z] = at(u, w);   // 22 m either side, 5 m behind to 27 m ahead
         const bed = Math.max(Math.abs(u) - BED.u, -w - BED.f1, BED.f0 + w);   // metres outside the bed's timbers (props' f runs toward the basket: -w)
         const edge = Math.max(fringeAt(x, z), bed > .02 && bed < .3 ? 1 : 0) * smooth(.3, .6, noise(x / 1.4 + 13, z / 1.4 + 13));   // in clumps and gaps along the edge, not a planted border
@@ -983,17 +989,22 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       }
       // and a dense, taller band hugging the bed's edging timbers, where no mower reaches: it leans out over them (r4 ground:
       // the edge 'a clean cutoff with little blending')
-      for (let k = 0; k < 1400; k++) {
+      for (let k = 0; k < 2400; k++) {
         const side = trng() * 4 | 0, t = trng(), o = .06 + trng() ** 1.5 * .32, u = side < 2 ? (side ? 1 : -1) * (BED.u + .1 + o) : lerp(-BED.u - .1, BED.u + .1, t), w = side < 2 ? lerp(-BED.f1 - .1, -BED.f0 + .1, t) : side === 2 ? -BED.f1 - .1 - o : -BED.f0 + .1 + o, [x, z] = at(u, w);
         if (trng() < smooth(.25, .55, noise(x / .9 + 41, z / .9 + 17))) add(x, z, .14 + trng() ** 2 * .2, trng() < .25);
       }
+      for (const t of trees) { const dx = t.x - h.tee[0], dz = t.z - h.tee[1], u = dx * cy - dz * sy, w = dx * sy + dz * cy; if (w < 0 && w > -45 && Math.abs(u) < 35) foot(t, 1 + Math.max(0, -w - 15) / 55); }   // the tee camera's view. Not past 45 m: the mesh's bounds would reach the putt lens's frustum (the tee set is meant to be culled there) and draw ~80k more triangles
       spots = rim;
       // The putting circle's rim: no lone tufts at the pole (they read as stickers on the dirt), but clumps crowding the
       // turf's edge where the litter thins out, so the circle frays into grass instead of fading.
-      for (let k = 0; k < 6000; k++) {
+      // In crowds of 2-7, 10-34 cm, round a seed (r3 ground: one-by-one they read 'sparse, evenly spaced billboard sprites').
+      for (let k = 0; k < 4200; k++) {
         const a = trng() * 6.283, r = 1 + Math.sqrt(trng()) * 10, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r, l = at4(splats, 2, x, z);
-        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29))) add(x, z, .1 + trng() ** 2 * .14, trng() < .2);
+        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29))) {
+          const big = .1 + trng() ** 1.5 * .24, dry = trng() < .2;
+          for (let j = 2 + trng() * 6 | 0; j > 0; j--) { const b = trng() * 6.283, d = Math.sqrt(trng()) * (.08 + big * .7); add(x + Math.cos(b) * d, z + Math.sin(b) * d, big * (.45 + trng() * .65), dry && trng() < .7); } }
       }
+      for (const t of trees) if (Math.hypot(t.x - h.basket[0], t.z - h.basket[1]) < 20) foot(t);   // and round the pin, in front of the putt lens
     }
     perHole(tuftGeo, tuftMat, tee, teeStarts); perHole(tuftGeo, tuftMat, rim, rimStarts);
   }
@@ -1015,8 +1026,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       transformed *= 1. - smoothstep(10., 13., distance((modelMatrix * instanceMatrix[3]).xyz, cameraPosition));
       #endif`); };
     leafMat.customProgramCacheKey = () => 'chains-leaf-litter';
-    const PAL = [[.36, [.62, .43, .22]], [.32, [.42, .26, .12]], [.1, [.24, .15, .08]], [.08, [.78, .58, .16]], [.07, [.66, .3, .09]], [.07, [.34, .36, .12]]];   // linear albedo, the litter tile's own range (its shader lifts the photo ~2.5x)
-    const spots = [], starts = [], dens = quality === 'low' ? 85 : 100;   // leaves per m2 under a full litter weight
+    const PAL = [[.36, [.56, .41, .24]], [.34, [.38, .25, .13]], [.14, [.22, .15, .09]], [.06, [.7, .54, .2]], [.05, [.55, .29, .12]], [.05, [.32, .33, .14]]];   // linear albedo, the litter tile's own range (its shader lifts the photo ~2.5x)
+    const spots = [], starts = [], dens = quality === 'low' ? 50 : 60;   // leaves per m2 under a full litter weight: since the chip relief (materials.js) the mulch carries its own detail, and 85-100 a m2 of orange and yellow leaves read 'scattered on top' of it (r3 ground)
     for (const h of holes) {
       starts.push(spots.length);
       for (let k = 0, n = Math.round(Math.PI * 121 * dens); k < n; k++) {
