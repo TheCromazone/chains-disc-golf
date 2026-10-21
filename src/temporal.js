@@ -2,7 +2,7 @@
 // hair, thin chains that break into dots, stepped dash ends"; Disc Golf Masters gets its soft edges from Unreal's TAA).
 // While the camera holds still the projection is jittered by a sub-pixel Halton offset each frame and the frame is blended
 // into a history, clamped to the current frame's 3x3 neighbourhood: a held frame (aim, putt, a paused flyover) converges
-// on a ~10x supersampled image and wind-moved leaves never ghost (the athlete takes no history on phones: canvas()). No reprojection: the moment the
+// on a ~10x supersampled image and wind-moved leaves or the idling athlete never ghost. No reprojection: the moment the
 // camera moves the jitter stops and the frame shows as rendered (MSAA, plus FXAA on Desktop), so motion never smears.
 // ponytail: still-camera only; add depth reprojection if moving shots ever need the same edges.
 import * as THREE from 'three';
@@ -15,8 +15,6 @@ export const MOVE_EPS = 2e-5;
 export const moved = (a, b, eps = MOVE_EPS) => a.some((v, i) => Math.abs(v - b[i]) > eps);
 // Athlete surfaces write this into the stencil (the canvas has one: main.js), so the phone resolve can find his outline
 export const ATHLETE_STENCIL = { stencilWrite: true, stencilRef: 1, stencilZPass: THREE.ReplaceStencilOp };
-// His modelled hands (gltf-player.js hold_/rest_ meshes) add bit 2: they take no history and a narrower outline (canvas())
-export const HAND_STENCIL = { ...ATHLETE_STENCIL, stencilRef: 3 };
 
 const VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
 export function createTemporal() {
@@ -64,7 +62,7 @@ export function createTemporal() {
   const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, tMask: u.tMask, uTexel: u.uTexel }, vertexShader: VS, depthTest: false, depthWrite: false,
     defines: { DBG: String(typeof location !== 'undefined' && /[?&]edgedbg/.test(location.search)) },   // QA: ?edgedbg shows the soften mask in white
     fragmentShader: `uniform sampler2D tCur,tMask;uniform vec2 uTexel;varying vec2 vUv;
-      vec2 M(vec2 o){ return texture2D(tMask,vUv+o*uTexel).rg; }
+      float M(vec2 o){ return texture2D(tMask,vUv+o*uTexel).r; }
       vec3 T(vec2 o){ return texture2D(tCur,vUv+o*uTexel).rgb; } float L(vec3 c){ return dot(c,vec3(.299,.587,.114)); }
       vec2 G(vec2 p){ float a=L(T(p+vec2(-1.5))),b=L(T(p+vec2(1.5,-1.5))),f=L(T(p+vec2(-1.5,1.5))),g=L(T(p+vec2(1.5))); return vec2(b+g-a-f,f+g-a-b)*.5; }
       void main(){
@@ -75,18 +73,14 @@ export function createTemporal() {
         k*=smoothstep(.45,.8,min(dot(G(3.*t),x),dot(G(-3.*t),x))/m);
         vec3 bl=c+T(t)+T(-t)+.5*(T(2.*t)+T(-2.*t))+2.*(T(y)+T(-y))+T(2.*y)+T(-2.*y);
         o=mix(o,bl/10.,k); }
-      vec2 ma=M(vec2(-2.5)),mbb=M(vec2(2.5,-2.5)),mf=M(vec2(-2.5,2.5)),mg4=M(vec2(2.5));
-      float a=ma.r,b=mbb.r,f=mf.r,g=mg4.r,mb=(a+b+f+g)*.25,ka=4.*mb*(1.-mb);   // 16 texels round the pixel: 1 on the outline, 0 three pixels out
-      ka*=1.-.9*min(1.,(ma.g+mbb.g+mf.g+mg4.g)*.5);   // round his hands a tenth of the ramp: the full ~5 px one blurred the fist into a mitten (.5 kept a halo); MSAA still lands their edge over ~2 px
+      float a=M(vec2(-2.5)),b=M(vec2(2.5,-2.5)),f=M(vec2(-2.5,2.5)),g=M(vec2(2.5)),mb=(a+b+f+g)*.25,ka=4.*mb*(1.-mb);   // 16 texels round the pixel: 1 on the outline, 0 three pixels out
       if(ka>.02){ vec2 mg=vec2(b+g-a-f,f+g-a-b),x=1.5*mg/max(length(mg),1e-4),t=vec2(-x.y,x.x)/1.5;
         vec3 ab=.2*c+.15*(T(x)+T(-x))+.1*(T(2.*x)+T(-2.*x))+.05*(T(3.*x)+T(-3.*x))+.1*(T(t)+T(-t));
         o=mix(o,ab,ka*ka); }
       gl_FragColor=vec4(DBG?vec3(k,ka,0.):o,1.); }` }));
   // canvas(): the stencil-tagged athlete pixels drawn white over black, read back as the mask
-  const tag = new FullScreenQuad(new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: 'void main(){gl_FragColor=vec4(1.,0.,0.,1.);}', depthTest: false, depthWrite: false,
-    stencilWrite: true, stencilFunc: THREE.EqualStencilFunc, stencilRef: ATHLETE_STENCIL.stencilRef, stencilFuncMask: 1, stencilWriteMask: 0 }));
-  const handTag = new FullScreenQuad(new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: 'void main(){gl_FragColor=vec4(1.);}', depthTest: false, depthWrite: false,
-    stencilWrite: true, stencilFunc: THREE.EqualStencilFunc, stencilRef: HAND_STENCIL.stencilRef, stencilWriteMask: 0 }));
+  const tag = new FullScreenQuad(new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: 'void main(){gl_FragColor=vec4(1.);}', depthTest: false, depthWrite: false,
+    stencilWrite: true, stencilFunc: THREE.EqualStencilFunc, stencilRef: ATHLETE_STENCIL.stencilRef, stencilWriteMask: 0 }));
   const black = new THREE.Color(0), clear = new THREE.Color();
   const lastW = new THREE.Matrix4(), lastP = new THREE.Matrix4(), held = new THREE.Matrix4(), size = new THREE.Vector2();
   let n = 0, w = 0, h = 0, cur = null, hist = null;
@@ -110,8 +104,7 @@ export function createTemporal() {
     resolve(renderer, curTex, histTex) { u.tCur.value = curTex; u.tHist.value = histTex; draw(renderer, resolve); },
     copy(renderer, tex) { u.tCur.value = tex; draw(renderer, copy); },
     // Mobile: the frame was drawn straight to the canvas. Copy it out, resolve back over it, keep the result as history.
-    // Two RGB8 textures at the drawing-buffer size (the canvas is RGB: alpha false), five full-screen passes (resolve, its athlete
-    // repeat and the athlete and hand tags, those three stencil-culled to his pixels; sharpen), three blits. Linear
+    // Two RGB8 textures at the drawing-buffer size (the canvas is RGB: alpha false), three full-screen passes (resolve, athlete tag, sharpen), three blits. Linear
     // filtering: the sharpen's edge taps sit between texels; every other tap lands on a texel centre, where it reads the same.
     canvas(renderer) {
       if (!cur || cur.image.width !== w || cur.image.height !== h) {
@@ -119,18 +112,10 @@ export function createTemporal() {
         cur = new THREE.FramebufferTexture(w, h); hist = new THREE.FramebufferTexture(w, h);
         for (const x of [cur, hist]) Object.assign(x, { format: THREE.RGBFormat, internalFormat: 'RGB8', minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });   // copyTexSubImage2D may only drop channels, never add alpha
       }
-      // The athlete takes no history: his idle arms and hands move every frame and skinned meshes carry no motion vectors, so
-      // the running mean dragged them into a smear the colour box could not reject (g11 athlete: "arms and hands soft, smeared,
-      // blurred mush next to his sharp face"). The stencil splits the resolve (bit 1: all of him, his hands too): the scene
-      // accumulates, his tagged samples show the current jittered frame through the same Gaussian, MSAA still covers his edges.
-      const m = resolve.material, a = u.uAlpha.value; Object.assign(m, { stencilWrite: true, stencilWriteMask: 0, stencilRef: ATHLETE_STENCIL.stencilRef, stencilFuncMask: 1, stencilFunc: THREE.NotEqualStencilFunc });
-      renderer.copyFramebufferToTexture(cur); t.resolve(renderer, cur, hist);
-      m.stencilFunc = THREE.EqualStencilFunc; u.uAlpha.value = 1; draw(renderer, resolve); u.uAlpha.value = a; m.stencilWrite = false;
-      renderer.copyFramebufferToTexture(hist);
-      // the athlete mask reuses cur (spent once the history is saved): clear colour only, the stencil keeps his tags; R his
-      // coverage, G his hands' (the sharpen pass shortens his outline ramp round them)
+      renderer.copyFramebufferToTexture(cur); t.resolve(renderer, cur, hist); renderer.copyFramebufferToTexture(hist);
+      // the athlete mask reuses cur (spent once the history is saved): clear colour only, the stencil keeps his tags
       renderer.getClearColor(clear); const ca = renderer.getClearAlpha(); renderer.setClearColor(black, 1); renderer.clear(true, false, false); renderer.setClearColor(clear, ca);
-      draw(renderer, tag); draw(renderer, handTag); renderer.copyFramebufferToTexture(cur);
+      draw(renderer, tag); renderer.copyFramebufferToTexture(cur);
       u.tCur.value = hist; u.tMask.value = cur; draw(renderer, sharpen);
     },
     dispose() { cur?.dispose(); hist?.dispose(); cur = hist = null; },
