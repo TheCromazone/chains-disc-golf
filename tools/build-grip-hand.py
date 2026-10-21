@@ -45,13 +45,15 @@ FINGERS = [([.002, -.098, -.028], [.042, .025, .020], [.0095, .0088, .0078, .006
            ([.002, -.098, .0095], [.043, .026, .021], [.0094, .0087, .0077, .0065]),
            ([.001, -.091, .0265], [.035, .021, .018], [.0083, .0076, .0068, .0058])]
 # curls (degrees toward the palm at MCP, PIP, DIP): the proximal phalanx runs down outside the rim's wing, the middle one turns
-# in under the rim, the distal one rises into the cavity under the flight plate (worked in the disc's own section)
-GRIP_CURL = [[50, 86, 58], [53, 84, 60], [56, 84, 60], [60, 86, 60]]
+# up under the rim's foot to its inner wall, the distal one presses up under the flight plate (worked in the disc's own
+# section). At 84/60 the middle phalanges hung a centimetre below the rim and the tips curled up under it as a claw
+GRIP_CURL = [[50, 104, 44], [53, 105, 44], [56, 104, 46], [60, 104, 46]]
 REST_CURL = [[26, 40, 20], [30, 46, 24], [34, 52, 28], [38, 58, 30]]   # gltf-player.js REST
 REST_FALL = .22
 THUMB_R = [.0135, .0122, .0112, .0100, .0086]
-def grip_thumb():   # CMC and MCP inside the thenar as before, then the pad laid along the top of the plate toward its centre
-  mcp = np.array([-.013, -.058, -.043]); ip = P(.060, htop(.060) + .0092, -.034); tip = P(.037, htop(.037) + .0082, -.026)
+def grip_thumb():   # CMC and MCP inside the thenar as before, then the pad pressed into the top of the plate toward its centre (riding
+  # a centimetre over the dome, the edge-on tee view showed the thumb floating above the disc)
+  mcp = np.array([-.013, -.058, -.043]); ip = P(.064, htop(.064) + .0035, -.034); tip = P(.042, htop(.042) + .0015, -.027)
   return [np.array([-.003, -.012, -.022]), np.array([-.007, -.030, -.033]), mcp, ip, tip]
 REST_THUMB = [np.array(v) for v in [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]]]
 
@@ -216,7 +218,7 @@ def shade(v, f, kind):
   ao = np.zeros(len(v))
   for i, (dd, w) in enumerate([(.0015, 1.), (.003, .8), (.0055, .6), (.009, .45), (.014, .3), (.02, .2)]):
     ao += w * np.maximum(dd - occ(v + n * dd), 0) / dd
-  ao = np.clip(1 - .55 * ao, .3, 1)
+  ao = np.clip(1 - .42 * ao, .4, 1)
   base, fs, th, fingers, thumb = parts(v, kind)
   owner = np.argmin(np.stack([base + .002] + fs + [th], 1), 1)   # 0 palm, 1..4 fingers, 5 thumb
   for fi, (pts, radii) in enumerate(fingers):
