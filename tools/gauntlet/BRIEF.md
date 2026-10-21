@@ -1,4 +1,4 @@
-# Gauntlet r2 builder brief
+# Gauntlet builder brief (r3)
 
 You are one builder in a gauntlet loop on **Chains**, a three.js disc golf game (CDN import map, no build step) played
 mostly on phones, also on desktop. Blind critics compare our frames with **Disc Golf Masters** (Unreal, YouTube
@@ -6,8 +6,8 @@ mostly on phones, also on desktop. Blind critics compare our frames with **Disc 
 losing anyone else's.
 
 ## Step 0
-`git merge --ff-only gauntlet-r2` (worktrees start from master; gauntlet-r2 is the integration branch). If it is not a
-fast-forward, `git merge gauntlet-r2`.
+`git merge --ff-only gauntlet-r3` (worktrees start from master; gauntlet-r3 is the integration branch: master's mobile polish
+plus round 2's unshipped work). If it is not a fast-forward, stop and say so in your report; never merge gauntlet-r2.
 
 ## Look at the bar first
 - 1080p reference frames: `art/reference/dgm-1080/frames/*.jpg` (main checkout: `C:\Users\matth\OneDrive\Documents\disc golf mobile\art\reference\dgm-1080\frames`; copy what you need, the folder is gitignored and absent from worktrees). The 1080p60 video is `beast-1080.mp4` beside it; motion events in `art/qa/dgm-motion/events.json`.
@@ -16,7 +16,7 @@ fast-forward, `git merge gauntlet-r2`.
 ## Tiers (both matter; phones matter most)
 - **Mobile** (`quality: 'low'`, phones by default): what most players see. Rendered straight to the canvas, MSAA from
   `antialias: true`, colour grade folded into `CustomToneMapping` (src/main.js). Phone frames are judged at 1920x1080
-  from a 960x540 CSS viewport at 2x. Budget at any moment: <= 900k triangles, <= 110 draw calls, no extra full-screen
+  from a 960x540 CSS viewport at 2x. Budget at any moment: <= 1.0M triangles, <= 125 draw calls (the baseline already draws ~0.8-0.93M / 109-119), no extra full-screen
   render targets except one cheap pass if it buys a visible win; it must hold 30 fps on a mid-range phone.
 - **Desktop** (`quality: 'high'`): effects.js post chain (4x MSAA scene target, shafts, bloom, grade). Budget: tee
   <= 2.3M, putt <= 2.4M triangles; must hold 60 fps on a desktop GPU.
