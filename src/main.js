@@ -131,12 +131,22 @@ const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: t
 const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .5, depthTest: false, depthWrite: false }); previewEdge.userData.css = isMobile ? 5.8 : 6.4;
 // Dash ends as one-pixel coverage ramps instead of LineMaterial's per-pixel discard: MSAA never smooths a discard and the
 // flowing dashes defeat the temporal resolve, so every dash ended in a stair step (gauntlet r2 crisp: "stepped ends on the dashed arc")
+// Each dash is a rounded box measured in screen px from the line's coordinates: corners of the white line's half-width (a pill
+// up close, a rounded block where a far dash is shorter than the line is wide), every side fading over its last pixel. Square-cut
+// dashes laid along a curve read as a staircase (gauntlet r3 crisp, all four critics: "the dashed flight line steps along its
+// diagonal edges"). The dark edge takes the same corner radius (DASH_R: the white's half-width over its own), so it rings the white.
+previewEdge.defines.DASH_R = (previewMat.userData.css / previewEdge.userData.css).toFixed(3);
 for (const m of [previewMat, previewEdge]) m.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader
   .replace('if ( mod( vLineDistance + dashOffset, dashSize + gapSize ) > dashSize ) discard;', '')
   .replace('float alpha = opacity;', `float alpha = opacity;
     #ifdef USE_DASH
-    { float dp = mod( vLineDistance + dashOffset, dashSize + gapSize ), fw = max( fwidth( vLineDistance ), 1e-5 );
-      alpha *= clamp( ( dp < dashSize ? min( dp, dashSize - dp ) : - min( dp - dashSize, dashSize + gapSize - dp ) ) / fw + .5, 0., 1. );
+    #ifndef DASH_R
+    #define DASH_R 1.
+    #endif
+    { float dp = mod( vLineDistance + dashOffset, dashSize + gapSize ), fl = max( fwidth( vLineDistance ), 1e-5 ), hw = 1. / max( fwidth( vUv.x ), 1e-5 );   // hw: half the line's width, px
+      float e = ( dp < dashSize ? min( dp, dashSize - dp ) : - min( dp - dashSize, dashSize + gapSize - dp ) ) / fl, r = min( hw * DASH_R, .5 * dashSize / fl );   // e: px inside the dash
+      vec2 q = vec2( r - e, abs( vUv.x ) * hw - hw + r );
+      alpha *= clamp( r - length( max( q, 0. ) ) - min( max( q.x, q.y ), 0. ), 0., 1. );
       if ( alpha <= 0. ) discard; }
     #endif`); };
 const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();
