@@ -919,6 +919,21 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
   // rough, gone on gravel, litter, sand and the pads. Blade tufts stand where mowers miss: at the sign post, along
   // every gravel edge and round the putting circle's rim.
+  // Tee exits (r11 ground: "dirt patches where people walk", DGM sets its pads in a broad crushed-stone apron): every
+  // run-up ends and every follow-through lands just past the bed's front timber, so the turf there is trodden to packed
+  // gravel and earth, a ragged tongue ~4 m wide that narrows and frays into the lawn by ~9 m. Gravel/earth splat, so the
+  // shader frays it, the carpet stays off it and fringe tufts string along its edge. splats0 keeps the old weights: the
+  // tufts placed from them below draw the same stream as before, so nothing already on the course moves.
+  const splats0 = splats.slice();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    for (const h of holes) {
+      const tx = x - h.tee[0], tz = z - h.tee[1]; if (tx * tx + tz * tz > 225) continue;
+      const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, ahead = -(tx * sy + tz * cy) - BED.f1;   // metres past the front timber
+      const len = 1 - smooth(4, 11, ahead + (noise(x / 2.3 + 17, z / 2.3 + 3) - .5) * 4), half = 1.7 - smooth(0, 9, ahead) * .8 + (noise(x / 1.9 + 5, z / 1.9 + 61) - .5) * 1.2;
+      splats[i * 4] = Math.max(splats[i * 4], smooth(-.8, .3, ahead) * len * (1 - smooth(half - .6, half + .6, Math.abs(u))) * .66);   // .66: patchy, grass islands left in it
+    }
+  }
   const carpet = grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, pin, lite: quality === 'low', seed }); group.add(carpet);
   // Tufts and fallen leaves are geometry, not photo cards (r4 ground: "sparse billboard cards that stand out as pasted-on
   // sprites"; the putting circle "a smeared brown texture with no real leaf or twig detail"). Both are per hole and only the
@@ -977,13 +992,14 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       s.fragmentShader = 'varying vec3 vTuftBlade,vTuftSoil;\n' + s.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb=mix(vTuftSoil,diffuseColor.rgb,smoothstep(0.,.35,vBladeY));')
         .replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
     rimMat.customProgramCacheKey = () => 'chains-tuft-rim-' + quality;
-    const fringeAt = (x, z) => {   // 1 on the turf just outside the ground shader's gravel (gCover without its noise)
-      const ax = Math.abs(at4(turf, 2, x, z)), sx = at4(splats, 0, x, z);
+    const fringeAt = (x, z, sp = splats0) => {   // 1 on the turf just outside the ground shader's gravel (gCover without its noise)
+      const ax = Math.abs(at4(turf, 2, x, z)), sx = at4(sp, 0, x, z);
       return Math.max(smooth(.25, .5, at4(turf, 3, x, z)) * smooth(.4, .52, ax) * (1 - smooth(.62, .85, ax)), smooth(.1, .28, sx) * (1 - smooth(.38, .55, sx)));   // the trail's 1 m strip, the apron and worn earth
     };
     const tee = [], teeStarts = [], rim = [], rimStarts = []; let spots = tee;   // two meshes a hole: the tee's are culled behind the putt lens
-    const add = (x, z, s, dry) => spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, 0, 0, s * (.85 + trng() * .3), s * (.8 + trng() * .4), s * (.85 + trng() * .3)),
+    const add = (x, z, s, dry, trng = tr0) => spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, 0, 0, s * (.85 + trng() * .3), s * (.8 + trng() * .4), s * (.85 + trng() * .3)),
       c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : col.setRGB(.85 + trng() * .25, .8 + trng() * .25, .75 + trng() * .3).clone() });   // a third of the fringe gone to seed, straw-olive
+    const tr0 = trng, xrng = makeRng(seed + 1777);   // xrng: tufts added since, on their own stream, so the old ones keep theirs
     // Grass the mower cannot reach at a trunk's foot (build-vs-build critics, trees: "trunks stuck into a lawn", "add irregular
     // undergrowth around the trunk bases"): 10-28 clumps, 20-62 cm (to ~1 m and fewer, 45 m out), in a broken ring out to ~1.6 m, thickest on one side.
     const foot = (t, g = 1) => { const n = (10 + trng() * 18) / g | 0, side = trng() * 6.283;   // g: farther trees, fewer and bigger clumps (they still read at 60 m)
@@ -1010,6 +1026,10 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         if (trng() < smooth(.25, .55, noise(x / .9 + 41, z / .9 + 17))) add(x, z, .14 + trng() ** 2 * .2, trng() < .25);
       }
       for (const t of trees) { const dx = t.x - h.tee[0], dz = t.z - h.tee[1], u = dx * cy - dz * sy, w = dx * sy + dz * cy; if (w < 0 && w > -45 && Math.abs(u) < 35) foot(t, 1 + Math.max(0, -w - 15) / 55); }   // the tee camera's view. Not past 45 m: the mesh's bounds would reach the putt lens's frustum (the tee set is meant to be culled there) and draw ~80k more triangles
+      for (let k = 0; k < 9000; k++) {   // the tee exit's frayed edge (only where it adds to the old gravel's)
+        const u = (xrng() - .5) * 12, w = -BED.f1 - xrng() * 11, [x, z] = at(u, w), edge = Math.max(0, fringeAt(x, z, splats) - fringeAt(x, z)) * smooth(.3, .6, noise(x / 1.4 + 13, z / 1.4 + 13));
+        if (xrng() < edge * .3) add(x, z, .09 + xrng() ** 2 * .14, xrng() < .3, xrng);
+      }
       spots = rim;
       // The putting circle's rim: no lone tufts at the pole (they read as stickers on the dirt), but clumps crowding the
       // turf's edge where the litter thins out, so the circle frays into grass instead of fading.
@@ -1024,7 +1044,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       }
       for (const t of trees) if (Math.hypot(t.x - h.basket[0], t.z - h.basket[1]) < 20) foot(t);   // and round the pin, in front of the putt lens
     }
-    perHole(tuftGeo, quality === 'low' ? tuftMat : rimMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);   // Full's tee tufts root in the ground too: phones' light and trees critics judge the tee frame, and the Mobile tee stays as it was
+    perHole(tuftGeo, rimMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);   // Full's tee tufts root in the ground too: phones' light and trees critics judge the tee frame, and the Mobile tee stays as it was
   }
   {
     // Fallen leaves and twigs on the putting circle's litter, as geometry: a leaf is 4 triangles, cupped (its edges curl up

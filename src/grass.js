@@ -41,8 +41,16 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   // stepping at a fade line; the far tile's clumps spread twice as wide (its spacing is three times the near one's).
   // Mobile: the two near tiles, sparser (~42k triangles): its single 5.8 m tile left the turf a flat colour from a few metres out, and at
   // 19 m the tee's mid lawn up to the arch was still "a smooth painted green with no blades" (gauntlet r3 ground 1/4), so the far one reaches 25 m
-  const layers = lite ? [[11, 4.5, 3.5, 8.5, 64], [32, 13.5, 9, 23, 42]] : [[11, 4.5, 3.5, 8.5, 80], [34, 14, 9, 19, 60], [76, 39, 24, 62, 80], [130, 66, 55, 95, 48]], roots = [];
-  layers.forEach(([, , , , m], l) => { for (let i = 0; i < m; i++) for (let k = 0; k < m; k++) roots.push((i + rnd()) / m, (k + rnd()) / m, rnd(), l); });
+  const layers = lite ? [[11, 4.5, 3.5, 8.5, 64], [36, 16, 10, 32, 46]] : [[11, 4.5, 3.5, 8.5, 80], [34, 14, 9, 19, 60], [76, 39, 24, 62, 80], [130, 66, 55, 95, 48]], roots = [];
+  // Mobile's far tile spent its 1764 clumps evenly, one 24 cm puff per 0.6 m2: invisible past 9 m, so the lawn up to the arch
+  // stayed "one evenly over-saturated green sheet" (r11 ground 2/4). Its clumps (2116 now, out to 32 m) crowd into drifts of
+  // 3-18, 0.6-3 m long: 8-25 cm tall (a third more by 26 m, so they still read there), tight, dark at the root: tussocks of
+  // rough grass between mown turf over about a third of the lawn.
+  const drift = (L, m, l) => { for (let n = 0; n < m * m;) {
+    const cx = rnd(), cz = rnd(), k = 3 + (rnd() * rnd() * 16 | 0), r = (.3 + rnd() * .5) / L, a = rnd() * 3.1416, e = 1 + rnd() * 1.8, ca = Math.cos(a), sa = Math.sin(a);
+    for (let j = 0; j < k && n < m * m; j++, n++) { const gx = (rnd() + rnd() + rnd() - 1.5) * r * e, gz = (rnd() + rnd() + rnd() - 1.5) * r;
+      roots.push(((cx + gx * ca - gz * sa) % 1 + 1) % 1, ((cz + gx * sa + gz * ca) % 1 + 1) % 1, rnd(), l); } } };
+  layers.forEach(([L, , , , m], l) => { if (lite && l) return drift(L, m, l); for (let i = 0; i < m; i++) for (let k = 0; k < m; k++) roots.push((i + rnd()) / m, (k + rnd()) / m, rnd(), l); });
   geo.setAttribute('aRoot', new THREE.InstancedBufferAttribute(new Float32Array(roots), 4)); geo.instanceCount = roots.length / 4;
 
   const eye = new THREE.Vector3(), fwd = new THREE.Vector2(0, 1), dir = new THREE.Vector3();
@@ -87,11 +95,11 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         vec2 spot=gSpot(root,gEdge(sp.x,ga.zw));grow*=1.-spot.x*.92;   // bare scuffs keep only a few blades; clover mats hold them low
         float keep=mix(.55,1.,fract(aRoot.z*23.9))*mix(1.,.5,through*cov.z);   // each clump drops its own subset of blades: no two share a silhouette
         float sc=k*step(mix(.06,.5,fract(aRoot.z*5.3)),grow)*step(fract(aBlade.y*13.1+aRoot.z*7.3),keep),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // each clump gives up at its own point of the thinning into path, gravel and litter: a ragged edge of whole tufts, not a fade
-        float hs=mix(.9+cl*.8,.55+cl*.4,fair)*(.8+.4*fract(aRoot.z*13.7))*sc;   // x the 4.5-10 cm blades, in 0.3-1 m clumps: rough 3-17 cm, fairway 2-9 cm
+        float hs=mix(.9+cl*.8,${lite ? 'aRoot.w>.5?1.1+cl*1.2:' : ''}.55+cl*.4,fair)*(.8+.4*fract(aRoot.z*13.7))*sc;   // Mobile's drifts stand as tall in the fairway as in the rough   // x the 4.5-10 cm blades, in 0.3-1 m clumps: rough 3-17 cm, fairway 2-9 cm
         hs*=1.+(1.-smoothstep(.5,.9,grow))*(.6+cl*1.4);
-        hs*=mix(1.1,.7,gThin(root))*(1.-spot.y*.55)*(1.-gWorn(root)*.3);   // thin patches stand lower as well as paler   // the fringe a mower misses stands taller: tufts to 40 cm along every trail, apron and bed edge
+        hs*=mix(1.1,.7,gThin(root))*(1.-spot.y*.55)*(1.-gWorn(root)*.3)${lite ? '*(aRoot.w>.5?1.25+smoothstep(12.,26.,dCam)*.45:1.)' : ''};   // thin patches stand lower as well as paler   // the fringe a mower misses stands taller: tufts to 40 cm along every trail, apron and bed edge
         float yaw=aRoot.z*6.2832,cs=cos(yaw),sn=sin(yaw);mat2 R=mat2(cs,sn,-sn,cs);
-        vec3 bp=position*vec3(1.,hs,1.);bp.xz=R*(position.xz*(1.+aRoot.w)+aSide*max(1.,dCam/6.)*mix(.4,1.,sc));   // far blades widen to stay a pixel wide
+        vec3 bp=position*vec3(1.,hs,1.);bp.xz=R*(position.xz*(${lite ? '1.+aRoot.w*.4' : '1.+aRoot.w'})+aSide*max(1.,dCam/6.)*mix(.4,1.,sc));   // far blades widen to stay a pixel wide
         float t=aBlade.x,t2=t*hs,gust=.55+.45*sin(windTime*3.1+root.x*.31-root.y*.27);
         bp.x+=(sin(windTime*1.7+root.x*.5+root.y*.3)*.012+windVec.x*.04*gust)*t2;bp.z+=(cos(windTime*1.3+root.y*.4)*.008+windVec.y*.04*gust)*t2;
         bladePos=vec3(root.x,ga.x-.01,root.y)+bp*step(.001,sc);   // a dropped blade collapses to a point
@@ -102,7 +110,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.02,.72),spot.y*.7);   // clumps range from green to yellow-green
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.4,1.18,.62),step(.96,fract(aBlade.y*17.3+aRoot.z*5.1))*.6);   // one blade in 25 is dead straw
         float y=fract(aBlade.y*29.1+aRoot.z*3.3);y*=y;   // some tips yellow in the sun, most stay green
-        vBlade=c*mix(.8,1.4,t)*mix(vec3(1.),vec3(1.14,1.07,.62),t*y);vTip=t;   // shaded at the root where neighbours crowd it, tips above the turf catch the sun
+        vBlade=c*(${lite ? 'aRoot.w>.5?mix(.34,1.1,t):' : ''}mix(.8,1.4,t))*mix(vec3(1.),vec3(1.14,1.07,.62),t*y);vTip=t;   // Mobile's drifts: deep at the root where the crowd shades it   // shaded at the root where neighbours crowd it, tips above the turf catch the sun
       }\n` + sh.vertexShader.replace('#include <beginnormal_vertex>', 'vec3 objectNormal,bladePos;gBlade(bladePos,objectNormal);').replace('#include <begin_vertex>', 'vec3 transformed=bladePos;');
     sh.fragmentShader = 'varying vec3 vBlade;varying float vTip;\n' + sh.fragmentShader.replace('#include <color_fragment>', 'diffuseColor.rgb=vBlade;')
       .replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))   // both faces keep the ground-leaning normal
