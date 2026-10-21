@@ -295,10 +295,13 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 @keyframes rot { to {transform:rotate(360deg)} }
 /* Scorecard: a folder-tab card in black and mint over the dimmed course, with a RESULTS watermark. */
 #score.overlay { overflow: hidden; background: rgba(0, 0, 0, .5); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }   /* the panel scrolls itself; hidden keeps the watermark's bleed off the scrollbar */
-#score::before, #score::after { content: 'RESULTS'; position: fixed; z-index: 0; pointer-events: none; font-family: var(--display); font-size: clamp(110px, 22vw, 300px); font-weight: 800; line-height: .8; text-transform: uppercase; color: transparent; -webkit-text-stroke: 1.5px #ffffff2a; user-select: none; }
-#score::before { top: -1vw; left: -1vw; }
-#score::after { right: -1vw; bottom: -1vw; }
-#score .panel { --gutter: 28px; position: relative; z-index: 1; width: min(560px, 100%); padding: 0; gap: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; color: var(--black); font-family: var(--display); filter: drop-shadow(0 24px 50px #000a); scrollbar-color: #ffffff60 transparent; }
+/* The watermark stands upright in the margins either side of the card, whole (r3 critics: the corner pair was "clipped behind the
+   card at the top left and bottom right", "collides with its edges"); a screen with no margin to spare drops it. */
+#score { --card: 560px; }
+#score::before, #score::after { content: 'RESULTS'; position: fixed; top: 50%; left: calc((100vw - var(--card)) / 4); z-index: 0; pointer-events: none; font-family: var(--display); font-size: min(21vh, 15vw); font-weight: 800; line-height: .8; text-transform: uppercase; writing-mode: vertical-rl; color: transparent; -webkit-text-stroke: 1.5px #ffffff30; user-select: none; transform: translate(-50%, -50%) rotate(180deg); }
+#score::after { left: calc(100vw - (100vw - var(--card)) / 4); transform: translate(-50%, -50%); }
+@media (max-aspect-ratio: 4/3) { #score::before, #score::after { display: none; } }
+#score .panel { --gutter: 28px; position: relative; z-index: 1; width: min(var(--card), 100%); padding: 0; gap: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; color: var(--black); font-family: var(--display); filter: drop-shadow(0 24px 50px #000a); scrollbar-color: #ffffff60 transparent; }
 #score .eyebrow { align-self: flex-start; display: inline-flex; gap: 6px; padding: 7px 14px 6px; border-radius: 6px 6px 0 0; background: #0f5a3c; color: #fff; font-size: 12px; letter-spacing: 2px; }
 /* Two loud things only: this headline and the lit current-hole column. Everything else stays at body weight with air around it. */
 #score h2 { margin: 0; padding: 16px var(--gutter) 12px; border-radius: 0 6px 0 0; background: var(--mint); color: var(--black); font-size: clamp(40px, 6vw, 56px); letter-spacing: -.02em; line-height: .95; }
@@ -307,6 +310,9 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 /* A golfer's scorecard shorthand: circle under par, square over, a second ring for each stroke past one; par stays bare. */
 #score .mk { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 800; }
 #score .badge { width: 40px; height: 40px; font-size: 19px; }
+/* holes still to play: an empty box in each player's row, as a paper card prints them (r3 critics: "holes 2-9 leave a large empty
+   white area across the middle of the card", "the middle of the card feels hollow") */
+#score td.blank i { display: inline-block; width: 26px; height: 26px; border-radius: 5px; vertical-align: middle; background: #0c111409; box-shadow: inset 0 0 0 1.5px #0c111418; }
 #score td.s-1 .mk, #score td.s-2 .mk, #score td.s-3 .mk { background: var(--mint); color: var(--black); }
 #score td.s-2 .mk, #score td.s-3 .mk { outline: 2px solid var(--mint); outline-offset: 2px; }
 #score td.s1 .mk, #score td.s2 .mk, #score td.s3 .mk, #score td.s4 .mk { border-radius: 3px; box-shadow: inset 0 0 0 2px currentColor; }
@@ -350,7 +356,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #top { width: min(236px, calc(100% - 136px)); }   /* room for the sound and tools buttons beside it */
   #score .panel { --gutter: 18px; }
   #score th { font-size: 14px; } #score th .muted { font-size: 12px; } #score th.key { font-size: 10px; letter-spacing: .8px; }
-  #score .mk { width: 20px; height: 20px; }
+  #score .mk, #score td.blank i { width: 20px; height: 20px; }
   #score .badge { width: 30px; height: 30px; font-size: 15px; }
   #score table { font-size: 14px; }
   #score td { padding: 6px 2px; }
@@ -411,12 +417,12 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   body[data-phase='result'] #toast, body.result-mode #toast { top: auto; bottom: calc(16% + var(--sab)); left: calc(25% + var(--sal) / 2); width: 46%; }
   body[data-phase='result'] #react, body.result-mode #react { left: calc(25% + var(--sal) / 2); bottom: calc(16% + 92px + var(--sab)); }
   body[data-phase='result'] #toast b, body.result-mode #toast b { font-size: 42px; }
-  #score .panel { --gutter: 20px; width: min(620px, 100%); }
+  #score { --card: 620px; } #score .panel { --gutter: 20px; }
   #score .eyebrow { padding: 5px 12px 4px; }
   #score h2 { font-size: 34px; padding: 8px var(--gutter) 6px; }
   #score #scoreBest { padding-top: 8px; }
   .score-grid { padding: 4px 0 0; }
-  #score .mk { width: 20px; height: 20px; }
+  #score .mk, #score td.blank i { width: 20px; height: 20px; }
   #score .badge { width: 30px; height: 30px; font-size: 15px; }
   #score th { padding: 5px 2px 4px; font-size: 14px; }
   #score th .muted { font-size: 12px; }
@@ -478,8 +484,18 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 /* ---------- hole intro: flyover title, HUD hidden while the camera flies ---------- */
 #hud { transition: opacity .45s; }
 body[data-phase='intro'] #hud { opacity: 0; }
-#holeTitle { position: fixed; left: calc(22px + env(safe-area-inset-left, 0px)); bottom: calc(24px + var(--sab)); z-index: 11; pointer-events: none; opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; color: #fff; font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', Impact, sans-serif; font-weight: 800; text-transform: uppercase; line-height: .9; letter-spacing: .005em; text-shadow: 0 2px 3px #0009, 0 10px 34px #0008; }
+#holeTitle { position: fixed; left: calc(22px + env(safe-area-inset-left, 0px)); bottom: calc(5.5vh + 18px + var(--sab)); z-index: 11; pointer-events: none; opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; color: #fff; font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', Impact, sans-serif; font-weight: 800; text-transform: uppercase; line-height: .9; letter-spacing: .005em; text-shadow: 0 2px 3px #0009, 0 10px 34px #0008; }
 #holeTitle b, #holeTitle span { display: block; font-size: clamp(42px, 9.5vmin, 104px); font-weight: 800; }
+/* A broadcast lower third (r3 intro critics: "the white title floats on bright grass with no backing", "no backing plate or
+   hierarchy"): the hole number big over a mint rule, par and length a step down on a dark plate, the corner of the shot
+   shaded under both; and the flyover plays letterboxed, so it reads as a camera move, not the game waiting ("looks staged
+   and static", "more like a gameplay view than a composed cinematic shot"). */
+#holeTitle b { padding-bottom: .1em; margin-bottom: .14em; border-bottom: max(4px, .06em) solid var(--mint); width: fit-content; }
+#holeTitle span { width: fit-content; padding: .2em .42em .12em; border-radius: 6px; background: #0c1114c4; font-size: clamp(22px, 4.6vmin, 52px); letter-spacing: .05em; text-shadow: none; box-shadow: 0 6px 18px #0005; }
+#holeTitle::after { content: ''; position: absolute; z-index: -1; left: calc(-22px - env(safe-area-inset-left, 0px)); bottom: calc(-5.5vh - 18px - var(--sab)); width: max(60vw, 420px); height: 58vh; background: radial-gradient(farthest-side at 0 100%, #000a, #0005 45%, #0000); }
+body::before, body::after { content: ''; position: fixed; left: 0; right: 0; z-index: 10; height: 5.5vh; background: #050708; pointer-events: none; transform: scaleY(0); transition: transform .5s ease; }
+body::before { top: 0; transform-origin: top; } body::after { bottom: 0; transform-origin: bottom; }
+body[data-phase='intro']::before, body[data-phase='intro']::after { transform: none; }
 body[data-phase='intro'] #holeTitle { opacity: 1; transform: none; transition-duration: .5s; }
 /* Target tag: the basket's distance on a hairline over the pin (the camera in main.js places it every frame, UI.setHud writes
    the metres). Dark glass like the HUD chips and a step under them in weight; it bows out inside the putting range. */
@@ -490,7 +506,7 @@ body[data-phase='intro'] #holeTitle { opacity: 1; transform: none; transition-du
 body[data-phase='intro'] #pin i { height: 46px; }   /* the establishing shot sees the pin past the hole's gantry: the tag flies clear of its banner */
 #pin::after { content: ''; width: 5px; height: 5px; margin-top: -1px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 1.5px #0c111466; }
 @media (max-height: 520px) and (min-aspect-ratio: 5/4) { #pin b { font-size: 13px; padding: 2px 8px 1px 6px; } #pin svg { width: 11px; height: 11px; } #pin i { height: 18px; } }
-@media (prefers-reduced-motion: reduce) { #holeTitle, #hud { transition: none; } }
+@media (prefers-reduced-motion: reduce) { #holeTitle, #hud, body::before, body::after { transition: none; } }
 
 /* ---- invite matches: turn-based play on everyone's own time ---- */
 .match-badge { position: absolute; top: -7px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #f14e5a; color: #fff; font: 800 12px/22px var(--display); letter-spacing: .3px; box-shadow: 0 2px 6px #c2395155; }
