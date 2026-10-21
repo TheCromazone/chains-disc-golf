@@ -13,10 +13,12 @@ export const JITTER = Array.from({ length: 8 }, (_, i) => [halton(i + 1, 2) - .5
 // A frame counts as moved when one element of the view or projection matrix changes by more than this (~.02 px)
 export const MOVE_EPS = 2e-5;
 export const moved = (a, b, eps = MOVE_EPS) => a.some((v, i) => Math.abs(v - b[i]) > eps);
+// Athlete surfaces write this into the stencil (the canvas has one: main.js), so the phone resolve can find his outline
+export const ATHLETE_STENCIL = { stencilWrite: true, stencilRef: 1, stencilZPass: THREE.ReplaceStencilOp };
 
 const VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
 export function createTemporal() {
-  const u = { tCur: { value: null }, tHist: { value: null }, uTexel: { value: new THREE.Vector2() }, uJit: { value: new THREE.Vector2() }, uAlpha: { value: 1 }, uSeed: { value: 0 } };
+  const u = { tCur: { value: null }, tHist: { value: null }, uTexel: { value: new THREE.Vector2() }, uJit: { value: new THREE.Vector2() }, uAlpha: { value: 1 }, uSeed: { value: 0 }, tMask: { value: null } };
   // History clamped into the box of the current frame's 3x3 neighbourhood, then a running mean (1/n, floored at .1). The
   // +-.5 LSB hash dither keeps an 8-bit history (phones) from sticking a few levels off the mean at small blend weights.
   // Each jittered frame enters through Unreal's TAA reconstruction filter, not as its centre sample: the 3x3 samples sit at
@@ -50,9 +52,17 @@ export function createTemporal() {
   // 1's ungated ramp softened crown edges and moved twice the guard pixels). There the pixel blends toward a blur laid along
   // the edge (+-1, +-2 px: no stair steps) and across it (+-2, +-4 px: a ~4 px ramp), unsharpened. Guard view (1280 x 720):
   // ~4% of pixels move more than 8/255, all on outlines. r4's global wider resolve won crisp but softened turf and leaves (ground 0/4, trees 0/4).
-  const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, uTexel: u.uTexel }, vertexShader: VS, depthTest: false, depthWrite: false,
+  // Then the athlete's outline, which the luma gate mostly misses (his hair against mid-tone trees, the forearm against turf:
+  // r3 crisp 0/4, "the athlete looks pasted in, a hard one-pixel outline round the hair, ear, neck, shoulder and arm"). Every
+  // athlete surface tags its pixels in the stencil (ATHLETE_STENCIL, main.js); canvas() turns that into a coverage mask (the
+  // multisampled stencil test resolves to sub-pixel coverage), so the band is his silhouette against the scene and nothing
+  // else: no turf, bark, leaf or jersey texture. There the pixel blends toward a blur across the outline (+-1..3 px) and a
+  // little along it, peaking on the outline and gone two pixels either side: a ~4 px ramp, the way Disc Golf Masters' player
+  // sits in its frame. Interior outlines (the arm over the torso) stay crisp, as in the reference.
+  const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, tMask: u.tMask, uTexel: u.uTexel }, vertexShader: VS, depthTest: false, depthWrite: false,
     defines: { DBG: String(typeof location !== 'undefined' && /[?&]edgedbg/.test(location.search)) },   // QA: ?edgedbg shows the soften mask in white
-    fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel;varying vec2 vUv;
+    fragmentShader: `uniform sampler2D tCur,tMask;uniform vec2 uTexel;varying vec2 vUv;
+      float M(vec2 o){ return texture2D(tMask,vUv+o*uTexel).r; }
       vec3 T(vec2 o){ return texture2D(tCur,vUv+o*uTexel).rgb; } float L(vec3 c){ return dot(c,vec3(.299,.587,.114)); }
       vec2 G(vec2 p){ float a=L(T(p+vec2(-1.5))),b=L(T(p+vec2(1.5,-1.5))),f=L(T(p+vec2(-1.5,1.5))),g=L(T(p+vec2(1.5))); return vec2(b+g-a-f,f+g-a-b)*.5; }
       void main(){
@@ -63,7 +73,15 @@ export function createTemporal() {
         k*=smoothstep(.45,.8,min(dot(G(3.*t),x),dot(G(-3.*t),x))/m);
         vec3 bl=c+T(t)+T(-t)+.5*(T(2.*t)+T(-2.*t))+2.*(T(y)+T(-y))+T(2.*y)+T(-2.*y);
         o=mix(o,bl/10.,k); }
-      gl_FragColor=vec4(DBG?vec3(k):o,1.); }` }));
+      float a=M(vec2(-1.5)),b=M(vec2(1.5,-1.5)),f=M(vec2(-1.5,1.5)),g=M(vec2(1.5)),mb=(a+b+f+g)*.25,ka=4.*mb*(1.-mb);   // 16 texels round the pixel: 1 on the outline, 0 two pixels out
+      if(ka>.02){ vec2 mg=vec2(b+g-a-f,f+g-a-b),x=mg/max(length(mg),1e-4),t=vec2(-x.y,x.x);
+        vec3 ab=.2*c+.15*(T(x)+T(-x))+.1*(T(2.*x)+T(-2.*x))+.05*(T(3.*x)+T(-3.*x))+.1*(T(t)+T(-t));
+        o=mix(o,ab,ka*ka); }
+      gl_FragColor=vec4(DBG?vec3(k,ka,0.):o,1.); }` }));
+  // canvas(): the stencil-tagged athlete pixels drawn white over black, read back as the mask
+  const tag = new FullScreenQuad(new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: 'void main(){gl_FragColor=vec4(1.);}', depthTest: false, depthWrite: false,
+    stencilWrite: true, stencilFunc: THREE.EqualStencilFunc, stencilRef: ATHLETE_STENCIL.stencilRef, stencilWriteMask: 0 }));
+  const black = new THREE.Color(0), clear = new THREE.Color();
   const lastW = new THREE.Matrix4(), lastP = new THREE.Matrix4(), held = new THREE.Matrix4(), size = new THREE.Vector2();
   let n = 0, w = 0, h = 0, cur = null, hist = null;
   const draw = (renderer, quad) => { const auto = renderer.autoClear; renderer.autoClear = false; quad.render(renderer); renderer.autoClear = auto; };
@@ -86,7 +104,7 @@ export function createTemporal() {
     resolve(renderer, curTex, histTex) { u.tCur.value = curTex; u.tHist.value = histTex; draw(renderer, resolve); },
     copy(renderer, tex) { u.tCur.value = tex; draw(renderer, copy); },
     // Mobile: the frame was drawn straight to the canvas. Copy it out, resolve back over it, keep the result as history.
-    // Two RGB8 textures at the drawing-buffer size (the canvas is RGB: alpha false), two full-screen passes (resolve, sharpen), two blits. Linear
+    // Two RGB8 textures at the drawing-buffer size (the canvas is RGB: alpha false), three full-screen passes (resolve, athlete tag, sharpen), three blits. Linear
     // filtering: the sharpen's edge taps sit between texels; every other tap lands on a texel centre, where it reads the same.
     canvas(renderer) {
       if (!cur || cur.image.width !== w || cur.image.height !== h) {
@@ -95,7 +113,10 @@ export function createTemporal() {
         for (const x of [cur, hist]) Object.assign(x, { format: THREE.RGBFormat, internalFormat: 'RGB8', minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });   // copyTexSubImage2D may only drop channels, never add alpha
       }
       renderer.copyFramebufferToTexture(cur); t.resolve(renderer, cur, hist); renderer.copyFramebufferToTexture(hist);
-      u.tCur.value = hist; draw(renderer, sharpen);
+      // the athlete mask reuses cur (spent once the history is saved): clear colour only, the stencil keeps his tags
+      renderer.getClearColor(clear); const ca = renderer.getClearAlpha(); renderer.setClearColor(black, 1); renderer.clear(true, false, false); renderer.setClearColor(clear, ca);
+      draw(renderer, tag); renderer.copyFramebufferToTexture(cur);
+      u.tCur.value = hist; u.tMask.value = cur; draw(renderer, sharpen);
     },
     dispose() { cur?.dispose(); hist?.dispose(); cur = hist = null; },
   };
