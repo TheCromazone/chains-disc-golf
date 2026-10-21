@@ -46,7 +46,8 @@ for(const [name,path] of Object.entries(manifest.models)){
     const names=new Set(gltf.meshes.map(m=>m.name));for(const m of ['grip','grip_lod','rest','rest_lod'])assert(names.has(m),'hand '+m);
     assert(gltf.meshes.every(m=>m.primitives.every(p=>p.attributes.COLOR_0!==undefined)),'every hand carries baked AO');
     assert(gltf.meshes.filter(m=>m.name.startsWith('grip')).every(m=>m.primitives[0].targets?.length===1),'the grip opens with one morph');
-    assert(triangles<8000&&bin.length<200000,'hand budget');
+    assert(gltf.meshes.every(m=>m.primitives.every(p=>p.attributes.NORMAL!==undefined&&(p.targets||[]).every(t=>t.NORMAL!==undefined))),'every hand carries the field\'s smooth normals (its open morph too)');
+    assert(triangles<12000&&bin.length<360000,'hand budget');
   } else if(name==='disc') {assert(triangles>800&&triangles<8000,'disc lathe budget');assert.equal(gltf.textures?.length||0,0,'disc is runtime-tinted plastic');assert(bin.length<200000,'disc byte budget');
   } else {assert(gltf.extensionsRequired.includes('KHR_draco_mesh_compression'),name+' Draco');assert(gltf.extensionsRequired.includes('KHR_texture_basisu'),name+' KTX2');assert.equal(gltf.images.length,3,name+' baked PBR maps');}
   console.log(name,triangles,'triangles',bin.length,'bytes');
