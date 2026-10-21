@@ -744,6 +744,12 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         ${full ? '' : `{ float ld = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4); float fa = smoothstep(45., 150., length(vViewPosition)) * (1. - treeKeep); outgoingLight = mix(vec3(ld), outgoingLight, 1. - .45 * fa);
           #ifdef USE_FOG
           outgoingLight = mix(outgoingLight, fogColor, .22 * fa);
+          // r3 nature g12 (trees 2/4: "the pine canopy behind the arch the same flat, saturated green from front to back"): off the
+          // putt (its air is the look group's), rows from 25 m take the sky's hue at their own value and their highlights fold
+          // toward a dark pivot, so a stand greys and softens row by row while its darks stay where they were (no milky lift)
+          { float dv = length(vViewPosition), fb = smoothstep(30., 110., dv) * (1. - treeAir), lb = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
+            outgoingLight = mix(outgoingLight, lb * fogColor / max(dot(fogColor, vec3(.2126, .7152, .0722)), 1e-4), .65 * fb) * (.08 * pow(lb / .08, 1. - .4 * fb) / lb);
+            outgoingLight = mix(outgoingLight, fogColor, .14 * smoothstep(55., 140., dv) * (1. - treeAir)); }   // only the back rows lift, a little, into the air
           #endif
           }   // Mobile ("the background trees are no hazier than the foreground ones", trees 0/4): rows past 45 m lose up to a further 45% of their green and take a fifth more of the scene's haze, so the stand steps back in layers; Full has effects.js's aerial pass`}
       }
