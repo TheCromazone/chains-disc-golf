@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { windTime, windVec, GROUND_GLSL } from './materials.js';
 
-export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite, seed = 1 }) {
+export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, pin, lite, seed = 1 }) {
   const nx = segX + 1, nz = segZ + 1, n = nx * nz, f = x => x.toFixed(6);
   const hgt = new Float32Array(n * 4), zone = new Uint8Array(n * 4), spl = new Uint8Array(n * 4);
   for (let i = 0; i < n; i++) {
@@ -47,12 +47,10 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
 
   const eye = new THREE.Vector3(), fwd = new THREE.Vector2(0, 1), dir = new THREE.Vector3();
   const uniforms = { gHeight: { value: maps[0] }, gZone: { value: maps[1] }, gSplat: { value: maps[2] }, gEye: { value: eye }, gFwd: { value: fwd },
-    gLayer: { value: layers.map(([L, a, f0, f1]) => new THREE.Vector4(L, a, f0, f1)) }, gPads: { value: pads.map(p => new THREE.Vector4(...p)) }, windTime, windVec };
-  const mat = new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide });
-  mat.onBeforeCompile = sh => {
-    Object.assign(sh.uniforms, uniforms);
-    sh.vertexShader = `${lite ? '#define GROUND_LITE\n' : ''}attribute vec4 aRoot;attribute vec2 aSide,aBlade;uniform sampler2D gHeight,gZone,gSplat;uniform vec3 gEye;uniform vec2 gFwd;
-      uniform vec4 gLayer[${layers.length}],gPads[${pads.length}];uniform float windTime;uniform vec2 windVec;varying vec3 vBlade;varying float vTip;${GROUND_GLSL}
+    gLayer: { value: layers.map(([L, a, f0, f1]) => new THREE.Vector4(L, a, f0, f1)) }, gPads: { value: pads.map(p => new THREE.Vector4(...p)) }, gPin: pin || { value: new THREE.Vector4(1e4, 1e4, 0, 0) }, windTime, windVec };
+  // The ground under any root, read by the carpet and by course.js's tufts (gTuftTint): heights on the mesh's own triangles,
+  // the zone palette, splats and turf data, and GROUND_GLSL's functions over them.
+  const SAMPLE = `\n${lite ? '#define GROUND_LITE\n' : ''}uniform sampler2D gHeight,gZone,gSplat;${GROUND_GLSL}
       vec4 gHeightAt(vec2 p,out vec3 n){   // the terrain mesh's own triangles: PlaneGeometry splits each cell along b-d
         vec2 g=(p+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W)},${f(segZ / H)}),c=clamp(floor(g),vec2(0.),vec2(${f(segX - 1)},${f(segZ - 1)})),q=g-c;ivec2 i=ivec2(c);
         vec4 a=texelFetch(gHeight,i,0),b=texelFetch(gHeight,i+ivec2(0,1),0),cc=texelFetch(gHeight,i+ivec2(1,1),0),d=texelFetch(gHeight,i+ivec2(1,0),0);
@@ -60,6 +58,20 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         if(q.x+q.y<1.){h=a+(d-a)*q.x+(b-a)*q.y;grad=vec2(d.x-a.x,b.x-a.x);}else{h=cc-(cc-b)*(1.-q.x)-(cc-d)*(1.-q.y);grad=vec2(cc.x-b.x,cc.x-d.x);}
         grad*=vec2(${f(segX / W)},${f(segZ / H)});n=normalize(vec3(-grad.x,1.,-grad.y));return h;
       }
+      vec2 gGridUV(vec2 p){return (p+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W / nx)},${f(segZ / H / nz)})+vec2(${f(.5 / nx)},${f(.5 / nz)});}
+      // A tuft rooted at p: blade = the carpet's own live-blade colour there (palette, drift, stripes, its 15% richer green,
+      // without its straw: straw tufts beside the yellow basket read as dead yellow clumps), soil = what the ground round its foot
+      // shows (that turf in shade, or the litter, gravel or sand over it). course.js fades each pin tuft's foot into the soil.
+      void gTuftTint(vec2 p,out vec3 blade,out vec3 soil){
+        vec3 gn;vec4 ga=gHeightAt(p,gn);vec2 uv=gGridUV(p);vec4 zf=texture2D(gZone,uv),sp=texture2D(gSplat,uv);float br=gBreak(p);vec3 cov=gCover(sp,ga.zw,br);
+        blade=gTurf(p,zf.rgb*zf.rgb,vec2(zf.a,ga.y),0.);blade=max(mix(vec3(dot(blade,vec3(.3,.59,.11))),blade,1.15),0.);
+        soil=mix(mix(blade*.55,vec3(.36,.22,.085),cov.z),vec3(.46,.42,.33),cov.x*(1.-cov.z));   // litter and gravel: their tiles' means as the ground shader lifts them
+      }`;
+  const mat = new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide });
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, uniforms);
+    sh.vertexShader = `attribute vec4 aRoot;attribute vec2 aSide,aBlade;uniform vec3 gEye;uniform vec2 gFwd;uniform vec4 gPin;
+      uniform vec4 gLayer[${layers.length}],gPads[${pads.length}];uniform float windTime;uniform vec2 windVec;varying vec3 vBlade;varying float vTip;${SAMPLE}
       void gBlade(out vec3 bladePos,out vec3 bladeNormal){
         vec4 L=gLayer[int(aRoot.w)];vec2 anchor=gEye.xz+gFwd*L.y,rel=aRoot.xy*L.x-anchor;rel-=L.x*floor(rel/L.x+.5);vec2 root=anchor+rel;
         float drop=L.z+(L.w-L.z)*fract(aRoot.z*3.71);   // this clump's own fade distance
@@ -67,9 +79,9 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         if(distance(root,gEye.xz)>drop+.6||max(abs(rel.x),abs(rel.y))>L.x*.5-.02){bladePos=vec3(root.x,-1e3,root.y);return;}   // gone: a zero-area triangle, no fetches
         vec3 gn;vec4 ga=gHeightAt(root,gn);float dCam=distance(vec3(root.x,ga.x,root.y),gEye);
         float k=smoothstep(drop+.6,drop,dCam)*(aRoot.w>2.5?smoothstep(42.,54.,dCam):aRoot.w>1.5?smoothstep(13.,18.,dCam):1.)*smoothstep(L.x*.5,L.x*.5-.8,max(abs(rel.x),abs(rel.y)));   // zero at the wrap edge: roots jump unseen
-        vec2 guv=(root+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W / nx)},${f(segZ / H / nz)})+vec2(${f(.5 / nx)},${f(.5 / nz)});
+        vec2 guv=gGridUV(root);
         vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,ga.zw,br);
-        float through=step(.9,fract(aRoot.z*7.7))*(1.-smoothstep(.6,.95,cov.z));   // one clump in ten pushes up through the litter's thin edge, ragged (not out of its deep middle: lone sprigs on the putting circle read as stickers, r4 ground)
+        float through=step(.9-.18*(1.-smoothstep(24.,32.,distance(root,gPin.xy))),fract(aRoot.z*7.7))*(1.-smoothstep(.6,.95,cov.z));   // one clump in ten pushes up through the litter's thin edge, ragged (not out of its deep middle: lone sprigs on the putting circle read as stickers, r4 ground); round the pin one in four: grass creeps into the mulch instead of the circle ending on a clean lobe (r3 ground: "a hard, blotchy edge")
         float grow=1.-max(max(cov.x,cov.y),cov.z*(1.-through));
         for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);grow*=smoothstep(.05,.3,max(abs(q.x)-.8,abs(q.y)-1.6));}
         vec2 spot=gSpot(root,gEdge(sp.x,ga.zw));grow*=1.-spot.x*.92;   // bare scuffs keep only a few blades; clover mats hold them low
@@ -104,5 +116,6 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   const dispose = mat.dispose.bind(mat); mat.dispose = () => { dispose(); maps.forEach(t => t.dispose()); };
   const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.receiveShadow = true;
   mesh.onBeforeRender = (r, sc, cam) => { cam.getWorldPosition(eye); cam.getWorldDirection(dir); if (Math.hypot(dir.x, dir.z) > .05) fwd.set(dir.x, dir.z).normalize(); };
+  mesh.userData.ground = { uniforms: { gHeight: uniforms.gHeight, gZone: uniforms.gZone, gSplat: uniforms.gSplat }, glsl: SAMPLE };   // the tufts (course.js) read the same ground
   return mesh;
 }

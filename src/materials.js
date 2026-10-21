@@ -90,7 +90,7 @@ vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-4
 // Full also shades a contact band where each tee pad meets the ground (pads: [x, z, cos yaw, sin yaw], 1.6 x 3.2 m).
 // No derivative bump: dFdx is constant per 2x2 pixel quad, so pebble-scale bumps render as blocky speckle.
 // Fallback when the manifest has no ground tiles: the vertex palette alone (the default color_fragment).
-export function terrainSplat(material, geometry, { splat, turf, pads, lite = false }) {
+export function terrainSplat(material, geometry, { splat, turf, pads, pin = { value: new THREE.Vector4(1e4, 1e4, 0, 0) }, lite = false }) {
   geometry.setAttribute('splat', new THREE.BufferAttribute(splat, 4)); geometry.setAttribute('turf', new THREE.BufferAttribute(turf, 4));
   const tiles = { gLawn: texture('grass'), gRough: texture('turf_rough'), gMottle: texture('turf_mottle'), gGravel: texture('gravel'), gSand: texture('sand'), gDuff: texture('litter') };
   if (!Object.values(tiles).every(Boolean)) return material;
@@ -100,9 +100,9 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
   const tile = (name, s) => `gTile(${name},p,${s},${vec3s(TILE_MEAN[name.slice(1).toLowerCase()])})`;
   material.onBeforeCompile = s => {
     for (const k in tiles) s.uniforms[k] = { value: tiles[k] };
-    s.uniforms.gPads = { value: pads.map(p => new THREE.Vector4(...p)) };
+    s.uniforms.gPads = { value: pads.map(p => new THREE.Vector4(...p)) }; s.uniforms.gPin = pin;
     s.vertexShader = 'attribute vec4 splat,turf;varying vec4 vSplat,vTurf;varying vec2 vGround;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSplat=splat;vTurf=turf;vGround=position.xz;');
-    s.fragmentShader = `${lite ? '#define GROUND_LITE\n' : ''}${tiles.gChips ? '#define GROUND_CHIPS\nuniform sampler2D gChips,gChipsN;' : ''}vec3 gChipN=vec3(0.);uniform sampler2D gLawn,gRough,gMottle,gGravel,gSand,gDuff;uniform vec4 gPads[${pads.length}];varying vec4 vSplat,vTurf;varying vec2 vGround;${GROUND_GLSL}
+    s.fragmentShader = `${lite ? '#define GROUND_LITE\n' : ''}${tiles.gChips ? '#define GROUND_CHIPS\nuniform sampler2D gChips,gChipsN;' : ''}vec3 gChipN=vec3(0.);uniform sampler2D gLawn,gRough,gMottle,gGravel,gSand,gDuff;uniform vec4 gPads[${pads.length}],gPin;varying vec4 vSplat,vTurf;varying vec2 vGround;${GROUND_GLSL}
       vec3 gTile(sampler2D t,vec2 p,float s,vec3 mean){
         vec3 a=texture2D(t,p/s).rgb;
         ${lite ? '' : `vec3 b=texture2D(t,mat2(.8,-.6,.6,.8)*p/(s*1.9)+.37).rgb; float w=smoothstep(.3,.7,gNoise(p/(s*2.7)+11.));
@@ -126,6 +126,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         float d=length(vViewPosition),u=${lite ? 'clamp((5.8-d)/2.8,0.,1.)*.55' : 'clamp((8.5-d)/5.,0.,1.)*.9+.12*(1.-smoothstep(9.,15.,d))'};
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.25,.28),u*.75)*(1.-u*.18);   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo or bare soil
         vec3 cov=gCover(vSplat,vTurf.zw,br);
+        cov.z=max(cov.z,smoothstep(.6,.78,gNoise(p*2.3+61.)*.7+gNoise(p*7.1+5.)*.3)*smoothstep(0.,.3,vSplat.z+br*.3)*.9*(1.-smoothstep(24.,32.,distance(p,gPin.xy))));   // round the pin, chip islands 15-50 cm strewn a metre or two past the mulch's edge: the circle frays out instead of ending on a lobed line (r3 ground: "a hard, blotchy edge"). Only there: on the tee's ridge the same islands under the crowns read as a pale, flat dirt bank (r3 nature c1, light 1/4)
         float reach=smoothstep(.02,.4,vSplat.z+br*.5);   // beyond the litter's edge single leaves stray into the turf (Mobile too: its mulch ended on a clean blend)
         if(reach>0.){ vec3 l=texture2D(gDuff,p/2.3).rgb; float dp=gPatch(p);
           l=mix(l,texture2D(gDuff,mat2(.6,-.8,.8,.6)*p/1.2+.3).rgb,smoothstep(.35,.65,gNoise(p/.9+41.)));   // finer, fresher shreds in drifts: chip size varies (Mobile too: one tile read "a flat, uniform brown")
@@ -153,7 +154,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         c*=1.-.45*(1.-smoothstep(0.,.25,pd));   // contact shade where the pad sits on the ground`}
         diffuseColor.rgb=c; }`);
   };
-  material.customProgramCacheKey = () => 'chains-ground-v13' + (lite ? '-lite' : '');
+  material.customProgramCacheKey = () => 'chains-ground-v14' + (lite ? '-lite' : '');
   return material;
 }
 
