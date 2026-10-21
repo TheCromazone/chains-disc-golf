@@ -644,11 +644,13 @@ export function createGLTFCharacter(avatar) {
       const throwing = phase !== null, cheering = mood?.name.startsWith('celebrate'), held = holding || throwing || cheering;
       mi[0] = mi[1] = 1; mi[2] = mi[3] = 0;
       for (const side of ['elR', 'elL']) {
-        const throwingHand = side === forearm.name;
-        holdHands[side].visible = throwingHand && held;
-        holdHands[side].morphTargetInfluences[0] = (throwing && !runUp() ? smooth(.62, .80, phase) : 0) * (1 - grip);
+        // the backhand address holds the disc in both hands (STANCE.backhand puts the off hand's seat on the disc's far rim):
+        // the off side shows the modelled grip too, opening as the swipe takes the stance away, and hands back to the rest hand
+        const throwingHand = side === forearm.name, cradle = !throwingHand && grip > .02;
+        holdHands[side].visible = throwingHand ? held : cradle;
+        holdHands[side].morphTargetInfluences[0] = throwingHand ? (throwing && !runUp() ? smooth(.62, .80, phase) : 0) * (1 - grip) : 1 - grip;
         holdHands[side].morphTargetInfluences[1] = grip;
-        restHands[side].visible = !throwingHand || !held;
+        restHands[side].visible = throwingHand ? !held : !cradle;
       }
       overlay();
       // the pelvis's travel through the throw (rootX/rootZ of the keys), faded in as the clip takes over from the aim stance
