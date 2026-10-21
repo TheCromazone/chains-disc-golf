@@ -156,20 +156,24 @@ const BH = [
   { t: .565, at: [-.01, -.13, -.005], pelvis: [-8, 38, 0], chest: [-15, 82, -2], head: [0, -76, 0],
     handR: [-.23, -.10, -.06], elbowR: [.06, -.09, -.26], handL: [.04, -.32, -.14], elbowL: [-.06, -.25, -.06], rollR: 20 },
   { t: .62, at: [0, -.115, -.01], pelvis: [-7, 30, 0], chest: [-14, 64, -6], head: [0, -60, 0],
-    handR: [-.04, -.12, -.48], elbowR: [.04, -.08, -.22], handL: [-.08, -.38, -.02], elbowL: [-.07, -.26, .02], rollR: 30 },
+    handR: [-.04, -.12, -.48], elbowR: [.04, -.08, -.22], handL: [-.02, -.36, -.08], elbowL: [-.07, -.25, .0], rollR: 30 },
   { t: .66, soleL: [-.28, .01, .26], footL: 48, handR: [-.28, -.10, -.50], elbowR: [-.10, -.06, -.25] },   // the rear foot pivots on its ball as the hips finish opening; the arm flies on across
+  // r3 athlete c1 (all four m-throw critics: "both arms open into a rigid T / airplane spread after the release, the off arm
+  // mirrors the throwing arm"): the throwing elbow folds once the hand passes the far shoulder, so the arm wraps high round
+  // the body instead of sweeping out flat at full length, and the off arm stays tucked, elbow bent with the forearm across
+  // the belly, instead of swinging out behind (it was 56 cm from its shoulder, almost straight, opposite the throwing arm)
   { t: .7, at: [-.015, -.10, -.06], pelvis: [-9, 10, 0], chest: [-18, 45, -6], head: [0, -42, 0],
-    handR: [-.42, -.06, -.40], elbowR: [-.18, -.03, -.22], handL: [-.24, -.42, .22], elbowL: [-.12, -.25, .11],
+    handR: [-.42, -.04, -.38], elbowR: [-.18, -.03, -.22], handL: [.06, -.34, -.14], elbowL: [-.08, -.24, -.02],
     soleL: [-.30, .04, .20], footL: 32, footR: 80 },
-  { t: .74, soleL: [-.33, .15, .04], footL: 20, handR: [-.56, -.01, -.20], elbowR: [-.27, .0, -.14] },   // ...and only then lets go and swings round the posted front leg
+  { t: .74, soleL: [-.33, .15, .04], footL: 20, handR: [-.52, .03, -.18], elbowR: [-.24, -.02, -.20] },   // ...and only then lets go and swings round the posted front leg
   { t: .8, at: [-.06, -.10, -.20], pelvis: [-14, -20, 0], chest: [-27, 16, -2], head: [4, -6, 0],
-    handR: [-.60, .02, -.04], elbowR: [-.29, .03, -.08], handL: [-.32, -.38, .26], elbowL: [-.15, -.23, .13],
+    handR: [-.50, .12, .02], elbowR: [-.30, -.04, -.16], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
     soleL: [-.38, .15, -.26], footL: 6, footR: 34 },
   { t: .9, at: [-.13, -.11, -.36], pelvis: [-13, -38, 0], chest: [-25, -14, 0], head: [6, 18, 0],
-    handR: [-.48, .06, .32], elbowR: [-.26, .08, .02], handL: [-.26, -.46, .18], elbowL: [-.12, -.26, .10],
+    handR: [-.40, .16, .22], elbowR: [-.30, -.02, -.12], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
     soleL: [-.40, 0, -.62], footL: -24, footR: 4 },
   { t: 1, at: [-.16, -.11, -.40], pelvis: [-12, -42, 0], chest: [-21, -16, 0], head: [5, 22, 0],
-    handR: [-.42, -.06, .30], elbowR: [-.25, .02, .02], handL: [-.16, -.52, .10], elbowL: [-.08, -.28, .06],
+    handR: [-.36, .10, .22], elbowR: [-.30, -.06, -.10], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
     soleL: [-.40, 0, -.62], footL: -28, footR: 0 },
 ];
 
@@ -209,6 +213,9 @@ const PUTT = [
   { t: .5, at: [0, -.11, .04], pelvis: [-8, 12, 0], chest: [-16, -8, 0], head: [12, -3, 0],
     handR: [-.19, -.40, -.13], elbowR: [.02, -.28, .10], handL: [-.06, -.40, -.17], elbowL: [-.08, -.27, .10] },
   { t: .565, at: [0, -.07, -.03], chest: [-10, -4, 0], head: [9, -2, 0], handR: [-.13, -.30, -.38], elbowR: [.02, -.20, -.10], handL: [-.08, -.46, -.05] },
+  // r3 athlete c1 tried a finish held high over the chains so the putt camera (1.4 m to his left, 3.6 m back, at head height)
+  // could see it: any forward reach from the right shoulder projects onto his head and torso from there, and a hand raised
+  // clear of the head read as a hand on the head. Unchanged; the visible stroke needs the camera on the throwing side.
   { t: .62, at: [0, -.03, -.07], pelvis: [-5, 10, 0], chest: [-6, -2, 0], head: [6, -2, 0],
     handR: [-.08, -.20, -.52], elbowR: [0, -.12, -.24], handL: [-.06, -.52, .02], elbowL: [-.06, -.28, .05] },
   { t: .8, at: [0, -.01, -.10], pelvis: [-4, 6, 0], chest: [-4, 0, 0], head: [4, 0, 0],

@@ -51,6 +51,51 @@ function relaxNormals(g, headBone, passes = 3) {
   nrm.needsUpdate = true;
 }
 
+// One level of curved subdivision over the shoulders and arms, once per loaded full body on the Mobile tier: every edge whose
+// ends both ride an arm bone splits at its midpoint pushed out onto the surface its two end normals describe (Phong
+// tessellation, shape factor .75), and a triangle splits into 2, 3 or 4 by how many of its edges did, so no crack opens where a
+// split edge meets an unsplit one. At the phone tee the 12k-triangle scan drew the shoulders and upper arms as polygons, the
+// straight silhouette edges and flat shading steps every athlete verdict named; split, they curve. Skin weights blend from
+// both ends (four heaviest kept), UVs average (seam duplicates share position and relaxed normal, so their midpoints meet).
+// ponytail: arms only and Mobile only (~+8k triangles before shadow passes): Desktop's tee already sits at its 2.3M budget.
+function smoothArms(g, mesh) {
+  if (g.userData.smooth) return g.userData.smooth;
+  const pos = g.attributes.position, nrm = g.attributes.normal, uv = g.attributes.uv, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, idx = g.index.array, n = pos.count;
+  const P = Array.from(pos.array), N = Array.from(nrm.array), T = Array.from(uv.array), I = Array.from(si.array), Wt = Array.from(sw.array), arm = new Uint8Array(n), mid = new Map(), out = [], pairs = [];
+  const arms = new Set(mesh.skeleton.bones.flatMap((b, i) => /^(sh|el)[RL]$/.test(b.name) ? [i] : []));
+  for (let i = 0; i < n; i++) { let w = 0; for (let k = 0; k < 4; k++) if (arms.has(I[i * 4 + k])) w += Wt[i * 4 + k]; arm[i] = w > .2; }
+  const edge = (a, b) => {
+    if (!arm[a] || !arm[b]) return -1;
+    const key = a < b ? a * n + b : b * n + a; let m = mid.get(key); if (m !== undefined) return m;
+    m = P.length / 3; mid.set(key, m); pairs.push(a, b);
+    const pa = P.slice(a * 3, a * 3 + 3), pb = P.slice(b * 3, b * 3 + 3), na = N.slice(a * 3, a * 3 + 3), nb = N.slice(b * 3, b * 3 + 3), c = pa.map((v, k) => (v + pb[k]) / 2);
+    const da = c.reduce((s, v, k) => s + (v - pa[k]) * na[k], 0), db = c.reduce((s, v, k) => s + (v - pb[k]) * nb[k], 0);
+    for (let k = 0; k < 3; k++) P.push(c[k] - .75 * (da * na[k] + db * nb[k]) / 2);   // c + .75 (mean of c's projections on both tangent planes - c)
+    const s = na.map((v, k) => v + nb[k]), l = Math.hypot(...s) || 1; N.push(s[0] / l, s[1] / l, s[2] / l);
+    T.push((T[a * 2] + T[b * 2]) / 2, (T[a * 2 + 1] + T[b * 2 + 1]) / 2);
+    const w = new Map(); for (const v of [a, b]) for (let k = 0; k < 4; k++) { const bi = I[v * 4 + k], x = Wt[v * 4 + k] / 2; if (x > 0) w.set(bi, (w.get(bi) || 0) + x); }
+    const top = [...w].sort((x, y) => y[1] - x[1]).slice(0, 4), sum = top.reduce((s, x) => s + x[1], 0) || 1;
+    for (let k = 0; k < 4; k++) { I.push(top[k]?.[0] ?? 0); Wt.push((top[k]?.[1] ?? 0) / sum); }
+    return m;
+  };
+  for (let f = 0; f < idx.length; f += 3) {
+    const v = [idx[f], idx[f + 1], idx[f + 2]], m = [edge(v[0], v[1]), edge(v[1], v[2]), edge(v[2], v[0])], cut = m.filter(x => x >= 0).length;
+    if (cut === 0) out.push(...v);
+    else if (cut === 3) out.push(v[0], m[0], m[2], m[0], v[1], m[1], m[2], m[1], v[2], m[0], m[1], m[2]);
+    else if (cut === 1) { const i = m.findIndex(x => x >= 0); out.push(v[i], m[i], v[(i + 2) % 3], m[i], v[(i + 1) % 3], v[(i + 2) % 3]); }
+    else { const i = (m.findIndex(x => x < 0) + 1) % 3, j = (i + 1) % 3, k = (i + 2) % 3; out.push(m[i], v[j], m[j], v[i], m[i], m[j], v[i], m[j], v[k]); }
+  }
+  const s = new THREE.BufferGeometry(), nv = P.length / 3;
+  s.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); s.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); s.setAttribute('uv', new THREE.Float32BufferAttribute(T, 2));
+  s.setAttribute('skinIndex', new THREE.BufferAttribute(new (si.array.constructor)(I), 4)); s.setAttribute('skinWeight', new THREE.Float32BufferAttribute(Wt, 4));
+  for (const [name, a] of Object.entries(g.attributes)) if (!s.attributes[name]) {   // anything else the export carries (colour, a second UV set): the mean of both ends
+    const d = a.itemSize, A = Array.from(a.array); for (let e = 0; e < pairs.length; e += 2) for (let k = 0; k < d; k++) A.push((a.array[pairs[e] * d + k] + a.array[pairs[e + 1] * d + k]) / 2);
+    s.setAttribute(name, new THREE.BufferAttribute(new (a.array.constructor)(A), d, a.normalized));
+  }
+  s.setIndex(nv > 65535 ? new THREE.Uint32BufferAttribute(out, 1) : new THREE.Uint16BufferAttribute(out, 1));
+  s.userData.relaxed = true; s.__shared = true; return g.userData.smooth = s;
+}
+
 // Hands. The rig has no finger or wrist bones, and the scan's hands hang half open (the build leaves them so), which is what
 // the off hand and every bystander show. Built once per body from its bind pose, hand-local and mirrored so the palm faces
 // -x on either side (fingers along -y, thumb toward -z), with lengths in units of the hand's own wrist-to-fingertip drop L
@@ -81,7 +126,8 @@ const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wri
 // The same hand at rest, for the free hand in the set-up: the scan's hanging hand is one fused mitten ("a mitten under a
 // swollen wrist knob"). Fingers in a loose cascade, more curl toward the little finger; the thumb lies along the index. Curled
 // progressively toward the little finger, keeping a relaxed wrist and visible finger separation.
-const REST = { curl: [[12, 24, 14], [16, 30, 18], [20, 36, 22], [24, 42, 26]], thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
+// r3 athlete c1: curled ~8 deg more per joint, the splayed set read as "claw-like hands", "mannequin fingers"
+const REST = { curl: [[20, 34, 18], [24, 40, 22], [28, 46, 26], [32, 52, 30]], thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const taperAt = y => 1 - GRIP.taper * smooth(.11, 0, y);   // y: metres above the wrist joint
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); return p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
@@ -364,7 +410,7 @@ export function createGLTFCharacter(avatar) {
     if (o.name.startsWith('accessory_wristband')) o.visible = false; // fitted cloth cuffs replace the scan's loose torus bands
     if (!o.isMesh) return;
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const by = i => new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert().elements[13]; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); } }
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); if (!lod && document.body.classList.contains('gfx-mobile')) o.geometry = smoothArms(o.geometry, o); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const by = i => new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert().elements[13]; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); } }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
     // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
