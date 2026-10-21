@@ -7,7 +7,7 @@ pushed into an ellipse have no webbing, no thenar, no knuckle heads, so at 120 p
 instead: a signed distance field of palm (cupped, arched across the metacarpals), thenar and hypothenar pads, knuckle heads,
 four three-phalanx fingers (round cones with slimmer shafts than joints) and a thumb, each digit blended into the palm
 (webbing) but never into its neighbour (a crease stays between them). Surface nets mesh it at 0.8 mm, Blender's collapse
-decimates it to ~2.6k / ~0.9k triangles, and the field itself gives the vertex occlusion (with the disc as an occluder for
+decimates it to ~3.8k / ~0.9k triangles, and the field itself gives the normals (its gradient), the vertex occlusion (with the disc as an occluder for
 the grip), knuckle creases and nails. The grip also carries an "open" morph (the fingers hinged out to the rest curls) so the
 hand can let go after release with the same vertices.
 
