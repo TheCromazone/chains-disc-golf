@@ -187,7 +187,7 @@ const BH = [
 // Played before the drive by anyone the camera watches throw from a run-up: from standing ~1.5 m behind the lie, disc at the
 // chest in both hands, the throwing-side foot steps (.30), the off foot crosses behind it as the hips turn side-on and the arm
 // starts back (.62), and the throwing-side foot swings through toward the plant with the arm reaching back. It ends exactly
-// on the drive's .35 beat (full coil, the front foot just off the ground), so the drive takes over from .35 and plants at .43.
+// on the drive's .35 beat (full coil, the front foot just off the ground), so the drive takes over from .35 and plants at .37.
 const coil = stateAt(BH, .35);
 // athletic through the approach: knees flexed and the chest over the feet (critics read 3 cm higher and 4 deg prouder as "upright, passive")
 const XSTEP = [
