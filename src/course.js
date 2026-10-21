@@ -1024,7 +1024,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       }
       for (const t of trees) if (Math.hypot(t.x - h.basket[0], t.z - h.basket[1]) < 20) foot(t);   // and round the pin, in front of the putt lens
     }
-    perHole(tuftGeo, tuftMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);
+    perHole(tuftGeo, quality === 'low' ? tuftMat : rimMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);   // Full's tee tufts root in the ground too: phones' light and trees critics judge the tee frame, and the Mobile tee stays as it was
   }
   {
     // Fallen leaves and twigs on the putting circle's litter, as geometry: a leaf is 4 triangles, cupped (its edges curl up
