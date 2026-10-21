@@ -50,6 +50,11 @@ export const skinDirect = (name, k) => `void ${name}(const in IncidentLight dire
         RE_Direct_Physical(sl, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight);
         float nl = dot(geometryNormal, directLight.direction), wrap = saturate((nl + .4) / 1.4) - saturate(nl), band = saturate(nl) * saturate(1. - 2.5 * nl);
         reflectedLight.directDiffuse += ${k} * (wrap * vec3(.9, .6, .45) + band * vec3(.3, .06, .02)) * sl.color * BRDF_Lambert(material.diffuseColor);   // a softer rose: the deep red wrap read as a sunburnt, saturated shade side
+        // r3a c1 (g7: "flat, waxy, evenly lit while the fairway is dappled", "pasted on"): the tee looks into the sun, so the side
+        // the camera sees takes the even sky fill and nothing ties him to the light. Edges turned toward a sun behind him glow
+        // warm, through skin more than cloth, carried by the sun's own (shadowed) colour so the canopy's dapple breaks them up too
+        float back = saturate(dot(directLight.direction, -geometryViewDir)), edge = pow(1. - saturate(dot(geometryNormal, geometryViewDir)), 2.5) * saturate(nl + .3);
+        reflectedLight.directDiffuse += back * edge * (.15 + .3 * ${k}) * directLight.color * material.diffuseColor * mix(vec3(1.), vec3(1.15, .85, .65), ${k});
       }
       #undef RE_Direct
       #define RE_Direct ${name}`;
