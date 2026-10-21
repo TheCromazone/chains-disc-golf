@@ -183,12 +183,7 @@ export const STANCE = {
   // chin drops ~15° more: the m2 scan's longer neck read at the tee as "a pale column" under a head held upright.
   // r3 athlete c1: the off arm still read "stiff, jutting out straight like a mannequin's" in every verdict: it hangs closer
   // to the ribs and the elbow folds ~15 deg more, the forearm forward with the hand off the front of the thigh.
-  // r10 athlete c1: every hanging off arm lost ("bent at an unnatural angle at his side", "a mushy fist at the hip", and the
-  // long straight one "a limp mannequin limb"). The off hand now holds the disc too, the pre-shot hold real players stand in:
-  // solved on the rig against the tee camera so the off hand's modelled grip seat (gltf-player.js) sits on the disc the
-  // throwing hand holds (~3.5 cm, plate ~24 deg) at its far rim, the elbow low by the ribs and the forearm rising across
-  // the chest to it. The swipe opens that hand and lets the arm go as the stance fades into the reach-back.
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.28, -1.75, -.12], shR: [.583, 1.164, .872], elR: [.712, -.447, 0], shL: [1.018, -.174, .298], elL: [.954, -.939, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.28, -1.75, -.12], shR: [.583, 1.164, .872], elR: [.712, -.447, 0], shL: [.42, 0, -.24], elL: [1.0, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
@@ -253,7 +248,7 @@ export function readyPose(type, time, rig = RIGS.lite, over = null) {
   // breathing and a slow settle of the coil, so the set-up never freezes
   pose.knR[0] -= .02 + .02 * breath; pose.knL[0] -= .02 + .02 * breath; pose.spine[0] += .015 * breath; pose.head[1] += .04 * Math.sin(time * .5);
   pose.root[1] += .03 * Math.sin(time * .7); pose.spine[1] += .02 * Math.sin(time * .7 + .6); pose.elR[0] += .03 * breath;
-  if (family !== 'backhand') { pose.shL[0] += .035 * Math.sin(time * .7 - .9); pose.elL[0] += .05 * Math.sin(time * .7 - 1.4); }   // the free arm swings a little behind the torso's settle, never held rigid (the backhand's holds the disc)
+  pose.shL[0] += .035 * Math.sin(time * .7 - .9); pose.elL[0] += .05 * Math.sin(time * .7 - 1.4);   // the free arm swings a little behind the torso's settle, never held rigid
   pose.rootY = -Math.min(...soleHeights(pose, false, rig));
   return pose;
 }
