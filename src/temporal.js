@@ -56,8 +56,8 @@ export function createTemporal() {
   // r3 crisp 0/4, "the athlete looks pasted in, a hard one-pixel outline round the hair, ear, neck, shoulder and arm"). Every
   // athlete surface tags its pixels in the stencil (ATHLETE_STENCIL, main.js); canvas() turns that into a coverage mask (the
   // multisampled stencil test resolves to sub-pixel coverage), so the band is his silhouette against the scene and nothing
-  // else: no turf, bark, leaf or jersey texture. There the pixel blends toward a blur across the outline (+-1..3 px) and a
-  // little along it, peaking on the outline and gone two pixels either side: a ~4 px ramp, the way Disc Golf Masters' player
+  // else: no turf, bark, leaf or jersey texture. There the pixel blends toward a blur across the outline (+-1.5..4.5 px) and a
+  // little along it, peaking on the outline and gone three pixels either side: a ~5 px ramp, the way Disc Golf Masters' player
   // sits in its frame. Interior outlines (the arm over the torso) stay crisp, as in the reference.
   const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, tMask: u.tMask, uTexel: u.uTexel }, vertexShader: VS, depthTest: false, depthWrite: false,
     defines: { DBG: String(typeof location !== 'undefined' && /[?&]edgedbg/.test(location.search)) },   // QA: ?edgedbg shows the soften mask in white
@@ -73,8 +73,8 @@ export function createTemporal() {
         k*=smoothstep(.45,.8,min(dot(G(3.*t),x),dot(G(-3.*t),x))/m);
         vec3 bl=c+T(t)+T(-t)+.5*(T(2.*t)+T(-2.*t))+2.*(T(y)+T(-y))+T(2.*y)+T(-2.*y);
         o=mix(o,bl/10.,k); }
-      float a=M(vec2(-1.5)),b=M(vec2(1.5,-1.5)),f=M(vec2(-1.5,1.5)),g=M(vec2(1.5)),mb=(a+b+f+g)*.25,ka=4.*mb*(1.-mb);   // 16 texels round the pixel: 1 on the outline, 0 two pixels out
-      if(ka>.02){ vec2 mg=vec2(b+g-a-f,f+g-a-b),x=mg/max(length(mg),1e-4),t=vec2(-x.y,x.x);
+      float a=M(vec2(-2.5)),b=M(vec2(2.5,-2.5)),f=M(vec2(-2.5,2.5)),g=M(vec2(2.5)),mb=(a+b+f+g)*.25,ka=4.*mb*(1.-mb);   // 16 texels round the pixel: 1 on the outline, 0 three pixels out
+      if(ka>.02){ vec2 mg=vec2(b+g-a-f,f+g-a-b),x=1.5*mg/max(length(mg),1e-4),t=vec2(-x.y,x.x)/1.5;
         vec3 ab=.2*c+.15*(T(x)+T(-x))+.1*(T(2.*x)+T(-2.*x))+.05*(T(3.*x)+T(-3.*x))+.1*(T(t)+T(-t));
         o=mix(o,ab,ka*ka); }
       gl_FragColor=vec4(DBG?vec3(k,ka,0.):o,1.); }` }));
