@@ -9,6 +9,8 @@ const putt = { throwType: 'putt', disc: discById('putter'), dir: [0, -1], pos: [
 const power = puttPower(putt, w), line = basketLine({ ...putt, power }, w), end = line.traj.at(-1);
 assert.ok(Math.abs(line.cross - CHAIN_MID) < .05, `idle line meets the chains' middle (${line.cross?.toFixed(3)} m)`);
 assert.ok(Math.abs(end[2] - -6.5) < 1e-6, 'the line stops on the basket plane');
+assert.deepEqual(line.traj[0].slice(0, 3), putt.pos, 'the line leaves the release point (his hand), not 1.5 m out in the air');
+assert.ok(line.traj.every((q, i, a) => i === 0 || q[2] < a[i - 1][2] + 1e-9), 'it runs one way, toward the basket (no loop back)');
 assert.ok(line.traj.every(q => q[2] >= -6.5 - 1e-6), 'nothing past the basket');
 assert.ok(simulate({ ...putt, power }, w).result.holed, 'that power holes the putt in the real world');
 const soft = basketLine({ ...putt, power: .15 }, w), hard = basketLine({ ...putt, power: 1 }, w);

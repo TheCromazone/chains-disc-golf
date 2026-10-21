@@ -25,6 +25,7 @@ export function suggestPower(params, world) {
 export const CHAIN_MID = 1.03;   // physics.js hitBasket: the chains catch from .72 to 1.34 m
 export function basketLine(params, world, every = 3) {
   const b = world.basket, { traj } = simulate(params, { ...world, treesNear: () => [], basket: null }, { record: true, every, maxT: 6 });
+  traj.unshift([...params.pos, 0, 1, 0, 0]);   // from the release point itself: the line leaves his hand
   if (!b) return { traj, cross: null };
   const [dx, dz] = params.dir, [x0, , z0] = params.pos, along = q => (q[0] - x0) * dx + (q[2] - z0) * dz, D = along([b.x, 0, b.z]);
   for (let i = 1; i < traj.length; i++) {

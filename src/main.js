@@ -783,7 +783,11 @@ function updatePreview() {
   shotGuide.group.visible = guided;
   UI.setShotPlan(guided ? { ...estimate, power: pw } : null, assist ? G.previewPower : null);
   G.shotPreview = { ...estimate, power: pw, rest: r.result.rest, guided };
-  const lie = curP().lie, pts = (guided ? r.traj : assist ? r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))) : basketLine(o, world).traj).filter((q, i, a) => i >= a.length - 2 || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);   // the ribbon starts at the thrower's shoulder instead of slashing across his back
+  // A drive's ribbon starts 1.5 m out, at his shoulder, instead of slashing across his back. A putt's leaves his hand, depth tested:
+  // from behind his shoulder its first metre runs behind his body, so it emerges from him instead of dropping in from the upper
+  // right (its first 1.5 m, rising, sat over his head in the putt lens) or painting over him.
+  for (const m of [previewMat, previewEdge]) m.depthTest = !assist;
+  const lie = curP().lie, pts = (guided ? r.traj : assist ? r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))) : basketLine(o, world).traj).filter((q, i, a) => i >= a.length - 2 || !assist || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);
   const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
   for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); l.visible = !(G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4); }   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the ground arrow aims it
   previewMat.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
