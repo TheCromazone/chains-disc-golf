@@ -903,9 +903,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // --- grass tufts ---
   // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
   // rough, gone on gravel, litter, sand and the pads. A few photo tufts stand where mowers miss, at the sign post and
-  // round the basket pole: small and green, darkened at the root; no shadow discs. Lite spends their triangles on the carpet.
+  // round the basket pole: small and green, darkened at the root; no shadow discs.
   group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }));
-  const tuftMap = quality !== 'low' && texture('tuft', { clamp: true });
+  const tuftMap = texture('tuft', { clamp: true }), tuftHoles = [];   // Lite too (r3 nature: without them its path edges read 'flat tan decals with hard clean edges', ground 1/4)
   if (tuftMap) {
     const tuftRng = makeRng(seed + 733);
     const card = new THREE.PlaneGeometry(1, 1).translate(0, .46, 0);   // rooted 4 cm below grade
@@ -918,8 +918,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       const ax = Math.abs(at4(turf, 2)), sx = at4(splats, 0);
       return Math.max(smooth(.25, .5, at4(turf, 3)) * smooth(.4, .52, ax) * (1 - smooth(.62, .85, ax)), smooth(.1, .28, sx) * (1 - smooth(.38, .55, sx)));   // the trail's 1 m strip, the apron and worn earth
     };
-    const spots = [];
+    const spots = [], starts = [];
     for (const h of holes) {
+      starts.push(spots.length);
       const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), at = (u, w) => [h.tee[0] + u * cy + w * sy, h.tee[1] - u * sy + w * cy];
       for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .08 + tuftRng() * .2; spots.push({ p: at(2.4 + Math.cos(a) * r, -2.6 + Math.sin(a) * r), s: .14 + tuftRng() * .12 }); }
       for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .3 + tuftRng() * .3; spots.push({ p: [h.basket[0] + Math.cos(a) * r, h.basket[1] + Math.sin(a) * r], s: .12 + tuftRng() * .1 }); }
@@ -936,7 +937,13 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     }
     const fixed = new THREE.InstancedMesh(tuftGeo, tuftMat, spots.length);
     spots.forEach(({ p: [x, z], s, dry }, i) => { e.set(0, tuftRng() * 6.3, 0); q.setFromEuler(e); v.set(x, height(x, z) - .04, z); sc.set(s, s * (.8 + tuftRng() * .4), s); m.compose(v, q, sc); fixed.setMatrixAt(i, m); fixed.setColorAt(i, dry ? col.setRGB(1.05 + tuftRng() * .2, .8 + tuftRng() * .1, .42) : col.setRGB(.8 + tuftRng() * .25, .72 + tuftRng() * .2, .7 + tuftRng() * .3)); });   // a third of the fringe gone to seed, straw-olive
-    fixed.receiveShadow = true; group.add(fixed);
+    fixed.receiveShadow = true;
+    if (quality !== 'low') group.add(fixed);
+    else starts.forEach((a, i) => {   // Lite: only the hole in play (setHole), ~15k triangles; all of them, 131k, were more than the whole blade carpet
+      const b = starts[i + 1] ?? spots.length, t = new THREE.InstancedMesh(tuftGeo, tuftMat, b - a);
+      t.instanceMatrix.array.set(fixed.instanceMatrix.array.subarray(a * 16, b * 16)); t.instanceColor = new THREE.InstancedBufferAttribute(fixed.instanceColor.array.slice(a * 3, b * 3), 3);
+      t.receiveShadow = true; t.visible = i === 0; tuftHoles.push(t); group.add(t);
+    });
   }
 
   // --- sky, lights, fog ---
@@ -1028,7 +1035,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   };
   // A trunk standing on the ground hides most of the sky at its foot (the flare and the roots, which the collider radius
   // leaves out), about half of it a third of a diameter out, none at 3 diameters: the base sits in a pool. 32 triangles a tree.
-  for(const t of trees) groundShadow(t.x,t.z,t.r,t.r,[1,1.7,6],[.7,.45,0],8);
+  for(const t of trees) if (quality !== 'low' || fairwayInfo(holes, t.x, t.z).d < 45) groundShadow(t.x,t.z,t.r,t.r,[1,1.7,6],[.7,.45,0],8);   // Lite: the deep woods' pools (125k triangles course-wide, never culled) buy its blade carpet instead; past 45 m off every fairway the foot of a trunk is a few pixels behind others
   for(const h of holes) {
     groundShadow(h.tee[0]+.65,h.tee[1]+.4,1.5,2.3,[0,.48,.82,1.2],[.16,.12,.05,0],20);
     groundShadow(h.basket[0],h.basket[1],1,1,[0,.2,.27,.42,.75],[.35,.4,.62,.25,0],16);   // the tray's .34 m dish hides the sky from the footing; a dark crease where the footing meets the ground
@@ -1043,7 +1050,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // 0 on the fairway, 1 in the rough: the flight model uses it for skip, roll and slide friction.
   const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough, capsules: dressing.capsules, camBlockers: [...dressing.capsules, ...(dressing.camCapsules || [])] };
-  const setHole = i => { const h = holes[i]; world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; gapHole.value.set(h.basket[0], h.basket[1], gapHole.value.z, h.basketY); const L = Math.hypot(h.tee[0] - h.basket[0], h.tee[1] - h.basket[1]) || 1; gapAim.value.set((h.tee[0] - h.basket[0]) / L, (h.tee[1] - h.basket[1]) / L, gapAim.value.z, gapAim.value.w); };
+  const setHole = i => { const h = holes[i]; tuftHoles.forEach((t, k) => { t.visible = k === i; }); world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; gapHole.value.set(h.basket[0], h.basket[1], gapHole.value.z, h.basketY); const L = Math.hypot(h.tee[0] - h.basket[0], h.tee[1] - h.basket[1]) || 1; gapAim.value.set((h.tee[0] - h.basket[0]) / L, (h.tee[1] - h.basket[1]) / L, gapAim.value.z, gapAim.value.w); };
   const update = (dt, t, focus, view, nearFocus = focus) => {   // nearFocus: where the near cascade sits (main.js holds it still through a flight)
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
     if (view) treeLod(view, t, focus);   // trees: 3D near the eye, impostors beyond (the trees section)
