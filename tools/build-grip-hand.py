@@ -23,6 +23,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 OUT = os.path.join(ROOT, arg('--out', 'assets/models/grip-hand.glb'))
 PREVIEW = arg('--preview'); PREVIEW = PREVIEW and os.path.join(ROOT, PREVIEW)
 VOX = float(arg('--vox', '.0008'))
+TRIS = int(arg('--tris', '4400'))   # the full hand (the tee's and the clubhouse's): at 2600 its knuckles and finger sides broke into flat planes at 120 px
 
 # ---- the disc, as gltf-player.js seats it -----------------------------------------------------------------------------------
 TILT = .6; C = np.array([-.015, -.092, 0.])
@@ -200,6 +201,13 @@ def normals(v, f):
   n = np.zeros_like(v); fn = np.cross(v[f[:, 1]] - v[f[:, 0]], v[f[:, 2]] - v[f[:, 0]])
   for k in range(3): np.add.at(n, f[:, k], fn)
   return n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
+def field_normals(v, f, kind):   # the field's own gradient (central differences): the decimated triangles' area-weighted
+  # normals sat 18 deg off their faces (p90 38) and every flat facet showed in the light, "faceted, low-poly, flat blocky
+  # planes on the knuckles"; the gradient is the smooth surface the mesh approximates. A vertex in a crease where the field's
+  # min() switches owner can get a degenerate gradient: it keeps the mesh normal
+  e = 1e-4; g = np.stack([field(v + np.eye(3)[i] * e, kind) - field(v - np.eye(3)[i] * e, kind) for i in range(3)], 1)
+  l = np.linalg.norm(g, axis=1, keepdims=True); mn = normals(v, f); g = np.where(l > 1e-9, g / np.maximum(l, 1e-12), mn)
+  return np.where((g * mn).sum(1, keepdims=True) > .2, g, mn)
 
 def seg_proj(p, pts):   # nearest point on a polyline: arc length, foot, segment index
   cum = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(pts, axis=0), axis=1))])
@@ -213,7 +221,7 @@ def seg_proj(p, pts):   # nearest point on a polyline: arc length, foot, segment
 def shade(v, f, kind):
   """Vertex occlusion from the field (and the disc, for the grip), knuckle creases, nails: 1 open skin, < 1 occluded
   (the shader reddens creases), 1.16 a nail."""
-  n = normals(v, f)
+  n = field_normals(v, f, kind)
   occ = (lambda q: np.minimum(field(q, kind), disc_sdf(q))) if kind == 'grip' else (lambda q: field(q, kind))
   ao = np.zeros(len(v))
   for i, (dd, w) in enumerate([(.0015, 1.), (.003, .8), (.0055, .6), (.009, .45), (.014, .3), (.02, .2)]):
@@ -245,25 +253,26 @@ def rot_z(p, o, ang):   # ang: one angle per point
   return o + np.stack([q[:, 0] * c - q[:, 1] * s, q[:, 0] * s + q[:, 1] * c, q[:, 2]], 1)
 def smoothstep(a, b, x):
   t = np.clip((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t)
-def open_shape(v, owner):
+def open_shape(v, n, owner):
   """The grip's fingers hinged out to the rest curls (distal joints first, each blended over 8 mm) and the thumb swung off
-  the plate along the index: the hand letting go after release, same vertices."""
-  out = v.copy(); fingers, thumb = pose('grip')
+  the plate along the index: the hand letting go after release, same vertices (and their normals, turned with them)."""
+  out = v.copy(); on = n.copy(); fingers, thumb = pose('grip'); O = np.zeros(3)
   for fi, (pts, _) in enumerate(fingers):
-    m = owner == fi + 1; q = out[m]; P_ = np.array(pts)
+    m = owner == fi + 1; q = out[m]; qn = on[m]; P_ = np.array(pts)
     arc, _, _, cum = seg_proj(v[m], P_)
     for j in (3, 2, 1):   # DIP, PIP, MCP: pts index j is the joint
-      d = math.radians(REST_CURL[fi][j - 1] - GRIP_CURL[fi][j - 1])
-      q = rot_z(q, P_[j], -d * smoothstep(cum[j] - .008, cum[j] + .008, arc))
-    out[m] = q
+      d = math.radians(REST_CURL[fi][j - 1] - GRIP_CURL[fi][j - 1]); ang = -d * smoothstep(cum[j] - .008, cum[j] + .008, arc)
+      q = rot_z(q, P_[j], ang); qn = rot_z(qn, O, ang)
+    out[m] = q; on[m] = qn
   m = owner == 5
   if m.any():
     P_ = np.array(thumb); arc, _, _, cum = seg_proj(v[m], P_); mcp = P_[2]
     a = P_[4] - mcp; a /= np.linalg.norm(a); b = REST_THUMB[4] - REST_THUMB[2]; b /= np.linalg.norm(b)
     ax = np.cross(a, b); s = np.linalg.norm(ax); ang = math.atan2(s, a @ b); ax = ax / max(s, 1e-9)
-    t = ang * smoothstep(cum[2] - .01, cum[2] + .01, arc); q = v[m] - mcp; c, sn = np.cos(t)[:, None], np.sin(t)[:, None]
-    out[m] = mcp + q * c + np.cross(ax, q) * sn + np.outer(q @ ax, ax) * (1 - c)   # Rodrigues about ax
-  return out
+    t = ang * smoothstep(cum[2] - .01, cum[2] + .01, arc); c, sn = np.cos(t)[:, None], np.sin(t)[:, None]
+    rod = lambda q: q * c + np.cross(ax, q) * sn + np.outer(q @ ax, ax) * (1 - c)   # Rodrigues about ax
+    out[m] = mcp + rod(v[m] - mcp); on[m] = rod(n[m])
+  return out, on
 
 # ---- glb ---------------------------------------------------------------------------------------------------------------------
 def write_glb(path, meshes):
@@ -275,12 +284,12 @@ def write_glb(path, meshes):
     if minmax: acc['min'] = arr.min(0).tolist(); acc['max'] = arr.max(0).tolist()
     accs.append(acc); return len(accs) - 1
   for name, m in meshes.items():
-    prim = {'attributes': {'POSITION': add(m['p'].astype(np.float32), 5126, 'VEC3', 34962, True),
+    prim = {'attributes': {'POSITION': add(m['p'].astype(np.float32), 5126, 'VEC3', 34962, True), 'NORMAL': add(m['n'].astype(np.float32), 5126, 'VEC3', 34962),
                            'COLOR_0': add(np.repeat((m['ao'] / 1.2)[:, None], 3, 1).astype(np.float32), 5126, 'VEC3', 34962)},
             'indices': add(m['i'].astype(np.uint16 if len(m['p']) < 65536 else np.uint32).ravel(), 5123 if len(m['p']) < 65536 else 5125, 'SCALAR', 34963)}
     mesh = {'name': name, 'primitives': [prim]}
     if 'open' in m:
-      prim['targets'] = [{'POSITION': add((m['open'] - m['p']).astype(np.float32), 5126, 'VEC3', None, True)}]; mesh['weights'] = [0]
+      prim['targets'] = [{'POSITION': add((m['open'] - m['p']).astype(np.float32), 5126, 'VEC3', None, True), 'NORMAL': add((m['openN'] - m['n']).astype(np.float32), 5126, 'VEC3')}]; mesh['weights'] = [0]
       mesh['extras'] = {'targetNames': ['open']}
     gm.append(mesh); nodes.append({'name': name, 'mesh': len(gm) - 1})
   doc = {'asset': {'version': '2.0', 'generator': 'tools/build-grip-hand.py'}, 'scene': 0, 'scenes': [{'nodes': list(range(len(nodes)))}],
@@ -322,11 +331,11 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 meshes, obs = {}, []
 for kind in ('grip', 'rest'):
   verts, quads = mesh_field(kind); print(kind, 'surface nets', len(verts), 'verts', len(quads), 'quads')
-  for suffix, tris in (('', 2600), ('_lod', 900)):
+  for suffix, tris in (('', TRIS), ('_lod', 900)):
     ob, v, f = decimate(verts, quads, tris, kind + suffix)
     ao, owner = shade(v, f, kind)
-    m = {'p': v, 'i': f, 'ao': ao}
-    if kind == 'grip': m['open'] = open_shape(v, owner)
+    m = {'p': v, 'i': f, 'ao': ao, 'n': field_normals(v, f, kind)}
+    if kind == 'grip': m['open'], m['openN'] = open_shape(v, m['n'], owner)
     meshes[kind + suffix] = m; print(kind + suffix, len(v), 'verts', len(f), 'tris')
     col = ob.data.color_attributes.new('ao', 'FLOAT_COLOR', 'POINT')
     col.data.foreach_set('color', np.concatenate([np.clip(ao, 0, 1)[:, None].repeat(3, 1), np.ones((len(ao), 1))], 1).ravel())
