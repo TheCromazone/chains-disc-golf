@@ -127,16 +127,24 @@ const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos
 // arrow at the lie that turns with the aim. The dashes flow toward the basket so the direction reads at a glance.
 // Widths are CSS px (userData.css, scaled by the pixel ratio in resize()): set in buffer px, the line on a phone's 2x buffer was
 // half the desktop's, a 1.6 pt thread that vanished over busy foliage (a blind critique, 2026-10-17).
-const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false }); previewMat.userData.css = isMobile ? 2.8 : 3.2;
-const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .5, depthTest: false, depthWrite: false }); previewEdge.userData.css = isMobile ? 5.8 : 6.4;
+const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false }); previewMat.userData.css = isMobile ? 3.3 : 3.7;
+const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .5, depthTest: false, depthWrite: false }); previewEdge.userData.css = isMobile ? 6.3 : 6.9;
 // Dash ends as one-pixel coverage ramps instead of LineMaterial's per-pixel discard: MSAA never smooths a discard and the
 // flowing dashes defeat the temporal resolve, so every dash ended in a stair step (gauntlet r2 crisp: "stepped ends on the dashed arc")
+// Each dash is a rounded box measured in screen px from the line's coordinates, every side fading over its last pixel inside
+// the quad (widths are .5 css px up to keep the weight). The flowing dashes never settle in the temporal resolve, so their
+// sides were MSAA-only and their square corners sat along a curve like a staircase (gauntlet r3 crisp, all four critics: "the
+// dashed flight line steps along its diagonal edges"). DASH_R: the corner radius over the line's half-width, .6 of the white's
+// for both lines (rounded, never pills, which read as a line broken into dots), so the dark edge's corners ring the white's.
+previewMat.defines.DASH_R = '.6'; previewEdge.defines.DASH_R = (.6 * previewMat.userData.css / previewEdge.userData.css).toFixed(3);
 for (const m of [previewMat, previewEdge]) m.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader
   .replace('if ( mod( vLineDistance + dashOffset, dashSize + gapSize ) > dashSize ) discard;', '')
   .replace('float alpha = opacity;', `float alpha = opacity;
     #ifdef USE_DASH
-    { float dp = mod( vLineDistance + dashOffset, dashSize + gapSize ), fw = max( fwidth( vLineDistance ), 1e-5 );
-      alpha *= clamp( ( dp < dashSize ? min( dp, dashSize - dp ) : - min( dp - dashSize, dashSize + gapSize - dp ) ) / fw + .5, 0., 1. );
+    { float dp = mod( vLineDistance + dashOffset, dashSize + gapSize ), fl = max( fwidth( vLineDistance ), 1e-5 ), hw = 1. / max( fwidth( vUv.x ), 1e-5 );   // hw: half the line's width, px
+      float e = ( dp < dashSize ? min( dp, dashSize - dp ) : - min( dp - dashSize, dashSize + gapSize - dp ) ) / fl, r = min( hw * DASH_R, .5 * dashSize / fl );   // e: px inside the dash
+      vec2 q = vec2( r - e, abs( vUv.x ) * hw - hw + r );
+      alpha *= clamp( r - length( max( q, 0. ) ) - min( max( q.x, q.y ), 0. ), 0., 1. );
       if ( alpha <= 0. ) discard; }
     #endif`); };
 const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();

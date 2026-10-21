@@ -36,11 +36,15 @@ export function createTemporal() {
   // Phones: the resolved frame is shown through a 5-tap sharpen clamped to its own neighbourhood (no halos), the way Unreal
   // sharpens after TAA. The blind check against round 1 had the resolve winning edges (crisp 3/4) but losing texture: mulch,
   // turf and leaf clusters read "slightly smeared" (ground 0/4, trees 0/4). Drawn after the history is saved, so it never compounds.
+  // The taps sit 2 px out, not 1: a 1 px Laplacian has its peak gain (2.6x) at the pixel grid's own frequency, so it blew
+  // every near-Nyquist residue (the jersey knit, grass and leaf speckle, chain links, the last step of a silhouette) back up
+  // into a hard pixel checker that critics read as "crisp hard-cut edges, stippled dots". At 2 px the gain is 1.4x on 4 px
+  // texture detail (what the turf and bark carry), 1.2x at 8 px and exactly 1x at the pixel grid: texture sharp, edges as resolved.
   const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, uTexel: u.uTexel }, vertexShader: VS, depthTest: false, depthWrite: false,
-    fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel;varying vec2 vUv;void main(){
-      vec3 c=texture2D(tCur,vUv).rgb,n=texture2D(tCur,vUv+vec2(0.,uTexel.y)).rgb,s=texture2D(tCur,vUv-vec2(0.,uTexel.y)).rgb,
-        e=texture2D(tCur,vUv+vec2(uTexel.x,0.)).rgb,w=texture2D(tCur,vUv-vec2(uTexel.x,0.)).rgb;
-      gl_FragColor=vec4(clamp(c+(4.*c-n-s-e-w)*.2,min(c,min(min(n,s),min(e,w))),max(c,max(max(n,s),max(e,w)))),1.); }` }));
+    fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel;varying vec2 vUv;void main(){ vec2 d=2.*uTexel;
+      vec3 c=texture2D(tCur,vUv).rgb,n=texture2D(tCur,vUv+vec2(0.,d.y)).rgb,s=texture2D(tCur,vUv-vec2(0.,d.y)).rgb,
+        e=texture2D(tCur,vUv+vec2(d.x,0.)).rgb,w=texture2D(tCur,vUv-vec2(d.x,0.)).rgb;
+      gl_FragColor=vec4(clamp(c+(4.*c-n-s-e-w)*.1,min(c,min(min(n,s),min(e,w))),max(c,max(max(n,s),max(e,w)))),1.); }` }));
   const lastW = new THREE.Matrix4(), lastP = new THREE.Matrix4(), held = new THREE.Matrix4(), size = new THREE.Vector2();
   let n = 0, w = 0, h = 0, cur = null, hist = null;
   const draw = (renderer, quad) => { const auto = renderer.autoClear; renderer.autoClear = false; quad.render(renderer); renderer.autoClear = auto; };
