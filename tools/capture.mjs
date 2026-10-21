@@ -22,7 +22,7 @@ const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/capture' }, port: { type: 'string', default: '8101' },
   size: { type: 'string', default: '1280x720' }, dpr: { type: 'string', default: '1' }, quality: { type: 'string' },
   moments: { type: 'string', default: 'menu,flyover,tee,putt,scorecard' }, mobile: { type: 'boolean', default: false },
-  url: { type: 'string' }, course: { type: 'string' }, seed: { type: 'string', default: '4' },
+  url: { type: 'string' }, course: { type: 'string' }, seed: { type: 'string', default: '4' }, cpu: { type: 'string', default: '1' },   // --cpu 4: a mid-range phone's CPU (frameMs only)
   chrome: { type: 'string', default: CHROME },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -85,6 +85,7 @@ try {
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: +o.dpr, mobile: o.mobile });
   if (o.mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  if (+o.cpu > 1) await send('Emulation.setCPUThrottlingRate', { rate: +o.cpu });
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.coach', '["aim","throw","both"]'); } catch {}` });   // a returning player: the first-round thumb coach covered a third of the phone tee frame
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `(${clock})(${+o.seed})` });
   if (o.course) await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.course', ${JSON.stringify(o.course)}); } catch {}` });   // pine | meadow | lake | bluff
