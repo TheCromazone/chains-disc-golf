@@ -107,13 +107,8 @@ THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars
 // Alpha-to-coverage cut-outs (leaves, tufts, hair, impostors, banners) ramp over ~2 px centred on the cut, not three's one
 // pixel above it. On a held frame the temporal resolve (temporal.js) averages the jittered coverage into a soft edge, the way
 // Disc Golf Masters' leaves fall off (gauntlet r2 crisp: "hard one-pixel alpha cut-out edges on foliage and hair").
-// Phones ramp over ~6 px (3 fwidth each side): r3 critics still saw "paper cut-out leaf cards" at 1:1, and the phone tier's
-// resolve turns the wide ramp into a feathered leaf edge. Desktop keeps ~2 px: it has no temporal resolve, and a wide ramp on
-// bare 4x MSAA would show as the hardware's coverage dither. ponytail: keyed on the device, not the quality setting (the chunk
-// is read once at compile); a phone switched to Desktop quality keeps the wide ramp.
-const A2C_RAMP = isMobile ? 3 : 1;
 THREE.ShaderChunk.alphatest_fragment = THREE.ShaderChunk.alphatest_fragment.replace('smoothstep( alphaTest, alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )',
-  `smoothstep( alphaTest - min( ${A2C_RAMP}. * fwidth( diffuseColor.a ), alphaTest ), alphaTest + ${A2C_RAMP}. * fwidth( diffuseColor.a ), diffuseColor.a )`);   // capped below so a fully transparent texel never gains coverage
+  'smoothstep( alphaTest - min( fwidth( diffuseColor.a ), alphaTest ), alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )');   // capped below so a fully transparent texel never gains coverage
 const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
 const scene = new THREE.Scene();
