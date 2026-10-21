@@ -50,8 +50,8 @@ export const GROUND_GLSL = `
 float gHash(vec2 p){vec3 q=fract(p.xyx*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}   // no sin(): cheap and stable on phones
 float gNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(gHash(i),gHash(i+vec2(1,0)),f.x),mix(gHash(i+vec2(0,1)),gHash(i+vec2(1,1)),f.x),f.y);}
 #ifdef GROUND_LITE   // Lite: the same turf as Full (r3 nature: its one-octave drift, no clumps, thin patches, scuffs or clover read "a smooth painted green carpet", ground 1/4); only its olive differs
-#define gOlive .7   /* Lite has no grade to ease greens toward olive: the turf does it alone */
-#define gGain vec3(1.2,1.22,1.08)   /* Full's thin patches, rough weeds and clump gaps took ~12% off its lawn (tee hill rgb 91,107,55 -> 82,95,52); this gives it back */
+#define gOlive .66   /* Lite has no grade to ease greens toward olive: the turf does it alone (.7 left the phone's hill at saturation .52-.59, hue 77-93; DGM's turf .40-.51, 60-69). r7's .58 with a yellow gain read pale straw 10-30 m out, one value with the far haze (haze 0/4) */
+#define gGain vec3(1.2,1.22,1.08)   /* Full's thin patches, rough weeds and clump gaps took ~12% off its lawn (tee hill rgb 91,107,55 -> 82,95,52); this gives it back. Green, not yellow: r7's 1.26,1.19,1.04 put the turf round the pin in the cage's hue (camera 1/4) */
 #else
 #define gOlive .62
 #define gGain 1.
@@ -79,18 +79,39 @@ vec3 gCover(vec4 s,vec2 trail,float b){   // gravel, sand, litter over the turf;
   float t=trail.y*(1.-smoothstep(.42,.62,abs(trail.x)+b*.5));
   return vec3(max(smoothstep(.3,.7,s.x+b*.6),t*.95),s.y,smoothstep(.25,.7,s.z+b*.5));
 }
+float gDrift=0.,gDeep=0.;   // Lite: how much of this point gTurf turned to a dry drift or the trodden lane; the caller's putt deepening (below)
 vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-40 m drift, 2-8 m patches, stripes, straw
   vec3 c=zone*(.78+gMacro(p)*.44)*gWarm(p,1.-turf.x);float th=gThin(p);c*=mix(1.14,.74,th);c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.3,1.12,.62),th*.25);
   c*=mix(vec3(.62,.8,.78),vec3(1.22,1.12,.72),smoothstep(.28,.72,gPatchy(p)));   // lush blue-green in the damp, sun-baked yellow-green on the crowns: a lawn is never one green at 640 px
   c*=1.+(smoothstep(-.03,.03,abs(fract(turf.y/7.)-.5)-.25)-.5)*mix(.14,.32,turf.x);   // 3.5 m mown stripes with a mower's crisp edge, fainter in the rough
   c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
   float wn=gWorn(p);c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.4,1.15,.6),wn*.7)*(1.-wn*.16);   // worn patches go straw-olive and a touch darker (thin cover shows thatch)
+  #ifdef GROUND_LITE
+  // r3 nature (phone ground 1/4: "one flat, oversaturated green across the hill"; DGM's fairway is olive with broad yellowed and
+  // trodden zones, colour std between 32 px blocks .12-.16 against our .06): the sward varies at the scale a 640 px frame resolves.
+  // 10-26 m drifts of deeper lush green and of dry, grey-brown thatch, and the walking line up the fairway's middle trodden dull
+  // earth in broken 6-13 m patches. Through gTurf, so the blade carpet goes dry and lush with the ground under it.
+  // r7 retry (ground 4/4 but haze 0/4, camera 1/4, crisp 0/4): its dry drifts were paler and yellower than the lawn (straw at
+  // 10-30 m merged with the far haze and sat in the cage's hue) and its lane switched on a 1.1 m noise (speckle at phone pixels).
+  // Now every drift is darker than the lawn and low in chroma, nothing varies under ~6 m, and gDrift tells the photo detail
+  // over a drift to keep its grain but drop its hue, so green blade streaks never stripe the brown.
+  { float l=dot(c,vec3(.3,.59,.11)),sw=gNoise(p/11.+29.)*.55+gNoise(p/26.+61.)*.45;
+    float lane=turf.x*(1.-smoothstep(1.,4.5,abs(turf.y-1.75)+(gNoise(p/7.+19.)-.5)*3.))*smoothstep(.35,.62,gNoise(p/6.+5.)*.5+gNoise(p/13.+47.)*.5);
+    float dr=smoothstep(.46,.68,sw)*.5;lane*=.5;gDrift=max(dr,lane);
+    c*=mix(vec3(1.),vec3(.84,.94,.84),1.-smoothstep(.25,.45,sw));   // lush: deeper, bluer green
+    c=mix(c,l*vec3(1.12,1.06,.84)*.92,dr);   // dry: dull khaki thatch, a step darker than the green it replaces
+    c=mix(c,l*vec3(1.14,1.02,.84)*.9,lane);   // trodden to dull earth
+    // Round the pin the turf 5-40 m from the eye goes a deeper, cooler green (gDeep: the putt factor x that band, set by the
+    // caller from its own eye distance): r7's pale straw there was one value with the far haze (haze 0/4) and the cage's hue
+    // (camera 1/4); deep green under the yellow cage and before the pale far rows separates all three.
+    c*=mix(vec3(1.),vec3(.66,.82,.68),gDeep); }
+  #endif
   return mix(vec3(dot(c,vec3(.3,.59,.11))),c,gOlive)*vec3(1.05,1.,.9)*gGain;   // summer olive, not lime: a fifth less saturation, a touch warmer
 }`;
 // Full also shades a contact band where each tee pad meets the ground (pads: [x, z, cos yaw, sin yaw], 1.6 x 3.2 m).
 // No derivative bump: dFdx is constant per 2x2 pixel quad, so pebble-scale bumps render as blocky speckle.
 // Fallback when the manifest has no ground tiles: the vertex palette alone (the default color_fragment).
-export function terrainSplat(material, geometry, { splat, turf, pads, lite = false }) {
+export function terrainSplat(material, geometry, { splat, turf, pads, lite = false, air = { value: 0 } }) {   // air: course.js's putt factor (1 round the pin)
   geometry.setAttribute('splat', new THREE.BufferAttribute(splat, 4)); geometry.setAttribute('turf', new THREE.BufferAttribute(turf, 4));
   const tiles = { gLawn: texture('grass'), gRough: texture('turf_rough'), gMottle: texture('turf_mottle'), gGravel: texture('gravel'), gSand: texture('sand'), gDuff: texture('litter') };
   if (!Object.values(tiles).every(Boolean)) return material;
@@ -100,9 +121,9 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
   const tile = (name, s) => `gTile(${name},p,${s},${vec3s(TILE_MEAN[name.slice(1).toLowerCase()])})`;
   material.onBeforeCompile = s => {
     for (const k in tiles) s.uniforms[k] = { value: tiles[k] };
-    s.uniforms.gPads = { value: pads.map(p => new THREE.Vector4(...p)) };
+    s.uniforms.gPads = { value: pads.map(p => new THREE.Vector4(...p)) }; s.uniforms.gAir = air;
     s.vertexShader = 'attribute vec4 splat,turf;varying vec4 vSplat,vTurf;varying vec2 vGround;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSplat=splat;vTurf=turf;vGround=position.xz;');
-    s.fragmentShader = `${lite ? '#define GROUND_LITE\n' : ''}${tiles.gChips ? '#define GROUND_CHIPS\nuniform sampler2D gChips,gChipsN;' : ''}vec3 gChipN=vec3(0.);uniform sampler2D gLawn,gRough,gMottle,gGravel,gSand,gDuff;uniform vec4 gPads[${pads.length}];varying vec4 vSplat,vTurf;varying vec2 vGround;${GROUND_GLSL}
+    s.fragmentShader = `${lite ? '#define GROUND_LITE\n' : ''}${tiles.gChips ? '#define GROUND_CHIPS\nuniform sampler2D gChips,gChipsN;' : ''}vec3 gChipN=vec3(0.);uniform sampler2D gLawn,gRough,gMottle,gGravel,gSand,gDuff;uniform vec4 gPads[${pads.length}];uniform float gAir;varying vec4 vSplat,vTurf;varying vec2 vGround;${GROUND_GLSL}
       vec3 gTile(sampler2D t,vec2 p,float s,vec3 mean){
         vec3 a=texture2D(t,p/s).rgb;
         ${lite ? '' : `vec3 b=texture2D(t,mat2(.8,-.6,.6,.8)*p/(s*1.9)+.37).rgb; float w=smoothstep(.3,.7,gNoise(p/(s*2.7)+11.));
@@ -112,7 +133,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         vec3 detail=mix(${tile('gRough', 1.7)},${tile('gLawn', .9)},vTurf.x);
         detail*=mix(vec3(1.),gTile(gMottle,mat2(.6,.8,-.8,.6)*p,8.,${vec3s(TILE_MEAN.mottle)}),.7);   // two orientations break the photo's diagonal mowing bands into patches
         detail*=mix(1.,dot(gTile(gRough,mat2(-.28,.96,-.96,-.28)*p,5.5,${vec3s(TILE_MEAN.rough)}),vec3(.33)),.45);   // clumps 0.5-2 m wide that still read at 20-80 m, where the fine tiles have gone to their mean (Mobile too: two fetches, mean 1; its mid lawn read "a smooth painted green", ground 1/4)
-        vec3 c=gTurf(p,vColor,vTurf.xy,dry)*mix(detail,vec3(dot(detail,vec3(.33))),dry*.4);
+        ${lite ? 'gDeep=gAir*smoothstep(4.,9.,length(vViewPosition))*(1.-smoothstep(32.,45.,length(vViewPosition)));' : ''}vec3 c=gTurf(p,vColor,vTurf.xy,dry);c*=mix(detail,vec3(dot(detail,vec3(.33))),max(dry*.4,gDrift*1.4));
         vec2 fp=fwidth(p); float fw=max(fp.x,fp.y);   // metres per pixel along the view: the tee camera sees the slope at ~8 degrees, so ~.1 m at 20 m
         float lv=clamp(log2(fw*14./.3),0.,6.),l0=floor(lv),lt=lv-l0,s0=.3*exp2(l0);   // tufts stay ~14 px wide at every distance (7 at the critics' 640 px): a fine octave hands over to one twice as coarse instead of fading to a smooth mean, so the far hill keeps its clumps
         vec2 k0=gCell(p/s0+l0*17.),k1=gCell(p/(s0*2.)+l0*17.+17.);

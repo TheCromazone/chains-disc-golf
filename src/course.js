@@ -260,7 +260,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
   const pads = holes.flatMap(h => [[-.65, -.45], [.65, -.45], [-.65, 2.45], [.65, 2.45]].map(([u, k]) => [h.tee[0] + Math.cos(h.yaw) * u - Math.sin(h.yaw) * k, h.tee[1] - Math.sin(h.yaw) * u - Math.cos(h.yaw) * k, Math.cos(h.yaw), Math.sin(h.yaw)]));   // 1.6 x 3.2 m rectangles the ground shades round and the carpet stays off: four tile each tee's gravel bed round its 5 m mat (props.js BED), 15 cm short of its edging so the turf's blades spill over it
   // Lite drops the blade normal map: the turf photo already carries the grain, and the fetch buys back the splat cost.
-  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, lite: quality === 'low' }));
+  const groundAir = { value: 0 };   // the putt factor (update()), for Lite's deeper turf round the pin (materials.js gDeep)
+  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, lite: quality === 'low', air: groundAir }));
   terrain.receiveShadow = true; group.add(terrain);
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their
@@ -837,9 +838,10 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // the same canopy shading as the 3D leaves, so a far crown is dark into the sun with lit, glowing rims like the near ones.
   const impMap = texture('impostors'), impNormal = texture('impostors_n', { srgb: false });
   const billboard = s => { s.uniforms.treeEye = treeEye; s.uniforms.treeNear = treeNear;
-    s.vertexShader = 'attribute float impCell;attribute vec3 impBark;uniform vec3 treeEye;uniform float treeNear;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;\n' + s.vertexShader
+    s.vertexShader = 'attribute float impCell;attribute vec3 impBark;uniform vec3 treeEye;uniform float treeNear;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;varying vec2 vImpL;\n' + s.vertexShader
       .replace('#include <begin_vertex>', `vec3 impO = instanceMatrix[3].xyz, impT = cameraPosition - impO; impT.y = 0.; impT = normalize(impT + vec3(1e-4, 0., 0.));
         vImpR = vec3(impT.z, 0., -impT.x); vImpT = impT; vImpFlip = sign(instanceMatrix[0].x); vImpBark = impBark;
+        vImpL = position.xy * vec2(abs(instanceMatrix[0].x), length(instanceMatrix[1].xyz)) + fract(impO.xz * .137) * 50.;   // metres on the card, offset per tree
         vec3 transformed = impO + vImpR * position.x * instanceMatrix[0].x + vec3(instanceMatrix[1].x, instanceMatrix[1].y, instanceMatrix[1].z) * position.y;   // the column's x and z lean the card as the 3D tree leans`)
       .replace('#include <project_vertex>', `vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.); gl_Position = projectionMatrix * mvPosition;
         if (distance(impO.xz, treeEye.xz) < treeNear) gl_Position = vec4(2., 2., 2., 1.);`)
@@ -850,7 +852,14 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // ray): back-lit, sunlight reaches the camera-facing leaves only through thin foliage, so direct light falls steeply with
     // depth (between linear and squared: at squared a side-lit spruce stand went flat black-green, its sunlit tips gone) and
     // only the thin rim transmits, while a crown lit from behind the camera keeps its lit face.
-    s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
+    s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;varying vec2 vImpL;\nfloat impH(vec2 p){vec3 q=fract(p.xyx*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}\n' + s.fragmentShader.replace('#include <alphatest_fragment>', full ? '$&' : `{ // Mobile, r3 nature (trees 1/4: "conifers along the skyline copies of the same dark, opaque, evenly tiered silhouette"): every
+      // card frays its own way, holes ~1 m (wider than tall, so whorls go missing) cut where the crown is thin (the baked depth, blue)
+      // and never through the stem (leaf mask, alpha), so each tree in a row shows sky through a different broken outline. Soft over ~1 px.
+      vec4 nc = texture2D(impNormal, vMapUv); vec2 hp = vImpL / vec2(1.3, .8);
+      #define IMP_N(p) mix(mix(impH(floor(p)), impH(floor(p) + vec2(1., 0.)), smoothstep(0., 1., fract(p).x)), mix(impH(floor(p) + vec2(0., 1.)), impH(floor(p) + 1.), smoothstep(0., 1., fract(p).x)), smoothstep(0., 1., fract(p).y))
+      float hv = (IMP_N(hp) * .65 + IMP_N(hp * 2.3 + 7.) * .35) * mix(.75, 1.35, smoothstep(.4, .9, nc.z)) * smoothstep(.3, .9, nc.a), hw = fwidth(hv);
+      diffuseColor.a *= 1. - smoothstep(.6 - hw, .6 + hw, hv); }
+      #include <alphatest_fragment>`).replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
       normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * tz, 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); anyFace = 1.;   // the billboard's normals are a crown average: thinness, not facing, gates what it transmits
       sunThin = smoothstep(.4, .9, n.z); crownDepth = mix(.7, 1., smoothstep(.2, .7, n.z));   // the 3D crown's two depths, from the baked one
       diffuseColor.rgb = mix(diffuseColor.rgb / max(vColor, vec3(1e-3)) * vImpBark, diffuseColor.rgb, leafMask);   // the instance colour is the crown's tint: the stem takes its bark tint instead, as the 3D tree's does
@@ -918,7 +927,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
   // rough, gone on gravel, litter, sand and the pads. Blade tufts stand where mowers miss: at the sign post, along
   // every gravel edge and round the putting circle's rim.
-  group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }));
+  group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed, air: groundAir }));
   // Tufts and fallen leaves are geometry, not photo cards (r4 ground: "sparse billboard cards that stand out as pasted-on
   // sprites"; the putting circle "a smeared brown texture with no real leaf or twig detail"). Both are per hole and only the
   // hole in play draws (setHole), on both tiers: nothing this small reads from another hole, and Full's tee sat at its 2.3M budget.
@@ -1168,7 +1177,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
       FOG.putt = k;   // effects.js's Aerial pass grades Full's putt by it (a plain field, no uniform)
       Object.assign(FOG.shape, { x: m(34, P.clear), y: m(TEE_AIR, P.density), z: m(30, P.knee) }); Object.assign(FOG.air, { x: P.air[0], y: P.air[1], z: quality === 'low' ? m(0, P.air[2]) : 0, w: P.air[3] });   // Lite's Aerial ramp at the putt only: g2 c1 ran it everywhere and the tee lost light 2/2 -> 0/2 (its arch and woods 20-80 m out washed)
-      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm[0]), g: warm.g * m(1, P.warm[1]), b: warm.b * m(1, P.warm[2]) }); const gl = m(1, P.glow); Object.assign(FOG.glow, { r: glow.r * gl, g: glow.g * gl, b: glow.b * gl }); treeAir.value = k; treeKeep.value = m(0, P.keep); sun.intensity = def.sun[4] * m(1, P.sun); sun.shadow.radius = m(2, P.soft); hemi.intensity = 1.5 * m(1, P.fill[0]); scene.environmentIntensity = .5 * m(1, P.fill[1]); gapHole.value.z = m(1.5, P.cut); gapAim.value.w = m(.4, P.aim); gapReach.value.set(m(15, P.reach[0]), m(35, P.reach[1]), m(3.2, P.reach[2])); }   // the putt's canopy gaps (PUTT_AIR.cut, .aim, .reach); the tee and flyover keep 1.5, .4, 15-35 m and 3.2 m cells
+      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm[0]), g: warm.g * m(1, P.warm[1]), b: warm.b * m(1, P.warm[2]) }); const gl = m(1, P.glow); Object.assign(FOG.glow, { r: glow.r * gl, g: glow.g * gl, b: glow.b * gl }); treeAir.value = k; groundAir.value = k; treeKeep.value = m(0, P.keep); sun.intensity = def.sun[4] * m(1, P.sun); sun.shadow.radius = m(2, P.soft); hemi.intensity = 1.5 * m(1, P.fill[0]); scene.environmentIntensity = .5 * m(1, P.fill[1]); gapHole.value.z = m(1.5, P.cut); gapAim.value.w = m(.4, P.aim); gapReach.value.set(m(15, P.reach[0]), m(35, P.reach[1]), m(3.2, P.reach[2])); }   // the putt's canopy gaps (PUTT_AIR.cut, .aim, .reach); the tee and flyover keep 1.5, .4, 15-35 m and 3.2 m cells
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
