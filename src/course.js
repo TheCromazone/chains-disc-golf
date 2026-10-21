@@ -746,10 +746,12 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
           // them at their own value and darkened their highlights, and lost: "B's back rows are darker and heavier"): off the putt
           // (its air is the look group's), rows from 25 m give up a further third of their green and take a fifth more of the sky's
           // haze by 100 m, so each row back is paler and softer than the one in front, the way DGM's stand recedes.
-          float fb = smoothstep(25., 100., length(vViewPosition)) * (1. - treeAir);
-          outgoingLight = mix(vec3(ld), outgoingLight, (1. - .45 * fa) * (1. - .35 * fb));
+          // Toward the sun that haze is the warm forward scatter, not grey, and the crowns keep more of their green: the back-lit stand
+          // glows instead of going olive-grey (c2 first pass: the sunward broadleaf crowns lost their glow).
+          float fb = smoothstep(25., 100., length(vViewPosition)) * (1. - treeAir), sw = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 3.);
+          outgoingLight = mix(vec3(ld), outgoingLight, (1. - .45 * fa) * (1. - .35 * fb * (1. - .5 * sw)));
           #ifdef USE_FOG
-          outgoingLight = mix(outgoingLight, fogColor, .22 * fa + .2 * fb);
+          outgoingLight = mix(mix(outgoingLight, fogColor, .22 * fa), fogColor * mix(vec3(1.), vec3(1.2, 1.08, .78), sw), .2 * fb);
           #endif
           }   // Mobile ("the background trees are no hazier than the foreground ones", trees 0/4): rows past 45 m lose up to a further 45% of their green and take a fifth more of the scene's haze, so the stand steps back in layers; Full has effects.js's aerial pass`}
       }
@@ -863,7 +865,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // and never through the stem (leaf mask, alpha), so each tree in a row shows sky through a different broken outline. Soft over ~1 px.
       vec4 nc = texture2D(impNormal, vMapUv); vec2 hp = vImpL / vec2(1.3, .8);
       #define IMP_N(p) mix(mix(impH(floor(p)), impH(floor(p) + vec2(1., 0.)), smoothstep(0., 1., fract(p).x)), mix(impH(floor(p) + vec2(0., 1.)), impH(floor(p) + 1.), smoothstep(0., 1., fract(p).x)), smoothstep(0., 1., fract(p).y))
-      float hv = (IMP_N(hp) * .65 + IMP_N(hp * 2.3 + 7.) * .35) * mix(.75, 1.35, smoothstep(.4, .9, nc.z)) * smoothstep(.3, .9, nc.a), hw = fwidth(hv);
+      float hv = (IMP_N(hp) * .55 + IMP_N(hp * 2.3 + 7.) * .25 + IMP_N(hp * 6.1 + 3.) * .2)   /* c2: a 20 cm octave breaks each hole's rim into leaf-sized bites (at two octaves the tee's holes were round white dots) */ * mix(.75, 1.35, smoothstep(.4, .9, nc.z)) * smoothstep(.3, .9, nc.a), hw = fwidth(hv);
       diffuseColor.a *= 1. - smoothstep(.6 - hw, .6 + hw, hv); }
       #include <alphatest_fragment>`).replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
       normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * tz, 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); anyFace = 1.;   // the billboard's normals are a crown average: thinness, not facing, gates what it transmits
