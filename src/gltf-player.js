@@ -19,7 +19,7 @@ const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0); 
 // Math.random: a draw from the shared stream moved the hero's pose whenever anything else in the game drew one more or fewer.
 let idleN = 0;
 export const idlePhase = () => (++idleN * .6180339887) % 1;
-const PUTT_RELAX = .9;   // seconds the putt's held finish takes to sink into the idle (setPhase, sample)
+const PUTT_RELAX = 1.1;   // seconds the putt's finish takes to sink into the idle, eased so the arm lingers on the line first (setPhase, sample)
 const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
 // ?liveclips: throws drawn straight from the shared keys (throw-poses.js) instead of the Blender-baked clips, so a key edit shows
 // on a reload without a bake (tools/author-throws.mjs authoring); the shipped game always plays the baked clips
@@ -572,7 +572,7 @@ export function createGLTFCharacter(avatar) {
   function sample(name, at) {
     const action = actions.get(name); if (!action) return;
     if (active !== action) { previous?.stop(); previous = active; active = action; blend = phase === null ? 0 : 1; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
-    blend = Math.min(1, blend + frameDt / fadeFor); active.setEffectiveWeight(blend); previous?.setEffectiveWeight(1 - blend); if (blend === 1) { previous?.stop(); previous = null; fadeFor = .22; }
+    blend = Math.min(1, blend + frameDt / fadeFor); const w = fadeFor > .22 ? blend * blend * (3 - 2 * blend) : blend; active.setEffectiveWeight(w); previous?.setEffectiveWeight(1 - w); if (blend === 1) { previous?.stop(); previous = null; fadeFor = .22; }
     action.paused = true; action.time = THREE.MathUtils.clamp(at, 0, action.getClip().duration - .00001); mixer.update(0);
   }
   const frames = new Map();

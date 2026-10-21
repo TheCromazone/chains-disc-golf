@@ -1308,7 +1308,7 @@ function frame(dt, rawDt, background) {
     const u = leadIn ? Math.min(1, G.releaseT / leadIn) : 1;
     const span = .5 - G.pending.startPhase, ph = G.releaseT < leadIn ? G.pending.startPhase + span * hermite(u, 1, HIT_RATE * leadIn / span) : releasePhase(G.releaseT - leadIn); p.char.setPhase(ph);   // the swipe's end eases into the hit at its speed
     if (!G.pending.fired && ph >= 0.62) { G.pending.fired = true; launchNow(); }
-    if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && (p !== curP() || G.phase === 'flight')) { p.char.keepTravel?.(); p.char.setPhase(null); } }, 350); }   // the athlete stays where the follow-through carried him
+    if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && (p !== curP() || G.phase === 'flight')) { p.char.keepTravel?.(); p.char.setPhase(null); } }, G.lastParams?.throwType === 'putt' ? 0 : 350); }   // the athlete stays where the follow-through carried him; a putt's finish starts sinking at once (gltf-player PUTT_RELAX), as DGM's arm drops while the disc is still in the air
   }
   if (G.flight) updateFlight(dt);
   if (background || contextLost) return; // Keep host authority alive without drawing an unavailable canvas.
