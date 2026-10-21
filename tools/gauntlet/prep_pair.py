@@ -3,10 +3,12 @@
   python tools/gauntlet/prep_pair.py <label> <old_capture_dir> <new_capture_dir> [--pieces all|stills|motion|a,b] [--k 4]
 
 Both capture dirs come from tools/gauntlet/capture-all.sh. Writes art/qa/judge/<label>/<piece>-<i>/{prompt.md, A.jpg, B.jpg}
-and prints the key ({piece: [{"prompt", "new": "A"|"B"}]}). Vote i puts the new build in slot A when i is even. Far less noisy
+and prints the key ({piece: [{"prompt", "new": "A"|"B"}]}). Vote i puts the new build in slot A when i is even. Pieces whose frames are
+pixel-identical in both builds get no pairs and are listed in art/qa/judge/<label>/unchanged.txt (captures are deterministic). Far less noisy
 than two separate comparisons with the reference: use it to decide whether a round made a piece better or worse.
 """
 import argparse, json, pathlib, sys
+import numpy as np
 from prep import STILLS, CRISP, MOTION, ROOT, fit, crop_native, strip, ours_motion
 from PIL import Image
 
@@ -46,16 +48,20 @@ def main():
     old, new = (ROOT / a.old if not pathlib.Path(a.old).is_absolute() else pathlib.Path(a.old)), (ROOT / a.new if not pathlib.Path(a.new).is_absolute() else pathlib.Path(a.new))
     ours = [p for p in list(STILLS) + list(CRISP) + list(MOTION) if not p.startswith('fn-')]   # Fortnite pieces reuse the same frames
     pieces = {'all': ours, 'stills': [p for p in ours if not p.startswith('m-')], 'motion': [p for p in ours if p.startswith('m-')]}.get(a.pieces) or a.pieces.split(',')
-    out = ROOT / 'art/qa/judge' / a.label; key = {}
+    out = ROOT / 'art/qa/judge' / a.label; key = {}; same = []
     for piece in pieces:
+        # Captures are deterministic (tools/vclock.mjs), so a piece whose frames are pixel-identical in both builds cannot have
+        # changed: it gets no pairs (blind critics shown two identical images still pick one, and a guard "collapsed" on that noise).
+        imgs = [(frame(new, piece, i), frame(old, piece, i)) for i in range(a.k)]
+        if all((np.abs(np.asarray(n[0], np.int16) - np.asarray(o[0], np.int16)).max(2) > 8).mean() < .001 for n, o in imgs): same.append(piece); continue
         key[piece] = []
-        for i in range(a.k):
-            n_img, what, extra = frame(new, piece, i); o_img, _, _ = frame(old, piece, i)
+        for i, ((n_img, what, extra), (o_img, _, _)) in enumerate(imgs):
             slot = 'A' if i % 2 == 0 else 'B'
             d = out / f'{piece}-{i}'; d.mkdir(parents=True, exist_ok=True)
             (n_img if slot == 'A' else o_img).save(d / 'A.jpg', quality=92); (o_img if slot == 'A' else n_img).save(d / 'B.jpg', quality=92)
             (d / 'prompt.md').write_text(PROMPT.format(a=d / 'A.jpg', b=d / 'B.jpg', extra=extra, what=what.replace('The cleaner, more filmic, more anti-aliased image wins.', 'The cleaner, more filmic, more anti-aliased image wins.')))
             key[piece].append({'prompt': str(d / 'prompt.md'), 'new': slot})
+    out.mkdir(parents=True, exist_ok=True); (out / 'unchanged.txt').write_text(''.join(p + '\n' for p in same))
     print(json.dumps(key))
 
 if __name__ == '__main__':
