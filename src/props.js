@@ -287,6 +287,8 @@ const CHAIN_GLSL = `{ float sat = max(vColor.r, max(vColor.g, vColor.b)) - min(v
     float joint = smoothstep(0., .15, f) * smoothstep(1., .85, f);
     float face = abs(dot(normalize(normal), normalize(vViewPosition)));
     float hole = odd * smoothstep(.55, .85, face) * smoothstep(.2, .34, f) * smoothstep(.8, .66, f);
+    // links under ~10 px fade to their mean tone: a 2 px hole in a 3 px strand read as "chain strands broken into a stippled dotted texture" (gauntlet r3 crisp)
+    float lod = smoothstep(.06, .16, fwidth(s)); joint = mix(joint, .75, lod * .75); hole *= 1. - lod;   // a soft pinch stays, so they still read as links
     diffuseColor.rgb *= mix(.42, 1., joint) * (1. - .7 * hole) * mix(1., .68, inner);
     metalnessFactor = .5 * joint * (1. - hole); roughnessFactor = mix(.62, .24 + .1 * odd, joint);   // half metal: bright zinc in shade, glints in sun
   } }`;
