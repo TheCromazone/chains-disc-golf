@@ -21,6 +21,10 @@ let idleN = 0;
 export const idlePhase = () => (++idleN * .6180339887) % 1;
 const PUTT_RELAX = 1.1;   // seconds the putt's finish takes to sink into the idle, eased so the arm lingers on the line first (setPhase, sample)
 const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
+// Forearm length: critics read the scan's forearms as "too short for the torso", "stubby". The forearm bones stretch along
+// their length (bone-local y, elbow to wrist); everything mounted on them (the modelled hands, the cuffs, the disc seat and
+// socket) is counter-scaled about the wrist, so the hands keep their size and ride the lengthened wrist rigidly.
+const FORE_LEN = 1.07;
 // ?liveclips: throws drawn straight from the shared keys (throw-poses.js) instead of the Blender-baked clips, so a key edit shows
 // on a reload without a bake (tools/author-throws.mjs authoring); the shipped game always plays the baked clips
 const LIVE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('liveclips');
@@ -460,7 +464,7 @@ export function createGLTFCharacter(avatar) {
     if (o.name.startsWith('accessory_wristband')) o.visible = false; // fitted cloth cuffs replace the scan's loose torus bands
     if (!o.isMesh) return;
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); if (!lod && document.body.classList.contains('gfx-mobile')) o.geometry = smoothArms(o.geometry, o); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const by = i => new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert().elements[13]; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); } }
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); if (!lod && document.body.classList.contains('gfx-mobile')) o.geometry = smoothArms(o.geometry, o); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const bp = i => new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert()), by = i => bp(i).y; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); body.girth(bp(ai[0]), bp(ai[2]), by(ai[1]), by(ai[1]) + handOffset.y + .075); } }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
     // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
@@ -468,6 +472,9 @@ export function createGLTFCharacter(avatar) {
     owned.add(o.material); o.castShadow = true; o.receiveShadow = true; if (o.isSkinnedMesh) o.boundingSphere = REACH;
   });
   if (!joints.elR || !joints.root || !body || !skin) return null;
+  // FORE_LEN: a part mounted on a forearm bone (bone-local, before the bone's stretch) keeps its size and moves with the wrist
+  const wristY = handOffset.y + .075, onWrist = (o, y = o.position.y) => { o.position.y = wristY + (y - wristY) / FORE_LEN; o.scale.y /= FORE_LEN; return o; };
+  const sockOffset = handOffset.clone().setY(wristY + (handOffset.y - wristY) / FORE_LEN);
   // the modelled grip hands (handMorphs), children of the forearm bones, shown in the backhand set-up in place of the tucked
   // scan hand; their skin takes the palette tone the way the body shader turns the scan's (a quarter of the chroma gone)
   const gripMat = new THREE.MeshStandardMaterial({ roughness: .74, vertexColors: true }); owned.add(gripMat);
@@ -488,7 +495,7 @@ export function createGLTFCharacter(avatar) {
   const headwear = createPlayerHeadwear(joints.head, skin, spec, avatar, lod);
   body.tuck(headwear.tuck, skin.skeleton.bones.indexOf(joints.head));   // hat hair: his locks lie down under a covering hat
   const holdHands = {};
-  const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(h); into[name] = h; };
+  const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(onWrist(h)); into[name] = h; };
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.holds)) mount(geo, name, holdHands, 'hold_');
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.rests)) mount(geo, name, restHands, 'rest_');
   const cuffMat = new THREE.MeshStandardMaterial({ color: avatar.accent, roughness: .9 }); cuffMat.color.multiplyScalar(.68); owned.add(cuffMat);
@@ -497,7 +504,7 @@ export function createGLTFCharacter(avatar) {
     const cuff = new THREE.Mesh(cuffGeometry, cuffMat); cuff.name = 'cloth_wristband_' + name;
     cuff.position.fromArray(wrist.position); cuff.scale.set(wrist.x * 1.09, 1, wrist.z * 1.09);
     cuff.visible = avatar.wristband === 'both' || avatar.wristband === (name === 'elR' ? 'right' : 'left');
-    cuff.castShadow = cuff.receiveShadow = true; joints[name].add(cuff);
+    cuff.castShadow = cuff.receiveShadow = true; joints[name].add(onWrist(cuff));
   }
   // rig extras hairCards: the body's share of cards. The m2 scan (male) has none: its hair is sculpted volume in locks, and
   // cards of any length or density over it read at 640 px as the "helmet-like curly hair" critics named, and as a bright
@@ -518,7 +525,7 @@ export function createGLTFCharacter(avatar) {
   let heading = 0;
   function placeSocket() {   // returns the forearm direction in group space
     _gi.copy(group.quaternion).invert();
-    forearm.localToWorld(_v.copy(handOffset)); forearm.getWorldPosition(_e);
+    forearm.localToWorld(_v.copy(sockOffset)); forearm.getWorldPosition(_e);
     _f.copy(_v).sub(_e).applyQuaternion(_gi).normalize();
     hand.position.copy(group.worldToLocal(_v));
     const pitch = Math.acos(THREE.MathUtils.clamp(-_f.y, -1, 1));
@@ -555,7 +562,8 @@ export function createGLTFCharacter(avatar) {
     if (b.position.equals(shownP[i])) b.position.copy(clipP[i]); else clipP[i].copy(b.position);
   }); }
   const remember = () => rigBones.forEach((b, i) => { shownQ[i].copy(b.quaternion); shownP[i].copy(b.position); });
-  function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; group.updateMatrixWorld(true); }
+  // the clips carry scale tracks too (all 1): every path through the mixer ends here, so the stretch is put back each time
+  function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; joints.elR.scale.y = FORE_LEN; if (joints.elL) joints.elL.scale.y = FORE_LEN; group.updateMatrixWorld(true); }
   function blendTo(pose, w, base = null) {   // slerp the bones toward a shared-contract pose: over the mixer output, or over the windup pose the clip was baked from
     // (the mixer skips bones whose value did not change, so a held windup phase is rebuilt from the shared keys instead of read back)
     for (const j of JOINTS) {
@@ -626,7 +634,7 @@ export function createGLTFCharacter(avatar) {
     keepTravel() { if (phase === null || kept) return; group.updateMatrixWorld(true); const a = joints.root.getWorldPosition(new THREE.Vector3()); joints.root.position.x = rootRestX; joints.root.position.z = rootRestZ; group.updateMatrixWorld(true); const b = joints.root.getWorldPosition(new THREE.Vector3()); group.position.x += a.x - b.x; group.position.z += a.z - b.z; kept = true; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
     get heroWeight() { return heroW; },   // blend into the relaxed clubhouse stance
-    gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c)); nrm.copy(s.n).transformDirection(forearm.matrixWorld); } return w; },   // holdDisc: the disc seated in the gripping hand, and how much of it to use
+    gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c).setY(wristY + (s.c.y - wristY) / FORE_LEN)); nrm.copy(s.n).setY(s.n.y / FORE_LEN).transformDirection(forearm.matrixWorld); } return w; },   // undo FORE_LEN's stretch: the seat rides the hand   // holdDisc: the disc seated in the gripping hand, and how much of it to use
     carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
     setGround: fn => motion.setGround(fn),
     lookAt: value => motion.lookAt(value),
