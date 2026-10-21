@@ -76,9 +76,6 @@ float chainsNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2
 // knit (~9 x 6 mm, ~40 repeats across the torso, faded before it aliases), folds bunched over the hem (broken by noise so
 // they never ring the waist), drag folds fanning from each armpit across the chest and back, and the raglan seams from
 // collar to underarm. uFold: hem, armpit and collar heights, armpit half-width.
-// The loose cut also hangs from the chest in long soft folds round the torso (~10 round it, 5 mm deep, deepest over the hem
-// where it gathers, leaning with a 15 cm noise so no two run parallel), and the armpit's drag folds run on 28 cm across the
-// chest in broader ridges: cycle 1's critics still saw "a stiff shell with no drape" against the reference's soft folds.
 const FOLD_GLSL = `uniform vec4 uFold;
 float chainsFolds(vec3 p, float armW) {
   float ax = abs(p.x), s = p.x < 0. ? -1. : 1., torso = 1. - smoothstep(.3, .6, armW);
@@ -89,37 +86,11 @@ float chainsFolds(vec3 p, float armW) {
   h += .0042 * sin(p.y * 180. + 3. * chainsNoise(p * vec3(11., 4., 11.))) * band * brk * (.45 + .55 * smoothstep(.05, .13, ax)) * torso;
   vec2 d = vec2(ax - uFold.w, p.y - uFold.y); float r = length(d), a = atan(d.y, -d.x);
   h += .003 * sin(a * 9. + 1.5 * chainsNoise(p * 18.)) * (1. - smoothstep(.04, .14, r)) * smoothstep(.0, .025, r) * (1. - smoothstep(-.3, .9, a)) * torso;
-  float th = atan(p.x, -p.z), dn = chainsNoise(p * vec3(6., 2.5, 6.));
-  h += .0051 * sin(th * 10. + 4. * dn + (p.y - uFold.x) * 6.) * (1. - smoothstep(uFold.x + .1, uFold.y, p.y)) * (.4 + .6 * chainsNoise(p * vec3(9., 3., 9.) + 11.)) * torso;
-  h += .0045 * sin(a * 6. + 1.5 * chainsNoise(p * 9.)) * smoothstep(.12, .16, r) * (1. - smoothstep(.14, .28, r)) * (1. - smoothstep(-.3, .9, a)) * torso;
   vec2 n0 = vec2(.062, uFold.z - .015), n1 = vec2(uFold.w - .005, uFold.y - .005), e = n1 - n0; float t = clamp(dot(vec2(ax, p.y) - n0, e) / dot(e, e), 0., 1.);
   float sd = length(vec2(ax, p.y) - n0 - e * t); h -= .0016 * exp(-sd * sd / 1.6e-5) * torso;
   return h;
 }
 `;
-// The athlete's sun shadow, body and modelled hands: only his own limbs shade him. Under the tee's canopy the course's soft
-// shadow (course.js) laid the leaves' gaps across the shirt as hard-edged bars and blotches at the near map's 2.3 cm
-// texels: critics read the red shirt as "posterized", "blotchy, painterly shading, almost like a paint filter", "flat,
-// sticker-like lighting that doesn't match the photographic head", against the reference's evenly lit cloth. Blockers
-// more than 1.5 m above the surface (crowns, the arch) now pass; within it (an arm across the chest, the torso over the
-// off arm) 16 fixed Vogel taps two texels wide give a soft edge with no per-pixel noise. Depth units per metre: the near
-// map spans 90 m along the light, the far one 399 (course.js shadow cameras).
-export const bodySun = shader => shader.replace('#include <shadowmap_pars_fragment>', THREE.ShaderChunk.shadowmap_pars_fragment.replace('float sunShadow() {', 'float sunShadowCourse() {') + `
-#if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 1
-float bodyShadow( sampler2D map, float texel, float bias, vec4 coord, float perM ) {
-  coord.xyz /= coord.w; coord.z += bias; if ( coord.z > 1. ) return 1.;
-  float s = 0., reach = coord.z - 1.5 * perM;
-  for ( int i = 0; i < 16; i ++ ) { float d = unpackRGBAToDepth( texture2D( map, coord.xy + vogel[ i ] * texel * 2. ) ); s += d < coord.z && d > reach ? 0. : 1.; }
-  return s * .0625;
-}
-float sunShadow() {
-  vec4 nc = vDirectionalShadowCoord[ 1 ] / vDirectionalShadowCoord[ 1 ].w; vec2 e = abs( nc.xy - .5 );
-  float w = smoothstep( .5, .4, max( e.x, e.y ) ), s = 1., n = 1.;
-  if ( w < 1. ) s = bodyShadow( directionalShadowMap[ 0 ], 1. / directionalLightShadows[ 0 ].shadowMapSize.x, directionalLightShadows[ 0 ].shadowBias, vDirectionalShadowCoord[ 0 ], 1. / 399. );
-  if ( w > 0. ) n = bodyShadow( directionalShadowMap[ 1 ], 1. / directionalLightShadows[ 1 ].shadowMapSize.x, directionalLightShadows[ 1 ].shadowBias, vDirectionalShadowCoord[ 1 ], 1. / 90. );
-  return mix( s, n, w );
-}
-#endif`);
 // pores: a bump of fine noise, ~4 mm cells and a fraction of a millimetre deep, faded out before a cell shrinks under a pixel
 // (far away it would only shimmer). Perturbs `normal` the way three's bump map does (screen-space derivatives).
 export const PORES_GLSL = (pos, k, scale = '260.', depth = '.00028') => `{ vec3 bp = ${pos} * ${scale}; float fade = ${k} * (1. - smoothstep(.35, .9, length(fwidth(bp))));
@@ -220,8 +191,9 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
       // the scan's shirt normals are pocked with pinhole dimples (dark specks round the collar), so the jersey takes 85 % of them:
       // at a quarter, and at half, critics read the fitted shirt as a smooth painted shell with no cloth in it
       .replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace('mapN.xy *= normalScale;', 'mapN.xy *= normalScale * (1. - .15 * chainsJersey) * (1. - .85 * chainsArm);') + '\n' + PORES_GLSL('vJerseyPos', 'chainsSkin') + '\n' + PORES_GLSL('vJerseyPos', 'chainsHair', 'chainsHairK', '.0012')
-        // (the loose 2.5 cm noise rumples and their crease lines are gone: once the canopy stopped hiding them, sunlit, they
-        // banded the shirt in parallel diagonal stripes that critics read as posterized, "almost like a paint filter")
+        // loose rumples across the shirt (round the torso, round the sleeves): the scan's folds are few and shallow, and at
+        // 640 px critics read the jersey as a rigid shell. ~2.5 cm ridges a few mm deep, stretched the way cloth bunches
+        + '\n' + PORES_GLSL('vJerseyPos', 'chainsJersey', 'mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW))', '.004')
         // FOLD_GLSL's knit, hem folds, armpit drag folds and raglan seams, bumped the same way
         + `\n{ float h = chainsFoldH; vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), r1 = cross(sy, normal), r2 = cross(normal, sx); float det = dot(sx, r1);
           vec3 bn = abs(det) * normal - sign(det) * (dFdx(h) * r1 + dFdy(h) * r2); if (dot(bn, bn) > 1e-30) normal = normalize(bn); }`).replace('#include <map_fragment>', `float chainsJersey = 0., chainsRough = 1., chainsKnit = 0., chainsFoldH = 0.;
@@ -269,12 +241,15 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         float grain = fract(sin(dot(floor(vMapUv * 1100.), vec2(12.9898, 78.233))) * 43758.5453);
         col = mix(col, uHair * (.5 + .5 * clamp(lum / uMean[0], .3, 1.4)), zone * (.6 + .4 * grain));
         chainsKnit = (texture2D(uKnit, vec2(vJerseyPos.x * .7 + vJerseyPos.z * .7, vJerseyPos.y) * 16.).r - .49) * ${knitAmp.toFixed(2)} * (w[1] + .5 * w[2] + .6 * w[4]);   // bind-pose projection: ~3 mm cells, the same scale on every island
+        // crease lines along the same rumples the bump draws (a ridge where the noise crosses its mid value): the torso sits in
+        // shade at the tee, where a bump alone shows nothing, so the folds also carry a little occlusion in the cloth's tone
+        { vec3 fp = vJerseyPos * mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW)); float n = chainsNoise(fp) * .7 + chainsNoise(fp * 2.3) * .3;
+          chainsKnit += w[1] * (.06 - .3 * smoothstep(.72, .97, 1. - abs(2. * n - 1.))); }
         // the fold valleys and seams hold a little shade in the cloth's own tone (the torso is in shade at the tee, where a bump shows little)
         chainsFoldH = chainsFolds(vJerseyPos, vArmW) * w[1]; chainsKnit += clamp(chainsFoldH / .0035, -1., 1.) * .16 * w[1]; chainsCloth = w[1] + .4 * w[2];
         // cloth roughness ~.75 with ~3 cm variation (a uniform .89 lit the shirt as one even gradient)
         chainsJersey = w[1]; chainsSkin = w[0]; chainsRough = 1. + w[0] * (.1 + (chainsMot - .5) * .4 + .12 * min(chainsCav, 1.)) + w[3] * (-.22 + (chainsHairS - .5) * .7) + w[1] * ((chainsMot - .5) * .3 + .02) + .2 * (w[2] + w[4]); diffuseColor.rgb = col;
         chainsPanel = uPanelN > .5 ? max(smoothstep(.5, .78, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.3, .45, -vBindN.x * sign(vJerseyPos.x))) : -1.; }`);   // the side panels follow the torso's turn (a hard cut flattened the back into one tone, a wide blend read as a shadow); her folded scan's normals scatter them into shards, so she takes the width-based panels
-    s.fragmentShader = bodySun(s.fragmentShader);
   };
   material.customProgramCacheKey = () => 'chains-body';
   jerseyStyle(material, avatar.jerseyStyle, avatar.accent, 1, [0, 0, 0], 'chainsJersey');
