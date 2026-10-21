@@ -161,7 +161,7 @@ try {
       delete G.throwType; delete G.tween; G.throwType = 'backhand';   // back to plain fields (setupTurn picks the putt)
       G.flight = G.pending = G.tween = null; const x = b[0] + dx / L * 6.5, z = b[1] + dz / L * 6.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 2;
       let tw = null, plan = null;   // the putt is thrown with one fixed plan (the bot's own that went in on run 10's baseline): judged are the stroke and the camera, the reference putt goes in, and a 6.5 m putt is so sensitive that any shift in the shared random stream turned the bot's pick into a lob off the band
-      Object.defineProperty(G, 'tween', { configurable: true, enumerable: true, get: () => tw, set(v) { if (v?.done && !plan && G.phase === 'windup') { plan = { power: .58, yawOffset: 1.44, hyzer: .76, launchOffset: 0 }; v.done = () => c.doThrow(G.cur, plan); } tw = v; } });
+      Object.defineProperty(G, 'tween', { configurable: true, enumerable: true, get: () => tw, set(v) { if (v?.done && !plan && G.phase === 'windup') { plan = { power: .58, yawOffset: 0, hyzer: 0, launchOffset: 0 }; v.done = () => c.doThrow(G.cur, plan); } tw = v; } });
       __motion.reseed(${+o.seed * 1000 + 2}); const m = __motion.mark(); c.setupTurn(0); __motion.delay(3300, m); })()`);
     await seg('putt-settle', { cap: 3000 });
     await seg('putt', { cap: 10000, done: (s, e) => s.t >= first(e, [...GROUND, ...BASKET]) + 1500 });
