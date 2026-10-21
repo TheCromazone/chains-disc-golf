@@ -127,10 +127,7 @@ const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wri
 // swollen wrist knob"). Fingers in a loose cascade, more curl toward the little finger; the thumb lies along the index. Curled
 // progressively toward the little finger, keeping a relaxed wrist and visible finger separation.
 // r3 athlete c1: curled ~8 deg more per joint, the splayed set read as "claw-like hands", "mannequin fingers"
-// r4 athlete (every g5 critic of the tee: "the trailing hand at the right hip is a rigid, splayed claw with no natural curl"):
-// a hanging hand's fingers lie together, so at rest they keep their full width and fall in toward the middle finger, the
-// gaps closing to creases, with a few degrees more curl
-const REST = { curl: [[26, 40, 20], [30, 46, 24], [34, 52, 28], [38, 58, 30]], fall: .22, thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
+const REST = { curl: [[20, 34, 18], [24, 40, 22], [28, 46, 26], [32, 52, 30]], thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const taperAt = y => 1 - GRIP.taper * smooth(.11, 0, y);   // y: metres above the wrist joint
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); return p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
@@ -180,9 +177,7 @@ function gripHand(L, wrist, lod, rest = false, open = false) {
     const mcp = V(...kn), pts = [mcp.clone().add(V(0, .018, 0)), mcp]; let ang = 0, at = mcp.clone();
     for (let j = 0; j < 3; j++) { ang += curl[j] * Math.PI / 180; at = at.clone().add(new THREE.Vector3(-Math.sin(ang), -Math.cos(ang), 0).multiplyScalar(len[j] * k - (j === 2 ? r[3] * k : 0))); pts.push(at); }
     for (const p of pts.slice(2)) turn(p, C, Zt, -t);
-    if (rest) pts.forEach((p, j) => { if (j > 1) p.z *= 1 - REST.fall * (j - 1) / 3; });
-    const slim = rest ? .97 : .88;
-    tube(out, pts, [r[0], ...r].map(x => x * k * slim), seg, steps); axes.push({ pts, r: r[1] * k * slim }); partEnd.push(out.p.length / 3);   // the grip's are slimmer than measured, so a dark gap shows between each pair ("fused, no finger separation")
+    tube(out, pts, [r[0], ...r].map(x => x * k * .88), seg, steps); axes.push({ pts, r: r[1] * k * .88 }); partEnd.push(out.p.length / 3);   // slimmer than measured, so a dark gap shows between each pair ("fused, no finger separation")
   }
   const tp = (rest ? REST.thumb : GRIP.thumb).map(([x, y, z], j) => j < 3 || rest ? V(x, y, z) : turn(new THREE.Vector3(x * k, rimY + y * k, z * k), C, Zt, -t));
   tube(out, tp, GRIP.thumbR.map(x => x * k * .9), seg, steps); axes.push({ pts: tp, r: GRIP.thumbR[2] * k * .9 }); partEnd.push(out.p.length / 3);
