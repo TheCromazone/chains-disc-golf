@@ -138,6 +138,8 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
           float ll=dot(l,vec3(.3,.59,.11));
           l=mix(l,vec3(ll),.2+dp*.3)*vec3(2.4,2.6,2.1)*mix(.62,1.3,dp);   // shredded bark and leaves, 2-6 cm, lit to DGM's (sunlit ~#b08a60, shade ~#5a4632): damp dark patches, sun-bleached ones
           l*=1.+clamp(em*3.,-.4,.4);
+          { float gv=dot(texture2D(gGravel,p/3.4+.5).rgb,vec3(.3,.59,.11)),gs=dot(texture2D(gGravel,p/3.4+.5+vec2(.004,.003)).rgb,vec3(.3,.59,.11)),dm=smoothstep(.52,.68,gNoise(p*.7+29.)*.75+gNoise(p*2.9+3.)*.25)*(1.-smoothstep(5.,12.,d)),pb=smoothstep(.4,.48,gv)*dm;
+            l*=1.-.5*max(smoothstep(.4,.48,gs)-smoothstep(.4,.48,gv),0.)*dm; l=mix(l,vec3(gv)*vec3(1.25,1.2,1.08)*(1.+clamp((gv-gs)*2.5,-.4,.3)),pb*.85); }   // stones scattered through the trodden litter in drifts, the gravel tile's brightest pebbles ("no real pebbles"); 3-12 cm, gone by 12 m
           c=mix(c,l,max(cov.z,reach*smoothstep(.1,.2,ll)*.85)); }
         if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.3).rgb; float ge=(dot(g,vec3(.3,.59,.11))-dot(texture2D(gGravel,p/1.3+vec2(.003,.002)).rgb,vec3(.3,.59,.11)))*(1.-smoothstep(2.,10.,d));   // pebble relief, as the litter's ("flat, uniform grey tiles with no stones or depth")   // packed pea gravel, shaded per pebble in the tile; its contrast eases with distance so it cannot speckle
           g=mix(g,${vec3s([.328, .306, .271])},smoothstep(3.,16.,d)*.25)*vec3(1.5,1.43,1.25)*mix(1.,.62,smoothstep(.55,.85,gNoise(p*.8+3.)))*mix(1.,dot(texture2D(gGravel,mat2(.6,.8,-.8,.6)*p/4.1).rgb,vec3(1.12)),.55);   // packed earth shows in patches; stones three times the size keep a grain at 20 m (Mobile too: its trail read as a flat beige decal)
