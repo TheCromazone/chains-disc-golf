@@ -609,14 +609,16 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
 @media (pointer: coarse) and (min-aspect-ratio: 6/5) {
   #pad { left: 40%; top: calc(70px + var(--sat)); height: auto; padding-left: 12px; padding-right: 12px; }
   #aimZone { top: auto; left: 16px; bottom: calc(76px + var(--sab)); }
-  #power, #powerLabel, #waiting, #releaseTag { left: 63%; }   /* clear of the wind plate on a 390-430 pt tall phone on its side */
+  #waiting { left: 63%; }
+  #pad { padding-bottom: calc(108px + var(--sab)); }
   /* DGM's ring is ~100 px on a phone on its side; ours was 60-76 with its % in the middle, under the swiping thumb. The ring
-     grows, the % rides above it as a pill (the release grade takes its place from the release), and the swipe hint above that */
+     grows, the % rides above it as a pill (the release grade takes its place from the release), and both stand at 53%: left of
+     the swipe hint (centred at 70% over the pad) and of the athlete in the right third, so neither is covered */
+  #power, #powerLabel, #releaseTag { left: 53%; }
   #power { width: 100px; height: 100px; margin-left: -50px; }
   #powerLabel, #releaseTag { bottom: calc(120px + var(--sab)); }
   #powerLabel { transform: translateX(-50%); padding: 3px 11px 2px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; font-size: 17px; text-shadow: none; -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3); }
   body[data-phase='release'] #powerLabel { visibility: hidden; }
-  #pad { padding-bottom: calc(154px + var(--sab)); }   /* the hint over the % pill, and over the wind plate, not into it */
   /* the wind plate under the score plate: at the bottom right it sat on the athlete's hip, who stands in the right third over
      the swipe pad (AIM.driveS), and the left column between the score and the aim pill is open sky and trees */
   #conditions { right: auto; left: 12px; bottom: auto; top: calc(84px + var(--sat)); flex-direction: column; align-items: flex-start; gap: 3px; }

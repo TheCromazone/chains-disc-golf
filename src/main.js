@@ -662,7 +662,7 @@ function resolveThrow(pi, r, f = null) {
   // Out of bounds, your own throw off line: DGM's choice, the drop where it went out (a tap anywhere, or 6 s) or a rethrow from the
   // lie it left, both +1. Bots and online rooms keep the drop (the host's result is the room's; the choice would need a message).
   const choose = !!obFrom && !p.done && isMine(p) && !p.isBot && G.mode !== 'online';
-  if (choose) sub = '+1 penalty · from where it went out, or rethrow';
+  if (choose) sub = '+1 penalty either way';   // the pills under it name the two choices
   UI.toast(title, sub, r.holed ? 2400 : choose ? 6000 : 2000); UI.setHud({ dist: p.lieDist, holed: r.holed });
   cam.hold = r.holed ? null : { fov: cam.fov, shift: cam.shift };   // a miss holds the landing shot (or the putt's locked frame); only a holed throw cuts to the reaction
   G.phase = 'result'; cam.mode = 'result';
