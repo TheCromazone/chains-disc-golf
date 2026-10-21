@@ -260,7 +260,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   }
   const pads = holes.flatMap(h => [[-.65, -.45], [.65, -.45], [-.65, 2.45], [.65, 2.45]].map(([u, k]) => [h.tee[0] + Math.cos(h.yaw) * u - Math.sin(h.yaw) * k, h.tee[1] - Math.sin(h.yaw) * u - Math.cos(h.yaw) * k, Math.cos(h.yaw), Math.sin(h.yaw)]));   // 1.6 x 3.2 m rectangles the ground shades round and the carpet stays off: four tile each tee's gravel bed round its 5 m mat (props.js BED), 15 cm short of its edging so the turf's blades spill over it
   // Lite drops the blade normal map: the turf photo already carries the grain, and the fetch buys back the splat cost.
-  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, lite: quality === 'low' }));
+  const groundAir = { value: 0 };   // the putt factor (update()), for Lite's deeper turf round the pin (materials.js gDeep)
+  const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, lite: quality === 'low', air: groundAir }));
   terrain.receiveShadow = true; group.add(terrain);
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their
@@ -926,7 +927,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
   // rough, gone on gravel, litter, sand and the pads. Blade tufts stand where mowers miss: at the sign post, along
   // every gravel edge and round the putting circle's rim.
-  group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }));
+  group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed, air: groundAir }));
   // Tufts and fallen leaves are geometry, not photo cards (r4 ground: "sparse billboard cards that stand out as pasted-on
   // sprites"; the putting circle "a smeared brown texture with no real leaf or twig detail"). Both are per hole and only the
   // hole in play draws (setHole), on both tiers: nothing this small reads from another hole, and Full's tee sat at its 2.3M budget.
@@ -1176,7 +1177,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
       FOG.putt = k;   // effects.js's Aerial pass grades Full's putt by it (a plain field, no uniform)
       Object.assign(FOG.shape, { x: m(34, P.clear), y: m(TEE_AIR, P.density), z: m(30, P.knee) }); Object.assign(FOG.air, { x: P.air[0], y: P.air[1], z: quality === 'low' ? m(0, P.air[2]) : 0, w: P.air[3] });   // Lite's Aerial ramp at the putt only: g2 c1 ran it everywhere and the tee lost light 2/2 -> 0/2 (its arch and woods 20-80 m out washed)
-      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm[0]), g: warm.g * m(1, P.warm[1]), b: warm.b * m(1, P.warm[2]) }); const gl = m(1, P.glow); Object.assign(FOG.glow, { r: glow.r * gl, g: glow.g * gl, b: glow.b * gl }); treeAir.value = k; treeKeep.value = m(0, P.keep); sun.intensity = def.sun[4] * m(1, P.sun); sun.shadow.radius = m(2, P.soft); hemi.intensity = 1.5 * m(1, P.fill[0]); scene.environmentIntensity = .5 * m(1, P.fill[1]); gapHole.value.z = m(1.5, P.cut); gapAim.value.w = m(.4, P.aim); gapReach.value.set(m(15, P.reach[0]), m(35, P.reach[1]), m(3.2, P.reach[2])); }   // the putt's canopy gaps (PUTT_AIR.cut, .aim, .reach); the tee and flyover keep 1.5, .4, 15-35 m and 3.2 m cells
+      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm[0]), g: warm.g * m(1, P.warm[1]), b: warm.b * m(1, P.warm[2]) }); const gl = m(1, P.glow); Object.assign(FOG.glow, { r: glow.r * gl, g: glow.g * gl, b: glow.b * gl }); treeAir.value = k; groundAir.value = k; treeKeep.value = m(0, P.keep); sun.intensity = def.sun[4] * m(1, P.sun); sun.shadow.radius = m(2, P.soft); hemi.intensity = 1.5 * m(1, P.fill[0]); scene.environmentIntensity = .5 * m(1, P.fill[1]); gapHole.value.z = m(1.5, P.cut); gapAim.value.w = m(.4, P.aim); gapReach.value.set(m(15, P.reach[0]), m(35, P.reach[1]), m(3.2, P.reach[2])); }   // the putt's canopy gaps (PUTT_AIR.cut, .aim, .reach); the tee and flyover keep 1.5, .4, 15-35 m and 3.2 m cells
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
