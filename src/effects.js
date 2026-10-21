@@ -25,10 +25,10 @@ export async function loadSky() { return null; }
 // and baskets (course.js) and the canopy's baked occlusion carry it.
 const GRADE = {
   uniforms: { tDiffuse: { value: null }, uGain: { value: new THREE.Vector3(1.01, .975, .9) }, uLift: { value: new THREE.Vector3(.009, .009, .013) }, uSat: { value: .97 }, uOlive: { value: .28 }, uHue: { value: 1.1 },
-    uCool: { value: new THREE.Vector3(.94, .99, 1.06) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uVeil: { value: new THREE.Vector3(.018, .022, .03) }, uCurve: { value: .25 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
+    uCool: { value: new THREE.Vector3(.94, .99, 1.06) }, uWarm: { value: new THREE.Vector3(1.04, 1, .92) }, uVeil: { value: new THREE.Vector3(.018, .022, .03) }, uCurve: { value: .25 }, uBlack: { value: .035 }, uGrain: { value: .018 }, uVignette: { value: .28 }, uTime: { value: 0 } },
   vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-  fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift,uCool,uWarm,uVeil;uniform float uSat,uOlive,uHue,uCurve,uGrain,uVignette,uTime;varying vec2 vUv;
-    void main(){ vec4 c=texture2D(tDiffuse,vUv); c.rgb=clamp(c.rgb*uGain+uLift,0.,1.);
+  fragmentShader: `uniform sampler2D tDiffuse;uniform vec3 uGain,uLift,uCool,uWarm,uVeil;uniform float uSat,uOlive,uHue,uCurve,uBlack,uGrain,uVignette,uTime;varying vec2 vUv;
+    void main(){ vec4 c=texture2D(tDiffuse,vUv); c.rgb=clamp(c.rgb*uGain+uLift,0.,1.); c.rgb=max(c.rgb-uBlack,0.)/(1.-uBlack);   // r3 d-look: the tee's darkest 5% sat at luma .16 against the reference's .07 (aerial, glare and fill all lift it): a black point under the haze, so near trunks and shade read dark in front of the pale far rows
       c.rgb=mix(c.rgb,c.rgb*c.rgb*(3.-2.*c.rgb),uCurve);
       float l=dot(c.rgb,vec3(.2126,.7152,.0722)), lead=clamp((c.g-max(c.r,c.b))*3.,0.,1.);   // how far green leads: turf and leaves
       c.rgb=mix(vec3(l),c.rgb,uSat*(1.-uOlive*lead)); c.r+=(c.g-c.r)*lead*uHue;
