@@ -40,11 +40,27 @@ export function createTemporal() {
   // every near-Nyquist residue (the jersey knit, grass and leaf speckle, chain links, the last step of a silhouette) back up
   // into a hard pixel checker that critics read as "crisp hard-cut edges, stippled dots". At 2 px the gain is 1.4x on 4 px
   // texture detail (what the turf and bark carry), 1.2x at 8 px and exactly 1x at the pixel grid: texture sharp, edges as resolved.
-  const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, uTexel: u.uTexel }, vertexShader: VS, depthTest: false, depthWrite: false,
-    fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel;varying vec2 vUv;void main(){ vec2 d=2.*uTexel;
-      vec3 c=texture2D(tCur,vUv).rgb,n=texture2D(tCur,vUv+vec2(0.,d.y)).rgb,s=texture2D(tCur,vUv-vec2(0.,d.y)).rgb,
-        e=texture2D(tCur,vUv+vec2(d.x,0.)).rgb,w=texture2D(tCur,vUv-vec2(d.x,0.)).rgb;
-      gl_FragColor=vec4(clamp(c+(4.*c-n-s-e-w)*.1,min(c,min(min(n,s),min(e,w))),max(c,max(max(n,s),max(e,w)))),1.); }` }));
+  // Edges only, the same pass softens instead (r4 crisp: "hard one-pixel cut-out outline on the athlete's hair, ear and forearm,
+  // stair-stepped flag pole, stepped long shadow diagonals"; Disc Golf Masters lands a silhouette over 2-3 px). A silhouette is
+  // a step that survives a 2x2 box: the luma gradient of four 2x2 means 1.5 px out on the diagonals (bilinear taps) carries
+  // most of the 2 px neighbourhood's range, where turf speckle, bark plates and leaf texture average away (ratio < .5). There
+  // the pixel blends toward a blur laid along the edge (+-1, +-2 px: no stair steps) and across it (+-1, +-2 px: a ~3 px
+  // ramp), unsharpened. Guard view (1280 x 720): turf and crowns move ~2/255 on average. r4's global wider resolve won crisp but softened turf and leaves (ground 0/4, trees 0/4).
+  const Q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new Map(), E = (Q.get('edge') || '.04,.11,.45,.8,3,1').split(',').map(Number);
+  const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, uTexel: u.uTexel, uGate: { value: new THREE.Vector4(...E) }, uEdge: { value: new THREE.Vector2(E[4], E[5]) } }, vertexShader: VS, depthTest: false, depthWrite: false,
+    defines: { DBG: String(typeof location !== 'undefined' && /[?&]edgedbg/.test(location.search)) },   // QA: ?edgedbg shows the soften mask
+    fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel,uEdge;uniform vec4 uGate;varying vec2 vUv;
+      vec3 T(vec2 o){ return texture2D(tCur,vUv+o*uTexel).rgb; } float L(vec3 c){ return dot(c,vec3(.299,.587,.114)); }
+      vec2 G(vec2 p){ float a=L(T(p+vec2(-1.5))),b=L(T(p+vec2(1.5,-1.5))),f=L(T(p+vec2(-1.5,1.5))),g=L(T(p+vec2(1.5))); return vec2(b+g-a-f,f+g-a-b)*.5; }
+      void main(){
+      vec3 c=T(vec2(0.)),n=T(vec2(0.,2.)),s=T(vec2(0.,-2.)),e=T(vec2(2.,0.)),w=T(vec2(-2.,0.)),lo=min(c,min(min(n,s),min(e,w))),hi=max(c,max(max(n,s),max(e,w)));
+      vec3 o=clamp(c+(4.*c-n-s-e-w)*.1,lo,hi);
+      vec2 gr=G(vec2(0.)); float m=length(gr),k=smoothstep(uGate.x,uGate.y,m)*smoothstep(.5,.8,m/max(L(hi)-L(lo),1e-3));
+      if(k>0.){ vec2 x=gr/m,t=vec2(-x.y,x.x);
+        if(uEdge.x>0.) k*=smoothstep(uGate.z,uGate.w,min(dot(G(uEdge.x*t),x),dot(G(-uEdge.x*t),x))/m); vec2 y=x*uEdge.y;
+        vec3 bl=c+T(t)+T(-t)+.5*(T(2.*t)+T(-2.*t))+2.*(T(y)+T(-y))+T(2.*y)+T(-2.*y);
+        o=mix(o,bl/10.,k); }
+      gl_FragColor=vec4(DBG?vec3(k):o,1.); }` }));
   const lastW = new THREE.Matrix4(), lastP = new THREE.Matrix4(), held = new THREE.Matrix4(), size = new THREE.Vector2();
   let n = 0, w = 0, h = 0, cur = null, hist = null;
   const draw = (renderer, quad) => { const auto = renderer.autoClear; renderer.autoClear = false; quad.render(renderer); renderer.autoClear = auto; };
@@ -67,12 +83,13 @@ export function createTemporal() {
     resolve(renderer, curTex, histTex) { u.tCur.value = curTex; u.tHist.value = histTex; draw(renderer, resolve); },
     copy(renderer, tex) { u.tCur.value = tex; draw(renderer, copy); },
     // Mobile: the frame was drawn straight to the canvas. Copy it out, resolve back over it, keep the result as history.
-    // Two RGB8 textures at the drawing-buffer size (the canvas is RGB: alpha false), two full-screen passes (resolve, sharpen), two blits.
+    // Two RGB8 textures at the drawing-buffer size (the canvas is RGB: alpha false), two full-screen passes (resolve, sharpen), two blits. Linear
+    // filtering: the sharpen's edge taps sit between texels; every other tap lands on a texel centre, where it reads the same.
     canvas(renderer) {
       if (!cur || cur.image.width !== w || cur.image.height !== h) {
         cur?.dispose(); hist?.dispose(); u.uAlpha.value = 1;
         cur = new THREE.FramebufferTexture(w, h); hist = new THREE.FramebufferTexture(w, h);
-        for (const x of [cur, hist]) Object.assign(x, { format: THREE.RGBFormat, internalFormat: 'RGB8' });   // copyTexSubImage2D may only drop channels, never add alpha
+        for (const x of [cur, hist]) Object.assign(x, { format: THREE.RGBFormat, internalFormat: 'RGB8', minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });   // copyTexSubImage2D may only drop channels, never add alpha
       }
       renderer.copyFramebufferToTexture(cur); t.resolve(renderer, cur, hist); renderer.copyFramebufferToTexture(hist);
       u.tCur.value = hist; draw(renderer, sharpen);
