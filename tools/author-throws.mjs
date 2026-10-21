@@ -226,11 +226,18 @@ const PUTT = [
   // the putting arm hides behind his back whatever it does, so the stroke shows in what the camera does see: the push
   // finishes at shoulder height toward his midline (the hand clears his head's edge instead of sitting behind his shoulder)
   // and the off arm, on the camera's side, swings out from the ribs, elbow bent, as the counterweight, instead of hanging
-  { t: .62, at: [0, -.03, -.07], pelvis: [-5, 10, 0], chest: [-6, -2, 0], head: [6, -2, 0],
-    handR: [-.12, -.14, -.55], elbowR: [-.01, -.10, -.25], handL: [-.18, -.42, -.06], elbowL: [-.10, -.26, .04] },
-  { t: .8, at: [0, -.01, -.10], pelvis: [-4, 6, 0], chest: [-4, 0, 0], head: [4, 0, 0],
-    handR: [-.16, .0, -.60], elbowR: [-.04, -.03, -.30], handL: [-.25, -.36, -.10], elbowL: [-.12, -.25, .03], soleL: [-.24, .03, -.12] },
-  { t: 1, at: [0, -.02, -.10], handR: [-.16, -.02, -.60], elbowR: [-.04, -.05, -.30], handL: [-.24, -.37, -.09], soleL: [-.24, .015, -.12] },
+  // r3 athlete c3 (m-putt critics: "the hand finishes out to the side of the torso, away from the basket", "a short sideways
+  // swing, no push-and-extend along the line"): the finish above sat 16 cm inside the right shoulder at its height, so from
+  // the putt camera (behind his left side, tools: 1.35 m left, 3.5 m back, 1.9 m up) the hand hid behind his head and the
+  // only arm in view was the off arm swinging out low toward the basket: a sideways wave. Now the right shoulder drives
+  // through (the chest opens ~25 deg over the planted feet) and the arm extends fully, straight at the chains, the hand a
+  // little below the shoulder and 25 cm inside the body's centre, so the whole forearm shows past his left shoulder pointing
+  // at the basket and holds there; the off arm stays down by the hip instead of competing with it
+  { t: .62, at: [0, -.03, -.08], pelvis: [-5, 10, 0], chest: [-6, 6, 0], head: [6, -14, 0],
+    handR: [-.16, -.13, -.55], elbowR: [-.03, -.10, -.25], handL: [-.14, -.43, -.02], elbowL: [-.09, -.26, .04] },
+  { t: .8, at: [0, -.01, -.12], pelvis: [-5, 12, 0], chest: [-6, 13, 0], head: [6, -22, 0],
+    handR: [-.32, -.15, -.56], elbowR: [-.12, -.08, -.28], handL: [-.10, -.44, .05], elbowL: [-.08, -.26, .05], soleL: [-.24, .03, -.12] },
+  { t: 1, at: [0, -.02, -.12], handR: [-.32, -.16, -.56], elbowR: [-.12, -.09, -.28], handL: [-.10, -.45, .05], soleL: [-.24, .015, -.12] },
 ];
 
 // ============ the forehand (sidearm) ============
