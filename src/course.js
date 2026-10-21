@@ -921,7 +921,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // Tufts and fallen leaves are geometry, not photo cards (r4 ground: "sparse billboard cards that stand out as pasted-on
   // sprites"; the putting circle "a smeared brown texture with no real leaf or twig detail"). Both are per hole and only the
   // hole in play draws (setHole), on both tiers: nothing this small reads from another hole, and Full's tee sat at its 2.3M budget.
-  const tuftHoles = holes.map(() => []), nx = segX + 1;
+  const tuftHoles = holes.map(() => []), nx = segX + 1, teeLitter = holes.map(() => []);   // teeLitter: x, z of leaves blown against each tee's edges (the tuft block places them, the leaf block draws them)
   const at4 = (arr, o, x, z) => {   // bilinear on the terrain grid
     const gx = clamp((x + W / 2) / W * segX, 0, segX - 1e-3), gz = clamp((z + H / 2) / H * segZ, 0, segZ - 1e-3), ix = gx | 0, iz = gz | 0, fx = gx - ix, fz = gz - iz, a = iz * nx + ix, b = a + nx;
     return lerp(lerp(arr[a * 4 + o], arr[(a + 1) * 4 + o], fx), lerp(arr[b * 4 + o], arr[(b + 1) * 4 + o], fx), fz);
@@ -1002,6 +1002,12 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         const side = trng() * 4 | 0, t = trng(), o = .06 + trng() ** 1.5 * .32, u = side < 2 ? (side ? 1 : -1) * (BED.u + .1 + o) : lerp(-BED.u - .1, BED.u + .1, t), w = side < 2 ? lerp(-BED.f1 - .1, -BED.f0 + .1, t) : side === 2 ? -BED.f1 - .1 - o : -BED.f0 + .1 + o, [x, z] = at(u, w);
         if (trng() < .55 * smooth(.3, .6, noise(x / .9 + 41, z / .9 + 17))) add(x, z, .09 + trng() ** 2 * .28, trng() < .25, offBed);
       }
+      // Leaves blown against the edges the tee camera sees: where the turf meets the gravel and along the bed's timbers, in drifts
+      // (g7 ground: "add ground debris such as leaves and twigs where grass meets the path and the tee frame")
+      for (let k = 0; k < 14000; k++) {
+        const u = (trng() - .5) * 16, w = 3 - trng() * 14, [x, z] = at(u, w), bed = Math.max(Math.abs(u) - BED.u, -w - BED.f1, BED.f0 + w);
+        if (bed > .01 && trng() < Math.max(fringeAt(x, z), bed < .35 ? 1 : 0) * .5 * smooth(.35, .62, noise(x / .8 + 7, z / .8 + 3))) teeLitter[holes.indexOf(h)].push(x, z);
+      }
       spots = rim;
       // The putting circle's rim: no lone tufts at the pole (they read as stickers on the dirt), but clumps crowding the
       // turf's edge where the litter thins out, so the circle frays into grass instead of fading.
@@ -1032,18 +1038,18 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     leafMat.customProgramCacheKey = () => 'chains-leaf-litter';
     const PAL = [[.36, [.62, .43, .22]], [.32, [.42, .26, .12]], [.1, [.24, .15, .08]], [.08, [.78, .58, .16]], [.07, [.66, .3, .09]], [.07, [.34, .36, .12]]];   // linear albedo, the litter tile's own range (its shader lifts the photo ~2.5x)
     const spots = [], starts = [], dens = quality === 'low' ? 85 : 100;   // leaves per m2 under a full litter weight
-    for (const h of holes) {
+    holes.forEach((h, hi) => {
       starts.push(spots.length);
-      for (let k = 0, n = Math.round(Math.PI * 121 * dens); k < n; k++) {
-        const a = lrng() * 6.283, r = .45 + Math.sqrt(lrng()) * 10.5, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r;
-        const l = at4(splats, 2, x, z) + (noise(x * 1.3 + 5, z * 1.3 + 5) - .5) * .5, keep = Math.max(smooth(.25, .65, l), smooth(.05, .25, l) * .07);
-        if (lrng() > keep) continue;
+      for (let k = 0, n = Math.round(Math.PI * 121 * dens), tl = teeLitter[hi]; k < n + tl.length / 2; k++) {
+        let x, z; if (k < n) { const a = lrng() * 6.283, r = .45 + Math.sqrt(lrng()) * 10.5; x = h.basket[0] + Math.cos(a) * r; z = h.basket[1] + Math.sin(a) * r;
+          const l = at4(splats, 2, x, z) + (noise(x * 1.3 + 5, z * 1.3 + 5) - .5) * .5, keep = Math.max(smooth(.25, .65, l), smooth(.05, .25, l) * .07);
+          if (lrng() > keep) continue; } else { x = tl[(k - n) * 2]; z = tl[(k - n) * 2 + 1]; }   // then the tee's drifts
         const twig = lrng() < .07, L = twig ? .1 + lrng() * .18 : .045 + lrng() * .065, w = twig ? .008 + lrng() * .006 : L * (.45 + lrng() * .3);
         let p = lrng(), base = PAL[0][1]; for (const [pr, c] of PAL) { if ((p -= pr) < 0) { base = c; break; } }
         const g = .75 + lrng() * .45, c = twig ? col.setRGB(.26 * g, .19 * g, .13 * g) : col.setRGB(base[0] * g, base[1] * g, base[2] * g);
         spots.push({ m: lay(x, meshY(x, z) + .004, z, lrng() * 6.283, (lrng() - .5) * .3, (lrng() - .5) * .3, w, twig ? .03 : L * (.6 + lrng() * .8), L), c: c.clone() });
       }
-    }
+    });
     perHole(leafGeo, leafMat, spots, starts);
   }
   } finally { Math.random = R0; }
