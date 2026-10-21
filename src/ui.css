@@ -568,6 +568,12 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
      the swipe pad (AIM.driveS), and the left column between the score and the aim pill is open sky and trees */
   #conditions { right: auto; left: 12px; bottom: auto; top: calc(84px + var(--sat)); flex-direction: column; align-items: flex-start; gap: 3px; }
 }
+/* A taller landscape touch screen (tablet, foldable): the wide score plate (min-width 900px) ends ~104 px down, so 84 px put the
+   wind plate over its throw strip; it goes under the plate on one row, and the aim-time shot plan under that */
+@media (pointer: coarse) and (min-aspect-ratio: 6/5) and (min-height: 521px) {
+  #conditions { left: 24px; top: calc(112px + var(--sat)); flex-direction: row; align-items: center; gap: 12px; }
+  #shotPlan { top: calc(156px + var(--sat)); }
+}
 /* A phone on its side: the notch or Dynamic Island takes ~50 px of one long edge (viewport-fit=cover), where the score plate
    and the menu button used to sit. */
 @media (pointer: coarse) and (orientation: landscape) {
