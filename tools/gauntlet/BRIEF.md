@@ -44,7 +44,7 @@ console errors) are in each capture's stats.json: zero console errors, budgets h
 - Keep every test green: `node test/<name>.test.mjs` for each file in test/.
 - Stay inside your files where you can; if you must touch another group's file, keep the change minimal and say so.
 - Commit on your branch with `git commit --author="TheCromazone <matthewcromaz37@gmail.com>"`, message ending with
-  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Do not merge into gauntlet-r2 or master, do not push.
+  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Do not merge into gauntlet-r3 or master, do not push.
 - Never delete reference material or other people's captures.
 
 ## Final answer (structured)
