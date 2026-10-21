@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { windTime, windVec, GROUND_GLSL } from './materials.js';
 
-export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite, seed = 1, air = { value: 0 } }) {
+export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite, seed = 1 }) {
   const nx = segX + 1, nz = segZ + 1, n = nx * nz, f = x => x.toFixed(6);
   const hgt = new Float32Array(n * 4), zone = new Uint8Array(n * 4), spl = new Uint8Array(n * 4);
   for (let i = 0; i < n; i++) {
@@ -47,12 +47,12 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
 
   const eye = new THREE.Vector3(), fwd = new THREE.Vector2(0, 1), dir = new THREE.Vector3();
   const uniforms = { gHeight: { value: maps[0] }, gZone: { value: maps[1] }, gSplat: { value: maps[2] }, gEye: { value: eye }, gFwd: { value: fwd },
-    gLayer: { value: layers.map(([L, a, f0, f1]) => new THREE.Vector4(L, a, f0, f1)) }, gPads: { value: pads.map(p => new THREE.Vector4(...p)) }, windTime, windVec, gAir: air };
+    gLayer: { value: layers.map(([L, a, f0, f1]) => new THREE.Vector4(L, a, f0, f1)) }, gPads: { value: pads.map(p => new THREE.Vector4(...p)) }, windTime, windVec };
   const mat = new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide });
   mat.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = `${lite ? '#define GROUND_LITE\n' : ''}attribute vec4 aRoot;attribute vec2 aSide,aBlade;uniform sampler2D gHeight,gZone,gSplat;uniform vec3 gEye;uniform vec2 gFwd;
-      uniform vec4 gLayer[${layers.length}],gPads[${pads.length}];uniform float windTime,gAir;uniform vec2 windVec;varying vec3 vBlade;varying float vTip;${GROUND_GLSL}
+      uniform vec4 gLayer[${layers.length}],gPads[${pads.length}];uniform float windTime;uniform vec2 windVec;varying vec3 vBlade;varying float vTip;${GROUND_GLSL}
       vec4 gHeightAt(vec2 p,out vec3 n){   // the terrain mesh's own triangles: PlaneGeometry splits each cell along b-d
         vec2 g=(p+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W)},${f(segZ / H)}),c=clamp(floor(g),vec2(0.),vec2(${f(segX - 1)},${f(segZ - 1)})),q=g-c;ivec2 i=ivec2(c);
         vec4 a=texelFetch(gHeight,i,0),b=texelFetch(gHeight,i+ivec2(0,1),0),cc=texelFetch(gHeight,i+ivec2(1,1),0),d=texelFetch(gHeight,i+ivec2(1,0),0);
@@ -84,7 +84,6 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         bp.x+=(sin(windTime*1.7+root.x*.5+root.y*.3)*.012+windVec.x*.04*gust)*t2;bp.z+=(cos(windTime*1.3+root.y*.4)*.008+windVec.y*.04*gust)*t2;
         bladePos=vec3(root.x,ga.x-.01,root.y)+bp*step(.001,sc);   // a dropped blade collapses to a point
         vec2 bn=R*normal.xz;bladeNormal=normalize(gn+vec3(bn.x,0.,bn.y)*.12);   // a low sun would black out blades tilted away; thin blades pass light anyway
-        gDeep=gAir*smoothstep(4.,9.,dCam)*(1.-smoothstep(32.,45.,dCam));   // Lite: the putt's deeper mid-ground turf (materials.js), so the clumps stay the ground's colour
         vec3 c=gTurf(root,zf.rgb*zf.rgb,vec2(fair,ga.y),gDry(sp.w,br))*(.8+.4*fract(aRoot.z*91.7+aBlade.y*7.3));
         c=max(mix(vec3(dot(c,vec3(.3,.59,.11))),c,1.15),0.);   // live blades richer than the turf's average, which includes soil and thatch
         c*=mix(vec3(.9,1.,1.02),vec3(1.12,1.05,.76),fract(aRoot.z*57.3));
