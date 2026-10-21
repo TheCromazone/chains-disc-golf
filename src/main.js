@@ -98,9 +98,9 @@ renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.A
 THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace('vec3 CustomToneMapping( vec3 color ) { return color; }', `vec3 CustomToneMapping( vec3 color ) {
   vec3 c = sqrt( clamp( ACESFilmicToneMapping( color ), 0., 1. ) );   // a gamma-2 display space: sqrt and a square instead of two pows a pixel
   c = clamp( c * vec3( 1.13, 1.08, 1. ) + vec3( 0., .003, .01 ), 0., 1. );   // brighter and warmer than Desktop's gain: no bloom or sun shafts lift it
-  c = mix( c, c * c * ( 3. - 2. * c ), .2 ) + .1 * c * ( 1. - c );
+  c = mix( c, c * c * ( 3. - 2. * c ), .2 ) + .1 * c * ( 1. - c );   // gauntlet r3 look: a softer curve and a small midtone lift (the tee's median luma .26 against the reference's .42, local contrast +70%)
   float l = dot( c, vec3( .2126, .7152, .0722 ) ), lead = clamp( ( c.g - max( c.r, c.b ) ) * 3., 0., 1. );
-  c = mix( vec3( l ), c, 1. - .15 * lead ); c.r += ( c.g - c.r ) * lead * .45;   // 1.04 left Mobile's foliage duller than Desktop's 1.12 grade
+  c = mix( vec3( l ), c, 1. - .15 * lead ); c.r += ( c.g - c.r ) * lead * .45;   // greens 15% off and toward olive (r3: saturation .48 against .32, foliage hue 89 deg against the reference's 74; light critics "oversaturated green")
   c *= mix( vec3( .96, .99, 1.04 ), vec3( 1.03, 1., .94 ), smoothstep( .06, .5, l ) );
   c = mix( vec3( l ), c, mix( .9, 1., smoothstep( .04, .3, l ) ) ) + vec3( .018, .022, .03 ) * ( 1. - l ) * ( 1. - l ) * ( 1. - l );
   c = max( c, 0. ); return c * c; }`);
