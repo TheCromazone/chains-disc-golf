@@ -170,7 +170,8 @@ function tube(out, pts, radii, seg, steps) {   // a finger: centripetal Catmull-
 // b along x, centre cx, cz). Returns positions, indices, a per-vertex occlusion (dark between the digits) and the seat.
 function gripHand(L, wrist, lod, rest = false, open = false) {
   // the free hand hung at the tee "oversized, a spade" next to the forearm: its digits run a little shorter than the grip's
-  const k = L / .19 * (rest ? .9 : 1), seg = lod ? 7 : 10, steps = lod ? 7 : 16, out = { p: [], i: [] }, axes = [];
+  // r3a c2: the grip hand too (g7: "a big pale block", the hand a third wider than the forearm next to Disc Golf Masters')
+  const k = L / .19 * (rest ? .9 : .9), seg = lod ? 7 : 10, steps = lod ? 7 : 16, out = { p: [], i: [] }, axes = [];
   const V = (x, y, z) => new THREE.Vector3(x * k, y * k, z * k);
   // palm: from inside the forearm, through the scan's own wrist, out to the knuckle ridge
   const U = new THREE.Vector3(0, 0, 1), X = new THREE.Vector3(-1, 0, 0), palm = [[.02, wrist.a * .9 / k, wrist.b * .9 / k], [0, wrist.a * .98 / k, wrist.b * .98 / k], [-.025, .033, .019], [-.055, .039, .0165], [-.08, .043, .0155], [-.096, .0435, .015]];
