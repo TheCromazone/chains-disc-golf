@@ -1001,7 +1001,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const leafGeo = new THREE.BufferGeometry(); leafGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); leafGeo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
     const leafMat = toonMaterial({ roughness: .92 });
     const PAL = [[.36, [.62, .43, .22]], [.32, [.42, .26, .12]], [.1, [.24, .15, .08]], [.08, [.78, .58, .16]], [.07, [.66, .3, .09]], [.07, [.34, .36, .12]]];   // linear albedo, the litter tile's own range (its shader lifts the photo ~2.5x)
-    const spots = [], starts = [], dens = quality === 'low' ? 55 : 80;
+    const spots = [], starts = [], dens = quality === 'low' ? 85 : 100;   // leaves per m2 under a full litter weight
     for (const h of holes) {
       starts.push(spots.length);
       for (let k = 0, n = Math.round(Math.PI * 121 * dens); k < n; k++) {
