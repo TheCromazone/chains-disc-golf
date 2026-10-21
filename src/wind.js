@@ -45,12 +45,16 @@ export function createWindFx(scene, holes, height) {
     const pivot = new THREE.Group(); pivot.position.set(x, y + 2.55, z); group.add(pivot);
     const sock = new THREE.Mesh(sockGeo, sockMat); pivot.add(sock); socks.push({ pivot, seed: Math.random() * 9 });
   }
-  let calm = true, camPos = new THREE.Vector3();
-  const update = (t, dt, wind, focus, camera) => {
+  let calm = true, shown = 1, camPos = new THREE.Vector3();
+  // hold: the player is lining up a shot. The ribbons fade out there and come back with the disc: in a held aim frame a
+  // 7 m camera-facing streak hangs still across the woods at flag height and read as a rendering glitch ('a stray white
+  // line', 'floating white arcs', r3 d-look); the HUD's wind readout, the windsocks and the leaning grass carry it then.
+  const update = (t, dt, wind, focus, camera, hold = false) => {
     const ws = Math.hypot(wind[0], wind[1]), k = Math.min(1, ws / 7);
     windVec.value.set(wind[0] / 7, wind[1] / 7);   // grass and leaves lean downwind
     _dir.set(wind[0], 0, wind[1]).normalize();
-    mat.uniforms.strength.value = Math.min(1, Math.max(0, (ws - 1.0) / 4.5));
+    shown = hold ? Math.max(0, shown - dt * 1.5) : Math.min(1, shown + dt * 2);
+    mat.uniforms.strength.value = Math.min(1, Math.max(0, (ws - 1.0) / 4.5)) * shown * shown * (3 - 2 * shown);
     if (camera) camera.getWorldPosition(camPos);
     if (mat.uniforms.strength.value > 0 || !calm) {
       calm = mat.uniforms.strength.value <= 0;
