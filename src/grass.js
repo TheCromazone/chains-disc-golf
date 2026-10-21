@@ -25,7 +25,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   // neighbouring clumps overlap into an even carpet instead of reading as tufts. A 20 px blade barely shows curvature,
   // and one triangle per blade buys three times the blades.
   let s = seed >>> 0 || 1; const rnd = () => (s = Math.imul(s, 1664525) + 1013904223 >>> 0) / 4294967296;
-  const B = lite ? 15 : 34, P = [], S = [], N = [], U = [];
+  const B = lite ? 16 : 34, P = [], S = [], N = [], U = [];
   for (let b = 0; b < B; b++) {
     const a = rnd() * 6.283, r = Math.sqrt(rnd()) * .12, x0 = Math.cos(a) * r, z0 = Math.sin(a) * r;
     const h = .1 * (.45 + rnd() * .55), w = .0035 + rnd() * .003, fa = rnd() * 3.1416, fx = Math.cos(fa), fz = Math.sin(fa);
