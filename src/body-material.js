@@ -5,7 +5,6 @@
 import * as THREE from 'three';
 import { texture } from './assets.js';
 import { rimLight, jerseyStyle } from './materials.js';
-import { steadyShadows } from './temporal.js';
 
 export const REGIONS = ['skin', 'jersey', 'shorts', 'hair', 'socks', 'shoes', 'iris'];
 const DETAIL = [.95, .9, .35, .7, .75, .55, .85];   // how much of the baked shading each region keeps (near-black shorts are mostly sensor noise)
@@ -80,7 +79,7 @@ float chainsNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2
 const FOLD_GLSL = `uniform vec4 uFold;
 float chainsFolds(vec3 p, float armW) {
   float ax = abs(p.x), s = p.x < 0. ? -1. : 1., torso = 1. - smoothstep(.3, .6, armW);
-  vec2 kw = vec2((p.x * .7 + p.z * .7) * 698., p.y * 1047.); float fk = 1. - smoothstep(.12, .3, max(fwidth(kw.x), fwidth(kw.y)) / 6.283);   // gone by a 3.3 px period: at .3-.6 cycles a pixel the shirt's grazing sides kept a half-strength knit at the pixel grid, a hard checker once the phone resolve stopped averaging him (temporal.js)
+  vec2 kw = vec2((p.x * .7 + p.z * .7) * 698., p.y * 1047.); float fk = 1. - smoothstep(.3, .6, max(fwidth(kw.x), fwidth(kw.y)) / 6.283);
   float h = .00035 * sin(kw.x) * sin(kw.y) * fk;
   float band = smoothstep(uFold.x - .01, uFold.x + .02, p.y) * (1. - smoothstep(uFold.x + .07, uFold.x + .17, p.y));
   float brk = smoothstep(.3, .7, chainsNoise(p * vec3(13., 5., 13.) + 3.));
@@ -230,7 +229,6 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   material.customProgramCacheKey = () => 'chains-body';
   jerseyStyle(material, avatar.jerseyStyle, avatar.accent, 1, [0, 0, 0], 'chainsJersey');
   rimLight(material, { strength: .1 });   // a whisper of edge light: stronger, it outlined the jaw and the dark shorts in white
-  const bodyCompile = material.onBeforeCompile; material.onBeforeCompile = s => { bodyCompile(s); steadyShadows(s); };   // phones: no shadow grain on him (temporal.js)
   const setPalette = a => {
     const p = u.uPal.value; p[0].set(a.skin); p[1].set(a.jersey); p[2].set(a.shorts); p[3].set(a.hair === 'none' ? a.skin : a.hairColor);
     p[4].set(a.socks || a.accent); p[5].set(a.shoes); p[6].set(a.eyeColor || '#2b2b2b');

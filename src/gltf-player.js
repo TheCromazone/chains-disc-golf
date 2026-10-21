@@ -9,7 +9,6 @@ import { repairPlayerSkinning } from './player-skinning.js';
 import { createPlayerHeadwear } from './player-headwear.js';
 import { createAthleteMotion } from './athlete-motion.js';
 import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL } from './body-material.js';
-import { steadyShadows } from './temporal.js';
 import { JOINTS, RIGS, readyPose, heroPose, clapPose, dismayPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
@@ -234,22 +233,13 @@ function modelledHand(L, wrist, lod, rest) {
     const Y = y * k, s = 1 - smooth(-.006 * k, -.03 * k, Y), c = 1 - smooth(0, -.04 * k, Y), tb = wrist.b * taperAt(Y) * .95 / (.019 * k), ta = wrist.a * taperAt(Y) * .95 / (.0265 * k);
     return [x * k * (1 + s * (tb - 1)) + c * wrist.cx, Y, z * k * (1 + s * (ta - 1)) + c * wrist.cz];
   };
-  // the build bakes the field's gradient as the normals (computed from the decimated triangles they showed every facet); the fit
-  // carries them through its Jacobian's cofactor (finite differences), so the refitted wrist keeps them smooth too
-  const nm = g.attributes.normal, dn = g.morphAttributes.normal?.[0], e = 1e-4, J = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], c = new THREE.Vector3();
-  const fitN = (x, y, z, nx, ny, nz, out) => {
-    const f0 = fit(x, y, z); [[e, 0, 0], [0, e, 0], [0, 0, e]].forEach(([a, b, cc], j) => { const f = fit(x + a, y + b, z + cc); J[j].set(f[0] - f0[0], f[1] - f0[1], f[2] - f0[2]); });
-    c.crossVectors(J[1], J[2]).multiplyScalar(nx).addScaledVector(_e.crossVectors(J[2], J[0]), ny).addScaledVector(_f.crossVectors(J[0], J[1]), nz).normalize(); out.push(c.x, c.y, c.z);
-  };
-  const p = [], open = [], ao = [], N = [], openN = [];
+  const p = [], open = [], ao = [];
   for (let i = 0; i < n; i++) {
     p.push(...fit(src.getX(i), src.getY(i), src.getZ(i)));
     if (d) open.push(...fit(src.getX(i) + d.getX(i), src.getY(i) + d.getY(i), src.getZ(i) + d.getZ(i)));
-    if (nm) fitN(src.getX(i), src.getY(i), src.getZ(i), nm.getX(i), nm.getY(i), nm.getZ(i), N);
-    if (nm && d && dn) fitN(src.getX(i) + d.getX(i), src.getY(i) + d.getY(i), src.getZ(i) + d.getZ(i), nm.getX(i) + dn.getX(i), nm.getY(i) + dn.getY(i), nm.getZ(i) + dn.getZ(i), openN);
     ao.push(g.attributes.color.getX(i) * 1.2);   // stored over 1.2 so a nail's 1.16 fits the glTF colour range
   }
-  return { p, i: Array.from(g.index.array), ao, n: nm ? N : null, open: d ? open : null, openN: d && dn ? openN : null, ...gripSeat(k) };
+  return { p, i: Array.from(g.index.array), ao, open: d ? open : null, ...gripSeat(k) };
 }
 function handMorphs(mesh, handOffset, lod) {
   const g = mesh.geometry; if (g.userData.grip) return g.userData.grip;
@@ -300,15 +290,9 @@ function handMorphs(mesh, handOffset, lod) {
     seats[name] = { c: new THREE.Vector3(c.x * side + W.x - E.x, c.y + W.y - E.y, c.z + W.z - E.z), n: new THREE.Vector3(cn.x * side, cn.y, cn.z) };
     // the grip hand's geometry in the forearm bone's frame (bind orientation is identity), mirrored for the left
     const handGeo = (h, q) => {
-      const gp = new Float32Array(h.p.length), gn = h.n && new Float32Array(h.n.length);
-      for (let i = 0; i < h.p.length; i += 3) {
-        const w = smooth(GRIP.wrist[0] * L, GRIP.wrist[1] * L, h.p[i + 1]);   // bend()'s own weight, so the baked normal turns with its vertex
-        bend(_v.set(h.p[i], h.p[i + 1], h.p[i + 2]), q); gp[i] = _v.x * side + W.x - E.x; gp[i + 1] = _v.y + W.y - E.y; gp[i + 2] = _v.z + W.z - E.z;
-        if (gn) { _e.set(h.n[i], h.n[i + 1], h.n[i + 2]); if (w > 0) _e.applyQuaternion(qk.copy(qi).slerp(q, w)); gn[i] = _e.x * side; gn[i + 1] = _e.y; gn[i + 2] = _e.z; }
-      }
+      const gp = new Float32Array(h.p.length); for (let i = 0; i < h.p.length; i += 3) { bend(_v.set(h.p[i], h.p[i + 1], h.p[i + 2]), q); gp[i] = _v.x * side + W.x - E.x; gp[i + 1] = _v.y + W.y - E.y; gp[i + 2] = _v.z + W.z - E.z; }
       const gi = side > 0 ? h.i : h.i.map((v, i) => i % 3 === 1 ? h.i[i + 1] : i % 3 === 2 ? h.i[i - 1] : v);
-      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(gp, 3)); geo.setIndex(gi);
-      if (gn) geo.setAttribute('normal', new THREE.BufferAttribute(gn, 3)); else geo.computeVertexNormals();
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(gp, 3)); geo.setIndex(gi); geo.computeVertexNormals();
       // a vertex whose triangles all collapsed (a cap ring shrunk to its tip) gets a zero normal, normalize() in the shader
       // turns it into NaN, and bloom spreads that one pixel into a glowing white square on the hand
       const nm = geo.attributes.normal; for (let i = 0; i < nm.count; i++) if (!(Math.hypot(nm.getX(i), nm.getY(i), nm.getZ(i)) > 1e-6)) nm.setXYZ(i, 0, 1, 0);
@@ -320,7 +304,7 @@ function handMorphs(mesh, handOffset, lod) {
     holds[name] = handGeo(gh, restingWrist);
     // One continuous hand from the seated backhand grip through the pull and
     // open follow-through. Switching meshes at a grip threshold popped the wrist.
-    const opened = mg ? handGeo({ ...mg, p: mg.open, n: mg.openN }, restingWrist) : rests[name];   // the modelled rest hand is its own mesh: the grip opens its own vertices
+    const opened = mg ? handGeo({ ...mg, p: mg.open }, restingWrist) : rests[name];   // the modelled rest hand is its own mesh: the grip opens its own vertices
     holds[name].morphAttributes.position = [opened.attributes.position, hands[name].attributes.position];
     holds[name].morphAttributes.normal = [opened.attributes.normal, hands[name].attributes.normal];
     const delta = (Q, M, idx = hand) => {
@@ -484,9 +468,6 @@ export function createGLTFCharacter(avatar) {
     .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.')); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove
   gripMat.customProgramCacheKey = () => 'chains-grip'; rimLight(gripMat, { strength: .1 });
-  // phones: no rim light (sharp, with no history, it drew a pale band round the fist against the dark grass, g13 crisp: "a
-  // bright, hard-edged pale rim") and a grain-free sun penumbra (temporal.js steadyShadows); Desktop draws them as before
-  const gripCompile = gripMat.onBeforeCompile; gripMat.onBeforeCompile = s => { gripCompile(s); steadyShadows(s); s.fragmentShader = s.fragmentShader.replace('rimLight.a', 'rimLight.a * ( 1. - chainsSteady )'); };
   const gripSkin = a => { const c = gripMat.color.set(a.skin), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.setRGB((l + (c.r - l) * GRIP.chroma) * .93, (l + (c.g - l) * GRIP.chroma) * .96, (l + (c.b - l) * GRIP.chroma) * 1.25).multiplyScalar(GRIP.tone); };   // the body's cooler white balance
   gripSkin(avatar);
   const headwear = createPlayerHeadwear(joints.head, skin, spec, avatar, lod);
