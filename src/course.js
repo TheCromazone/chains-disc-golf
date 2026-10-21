@@ -997,9 +997,12 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       spots = rim;
       // The putting circle's rim: no lone tufts at the pole (they read as stickers on the dirt), but clumps crowding the
       // turf's edge where the litter thins out, so the circle frays into grass instead of fading.
-      for (let k = 0; k < 11000; k++) {
+      // In crowds of 2-7, 10-34 cm, round a seed (r3 ground: one-by-one they read 'sparse, evenly spaced billboard sprites').
+      for (let k = 0; k < 4200; k++) {
         const a = trng() * 6.283, r = 1 + Math.sqrt(trng()) * 10, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r, l = at4(splats, 2, x, z);
-        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29))) add(x, z, .1 + trng() ** 2 * .14, trng() < .2);
+        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29))) {
+          const big = .1 + trng() ** 1.5 * .24, dry = trng() < .2;
+          for (let j = 2 + trng() * 6 | 0; j > 0; j--) { const b = trng() * 6.283, d = Math.sqrt(trng()) * (.08 + big * .7); add(x + Math.cos(b) * d, z + Math.sin(b) * d, big * (.45 + trng() * .65), dry && trng() < .7); } }
       }
       for (const t of trees) if (Math.hypot(t.x - h.basket[0], t.z - h.basket[1]) < 20) foot(t);   // and round the pin, in front of the putt lens
     }
