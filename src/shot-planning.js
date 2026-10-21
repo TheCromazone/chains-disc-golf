@@ -1,4 +1,5 @@
-import { simulate } from './physics.js';
+import { simulate, CHAIN_MID } from './physics.js';
+export { CHAIN_MID };
 
 // A starting power for the preview, not an automatic throw. It is recalculated
 // when equipment or lie changes, and after aiming settles. The player still
@@ -22,9 +23,8 @@ export function suggestPower(params, world) {
 // world so it never caroms off the pole and loops back. It used to carry 70% of a fixed 72% flight, which from 6.5 m sailed
 // over the cage, far up and left, and came back down out of frame. `cross` is its height over the basket's foot there (null:
 // it lands short).
-export const CHAIN_MID = 1.03;   // physics.js hitBasket: the chains catch from .72 to 1.34 m
 export function basketLine(params, world, every = 3) {
-  const b = world.basket, { traj } = simulate(params, { ...world, treesNear: () => [], basket: null }, { record: true, every, maxT: 6 });
+  const b = world.basket, { traj } = simulate(params, { ...world, treesNear: () => [], basket: null }, { record: true, every, maxT: 6, basket: b });
   traj.unshift([...params.pos, 0, 1, 0, 0]);   // from the release point itself: the line leaves his hand
   if (!b) return { traj, cross: null };
   const [dx, dz] = params.dir, [x0, , z0] = params.pos, along = q => (q[0] - x0) * dx + (q[2] - z0) * dz, D = along([b.x, 0, b.z]);
