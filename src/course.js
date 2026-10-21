@@ -311,8 +311,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const VARIANTS = {}; for (const v in IMPOSTOR) VARIANTS[v.replace(/\d+$/, '')] = (VARIANTS[v.replace(/\d+$/, '')] || 0) + 1;   // how many each species has
   // wide: an open-side or clearing stand tree varies twice as much, no taller or stouter than the most (w6: the pines behind
   // the arch read as cloned straight poles of one girth); the rest keep the narrow range
+  // Conifers' height varies +-17% more on a finer hash, so neighbours along the skyline differ (r3 trees: 'pine silhouettes along the skyline repeat identically').
   const plant = (x, z, s, rot, kind, pine, wide = 0) => {
-    const y = height(x, z), D = DIMS[kind], sy = 1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16), g = 1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36), lean = wide ? .22 : .12;
+    const y = height(x, z), D = DIMS[kind], sy = 1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16) - (kind === 'spruce' || kind === 'scots' ? (noise(x * 1.37 + 71, z * 1.37 + 3) - .5) * .34 : 0), g = 1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36), lean = wide ? .22 : .12;
     (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.min(VARIANTS[kind] - 1, Math.floor(noise(x * .37 + 13, z * .37 + 5) * VARIANTS[kind])), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * lean, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * lean, sy, g });
     const t = { x, y, z, r: D[0] * s * g, h: D[1] * s * sy, fy: D[2] * s * sy, fr: D[3] * s * (g + sy) / 2 }; trees.push(t); return t;
   };
