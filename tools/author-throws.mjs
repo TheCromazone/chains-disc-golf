@@ -217,10 +217,13 @@ const XSTEP = [
   // r10 athlete c1: the arm reached full length by .8 and held it into the drive's .40, three critic frames of one pose; now
   // the disc wraps in front of the chest at the cross-step (.62), is half way back at .8 and reaches full length only at the
   // coil, the knees sinking all the way, so each 0.15 s frame shows a new shape: wrap, reach, coil
+  // r10 athlete c2 (the one build-vs-build loss: "frame 2 holds the disc flat in front of the chest, a stall, then it jumps
+  // back"): the hand leaves the chest at the cross-step and is ~2/3 of the way back by .8, so the critics' second frame (x-step
+  // .75) already shows the disc travelling back past the shoulder and the reach keeps building into the coil
   { t: .62, at: [-.02, -.17, .40], pelvis: [-9, 90, -1], chest: [-24, 64, 3], head: [2, -80, 0], soleL: [-.27, 0, .29], footL: 70,
-    soleR: [.06, 0, .95], handR: [.08, -.10, .31], elbowR: [.02, -.07, .18] },
+    soleR: [.06, 0, .95], handR: [.08, -.10, .38], elbowR: [.05, -.07, .21] },
   { t: .8, at: [-.03, -.19, .22], pelvis: [-9, 97, -1], chest: [-27, 102, 4], head: [3, -84, 0],
-    soleR: [-.05, .09, .28], footR: 85, handR: [.10, -.10, .45], elbowR: [.09, -.06, .24] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
+    soleR: [-.05, .09, .28], footR: 85, handR: [.12, -.10, .53], elbowR: [.10, -.06, .28] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
   { t: .9, chest: [-27, 110, 4], handR: [.14, -.09, .58], elbowR: [.10, -.05, .30] },
   { ...coil, t: 1 },
 ];
