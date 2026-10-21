@@ -246,7 +246,10 @@ export const STANCE_F = {};   // round 12: his screen-space address (small forea
 // Golf Masters address: the forearm lies across the front of the chest from an elbow bent ~68°, rolled palm-down, and the hand
 // hangs off it in ~64° of plain wrist flexion (gltf-player.js GRIP.cock, no deviation or twist), so the back of the hand and
 // the curled fingers face the lens with the plate level, reaching back under the forearm across the chest.
-export const STANCE_M = { backhand: { shR: [.752, -.603, -.48], elR: [1.186, 2.46, 0] } };
+// The plate reaches back ~35° off square to the lens (further round, the disc foreshortened to a stub behind the hand). The off
+// arm hangs a little longer, elbow soft, its hand turned so the lens sees the curl of the fingers from the side rather than four
+// fingertips pointing down off the back of the hand ("a lumpy fist", "a stiff claw").
+export const STANCE_M = { backhand: { shR: [.609, -.711, -.663], elR: [1.29, 2.622, 0], shL: [.38, 0, -.2], elL: [.8, -.2, 0] } };
 export function readyPose(type, time, rig = RIGS.lite, over = null) {
   const family = type.split('_')[0], stance = { ...(STANCE[family] || STANCE.forehand), ...over?.[family] }, breath = Math.sin(time * 1.3), pose = { rootY: 0 };
   for (const j of JOINTS) pose[j] = [...(stance[j] || IDLE[j])];

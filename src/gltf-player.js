@@ -125,7 +125,7 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
 // r3 athlete: his cock is re-solved with throw-poses.js STANCE_M as plain flexion (~64° with `flex`) off a palm-down forearm, so
 // the lens sees the knuckles; hers (cockF) keeps the round-14 solve that goes with STANCE.backhand.
-const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [.051, .035, -.623], cockF: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-.011, -.005, -.577], cockF: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
