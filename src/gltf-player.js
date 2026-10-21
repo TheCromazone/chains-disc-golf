@@ -486,7 +486,7 @@ export function createGLTFCharacter(avatar) {
   const handed = name => lefty && actions.has(name + '_left') ? name + '_left' : name;
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map(src.animations.map(c => [c.name, mixer.clipAction(c)]));
-  let phase = null, finish = 0, throwType = handed('backhand'), active = null, time = Math.random() * 8, mood = null, previous = null, blend = 1, frameDt = 0, locomotion = null;
+  let phase = null, throwType = handed('backhand'), active = null, time = Math.random() * 8, mood = null, previous = null, blend = 1, frameDt = 0, locomotion = null;
   // Aim stance. main.js steers faceDir every frame for the player lining up a throw and for the menu hero; only the player
   // also grips the disc for a throw (holdDisc asks releaseFrame for the selected type), so two steered frames plus a grip
   // request mean "aiming" and the coiled stance blends over the idle clip, following the throw picker through aimType.
@@ -570,7 +570,7 @@ export function createGLTFCharacter(avatar) {
   const api = {
     group, hand, elbow: forearm, joints, avatar, source: 'glb', releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},
     setFace(value) { body.setPalette(value); gripSkin(value); hairShow(value); headwear.setFace(value); },
-    setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { if (p === null || phase === null) kept = false; finish = p === null && phase >= .95 && /^putt/.test(throwType) ? .7 : 0; phase = p; if (p !== null) mood = null; },
+    setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { if (p === null || phase === null) kept = false; phase = p; if (p !== null) mood = null; },
     // the end of a throw: move the athlete to where the follow-through left him (the travel becomes the group's position), so
     // the idle that follows starts there instead of sliding back to the lie
     keepTravel() { if (phase === null || kept) return; group.updateMatrixWorld(true); const a = joints.root.getWorldPosition(new THREE.Vector3()); joints.root.position.x = rootRestX; joints.root.position.z = rootRestZ; group.updateMatrixWorld(true); const b = joints.root.getWorldPosition(new THREE.Vector3()); group.position.x += a.x - b.x; group.position.z += a.z - b.z; kept = true; },
@@ -588,9 +588,6 @@ export function createGLTFCharacter(avatar) {
       let name = null;
       if (phase !== null) { const a = actions.get(throwType); sample(throwType, phase * (a?.getClip().duration || 1)); }
       else if (mood) { mood.t += dt; sample(mood.name, mood.t); if (mood.t >= (actions.get(mood.name)?.getClip().duration || 2.4)) mood = null; }
-      // r3 athlete c2: a putt holds its finish (the arm out on the line, the off arm out as the counterweight) ~.7 s before the
-      // idle takes over; it dropped to the idle .35 s after the stroke ended and critics read "arms limp at his sides by frame 3"
-      else if (finish > 0 && !locomotion) { finish -= dt; const a = actions.get(throwType); sample(throwType, a?.getClip().duration || 1); }
       else { name = handed(locomotion || 'idle'); sample(name, time % (actions.get(name)?.getClip().duration || 4)); }   // ponytail: no more practice-swing cycle; the cover-shot pose holds, play('practice') still works
       unstale(); settle();
       if (LIVE && phase !== null) { let pose = poseAt(keysFor(throwType.replace(/_left$/, '')), phase); if (lefty) pose = mirrorPose(pose); pose.rootY = -Math.min(...soleHeights(pose, false, RIGS.glb)); blendTo(pose, 1); }
