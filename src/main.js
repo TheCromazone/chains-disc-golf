@@ -795,7 +795,9 @@ function updatePreview() {
   // from behind his shoulder its first metre runs behind his body, so it emerges from him instead of dropping in from the upper
   // right (its first 1.5 m, rising, sat over his head in the putt lens) or painting over him.
   for (const m of [previewMat, previewEdge]) m.depthTest = !assist;
-  const lie = curP().lie, pts = (guided ? r.traj : assist ? r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))) : basketLine(o, world).traj).filter((q, i, a) => i >= a.length - 2 || !assist || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);
+  // A putt's line stops ~1.2 m short of the pole, pointing into the chains: run on into the cage its last dashes crossed the
+  // band and chains, 'a row of white dashes cutting through the top of the basket' (r3 camera), and the basket is the target.
+  const lie = curP().lie, pts = (guided ? r.traj : assist ? r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))) : basketLine(o, world).traj.filter((q, i) => i < 2 || distToBasket(q[0], q[2]) > 1.2)).filter((q, i, a) => i >= a.length - 2 || !assist || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);
   const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
   for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); l.visible = !(G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4); }   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the ground arrow aims it
   previewMat.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
@@ -1320,8 +1322,8 @@ function frame(dt, rawDt, background) {
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : G.phase === 'result' && cam.hold ? cam.look : p ? p.char.group.position : cam.look;
   if (!G.flight && G.phase !== 'result') nearFocus.copy(focus);
   course.update(dt, time, focus, camera.position, nearFocus);
-  puffs.update(dt, camera, renderer); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera, !G.flight && cam.mode === 'aim');
-  previewMat.dashOffset -= dt * 1.6; previewEdge.dashOffset = previewMat.dashOffset;
+  puffs.update(dt, camera, renderer); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera, !G.flight && cam.mode === 'aim' && G.throwType === 'putt');   // held only over a putt: there the level lens puts a ribbon straight across the basket at flag height
+  if (G.throwType !== 'putt') previewMat.dashOffset -= dt * 1.6; previewEdge.dashOffset = previewMat.dashOffset;   // a putt's dashes hold still (its direction is the basket): flowing, the held frame's temporal resolve averaged them into one thin white arc, broken by the bushes ('floating white arcs that look like rendering glitches', r3 d-look)
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   trail.update(camera, !!G.flight);
