@@ -28,9 +28,16 @@ export function setConnecting(id, busy) {
 
 let toastTimer = null;
 export function toast(title, sub = '', ms = 1800) {
+  $('toast').style.bottom = $('react').style.bottom = '';   // verdictAbove's lift is for its own verdict only
   $('toastTitle').textContent = title; $('toastSub').textContent = sub;
   $('toast').classList.add('show'); clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $('toast').classList.remove('show'), ms);
+}
+// The landing verdict sits low (bottom 12-16%), where the landing shot usually holds the disc. y: the disc's height in the frame
+// (0 top, 1 bottom; null: out of view). Below the middle, the verdict's foot stands 28 px over it instead, the clap over that.
+export function verdictAbove(y) {
+  if (y == null || y < .5) return;
+  const b = innerHeight * (1 - y) + 28; $('toast').style.bottom = `${b}px`; $('react').style.bottom = `${b + $('toast').offsetHeight + 4}px`;
 }
 export function fade(on) { $('fade').classList.toggle('on', on); }
 
@@ -56,6 +63,14 @@ export function react(kind) {
   el.className = ''; void el.offsetWidth;
   el.innerHTML = kind === 'good' ? '<span>👏</span>' : [...'WOMP WOMP'].map((c, i) => c === ' ' ? '<b></b>' : `<i style="--i:${i}">${c}</i>`).join('');
   el.className = kind;
+}
+// DGM grades every release over its ring ("-1.3°, Perfect Throw"). Ours names the swipe's power, the pull a shaky stroke put
+// on the line (main.js onGesture) and a grade, so a throw that drifted off line says why.
+let releaseTimer = null;
+export function releaseTag(power, wobble, pull) {
+  const el = $('releaseTag'), grade = wobble < .15 ? 'perfect' : wobble < .4 ? 'good' : 'wobbly';
+  el.textContent = `${Math.round(power * 100)}% · ${pull < 0 ? '−' : '+'}${Math.abs(pull).toFixed(1)}° · ${grade} release`;
+  el.className = 'show ' + grade; clearTimeout(releaseTimer); releaseTimer = setTimeout(() => { el.className = grade; }, 1700);
 }
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
 export function setHud({ hole, par, len, dist, holed, playerName, throwNo, toPar, windText, windDeg, circle, elev }) {
@@ -89,6 +104,19 @@ export function placePin(x, y, alpha) {
   if (key === pinAt) return; pinAt = key;
   const el = $('pin'); el.style.opacity = key ? alpha.toFixed(2) : '0';
   if (key) el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, calc(-100% + 2.5px))`;
+}
+// DGM's "To Throw 61m": the planned landing's distance on a stem hung from the reticle at (x, y) CSS px. Phones fold the top-left
+// suggestion card into it while it shows (ui.css #hud.land-tag). Written only when it changes.
+let landAt = '';
+export function placeLandTag(x, y, on, est = null) {
+  const key = on && est ? `${x.toFixed(1)} ${y.toFixed(1)} ${est.range.toFixed(1)} ${est.left.toFixed(1)} ${est.surface}` : '';
+  if (key === landAt) return; landAt = key;
+  const el = $('landTag'); el.style.opacity = key ? '1' : '0'; $('hud').classList.toggle('land-tag', !!key);
+  if (!key) return;
+  el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, 0)`;
+  $('landDist').textContent = `${est.range.toFixed(est.range < 20 ? 1 : 0)} m`;
+  $('landLeft').textContent = est.danger ? est.surface : est.surface === 'Chains' ? 'in the chains' : `${est.left.toFixed(est.left < 20 ? 1 : 0)} m left${est.surface === 'Rough' ? ' · rough' : ''}`;
+  el.classList.toggle('danger', !!est.danger);
 }
 const equipmentPickers = { throwRow: 'btnThrowPicker', discRow: 'btnDiscPicker' };
 let openEquipment = null;

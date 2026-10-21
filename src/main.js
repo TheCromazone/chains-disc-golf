@@ -10,7 +10,7 @@ import { createPuffs } from './puffs.js';
 import { createCelebration } from './celebration.js';
 import { createWindFx } from './wind.js';
 import { createShotGuide } from './shot-guide.js';
-import { suggestPower } from './shot-planning.js';
+import { suggestPower, basketLine, puttPower } from './shot-planning.js';
 import { createFlightTrail } from './flight-trail.js';
 import { createTemporal } from './temporal.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
@@ -424,7 +424,7 @@ function startHole() {
   UI.setControlsEnabled(false); UI.waiting(null); preview.visible = false;
   G.phase = 'intro'; G.introT = reducedMotion ? introDur(h) : 0; G.aim.pitch = 0; cam.mode = 'intro'; G.overview = false;
   // Broadcast-style title over the flyover (the HUD is hidden while data-phase is 'intro'; set it now so the HUD never flashes).
-  const title = $('holeTitle'); if (title) { title.firstElementChild.textContent = `Hole ${G.holeIdx + 1}`; title.lastElementChild.textContent = `Par ${h.par} · ${Math.round(h.len)} m`; }
+  const title = $('holeTitle'); if (title) { title.firstElementChild.textContent = `Hole ${G.holeIdx + 1}`; title.querySelector('span').textContent = `Par ${h.par} · ${Math.round(h.len)} m`; }
   document.body.dataset.phase = 'intro';
 }
 function updateWindHud() {
@@ -645,7 +645,8 @@ function resolveThrow(pi, r, f = null) {
   else { p.lie = r.rest; title = r.thrown < 1 ? 'Dropped it' : `${Math.round(r.thrown)} m · ${world.rough(r.rest[0], r.rest[2]) > .5 ? 'Rough' : 'Fairway'}`; sub = `${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to the basket${Number.isFinite(r.airTime) ? ` · ${r.airTime.toFixed(1)} s flight` : ''}`; }
   const pickup = !r.holed && p.strokes >= h.par + 5;   // this throw ends the hole at the cap: never a "nice shot"
   // nice: a long throw that ends near the pin, or a putt or approach from inside 20 m that leaves a tap-in (a 10 m putt sliding 5 m past was cheered)
-  if (!r.holed && !r.ob && !pickup && r.thrown > 8 && r.dist < (p.lieDist > 20 ? Math.max(8, p.lieDist * .35) : 2.5)) { title = 'Nice shot!'; sfx.applause(); sfx.voice('nice'); }
+  // the cheer keeps the throw's numbers (DGM's landing callout is the distance thrown): "Nice shot!" used to replace "61 m · Fairway"
+  if (!r.holed && !r.ob && !pickup && r.thrown > 8 && r.dist < (p.lieDist > 20 ? Math.max(8, p.lieDist * .35) : 2.5)) { sub = `${title} · ${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to go`; title = 'Nice shot!'; sfx.applause(); sfx.voice('nice'); }
   // The gallery's verdict: a good throw gets the group clapping (on screen and the other players on the course), a bad one a
   // sad trombone and the thrower's slump. A chain-out already drew its "ohh" in flight.
   const bad = !r.holed && (pickup || r.ob || r.thrown < 1 || r.dist > p.lieDist + 2 || (p.lieDist > 12 && r.thrown < p.lieDist * .3) || (p.lieDist <= 5 && !f?.missReaction));
@@ -662,7 +663,18 @@ function resolveThrow(pi, r, f = null) {
   cam.hold = r.holed ? null : { fov: cam.fov, shift: cam.shift };   // a miss holds the landing shot (or the putt's locked frame); only a holed throw cuts to the reaction
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
-  setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') { nextTurn(); cam.snap = true; } UI.fade(false); }, 320); } }, 2400);
+  // a landing shot's verdict stands over the disc, as DGM's distance callout does (QA: "NICE SHOT!" sat right on the landed disc)
+  if (cam.hold) { camera.updateMatrixWorld(); _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null); }
+  // the verdict holds 2.4 s, or until a tap (skipBeat): DGM is aiming again within a second of most landings
+  const advance = () => { if (G.skipResult !== advance) return; G.skipResult = null; if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') { nextTurn(); cam.snap = true; } UI.fade(false); }, 320); } };
+  G.skipResult = advance; G.resultAt = performance.now(); setTimeout(advance, 2400);
+}
+// A tap on the course cuts the flyover to its flash, and a verdict short once it has been seen (.6 s). Not online: the host
+// paces a room's turns. Taps on buttons and dialogs are theirs (the swipe pad is idle in both beats, and covers half the glass).
+function skipBeat(e) {
+  if (G.mode === 'online' || e.target.closest?.('button,a,input,select,textarea,dialog,.overlay')) return;
+  if (G.phase === 'intro') G.introT = Math.max(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH);
+  else if (G.phase === 'result' && G.skipResult && performance.now() - G.resultAt > 600) G.skipResult();
 }
 function endHole() {
   G.phase = 'holeEnd'; preview.visible = false; UI.setControlsEnabled(false);
@@ -746,6 +758,7 @@ function onGesture(g) {
   // fire
   const th = THROWS[G.throwType], wob = Math.min(1, g.wobble * 1.5);
   const o = { power: g.progress, hyzer: 0, yawOffset: (Math.random() - 0.5) * 6 * wob, launchOffset: G.aim.pitch };
+  UI.releaseTag(g.progress, wob, o.yawOffset);   // the wobble's pull only; the stroke's own lateral aim below is intended
   if (th.latMode === 'hyzer') o.hyzer = Math.max(-35, Math.min(35, g.lateral * 80)); else o.yawOffset += Math.max(-25, Math.min(25, g.lateral * 50));
   UI.setHint(G.throwType, 'longer swipe = more power');
   buzz(15); coach.thrown();
@@ -767,9 +780,10 @@ function updatePreview() {
   if (!G.previewDirty || now - G.lastPreview < 70) return;
   G.previewDirty = false; G.lastPreview = now;
   // The landing guide plans the shot; it never solves the putt. Inside the circle, for putts, and once the swipe starts,
-  // the ribbon stops at 70% of the flight and the ring, readout and power mark go away, so the player's swipe decides it.
+  // the ring, readout and power mark go away, so the player's swipe decides it. A drive's swiped ribbon stops at 70% of the
+  // flight; a putt's (shot-planning.js basketLine) stops at the basket: idle it meets the chains, swiped it shows that power.
   const charging = G.phase === 'windup', assist = G.throwType !== 'putt' && curP().lieDist > 10, guided = assist && !charging;
-  if (G.previewPower == null) G.previewPower = assist ? suggestPower(gestureParams(.72, 0), previewWorld()) : .72;
+  if (G.previewPower == null) G.previewPower = assist ? suggestPower(gestureParams(.72, 0), previewWorld()) : puttPower(gestureParams(.72, 0), world);
   const pw = charging ? Math.max(.10, G.gesture.power) : G.previewPower;
   const o = gestureParams(pw, charging ? G.gesture.lateral : 0);
   const r = simulate(o, previewWorld(), { record: true, every: 6, maxT: 12 });
@@ -777,7 +791,11 @@ function updatePreview() {
   shotGuide.group.visible = guided;
   UI.setShotPlan(guided ? { ...estimate, power: pw } : null, assist ? G.previewPower : null);
   G.shotPreview = { ...estimate, power: pw, rest: r.result.rest, guided };
-  const lie = curP().lie, pts = (guided ? r.traj : r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7)))).filter((q, i, a) => i >= a.length - 2 || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);   // the ribbon starts at the thrower's shoulder instead of slashing across his back
+  // A drive's ribbon starts 1.5 m out, at his shoulder, instead of slashing across his back. A putt's leaves his hand, depth tested:
+  // from behind his shoulder its first metre runs behind his body, so it emerges from him instead of dropping in from the upper
+  // right (its first 1.5 m, rising, sat over his head in the putt lens) or painting over him.
+  for (const m of [previewMat, previewEdge]) m.depthTest = !assist;
+  const lie = curP().lie, pts = (guided ? r.traj : assist ? r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))) : basketLine(o, world).traj).filter((q, i, a) => i >= a.length - 2 || !assist || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);
   const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
   for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); l.visible = !(G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4); }   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the ground arrow aims it
   previewMat.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
@@ -1219,6 +1237,13 @@ function updateCamera(dt) {
   // the camera closes inside ~20 m, where the basket itself is the target. This frame's matrices, so it never trails the drone.
   if (/^(intro|aim|windup|release|flight)$/.test(G.phase)) { camera.updateMatrixWorld(); _v.set(h.basket[0], h.basketY + 2.3, h.basket[1]); const fade = THREE.MathUtils.smoothstep(_v.distanceTo(camera.position), 14, 22); _v.project(camera); UI.placePin((_v.x + 1) / 2 * innerWidth, (1 - _v.y) / 2 * innerHeight, _v.z < 1 ? fade : 0); }
   else UI.placePin(0, 0, 0);
+  // The landing tag (DGM's "To Throw 61m") hangs under the reticle while a planned shot is aimed: down the line a landing short of
+  // the pin sits just under it on screen, so a tag standing over the reticle ran into the pin's own tag. Off the frame it bows out.
+  const sp = G.shotPreview;
+  if (G.phase === 'aim' && preview.visible && sp?.guided && sp.rest) {
+    camera.updateMatrixWorld(); _v.set(sp.rest[0], sp.rest[1] + .05, sp.rest[2]).project(camera);
+    UI.placeLandTag((_v.x + 1) / 2 * innerWidth, (1 - _v.y) / 2 * innerHeight, _v.z < 1 && Math.abs(_v.x) < .92 && _v.y > -.72 && _v.y < .95, sp);
+  } else UI.placeLandTag(0, 0, false);
 }
 
 // ---------- main loop ----------
@@ -1314,6 +1339,7 @@ function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.sel
 function pickDisc(id) { if (G.phase !== 'aim') return; G.discId = id; ensureDisc(curP(), id); curP().discMesh.visible = true; UI.selectDisc(id); G.previewDirty = true; G.previewPower = null; sfx.click(); }
 UI.buildThrowButtons(pickThrow); UI.buildDiscChips(pickDisc);
 $('btnTarget').onclick = () => { if (G.phase === 'aim') { const l = curP().lie; G.aim.yaw = Math.atan2(basketPos()[1] - l[2], basketPos()[0] - l[0]); G.aim.pitch = 0; G.previewDirty = true; G.previewPower = null; G.planDirty = false; sfx.click(); } };
+document.addEventListener('pointerdown', skipBeat);
 $('btnOverview').onclick = () => { if (G.phase !== 'aim') return; G.overview = !G.overview; $('btnOverview').classList.toggle('on', G.overview); $('btnOverview').setAttribute('aria-pressed', String(G.overview)); sfx.click(); };
 // Full screen: Android and iPad browsers can hand the game the whole screen (the button in the course tools). An iPhone's
 // Safari cannot; it plays full screen only from the Home Screen, so the first turn on its side there says how, once.
