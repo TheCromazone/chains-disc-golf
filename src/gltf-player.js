@@ -123,20 +123,10 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // disc reaching back across the chest (the old cock held it level only at the end of a forearm dropping ~33°, which the tee
 // camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
-// r3a c1 (g7, every tee critic: "a blurry, mitten-like lump", "no fingers you can read on the disc"): the rim sat in the palm
-// level with the knuckles, so the fingers curled flat under the plate where a lens above it never sees them, and the tee camera
-// saw only the smooth back of the hand. Now the rim lies across the fingers just above the middle joints: the four proximal
-// phalanges run straight down from the knuckles over the outside of the rim, separate, each with its dark gap, and turn under
-// it at the middle joint with the pads up under the flight plate (Disc Golf Masters' address hand); the thumb's base drops
-// with it so it still lies along the top of the plate.
-const GRIP = { rim: -.12, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
-  fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [14, 96, 54]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [10, 98, 54]],
-    [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [12, 98, 54]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [22, 100, 54]]],
-  thumb: [[-.003, -.012, -.022], [-.008, -.035, -.035], [-.016, -.075, -.046], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
-// the carry (menu hero, the pull after the set-up hands over) keeps the round-16 hold: rim in the palm level with the knuckles,
-// the disc's face turned to the lens there, where fingers hung across the plate read as a claw
-const CARRY = { ...GRIP, rim: -.092, fingers: GRIP.fingers.map(([kn, len, r], f) => [kn, len, r, [[62, 100, 66], [60, 102, 66], [62, 102, 66], [66, 104, 66]][f]]),
-  thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]] };
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
+  fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
+    [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
+  thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
 // The same hand at rest, for the free hand in the set-up: the scan's hanging hand is one fused mitten ("a mitten under a
 // swollen wrist knob"). Fingers in a loose cascade, more curl toward the little finger; the thumb lies along the index. Curled
 // progressively toward the little finger, keeping a relaxed wrist and visible finger separation.
@@ -144,10 +134,7 @@ const CARRY = { ...GRIP, rim: -.092, fingers: GRIP.fingers.map(([kn, len, r], f)
 // r4 athlete (every g5 critic of the tee: "the trailing hand at the right hip is a rigid, splayed claw with no natural curl"):
 // a hanging hand's fingers lie together, so at rest they keep their full width and fall in toward the middle finger, the
 // gaps closing to creases, with a few degrees more curl
-// r3a c1 (g7, every tee critic: "the trailing fist", "a claw-like fist", "a rigid fist" against Disc Golf Masters' "natural
-// open counterweight hand"): the curl roughly halves, the index nearly straight and each finger a little more bent toward the
-// little finger, the thumb out from the index (a hanging hand's thumb falls forward, not along the fingers)
-const REST = { curl: [[10, 16, 8], [14, 24, 12], [18, 30, 14], [22, 36, 16]], fall: .22, thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.015, -.056, -.047], [-.022, -.076, -.053], [-.028, -.098, -.052]] };
+const REST = { curl: [[26, 40, 20], [30, 46, 24], [34, 52, 28], [38, 58, 30]], fall: .22, thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const taperAt = y => 1 - GRIP.taper * smooth(.11, 0, y);   // y: metres above the wrist joint
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); return p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
@@ -173,7 +160,7 @@ function tube(out, pts, radii, seg, steps) {   // a finger: centripetal Catmull-
 }
 // The grip hand in hand-local metres (before the wrist flex), for a hand of drop L and a measured wrist (half sizes a along z,
 // b along x, centre cx, cz). Returns positions, indices, a per-vertex occlusion (dark between the digits) and the seat.
-function gripHand(L, wrist, lod, rest = false, open = false, G = GRIP) {
+function gripHand(L, wrist, lod, rest = false, open = false) {
   // the free hand hung at the tee "oversized, a spade" next to the forearm: its digits run a little shorter than the grip's
   const k = L / .19 * (rest ? .9 : 1), seg = lod ? 7 : 10, steps = lod ? 7 : 16, out = { p: [], i: [] }, axes = [];
   const V = (x, y, z) => new THREE.Vector3(x * k, y * k, z * k);
@@ -183,7 +170,7 @@ function gripHand(L, wrist, lod, rest = false, open = false, G = GRIP) {
   // (a smooth ellipse there read as "a flat spade-shaped paddle"). The palm faces -x, so its back is sin(t) < 0; z = cos(t) a
   out.h = []; const backOfHand = (t, y, a, b) => {
     const dors = smooth(.1, .7, -Math.sin(t)) * smooth(-.012, -.045, y), z = Math.cos(t) * a, spread = .5 + .5 * smooth(-.02, -.09, y);
-    let ridge = 0; for (const [kn] of G.fingers) ridge = Math.max(ridge, Math.exp(-(((z - kn[2] * spread) / .0045) ** 2)));
+    let ridge = 0; for (const [kn] of GRIP.fingers) ridge = Math.max(ridge, Math.exp(-(((z - kn[2] * spread) / .0045) ** 2)));
     return [dors * ridge * (.0014 + .0022 * smooth(-.07, -.092, y)) / b, dors * (1 - ridge)];
   };
   loft(out, palm.map(([y, a, b], j) => ({ c: new THREE.Vector3(wrist.cx * (1 - smooth(0, -.04 * k, y * k)), y * k, wrist.cz * (1 - smooth(0, -.04 * k, y * k)) - .004 * k * smooth(0, -.04 * k, y * k)), u: U, v: X, a: a * k * (j < 2 ? taperAt(y * k) : 1), b: b * k * (j < 2 ? taperAt(y * k) : 1), bump: t => backOfHand(t, y, a, b) })), lod ? seg + 4 : 30, .014 * k);   // the wrist rings follow the tapered forearm
@@ -191,24 +178,24 @@ function gripHand(L, wrist, lod, rest = false, open = false, G = GRIP) {
   const partEnd = [out.p.length / 3];
   // the rim touches the palm at C; the disc's far side rises `tilt` (radians) from square to the hand, toward the forearm,
   // so the hand can lean off vertical with a level disc; the fingers past the knuckle and the thumb's tip turn with the rim
-  const rimY = G.rim * k, x0 = palm[palm.length - 1][2] * k, C = new THREE.Vector3(-x0, rimY, 0), Zt = new THREE.Vector3(0, 0, 1), t = rest ? 0 : G.tilt;
-  for (const [f, [kn, len, r, grip]] of G.fingers.entries()) {
+  const rimY = GRIP.rim * k, x0 = palm[palm.length - 1][2] * k, C = new THREE.Vector3(-x0, rimY, 0), Zt = new THREE.Vector3(0, 0, 1), t = rest ? 0 : GRIP.tilt;
+  for (const [f, [kn, len, r, grip]] of GRIP.fingers.entries()) {
     const curl = open ? [8 + f * 2, 12 + f * 2, 8] : rest ? REST.curl[f] : grip;
     const mcp = V(...kn), pts = [mcp.clone().add(V(0, .018, 0)), mcp]; let ang = 0, at = mcp.clone();
     for (let j = 0; j < 3; j++) { ang += curl[j] * Math.PI / 180; at = at.clone().add(new THREE.Vector3(-Math.sin(ang), -Math.cos(ang), 0).multiplyScalar(len[j] * k - (j === 2 ? r[3] * k : 0))); pts.push(at); }
     for (const p of pts.slice(2)) turn(p, C, Zt, -t);
     if (rest) pts.forEach((p, j) => { if (j > 1) p.z *= 1 - REST.fall * (j - 1) / 3; });
-    const slim = rest ? .94 : .8;
+    const slim = rest ? .97 : .88;
     tube(out, pts, [r[0], ...r].map(x => x * k * slim), seg, steps); axes.push({ pts, r: r[1] * k * slim }); partEnd.push(out.p.length / 3);   // the grip's are slimmer than measured, so a dark gap shows between each pair ("fused, no finger separation")
   }
-  const tp = (rest ? REST.thumb : G.thumb).map(([x, y, z], j) => j < 3 || rest ? V(x, y, z) : turn(new THREE.Vector3(x * k, rimY + y * k, z * k), C, Zt, -t));
-  tube(out, tp, G.thumbR.map(x => x * k * .9), seg, steps); axes.push({ pts: tp, r: G.thumbR[2] * k * .9 }); partEnd.push(out.p.length / 3);
+  const tp = (rest ? REST.thumb : GRIP.thumb).map(([x, y, z], j) => j < 3 || rest ? V(x, y, z) : turn(new THREE.Vector3(x * k, rimY + y * k, z * k), C, Zt, -t));
+  tube(out, tp, GRIP.thumbR.map(x => x * k * .9), seg, steps); axes.push({ pts: tp, r: GRIP.thumbR[2] * k * .9 }); partEnd.push(out.p.length / 3);
   // occlusion: a digit's surface darkens where another digit's surface is within a centimetre (the gaps that separate them)
   const ao = new Float32Array(out.p.length / 3).fill(1), q = new THREE.Vector3(), segDist = (p, a, b) => { const ab = b.clone().sub(a), t = THREE.MathUtils.clamp(q.copy(p).sub(a).dot(ab) / ab.lengthSq(), 0, 1); return p.distanceTo(a.clone().addScaledVector(ab, t)); };
   for (let part = 1; part < partEnd.length; part++) for (let i = partEnd[part - 1]; i < partEnd[part]; i++) {
     const p = new THREE.Vector3(out.p[i * 3], out.p[i * 3 + 1], out.p[i * 3 + 2]); let clear = 1;
     axes.forEach((ax, j) => { if (j === part - 1) return; for (let s = 1; s < ax.pts.length; s++) clear = Math.min(clear, segDist(p, ax.pts[s - 1], ax.pts[s]) - ax.r); });
-    ao[i] = .16 + .84 * smooth(0, .018 * k, clear);   // at .5 the gaps vanished at 640 px and critics saw "one fused block"; at .3 still "a mitten" on a phone
+    ao[i] = .3 + .7 * smooth(0, .014 * k, clear);   // at .5 the gaps vanished at 640 px and critics saw "one fused block"
   }
   valley.forEach((v, i) => { ao[i] *= 1 - .4 * v; });
   // knuckle creases and nails on the four fingers: a vertex's arc length along its finger's joint polyline says how near a
@@ -222,11 +209,11 @@ function gripHand(L, wrist, lod, rest = false, open = false, G = GRIP) {
       for (let s = 1; s < P.length; s++) { const ab = P[s].clone().sub(P[s - 1]), t = THREE.MathUtils.clamp(q.copy(p).sub(P[s - 1]).dot(ab) / ab.lengthSq(), 0, 1), c = P[s - 1].clone().addScaledVector(ab, t), d = p.distanceTo(c); if (d < best) { best = d; arc = cum[s - 1] + t * ab.length(); foot = c; } }
       let crease = 0; for (const j of [2, 3]) crease = Math.max(crease, Math.exp(-(((arc - cum[j]) / (.0032 * k)) ** 2)));
       crease = Math.max(crease, .6 * Math.exp(-(((arc - cum[1]) / (.004 * k)) ** 2)));
-      ao[i] *= 1 - .45 * crease;
+      ao[i] *= 1 - .32 * crease;
       if (arc > cum[3] + .35 * (cum[4] - cum[3]) && p.clone().sub(foot).normalize().dot(D) > .35) ao[i] = Math.max(ao[i], 1.16);   // nail: >1 so the shader's crease tint leaves it pale
     }
   }
-  const seat = C.clone().add(new THREE.Vector3(-Math.cos(t), Math.sin(t), 0).multiplyScalar(.105 - G.press * k)).setZ(-.006 * k);
+  const seat = C.clone().add(new THREE.Vector3(-Math.cos(t), Math.sin(t), 0).multiplyScalar(.105 - GRIP.press * k)).setZ(-.006 * k);
   return { p: out.p, i: out.i, ao, seat, seatN: new THREE.Vector3(Math.sin(t), Math.cos(t), 0) };
 }
 function handMorphs(mesh, handOffset, lod) {
@@ -289,7 +276,7 @@ function handMorphs(mesh, handOffset, lod) {
     };
     const restingWrist = new THREE.Quaternion().setFromAxisAngle(Z, .10);
     hands[name] = handGeo(gh, qg); rests[name] = handGeo(gripHand(L, { a: ax, b: bx, cx, cz }, lod, true), restingWrist);
-    holds[name] = handGeo(gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod, false, false, CARRY), restingWrist);
+    holds[name] = handGeo(gh, restingWrist);
     // One continuous hand from the seated backhand grip through the pull and
     // open follow-through. Switching meshes at a grip threshold popped the wrist.
     holds[name].morphAttributes.position = [rests[name].attributes.position, hands[name].attributes.position];
