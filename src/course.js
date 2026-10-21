@@ -726,7 +726,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       { float fd = smoothstep(20., 100., length(vViewPosition)) * (1. - .7 * (1. - treeAir) * pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.)), l = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
         fd *= 1. - treeKeep;   // the putt keeps some of a far crown's own light and shade and green inside its haze (w12-2: "trees 30-80 m away turn into low-contrast grey cardboard layers")
         outgoingLight = mix(vec3(l), outgoingLight, 1. - .2 * fd) * (.15 * pow(l / .15, 1. - .4 * fd) / l);   // DGM round: .45/.55 left the far stands grey cardboard (top-half green-lead .11-.35 against the reference's .5-.78)
-        ${full ? '' : `{ float ld = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4); outgoingLight = mix(vec3(ld), outgoingLight, 1. - .35 * smoothstep(45., 140., length(vViewPosition)) * (1. - treeKeep)); }   // Mobile ("the background trees are no hazier than the foreground ones", trees 0/4): rows past 45 m lose up to a further 35% of their green, so the stand steps back in layers; Full has effects.js's aerial pass`}
+        ${full ? '' : `{ float ld = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4); float fa = smoothstep(45., 150., length(vViewPosition)) * (1. - treeKeep); outgoingLight = mix(vec3(ld), outgoingLight, 1. - .45 * fa);
+          #ifdef USE_FOG
+          outgoingLight = mix(outgoingLight, fogColor, .22 * fa);
+          #endif
+          }   // Mobile ("the background trees are no hazier than the foreground ones", trees 0/4): rows past 45 m lose up to a further 45% of their green and take a fifth more of the scene's haze, so the stand steps back in layers; Full has effects.js's aerial pass`}
       }
       #include <opaque_fragment>`);
     // w6 verdicts ("evenly sized clumps, each lit the same saturated yellow-green on its lit side: stacked sprite cards"): every
