@@ -28,9 +28,16 @@ export function setConnecting(id, busy) {
 
 let toastTimer = null;
 export function toast(title, sub = '', ms = 1800) {
+  $('toast').style.bottom = $('react').style.bottom = '';   // verdictAbove's lift is for its own verdict only
   $('toastTitle').textContent = title; $('toastSub').textContent = sub;
   $('toast').classList.add('show'); clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $('toast').classList.remove('show'), ms);
+}
+// The landing verdict sits low (bottom 12-16%), where the landing shot usually holds the disc. y: the disc's height in the frame
+// (0 top, 1 bottom; null: out of view). Below the middle, the verdict's foot stands 28 px over it instead, the clap over that.
+export function verdictAbove(y) {
+  if (y == null || y < .5) return;
+  const b = innerHeight * (1 - y) + 28; $('toast').style.bottom = `${b}px`; $('react').style.bottom = `${b + $('toast').offsetHeight + 4}px`;
 }
 export function fade(on) { $('fade').classList.toggle('on', on); }
 

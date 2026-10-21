@@ -484,6 +484,8 @@ body[data-phase='flight'] #toast b { font-size: clamp(26px, 5vw, 38px); }
 #releaseTag.wobbly { border-color: transparent; background: #ff9275eb; color: var(--black); }
 body[data-phase='result'] #releaseTag, body[data-phase='aim'] #releaseTag { display: none; }
 @media (max-height: 520px) and (min-aspect-ratio: 5/4) { #releaseTag { bottom: calc(80px + var(--sab)); font-size: 13px; } }
+/* upright: the score plate spans the top and the wind plate the bottom right, so the call drops under one and the grade clears the other */
+@media (orientation: portrait) { body[data-phase='flight'] #toast { top: calc(104px + var(--sat)); } #releaseTag { bottom: calc(126px + var(--sab)); font-size: 13px; } }
 #holeTitle small { display: inline-block; margin-top: 14px; padding: 6px 12px 5px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; font-family: var(--display); font-size: 14px; letter-spacing: .08em; line-height: 1; text-shadow: none; }
 
 .ccard .cinfo b, .ccard .chev { color: #fff; }
