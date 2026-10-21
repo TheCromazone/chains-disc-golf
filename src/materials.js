@@ -119,14 +119,6 @@ export function terrainSplat(material, geometry, { splat, turf, pads, pin = { va
         float gw=${lite ? '.16' : '.07'},gp=mix(1.-smoothstep(0.,gw+fw*1.4/s0,k0.x),1.-smoothstep(0.,gw+fw*.7/s0,k1.x),lt),cl=mix(k0.y,k1.y,lt)*(1.-gp*${lite ? '.5' : '.75'});   // dark soil and shadow between tufts; each tuft its own vigour
         c=mix(c*mix(${lite ? '1.,1.42' : '.82,1.26'},smoothstep(.3,.85,cl)),mix(c*.42,${vec3s([.15, .095, .05])},max(dry,gWorn(p)*.6)*.7),(1.-smoothstep(.12,.35,cl))*${lite ? '.3' : '.8'});   // light clumps over dark thatch, bare soil where it is dry: what a photo tile averaged to its mean cannot show at 20 m. Lite: wide soft gaps, half as dark (its sharp, untemporal frame drew Full's thin dark seams as cracked tiles on the tee's hill)
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.25,1.12,.6),smoothstep(.75,1.,cl)*.3);   // the odd tuft gone to seed, olive-tan
-        { // r3 nature c2 (ground 2/4: "the mid fairway a flat, over-saturated green, no blade structure"): 3-40 m out, three octaves of
-          // grain (1.1 m clumps, 40 cm and 15 cm tufts) split the turf into dark blue-green hollows and sunlit yellow-green tips around
-          // its own hue (mean x ~.97), and its saturation eases a seventh. Each octave fades to its mean once it would fall under ~2 px
-          // along the view (fw), so it never sparkles; gone at the feet (the photo tile and blades carry it there) and in the far haze.
-          float mg=smoothstep(.008,.025,fw)*(1.-smoothstep(.45,.9,fw)),o1=1.-smoothstep(.3,.6,fw/1.1),o2=1.-smoothstep(.3,.6,fw/.4),o3=1.-smoothstep(.3,.6,fw/.15);
-          float gn=(gNoise(p/1.1+19.)-.5)*o1*.5+(gNoise(mat2(.6,.8,-.8,.6)*p/.4+3.)-.5)*o2*.35+(gNoise(p/.15+7.)-.5)*o3*.3;
-          c*=mix(vec3(1.),mix(vec3(.74,.84,.98),vec3(1.2,1.14,.96),clamp(.5+gn*2.,0.,1.)),mg);
-          c=mix(vec3(dot(c,vec3(.3,.59,.11))),c,1.-.15*mg); }
         br+=(cl-.45)*1.1;   // every cover edge frays at clump scale: tufts into the gravel, bare fingers into the turf
         vec2 sp=gSpot(p,gEdge(vSplat.x,vTurf.zw));
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.02,.72)*mix(.95,mix(.7,1.25,step(.55,gNoise(p*21.))),1.-smoothstep(.015,.04,fw)),sp.y*.8);   // clover: round leaves, bluer and darker than the grass
@@ -162,7 +154,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, pin = { va
         c*=1.-.45*(1.-smoothstep(0.,.25,pd));   // contact shade where the pad sits on the ground`}
         diffuseColor.rgb=c; }`);
   };
-  material.customProgramCacheKey = () => 'chains-ground-v15' + (lite ? '-lite' : '');
+  material.customProgramCacheKey = () => 'chains-ground-v14' + (lite ? '-lite' : '');
   return material;
 }
 

@@ -741,17 +741,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       { float fd = smoothstep(20., 100., length(vViewPosition)) * (1. - .7 * (1. - treeAir) * pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.)), l = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
         fd *= 1. - treeKeep;   // the putt keeps some of a far crown's own light and shade and green inside its haze (w12-2: "trees 30-80 m away turn into low-contrast grey cardboard layers")
         outgoingLight = mix(vec3(l), outgoingLight, 1. - .2 * fd) * (.15 * pow(l / .15, 1. - .4 * fd) / l);   // DGM round: .45/.55 left the far stands grey cardboard (top-half green-lead .11-.35 against the reference's .5-.78)
-        ${full ? '' : `{ float ld = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4); float fa = smoothstep(45., 150., length(vViewPosition)) * (1. - treeKeep);
-          // r3 nature c2 (trees 2/4: "the far conifer canopy one flat saturated green mass, no depth falloff"; c1's version greyed
-          // them at their own value and darkened their highlights, and lost: "B's back rows are darker and heavier"): off the putt
-          // (its air is the look group's), rows from 25 m give up a further third of their green and take a fifth more of the sky's
-          // haze by 100 m, so each row back is paler and softer than the one in front, the way DGM's stand recedes.
-          // Toward the sun that haze is the warm forward scatter, not grey, and the crowns keep more of their green: the back-lit stand
-          // glows instead of going olive-grey (c2 first pass: the sunward broadleaf crowns lost their glow).
-          float fb = smoothstep(25., 100., length(vViewPosition)) * (1. - treeAir), sw = pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 3.);
-          outgoingLight = mix(vec3(ld), outgoingLight, (1. - .45 * fa) * (1. - .35 * fb * (1. - .5 * sw)));
+        ${full ? '' : `{ float ld = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4); float fa = smoothstep(45., 150., length(vViewPosition)) * (1. - treeKeep); outgoingLight = mix(vec3(ld), outgoingLight, 1. - .45 * fa);
           #ifdef USE_FOG
-          outgoingLight = mix(mix(outgoingLight, fogColor, .22 * fa), fogColor * mix(vec3(1.), vec3(1.2, 1.08, .78), sw), .2 * fb);
+          outgoingLight = mix(outgoingLight, fogColor, .22 * fa);
           #endif
           }   // Mobile ("the background trees are no hazier than the foreground ones", trees 0/4): rows past 45 m lose up to a further 45% of their green and take a fifth more of the scene's haze, so the stand steps back in layers; Full has effects.js's aerial pass`}
       }
@@ -846,10 +838,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // the same canopy shading as the 3D leaves, so a far crown is dark into the sun with lit, glowing rims like the near ones.
   const impMap = texture('impostors'), impNormal = texture('impostors_n', { srgb: false });
   const billboard = s => { s.uniforms.treeEye = treeEye; s.uniforms.treeNear = treeNear;
-    s.vertexShader = 'attribute float impCell;attribute vec3 impBark;uniform vec3 treeEye;uniform float treeNear;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;varying vec2 vImpL;\n' + s.vertexShader
+    s.vertexShader = 'attribute float impCell;attribute vec3 impBark;uniform vec3 treeEye;uniform float treeNear;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;\n' + s.vertexShader
       .replace('#include <begin_vertex>', `vec3 impO = instanceMatrix[3].xyz, impT = cameraPosition - impO; impT.y = 0.; impT = normalize(impT + vec3(1e-4, 0., 0.));
         vImpR = vec3(impT.z, 0., -impT.x); vImpT = impT; vImpFlip = sign(instanceMatrix[0].x); vImpBark = impBark;
-        vImpL = position.xy * vec2(abs(instanceMatrix[0].x), length(instanceMatrix[1].xyz)) + fract(impO.xz * .137) * 50.;   // metres on the card, offset per tree
         vec3 transformed = impO + vImpR * position.x * instanceMatrix[0].x + vec3(instanceMatrix[1].x, instanceMatrix[1].y, instanceMatrix[1].z) * position.y;   // the column's x and z lean the card as the 3D tree leans`)
       .replace('#include <project_vertex>', `vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.); gl_Position = projectionMatrix * mvPosition;
         if (distance(impO.xz, treeEye.xz) < treeNear) gl_Position = vec4(2., 2., 2., 1.);`)
@@ -860,14 +851,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // ray): back-lit, sunlight reaches the camera-facing leaves only through thin foliage, so direct light falls steeply with
     // depth (between linear and squared: at squared a side-lit spruce stand went flat black-green, its sunlit tips gone) and
     // only the thin rim transmits, while a crown lit from behind the camera keeps its lit face.
-    s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;varying vec2 vImpL;\nfloat impH(vec2 p){vec3 q=fract(p.xyx*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}\n' + s.fragmentShader.replace('#include <alphatest_fragment>', full ? '$&' : `{ // Mobile, r3 nature (trees 1/4: "conifers along the skyline copies of the same dark, opaque, evenly tiered silhouette"): every
-      // card frays its own way, holes ~1 m (wider than tall, so whorls go missing) cut where the crown is thin (the baked depth, blue)
-      // and never through the stem (leaf mask, alpha), so each tree in a row shows sky through a different broken outline. Soft over ~1 px.
-      vec4 nc = texture2D(impNormal, vMapUv); vec2 hp = vImpL / vec2(1.3, .8);
-      #define IMP_N(p) mix(mix(impH(floor(p)), impH(floor(p) + vec2(1., 0.)), smoothstep(0., 1., fract(p).x)), mix(impH(floor(p) + vec2(0., 1.)), impH(floor(p) + 1.), smoothstep(0., 1., fract(p).x)), smoothstep(0., 1., fract(p).y))
-      float hv = (IMP_N(hp) * .55 + IMP_N(hp * 2.3 + 7.) * .25 + IMP_N(hp * 6.1 + 3.) * .2)   /* c2: a 20 cm octave breaks each hole's rim into leaf-sized bites (at two octaves the tee's holes were round white dots) */ * mix(.75, 1.35, smoothstep(.4, .9, nc.z)) * smoothstep(.3, .9, nc.a), hw = fwidth(hv);
-      diffuseColor.a *= 1. - smoothstep(.6 - hw, .6 + hw, hv); }
-      #include <alphatest_fragment>`).replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
+    s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
       normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * tz, 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); anyFace = 1.;   // the billboard's normals are a crown average: thinness, not facing, gates what it transmits
       sunThin = smoothstep(.4, .9, n.z); crownDepth = mix(.7, 1., smoothstep(.2, .7, n.z));   // the 3D crown's two depths, from the baked one
       diffuseColor.rgb = mix(diffuseColor.rgb / max(vColor, vec3(1e-3)) * vImpBark, diffuseColor.rgb, leafMask);   // the instance colour is the crown's tint: the stem takes its bark tint instead, as the 3D tree's does
