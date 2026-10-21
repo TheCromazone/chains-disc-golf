@@ -19,8 +19,8 @@ low, mid, grain = field(300, 500), field(80, 30), field(5, 2)
 img = np.array([.87, .86, .82])[None, None] * (1 + .04 * low[..., None] + .035 * mid[..., None] + .03 * grain[..., None])
 band = np.clip(field(400, 14) * .8 + field(60, 8) * .4 - .7, 0, 1)[..., None]   # horizontal paper bands, peeling warm
 img = img * (1 - .3 * band) + np.array([.78, .68, .58]) * .3 * band
-grey = np.clip(field(220, 160) * .65 + field(50, 40) * .35 - .45, 0, 1)[..., None]   # weathered grey-green patches
-img = img * (1 - .45 * grey) + np.array([.52, .53, .48]) * .45 * grey
+grey = np.clip(field(220, 160) * .65 + field(50, 40) * .35 - .3, 0, 1)[..., None]   # weathered grey-green patches
+img = img * (1 - .5 * grey) + np.array([.5, .5, .46]) * .5 * grey
 crowd = field(400, 260)   # where marks gather along the stem: dense 30-80 cm stretches between clean ones
 L = np.zeros((H, W)); C = np.zeros((H, W))   # mark strength, and how dark (0 grey-brown .. 1 black)
 def dash(x, y, ln, th, a, dk):   # a horizontal lenticel, tapered at both ends, wrapping in x and y
@@ -34,7 +34,7 @@ for _ in range(3800):   # lenticels: 2-15 cm long, 2-10 mm thick, density and da
   ln = int(rng.choice([rng.integers(6, 22), rng.integers(18, 64)], p=[.7, .3])); th = int(rng.choice([1, 2, 2, 3, 4]))
   dash(x, y, ln, th, rng.uniform(.2, .65), np.clip(rng.normal(.2 + .2 * c, .2), 0, 1))
 S = np.zeros((H, W))
-for _ in range(30):   # scars: dark chevrons and fissure clusters, 5-40 cm, black at the heart, gathered where the marks crowd
+for _ in range(40):   # scars: dark chevrons and fissure clusters, 5-40 cm, black at the heart, gathered where the marks crowd
   for _ in range(20):
     x, y = int(rng.integers(0, W)), int(rng.integers(0, H))
     if crowd[y, x] > .1: break
@@ -42,7 +42,7 @@ for _ in range(30):   # scars: dark chevrons and fissure clusters, 5-40 cm, blac
   dx = (xx - x + W / 2) % W - W / 2; dy = (yy - y + H / 2) % H - H / 2
   chev = rng.random() < .3   # a branch collar: the classic birch "eyebrow" arching over the scar
   e = (dx / w) ** 2 + ((dy + (np.abs(dx) * .18 if chev else 0)) / h) ** 2
-  S = np.maximum(S, np.clip(1.25 - e, 0, 1) * rng.uniform(.55, 1.))
+  S = np.maximum(S, np.clip(1.25 - e, 0, 1) * rng.uniform(.4, 1.))
 rough = field(10, 4) * .6 + field(30, 10) * .4
 S = np.clip((S * (1 + .7 * rough) - .2) * 2., 0, 1)
 dark = np.array([.17, .155, .14])[None, None] * (1 + .2 * field(6, 3)[..., None])   # charcoal with paler cracks

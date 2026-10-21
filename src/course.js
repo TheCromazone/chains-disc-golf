@@ -775,7 +775,10 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const nearClip = (mat, limbCut = null) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
     if (limbCut) {   // wood: limbs retract into the stem in the vertex shader (a discard here would cost an iPhone's hidden-surface removal on every near trunk)
       s.uniforms.limbCut = limbCut;
-      s.vertexShader = 'uniform float limbCut;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      s.vertexShader = 'uniform float limbCut;\n' + s.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
+        #if defined( USE_MAP ) && defined( USE_INSTANCING )
+        vMapUv += fract(instanceMatrix[3].xz * vec2(.173, .291) + instanceMatrix[3].zx * vec2(.117, .059));   // each stem its own stretch of the bark tile: every birch in a stand had its marks at the same heights, rows of dashes across the stand
+        #endif`).replace('#include <begin_vertex>', `#include <begin_vertex>
         #ifdef USE_INSTANCING
         if (limbCut > 0.) { float r = length(position.xz), eye = distance((modelMatrix * instanceMatrix * vec4(position, 1.)).xyz, cameraPosition);
           float keep = r > .75 ? (position.y < limbCut ? 0. : smoothstep(3.5, 5.5, eye)) : r > .55 && position.y > 1.5 ? smoothstep(2.5, 4., eye) : 1.;
