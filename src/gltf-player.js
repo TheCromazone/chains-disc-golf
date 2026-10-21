@@ -124,7 +124,7 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // disc reaching back across the chest (the old cock held it level only at the end of a forearm dropping ~33°, which the tee
 // camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
-const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16, stub: .9,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
@@ -229,28 +229,49 @@ function gripSeat(k, t = GRIP.tilt) {
 function modelledHand(L, wrist, lod, rest) {
   const mesh = model('hand')?.scene.getObjectByName((rest ? 'rest' : 'grip') + (lod ? '_lod' : '')); if (!mesh?.geometry) return null;
   const g = mesh.geometry, k = L / .19 * (rest ? .9 : 1), src = g.attributes.position, d = g.morphAttributes.position?.[0], n = src.count;
-  const fit = (x, y, z) => {   // the wrist stub (half sizes .0265 z, .019 x at k = 1) eased onto the forearm's own oval, inside its skin
-    const Y = y * k, s = 1 - smooth(-.006 * k, -.03 * k, Y), c = 1 - smooth(0, -.04 * k, Y), tb = wrist.b * taperAt(Y) * .95 / (.019 * k), ta = wrist.a * taperAt(Y) * .95 / (.0265 * k);
+  // r9 athlete c2 (menu critic: "a seam or colour band at the wrist"): the stub measures .0215 x, .0335 z at the joint, not the
+  // .019/.0265 it was scaled by, so it stood 8-24 % proud of the forearm as a cuff with a step down to the hand under it; scaled
+  // by its real size and held inside the skin (the forearm's measure is its widest extent, so a full-size oval still shows on
+  // the diagonals), the hand now comes out of the arm and widens from the wrist
+  const fit = (x, y, z) => {   // the wrist stub eased onto the forearm's own oval, inside its skin
+    const Y = y * k, s = 1 - smooth(-.006 * k, -.03 * k, Y), c = 1 - smooth(0, -.04 * k, Y), tb = wrist.b * taperAt(Y) * GRIP.stub / (.0215 * k), ta = wrist.a * taperAt(Y) * GRIP.stub / (.0335 * k);
     return [x * k * (1 + s * (tb - 1)) + c * wrist.cx, Y, z * k * (1 + s * (ta - 1)) + c * wrist.cz];
   };
   const p = [], open = [], ao = [];
   for (let i = 0; i < n; i++) {
     p.push(...fit(src.getX(i), src.getY(i), src.getZ(i)));
     if (d) open.push(...fit(src.getX(i) + d.getX(i), src.getY(i) + d.getY(i), src.getZ(i) + d.getZ(i)));
-    ao.push(g.attributes.color.getX(i) * 1.2);   // stored over 1.2 so a nail's 1.16 fits the glTF colour range
+    ao.push(THREE.MathUtils.lerp(g.attributes.color.getX(i) * 1.2, 1, smooth(-.012, .002, src.getY(i))));   // stored over 1.2 so a nail's 1.16 fits the glTF colour range; the stub inside the forearm unshaded (its .75-.89 drew a dark ring at the join)
   }
   return { p, i: Array.from(g.index.array), ao, open: d ? open : null, ...gripSeat(k) };
+}
+// The bake's mean texel (linear) at the given UVs, read once per albedo from a small canvas of their bounding box (null until
+// the image has loaded). ponytail: one tone for both hands and the whole hand; per-vertex tone if a hand's back needs its own
+const wristTones = new WeakMap();
+function wristTone(map, uvs) {
+  const img = map?.image, W = img?.naturalWidth || img?.width, H = img?.naturalHeight || img?.height; if (!uvs?.length || !W || !H) return null;
+  if (wristTones.has(map)) return wristTones.get(map);
+  let u0 = 1, v0 = 1, u1 = 0, v1 = 0; for (let i = 0; i < uvs.length; i += 2) { u0 = Math.min(u0, uvs[i]); u1 = Math.max(u1, uvs[i]); v0 = Math.min(v0, uvs[i + 1]); v1 = Math.max(v1, uvs[i + 1]); }
+  const sx = Math.floor(u0 * W), sy = Math.floor(v0 * H), sw = Math.max(1, Math.ceil(u1 * W) - sx), sh = Math.max(1, Math.ceil(v1 * H) - sy), dw = Math.min(sw, 128), dh = Math.min(sh, 128);
+  const cv = document.createElement('canvas'); cv.width = dw; cv.height = dh; const cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+  const px = cx.getImageData(0, 0, dw, dh).data, sum = new THREE.Color(0, 0, 0), t = new THREE.Color();   // flipY is off for the body's maps: v runs down the image
+  for (let i = 0; i < uvs.length; i += 2) {
+    const x = Math.min(dw - 1, Math.floor((uvs[i] * W - sx) / sw * dw)), y = Math.min(dh - 1, Math.floor((uvs[i + 1] * H - sy) / sh * dh)), k = (y * dw + x) * 4;
+    sum.add(t.setRGB(px[k] / 255, px[k + 1] / 255, px[k + 2] / 255, THREE.SRGBColorSpace));
+  }
+  const tone = sum.multiplyScalar(2 / uvs.length); wristTones.set(map, tone); return tone;
 }
 function handMorphs(mesh, handOffset, lod) {
   const g = mesh.geometry; if (g.userData.grip) return g.userData.grip;
   const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = pos.count, seats = {}, hands = {}, holds = {}, rests = {}, wrists = {}, tucks = [], hooks = [];
+  const uv = g.attributes.uv, skinUV = [];   // the bake's texels just above both wrists: the modelled hands take their tone (wristTone)
   const Z = new THREE.Vector3(0, 0, -1), m = new THREE.Matrix4(), p = new THREE.Vector3(), o = new THREE.Vector3();
   for (const [name, side] of [['elR', 1], ['elL', -1]]) {
     const b = mesh.skeleton.bones.findIndex(x => x.name === name), E = new THREE.Vector3().setFromMatrixPosition(m.copy(mesh.skeleton.boneInverses[b]).invert());
     const W = E.clone().add(_v.set(handOffset.x * side, handOffset.y + .075, handOffset.z + .012));   // the wrist joint (build-golfer-v3.py: handOffset = wrist - elbow + (0, -.075, -.012))
     const local = i => p.set((pos.getX(i) - W.x) * side, pos.getY(i) - W.y, pos.getZ(i) - W.z);
     const hand = [], arm = [], fore = []; let tip = 0;
-    for (let i = 0; i < n; i++) { let w = 0; for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === b) w += sw.getComponent(i, k); if (w > .3 && local(i).y < .02) { hand.push(i); tip = Math.min(tip, p.y); } else if (w > .5 && p.y < .11) fore.push(i); if (w > .5 && p.y > .005 && p.y < .035) arm.push(p.clone()); }
+    for (let i = 0; i < n; i++) { let w = 0; for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === b) w += sw.getComponent(i, k); if (w > .3 && local(i).y < .02) { hand.push(i); tip = Math.min(tip, p.y); } else if (w > .5 && p.y < .11) fore.push(i); if (w > .5 && p.y > .005 && p.y < .035) { arm.push(p.clone()); if (uv) skinUV.push(uv.getX(i), uv.getY(i)); } }
     const P = hand.map(i => local(i).clone()), N = hand.map(i => new THREE.Vector3(nrm.getX(i) * side, nrm.getY(i), nrm.getZ(i)));
     // everything past the hinge line (weighted by mask, blended over ±band) rotates toward the palm about the line's centre;
     // R is the shape the weights and pivot are read from, so hinges applied distal first compose like a finger's joints
@@ -319,7 +340,7 @@ function handMorphs(mesh, handOffset, lod) {
   }
   const all = [...tucks, ...hooks];   // 0/1 tuck R/L, 2/3 hook R/L
   g.morphAttributes.position = all.map(t => t[0]); g.morphAttributes.normal = all.map(t => t[1]); g.morphTargetsRelative = true;
-  return g.userData.grip = { seats, hands, holds, rests, wrists };
+  return g.userData.grip = { seats, hands, holds, rests, wrists, skinUV };
 }
 
 // Hair cards over the scan's own short hair. Its cap is painted on the skull, and every tee critic read it (and the noise
@@ -468,7 +489,10 @@ export function createGLTFCharacter(avatar) {
     .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.')); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove
   gripMat.customProgramCacheKey = () => 'chains-grip'; rimLight(gripMat, { strength: .1 });
-  const gripSkin = a => { const c = gripMat.color.set(a.skin), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.setRGB((l + (c.r - l) * GRIP.chroma) * .93, (l + (c.g - l) * GRIP.chroma) * .96, (l + (c.b - l) * GRIP.chroma) * 1.25).multiplyScalar(GRIP.tone); };   // the body's cooler white balance
+  // r9 athlete c2: the forearm's own skin where the hand meets it (the flat palette guess below rendered the hands paler and
+  // greyer than the arm, "a colour band at the wrist"); the guess stays for the frames before the albedo has loaded
+  let face = avatar, toned = false;
+  const gripSkin = a => { face = a; const t = wristTone(body.material.map, skin.geometry.userData.grip.skinUV); toned = !!t; if (t) { body.skinAt(t, gripMat.color); return; } const c = gripMat.color.set(a.skin), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.setRGB((l + (c.r - l) * GRIP.chroma) * .93, (l + (c.g - l) * GRIP.chroma) * .96, (l + (c.b - l) * GRIP.chroma) * 1.25).multiplyScalar(GRIP.tone); };   // the body's cooler white balance
   gripSkin(avatar);
   const headwear = createPlayerHeadwear(joints.head, skin, spec, avatar, lod);
   body.tuck(headwear.tuck, skin.skeleton.bones.indexOf(joints.head));   // hat hair: his locks lie down under a covering hat
@@ -618,6 +642,7 @@ export function createGLTFCharacter(avatar) {
     react(kind) { if (kind === 'clap') { clapFor = 2.6; return; } mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
     update(dt) {
+      if (!toned) gripSkin(face);   // the albedo landed after the body was built
       frameDt = dt; time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false; carries = carryHit ? carries + 1 : 0; carryHit = false;
       const aiming = phase === null && !mood && !locomotion && aimFrames >= 2 && grips >= 1;
       let name = null;

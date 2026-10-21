@@ -239,5 +239,14 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   setPalette(avatar);
   // tuck: a field from player-headwear.js (or null to let the hair stand); headBone: the head's skeleton index
   const tuck = (field, headBone) => { u.uTuck.value = field?.texture || null; u.uHeadBone.value = headBone; if (field) u.uTuckC.value.set(...field.centre, field.keep); else u.uTuckC.value.w = -1; };
-  return { material, setPalette, tuck, mask: u.uMask1.value, arms: ix => u.uArm.value.set(...ix), sleeve: y => { u.uSleeve.value = y; }, dispose: () => u.uPrint.value.dispose() };
+  // r9 athlete c2 (menu and tee critics: "a seam or colour band at the wrist", the modelled hands paler and greyer than the
+  // forearm): the skin the shader above makes of one baked texel (linear), without its noise, so the modelled hands
+  // (gltf-player.js) can take the tone of the forearm they come out of instead of a flat guess from the palette
+  const skinAt = (base, out = new THREE.Color()) => {
+    const pal = u.uPal.value[0], sm = u.uSkinMean.value, m0 = u.uMean.value[0], lum = base.r * .2126 + base.g * .7152 + base.b * .0722, d = THREE.MathUtils.clamp(lum / m0, .35, 1.7);
+    const f = c => THREE.MathUtils.lerp(base[c] * THREE.MathUtils.clamp(pal[c] / Math.max(sm[c], .01), .25, 3), pal[c] * d, .3);
+    out.setRGB(f('r'), f('g'), f('b')); const l = out.r * .2126 + out.g * .7152 + out.b * .0722, cav = THREE.MathUtils.clamp(1.1 - lum / m0, 0, .7);
+    return out.setRGB((l + (out.r - l) * .48) * .93 * (1 + .02 * cav), (l + (out.g - l) * .48) * .96 * (1 - .22 * cav), (l + (out.b - l) * .48) * 1.25 * (1 - .22 * cav));
+  };
+  return { material, setPalette, tuck, skinAt, mask: u.uMask1.value, arms: ix => u.uArm.value.set(...ix), sleeve: y => { u.uSleeve.value = y; }, dispose: () => u.uPrint.value.dispose() };
 }
