@@ -491,7 +491,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     const { leg, deep, beam, R } = ARCH, face = deep / 2 + .004, skin = (g, region, color) => K.arch(g.applyMatrix4(world), region, color);
     const gy = (lx, lz) => { const e = world.elements; return height(e[0] * lx + e[8] * lz + e[12], e[2] * lx + e[10] * lz + e[14]); };   // ground under an arch-local point
     const cut = (g, mid) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) if (p.getY(i) < mid) p.setY(i, height(p.getX(i), p.getZ(i)) - .08); return g; };   // world space: the lower half's vertices 8 cm into the ground under each
-    // Printed cover faces are cloth pulled over the frame: each bellies out a few centimetres between its edges (across
+    // Printed cover faces are cloth pulled over the frame: each bellies out 10 cm between its edges, an inflated cover's puff (across
     // its width, `across`; down its height otherwise), so the light rolls across it instead of lying flat as on a board.
     const pillow = (g, w, h, across) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const t = across ? 2 * p.getX(i) / w : 2 * p.getY(i) / h; p.setZ(i, p.getZ(i) + .1 * (1 - t * t)); } g.computeVertexNormals(); return g; };
     const panel = (w, region, top, bottom) => {   // art of `region` at its own aspect, hung from `top`, cropped at `bottom`
@@ -778,13 +778,13 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // the beam leaves faint vertical streaks down the legs.
   arch.material.onBeforeCompile = s => { GRIME_V(s); GRIME_F(s, !full); s.fragmentShader = s.fragmentShader.replace('#include <roughnessmap_fragment>', `{ float l=dot(diffuseColor.rgb,vec3(.3,.59,.11)),up=smoothstep(1.,7.,vLift);
         diffuseColor.rgb=mix(diffuseColor.rgb,vec3(l)*1.1+.01,.12+.12*up);
-        diffuseColor.rgb=mix(vec3(.03,.038,.06),diffuseColor.rgb,.8);   // dyed cloth, not a lit print
+        diffuseColor.rgb=mix(vec3(.13,.145,.21),diffuseColor.rgb,.56);   // dyed cloth, not a lit print: slate navy under ink at ~.62
         diffuseColor.rgb*=mix(.5,1.03,smoothstep(.15,3.2,vLift));   // the foot of a leg sits in its own occlusion and the turf's bounce
         diffuseColor.rgb*=1.-.14*smoothstep(.55,.95,wNoise(vec3(vWp.x*13.,vWp.y*.4,vWp.z*13.)))*(1.-up*.4); }
       #include <roughnessmap_fragment>`).replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-      { float hb=.07*wNoise(vec3(vWp.x*1.9,vWp.y*.45,vWp.z*1.9))+.025*wNoise(vec3(vWp.x*5.,vWp.y*1.3,vWp.z*5.)+5.);   // metres of slack: long folds down the cover, a finer pucker over them
+      { float hb=.1*wNoise(vec3(vWp.x*1.9,vWp.y*.45,vWp.z*1.9))+.025*wNoise(vec3(vWp.x*5.,vWp.y*1.3,vWp.z*5.)+5.);   // metres of slack: long folds down the cover, a finer pucker over them
         vec3 dpx=dFdx(-vViewPosition),dpy=dFdy(-vViewPosition),r1=cross(dpy,normal),r2=cross(normal,dpx);float det=dot(dpx,r1);
-        normal=normalize(abs(det)*normal-sign(det)*(dFdx(hb)*r1+dFdy(hb)*r2)); }`).replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * .06;'); };
+        normal=normalize(abs(det)*normal-sign(det)*(dFdx(hb)*r1+dFdy(hb)*r2)); }`).replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * .08;'); };
   arch.material.customProgramCacheKey = () => 'chains-props-arch' + full;
   print.castShadow = print.receiveShadow = steel.receiveShadow = arch.castShadow = arch.receiveShadow = true; steel.castShadow = full;
   const meshes = [print, steel, arch, gravelBed(), contactShade(blobs, height)];
