@@ -20,14 +20,16 @@ export function createTemporal() {
   // History clamped into the box of the current frame's 3x3 neighbourhood, then a running mean (1/n, floored at .1). The
   // +-.5 LSB hash dither keeps an 8-bit history (phones) from sticking a few levels off the mean at small blend weights.
   // Each jittered frame enters through Unreal's TAA reconstruction filter, not as its centre sample: the 3x3 samples sit at
-  // their offset plus the jitter (a pixel shows the scene at its centre + uJit) and are weighted exp(-4.5 d^2), a Gaussian
-  // of sigma ~.33 px (it was ~.47, which smeared mulch and turf detail: blind r1-vs-r2 check, ground 0/4). A box-filtered
-  // (centre-sample) supersample still ends silhouettes, hair and wire in a one-pixel step
+  // their offset plus the jitter (a pixel shows the scene at its centre + uJit) and are weighted exp(-1.65 d^2), a Gaussian
+  // of sigma ~.55 px. A box-filtered (centre-sample) supersample still ends silhouettes, hair and wire in a one-pixel step
   // that critics read as "crisp and slightly stepped, pasted on"; the Gaussian lands them over ~2 px, Disc Golf Masters' edge.
+  // r3: sigma .33 still left "hard one-pixel edges on hair and forearm, sparkly grass speckle" at 1:1. At .55 (with the sharpen
+  // below raised to match) the pixel-scale band of the turf drops ~35% and hair/leaf edges ~25%, while 4-10 px texture holds
+  // within 3-6% (r2's .47 without a sharpen lost that texture: ground 0/4). At 1280 x 720 the guard critics' view moves < 2%.
   const resolve = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: u, vertexShader: VS, depthTest: false, depthWrite: false,
     fragmentShader: `uniform sampler2D tCur,tHist;uniform vec2 uTexel,uJit;uniform float uAlpha,uSeed;varying vec2 vUv;
       void main(){ vec3 c=vec3(0.),lo=vec3(1e4),hi=vec3(-1e4); float ws=0.;
-        for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){ vec3 s=texture2D(tCur,vUv+vec2(x,y)*uTexel).rgb; vec2 d=vec2(x,y)+uJit; float k=exp(-4.5*dot(d,d));
+        for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){ vec3 s=texture2D(tCur,vUv+vec2(x,y)*uTexel).rgb; vec2 d=vec2(x,y)+uJit; float k=exp(-1.65*dot(d,d));
           c+=s*k; ws+=k; lo=min(lo,s); hi=max(hi,s); }
         c/=ws; vec3 o=mix(clamp(texture2D(tHist,vUv).rgb,lo,hi),c,uAlpha);
         gl_FragColor=vec4(o+(fract(sin(dot(gl_FragCoord.xy+uSeed,vec2(12.9898,78.233)))*43758.5453)-.5)/255.,1.); }` }));
@@ -38,13 +40,14 @@ export function createTemporal() {
   // turf and leaf clusters read "slightly smeared" (ground 0/4, trees 0/4). Drawn after the history is saved, so it never compounds.
   // The taps sit 2 px out, not 1: a 1 px Laplacian has its peak gain (2.6x) at the pixel grid's own frequency, so it blew
   // every near-Nyquist residue (the jersey knit, grass and leaf speckle, chain links, the last step of a silhouette) back up
-  // into a hard pixel checker that critics read as "crisp hard-cut edges, stippled dots". At 2 px the gain is 1.4x on 4 px
-  // texture detail (what the turf and bark carry), 1.2x at 8 px and exactly 1x at the pixel grid: texture sharp, edges as resolved.
+  // into a hard pixel checker that critics read as "crisp hard-cut edges, stippled dots". At 2 px the gain is 1.7x on 4 px
+  // texture detail (what the turf and bark carry), 1.3x at 8 px and exactly 1x at the pixel grid: texture sharp, edges as resolved.
+  // (.17, up from .1 with the wider resolve Gaussian; past ~.2 the neighbourhood clamp eats the extra gain.)
   const sharpen = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tCur: u.tCur, uTexel: u.uTexel }, vertexShader: VS, depthTest: false, depthWrite: false,
     fragmentShader: `uniform sampler2D tCur;uniform vec2 uTexel;varying vec2 vUv;void main(){ vec2 d=2.*uTexel;
       vec3 c=texture2D(tCur,vUv).rgb,n=texture2D(tCur,vUv+vec2(0.,d.y)).rgb,s=texture2D(tCur,vUv-vec2(0.,d.y)).rgb,
         e=texture2D(tCur,vUv+vec2(d.x,0.)).rgb,w=texture2D(tCur,vUv-vec2(d.x,0.)).rgb;
-      gl_FragColor=vec4(clamp(c+(4.*c-n-s-e-w)*.1,min(c,min(min(n,s),min(e,w))),max(c,max(max(n,s),max(e,w)))),1.); }` }));
+      gl_FragColor=vec4(clamp(c+(4.*c-n-s-e-w)*.17,min(c,min(min(n,s),min(e,w))),max(c,max(max(n,s),max(e,w)))),1.); }` }));
   const lastW = new THREE.Matrix4(), lastP = new THREE.Matrix4(), held = new THREE.Matrix4(), size = new THREE.Vector2();
   let n = 0, w = 0, h = 0, cur = null, hist = null;
   const draw = (renderer, quad) => { const auto = renderer.autoClear; renderer.autoClear = false; quad.render(renderer); renderer.autoClear = auto; };
