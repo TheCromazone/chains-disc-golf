@@ -969,7 +969,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const add = (x, z, s, dry) => spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, 0, 0, s * (.85 + trng() * .3), s * (.8 + trng() * .4), s * (.85 + trng() * .3)),
       c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : col.setRGB(.85 + trng() * .25, .8 + trng() * .25, .75 + trng() * .3).clone() });   // a third of the fringe gone to seed, straw-olive
     // Grass the mower cannot reach at a trunk's foot (build-vs-build critics, trees: "trunks stuck into a lawn", "add irregular
-    // undergrowth around the trunk bases"): 10-28 clumps, 20-62 cm (to ~1 m and fewer, 70 m out), in a broken ring out to ~1.6 m, thickest on one side.
+    // undergrowth around the trunk bases"): 10-28 clumps, 20-62 cm (to ~1 m and fewer, 45 m out), in a broken ring out to ~1.6 m, thickest on one side.
     const foot = (t, g = 1) => { const n = (10 + trng() * 18) / g | 0, side = trng() * 6.283;   // g: farther trees, fewer and bigger clumps (they still read at 60 m)
       for (let k = 0; k < n; k++) { const a = side + (trng() - .5) * (trng() < .7 ? 3.2 : 6.283), r = t.r + .12 + trng() ** 1.6 * 1.5 * g;
         add(t.x + Math.cos(a) * r, t.z + Math.sin(a) * r, (.2 + trng() ** 2 * .42) * g, trng() < .3); } };
@@ -993,7 +993,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         const side = trng() * 4 | 0, t = trng(), o = .06 + trng() ** 1.5 * .32, u = side < 2 ? (side ? 1 : -1) * (BED.u + .1 + o) : lerp(-BED.u - .1, BED.u + .1, t), w = side < 2 ? lerp(-BED.f1 - .1, -BED.f0 + .1, t) : side === 2 ? -BED.f1 - .1 - o : -BED.f0 + .1 + o, [x, z] = at(u, w);
         if (trng() < smooth(.25, .55, noise(x / .9 + 41, z / .9 + 17))) add(x, z, .14 + trng() ** 2 * .2, trng() < .25);
       }
-      for (const t of trees) { const dx = t.x - h.tee[0], dz = t.z - h.tee[1], u = dx * cy - dz * sy, w = dx * sy + dz * cy; if (w < 0 && w > -70 && Math.abs(u) < 45) foot(t, 1 + Math.max(0, -w - 15) / 55); }   // the tee camera's view (and the flyover's, from above it)
+      for (const t of trees) { const dx = t.x - h.tee[0], dz = t.z - h.tee[1], u = dx * cy - dz * sy, w = dx * sy + dz * cy; if (w < 0 && w > -45 && Math.abs(u) < 35) foot(t, 1 + Math.max(0, -w - 15) / 55); }   // the tee camera's view. Not past 45 m: the mesh's bounds would reach the putt lens's frustum (the tee set is meant to be culled there) and draw ~80k more triangles
       spots = rim;
       // The putting circle's rim: no lone tufts at the pole (they read as stickers on the dirt), but clumps crowding the
       // turf's edge where the litter thins out, so the circle frays into grass instead of fading.
