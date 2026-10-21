@@ -118,6 +118,7 @@
   "models": {
     "golfer": "models/golfer-premium.glb",
     "disc": "models/disc.glb",
+    "hand": "models/grip-hand.glb",
     "basket": "models/basket.glb",
     "tee_sign": "models/tee_sign.glb",
     "pine": "models/pine.glb",

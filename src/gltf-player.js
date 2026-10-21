@@ -213,8 +213,32 @@ function gripHand(L, wrist, lod, rest = false, open = false) {
       if (arc > cum[3] + .35 * (cum[4] - cum[3]) && p.clone().sub(foot).normalize().dot(D) > .35) ao[i] = Math.max(ao[i], 1.16);   // nail: >1 so the shader's crease tint leaves it pale
     }
   }
-  const seat = C.clone().add(new THREE.Vector3(-Math.cos(t), Math.sin(t), 0).multiplyScalar(.105 - GRIP.press * k)).setZ(-.006 * k);
-  return { p: out.p, i: out.i, ao, seat, seatN: new THREE.Vector3(Math.sin(t), Math.cos(t), 0) };
+  return { p: out.p, i: out.i, ao, ...gripSeat(k, t) };
+}
+// the disc seated in the grip: its centre and normal in hand-local metres (the rim in the palm crease at C, tilted t)
+function gripSeat(k, t = GRIP.tilt) {
+  const C = new THREE.Vector3(-.015 * k, GRIP.rim * k, 0);
+  return { seat: C.add(new THREE.Vector3(-Math.cos(t), Math.sin(t), 0).multiplyScalar(.105 - GRIP.press * k)).setZ(-.006 * k), seatN: new THREE.Vector3(Math.sin(t), Math.cos(t), 0) };
+}
+// r3 athlete: the modelled hands (tools/build-grip-hand.py, assets/models/grip-hand.glb) in place of the tubes: one closed
+// surface with webbing, thenar, knuckle heads and three phalanges a finger, wrapped round the rim where the seat puts it. Five
+// rounds of re-posing the tubes lost every tee verdict ("a mitten", "a clay lump", "no fingers on the rim"). Same frame and
+// result as gripHand (hand-local metres, scaled by the hand's drop; its wrist stub refitted to the measured, tapered forearm);
+// the grip also brings its own open shape (the fingers hinged out to the rest curls) for the hand letting go after release.
+function modelledHand(L, wrist, lod, rest) {
+  const mesh = model('hand')?.scene.getObjectByName((rest ? 'rest' : 'grip') + (lod ? '_lod' : '')); if (!mesh?.geometry) return null;
+  const g = mesh.geometry, k = L / .19 * (rest ? .9 : 1), src = g.attributes.position, d = g.morphAttributes.position?.[0], n = src.count;
+  const fit = (x, y, z) => {   // the wrist stub (half sizes .0265 z, .019 x at k = 1) eased onto the forearm's own oval, inside its skin
+    const Y = y * k, s = 1 - smooth(-.006 * k, -.03 * k, Y), c = 1 - smooth(0, -.04 * k, Y), tb = wrist.b * taperAt(Y) * .95 / (.019 * k), ta = wrist.a * taperAt(Y) * .95 / (.0265 * k);
+    return [x * k * (1 + s * (tb - 1)) + c * wrist.cx, Y, z * k * (1 + s * (ta - 1)) + c * wrist.cz];
+  };
+  const p = [], open = [], ao = [];
+  for (let i = 0; i < n; i++) {
+    p.push(...fit(src.getX(i), src.getY(i), src.getZ(i)));
+    if (d) open.push(...fit(src.getX(i) + d.getX(i), src.getY(i) + d.getY(i), src.getZ(i) + d.getZ(i)));
+    ao.push(g.attributes.color.getX(i) * 1.2);   // stored over 1.2 so a nail's 1.16 fits the glTF colour range
+  }
+  return { p, i: Array.from(g.index.array), ao, open: d ? open : null, ...gripSeat(k) };
 }
 function handMorphs(mesh, handOffset, lod) {
   const g = mesh.geometry; if (g.userData.grip) return g.userData.grip;
@@ -248,7 +272,7 @@ function handMorphs(mesh, handOffset, lod) {
     // within an anatomical wrist width instead of inheriting a swollen cuff.
     ax = THREE.MathUtils.clamp(ax, .018, .032); bx = THREE.MathUtils.clamp(bx, .012, .025);
     wrists[name] = { position: [W.x - E.x + cx * side, W.y - E.y + .032, W.z - E.z + cz], x: THREE.MathUtils.clamp(bx, .012, .03), z: THREE.MathUtils.clamp(ax, .018, .038) };
-    const gh = gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod);
+    const mg = modelledHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod, false), gh = mg || gripHand(L, { a: ax || .03, b: bx || .02, cx, cz }, lod);
     // the wrist flex, blended across the joint; the grip hand and the tucked scan bend together
     const qw = new THREE.Quaternion().setFromAxisAngle(Z, GRIP.flex), qi = new THREE.Quaternion(), qk = new THREE.Quaternion();
     const bend = (v, q = qw) => { const w = smooth(GRIP.wrist[0] * L, GRIP.wrist[1] * L, v.y); if (w > 0) v.applyQuaternion(qk.copy(qi).slerp(q, w)); return v; };
@@ -275,12 +299,13 @@ function handMorphs(mesh, handOffset, lod) {
       return geo;
     };
     const restingWrist = new THREE.Quaternion().setFromAxisAngle(Z, .10);
-    hands[name] = handGeo(gh, qg); rests[name] = handGeo(gripHand(L, { a: ax, b: bx, cx, cz }, lod, true), restingWrist);
+    hands[name] = handGeo(gh, qg); rests[name] = handGeo(modelledHand(L, { a: ax, b: bx, cx, cz }, lod, true) || gripHand(L, { a: ax, b: bx, cx, cz }, lod, true), restingWrist);
     holds[name] = handGeo(gh, restingWrist);
     // One continuous hand from the seated backhand grip through the pull and
     // open follow-through. Switching meshes at a grip threshold popped the wrist.
-    holds[name].morphAttributes.position = [rests[name].attributes.position, hands[name].attributes.position];
-    holds[name].morphAttributes.normal = [rests[name].attributes.normal, hands[name].attributes.normal];
+    const opened = mg ? handGeo({ ...mg, p: mg.open }, restingWrist) : rests[name];   // the modelled rest hand is its own mesh: the grip opens its own vertices
+    holds[name].morphAttributes.position = [opened.attributes.position, hands[name].attributes.position];
+    holds[name].morphAttributes.normal = [opened.attributes.normal, hands[name].attributes.normal];
     const delta = (Q, M, idx = hand) => {
       const dp = new Float32Array(n * 3), dn = new Float32Array(n * 3);
       idx.forEach((i, k) => {
