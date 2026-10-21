@@ -98,10 +98,10 @@ renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.A
 THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace('vec3 CustomToneMapping( vec3 color ) { return color; }', `vec3 CustomToneMapping( vec3 color ) {
   vec3 c = sqrt( clamp( ACESFilmicToneMapping( color ), 0., 1. ) );   // a gamma-2 display space: sqrt and a square instead of two pows a pixel
   c = clamp( c * vec3( 1.13, 1.08, 1. ) + vec3( 0., .003, .01 ), 0., 1. );   // brighter and warmer than Desktop's gain: no bloom or sun shafts lift it
-  c = mix( c, c * c * ( 3. - 2. * c ), .28 );
+  c = mix( c, c * c * ( 3. - 2. * c ), .2 ) + .1 * c * ( 1. - c );
   float l = dot( c, vec3( .2126, .7152, .0722 ) ), lead = clamp( ( c.g - max( c.r, c.b ) ) * 3., 0., 1. );
-  c = mix( vec3( l ), c, 1.09 ); c.r += ( c.g - c.r ) * lead * .25;   // 1.04 left Mobile's foliage duller than Desktop's 1.12 grade
-  c *= mix( vec3( .94, .99, 1.06 ), vec3( 1.04, 1., .92 ), smoothstep( .06, .5, l ) );
+  c = mix( vec3( l ), c, 1. - .15 * lead ); c.r += ( c.g - c.r ) * lead * .45;   // 1.04 left Mobile's foliage duller than Desktop's 1.12 grade
+  c *= mix( vec3( .96, .99, 1.04 ), vec3( 1.03, 1., .94 ), smoothstep( .06, .5, l ) );
   c = mix( vec3( l ), c, mix( .9, 1., smoothstep( .04, .3, l ) ) ) + vec3( .018, .022, .03 ) * ( 1. - l ) * ( 1. - l ) * ( 1. - l );
   c = max( c, 0. ); return c * c; }`);
 // Alpha-to-coverage cut-outs (leaves, tufts, hair, impostors, banners) ramp over ~2 px centred on the cut, not three's one
@@ -1293,7 +1293,17 @@ function frame(dt, rawDt, background) {
 // history's colour box let them leave a tinted streak behind (drive clip, release).
 // Phones only: on Desktop the resolve's Gaussian softened a 4x-MSAA + FXAA frame that was already clean (blind build-vs-build
 // check, r2: desktop crispness and look 0/4 against round 1, "softened all over like a blurry upscale"; phones won 3/4).
-function draw() { const still = taa.begin(renderer, camera, !post && !/^(windup|release|flight)$/.test(G.phase)); if (post && postEnabled) post.render(still); else { renderer.render(scene, camera); if (still) taa.canvas(renderer); } taa.end(camera); }
+function draw() { const still = taa.begin(renderer, camera, !post && !/^(windup|release|flight)$/.test(G.phase)); if (post && postEnabled) post.render(still); else { renderer.render(scene, camera); if (still) taa.canvas(renderer); } taa.end(camera); sunGlare(); }
+// Mobile's veiling glare: Desktop's shafts and bloom haze the canopy round the low sun; phones had no glow there at all, so
+// the sun's side of the frame read no brighter than the shade (gauntlet r3 haze: "sunlit volumetric haze in the upper canopy").
+// A warm radial veil on the CSS vignette layer (ui.css) centred on the disc's screen position: the compositor blends it, no
+// GPU pass. Fades as the view turns from the sun or the disc leaves the frame by more than half its width.
+const glare = { s: $('vignette').style, key: '', ndc: new THREE.Vector3(), fwd: new THREE.Vector3() };
+function sunGlare() { const sun = !post && scene.userData.sun, ss = THREE.MathUtils.smoothstep;
+  let a = 0; if (sun && !['menu', 'locker', 'courses'].includes(cam.mode)) { glare.ndc.copy(sun.dir).multiplyScalar(100).add(camera.position).project(camera);
+    a = ss(camera.getWorldDirection(glare.fwd).dot(sun.dir), .2, .55) * (1 - ss(Math.max(Math.abs(glare.ndc.x), Math.abs(glare.ndc.y)), 1.15, 1.7)); }
+  const key = a < .01 ? '0' : `${a.toFixed(2)} ${(glare.ndc.x * 50 + 50).toFixed(0)} ${(50 - glare.ndc.y * 50).toFixed(0)}`; if (key === glare.key) return; glare.key = key;   // a style write only when it moves a whole percent
+  const [g, x = 0, y = 0] = key.split(' '); glare.s.setProperty('--glare', g); glare.s.setProperty('--gx', x + '%'); glare.s.setProperty('--gy', y + '%'); }
 
 // ---------- HUD / menu wiring ----------
 function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.selectThrow(id); if (id === 'putt') { G.discId = 'putter'; UI.selectDisc('putter'); ensureDisc(curP(), 'putter'); curP().discMesh.visible = true; } G.previewDirty = true; G.previewPower = null; sfx.click(); }

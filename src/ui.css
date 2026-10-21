@@ -597,7 +597,7 @@ body[data-phase='result'] #react, body.result-mode #react { top: auto; bottom: c
 @media (prefers-reduced-motion: reduce) { #react.good span, #react.bad i { animation: none; } }
 /* Mobile's vignette (Desktop's is in its grade pass): a static layer the compositor blends, no GPU pass of the game's own. */
 #vignette { position: fixed; inset: 0; z-index: 0; display: none; pointer-events: none; background: radial-gradient(ellipse farthest-corner at 50% 48%, #0000 48%, #0000000f 68%, #00000040 100%); }
-body.gfx-mobile #vignette { display: block; }
+body.gfx-mobile #vignette { display: block; background: radial-gradient(circle 90vmin at var(--gx, 0%) var(--gy, 0%), rgb(255 232 186 / calc(var(--glare, 0) * .6)), rgb(255 222 168 / calc(var(--glare, 0) * .26)) 30%, rgb(255 216 162 / calc(var(--glare, 0) * .07)) 65%, #0000 100%), radial-gradient(ellipse farthest-corner at 50% 48%, #0000 48%, #0000000f 68%, #00000040 100%); }   /* the low sun's veiling glare (main.js sunGlare) over the vignette */
 /* The thumb coach (src/coach.js): ghost thumbs act out each move, a card names it. Nothing here takes a touch except Skip. */
 #hud > #coach { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 #coach[hidden] { display: none; }
