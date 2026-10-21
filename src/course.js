@@ -439,6 +439,19 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const near = treesNear(x, z); if (!near.some(t => Math.hypot(t.x - x, t.z - z) < 8) || near.some(t => Math.hypot(t.x - x, t.z - z) < t.r + 1.2)) continue;
     shrubs.push({ x, y: height(x, z), z, s, rot });
   }
+  // Edge understory (r4 trees: "the forest edge meets bare dirt without understory"): shrubs 1.3-2.8 m, in clumps
+  // along the treeline the tee cameras and the flyover face, 3-18 m off the fairway's edge under a crown. None within 17 m
+  // of a tee (a card nearer the lens magnifies into texel steps) or 18 m of a pin. Own rng: every other layout stays put.
+  const urng2 = makeRng(seed * 173 + 7);
+  for (let gx = -W / 2 + 10; gx < W / 2 - 10; gx += 2.5) for (let gz = -H / 2 + 10; gz < H / 2 - 10; gz += 2.5) {
+    const x = gx + (urng2() - .5) * 2.3, z = gz + (urng2() - .5) * 2.3, pick = urng2(), s = .34 + urng2() * .4, rot = urng2() * Math.PI * 2;
+    const { fi, halfW } = stand(x, z);
+    if (fi.d < halfW + 3 || fi.d > halfW + 18 || pick > .85 * smooth(.25, .5, noise(x / 8 + 13, z / 8 + 71))) continue;
+    if (ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7) || inLane({ x, z })) continue;
+    if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 18 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 17)) continue;
+    const near = treesNear(x, z); if (!near.some(t => Math.hypot(t.x - x, t.z - z) < 9) || near.some(t => Math.hypot(t.x - x, t.z - z) < t.r + 1)) continue;
+    shrubs.push({ x, y: height(x, z), z, s, rot });
+  }
   // Under crowns the turf goes thin and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
   // earth shows at the trunk base. Colour and splat weights only: no height change.
   // Tee-stands round: up to 40% darker under a crown (was 20%) and less of the pale dry grass (.15, was .4): from the tee the
@@ -902,48 +915,106 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 
   // --- grass tufts ---
   // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
-  // rough, gone on gravel, litter, sand and the pads. A few photo tufts stand where mowers miss, at the sign post and
-  // round the basket pole: small and green, darkened at the root; no shadow discs.
+  // rough, gone on gravel, litter, sand and the pads. Blade tufts stand where mowers miss: at the sign post, along
+  // every gravel edge and round the putting circle's rim.
   group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }));
-  const tuftMap = texture('tuft', { clamp: true }), tuftHoles = [];   // Lite too (r3 nature: without them its path edges read 'flat tan decals with hard clean edges', ground 1/4)
-  if (tuftMap) {
-    const tuftRng = makeRng(seed + 733);
-    const card = new THREE.PlaneGeometry(1, 1).translate(0, .46, 0);   // rooted 4 cm below grade
-    const tuftGeo = mergeGeometries([0, Math.PI, Math.PI / 2, -Math.PI / 2].map(a => card.clone().rotateY(a)));   // both windings, so no DoubleSide normal flip
-    const tn = tuftGeo.attributes.normal; for (let i = 0; i < tn.count; i++) tn.setXYZ(i, 0, 1, 0);   // lit like the turf they stand in
-    const tuftMat = windMaterial(toonMaterial({ map: tuftMap, alphaTest: .45, alphaToCoverage: true, roughness: .9 }), windClock, true);
-    const nx = segX + 1, fringeAt = (x, z) => {   // 1 on the turf just outside the ground shader's gravel (gCover without its noise), bilinear on the terrain grid
-      const gx = clamp((x + W / 2) / W * segX, 0, segX - 1e-3), gz = clamp((z + H / 2) / H * segZ, 0, segZ - 1e-3), ix = gx | 0, iz = gz | 0, fx = gx - ix, fz = gz - iz;
-      const a = iz * nx + ix, b = a + nx, at4 = (arr, o) => lerp(lerp(arr[a * 4 + o], arr[(a + 1) * 4 + o], fx), lerp(arr[b * 4 + o], arr[(b + 1) * 4 + o], fx), fz);
-      const ax = Math.abs(at4(turf, 2)), sx = at4(splats, 0);
-      return Math.max(smooth(.25, .5, at4(turf, 3)) * smooth(.4, .52, ax) * (1 - smooth(.62, .85, ax)), smooth(.1, .28, sx) * (1 - smooth(.38, .55, sx)));   // the trail's 1 m strip, the apron and worn earth
+  // Tufts and fallen leaves are geometry, not photo cards (r4 ground: "sparse billboard cards that stand out as pasted-on
+  // sprites"; the putting circle "a smeared brown texture with no real leaf or twig detail"). Both are per hole and only the
+  // hole in play draws (setHole), on both tiers: nothing this small reads from another hole, and Full's tee sat at its 2.3M budget.
+  const tuftHoles = holes.map(() => []), nx = segX + 1;
+  const at4 = (arr, o, x, z) => {   // bilinear on the terrain grid
+    const gx = clamp((x + W / 2) / W * segX, 0, segX - 1e-3), gz = clamp((z + H / 2) / H * segZ, 0, segZ - 1e-3), ix = gx | 0, iz = gz | 0, fx = gx - ix, fz = gz - iz, a = iz * nx + ix, b = a + nx;
+    return lerp(lerp(arr[a * 4 + o], arr[(a + 1) * 4 + o], fx), lerp(arr[b * 4 + o], arr[(b + 1) * 4 + o], fx), fz);
+  };
+  const meshY = (x, z) => {   // the terrain mesh's own surface (PlaneGeometry splits each cell along b-d), not height(): a leaf lies on what is drawn
+    const gx = clamp((x + W / 2) / W * segX, 0, segX - 1e-3), gz = clamp((z + H / 2) / H * segZ, 0, segZ - 1e-3), ix = gx | 0, iz = gz | 0, qx = gx - ix, qz = gz - iz, a = iz * nx + ix;
+    const A = pos.getY(a), B = pos.getY(a + nx), C = pos.getY(a + nx + 1), D = pos.getY(a + 1);
+    return qx + qz < 1 ? A + (D - A) * qx + (B - A) * qz : C - (C - B) * (1 - qx) - (C - D) * (1 - qz);
+  };
+  const perHole = (geo, mat, spots, starts) => starts.forEach((a, i) => {   // spots: { m: Matrix4 elements, c: Color }, one mesh a hole
+    const b = starts[i + 1] ?? spots.length, t = new THREE.InstancedMesh(geo, mat, b - a);
+    for (let k = a; k < b; k++) { t.instanceMatrix.array.set(spots[k].m, (k - a) * 16); t.setColorAt(k - a, spots[k].c); }
+    t.receiveShadow = true; t.visible = i === 0; tuftHoles[i].push(t); group.add(t);
+  });
+  const lay = (x, y, z, yaw, pitch, roll, sx, sy, sz) => { e.set(pitch, yaw, roll, 'YXZ'); q.setFromEuler(e); v.set(x, y, z); sc.set(sx, sy, sz); return m.compose(v, q, sc).elements.slice(); };
+  {
+    // One tuft: 10 single-triangle blades, 55-100% of the clump's height, fanning out from a 7 cm root, a few gone to straw.
+    // Lit like the turf (up-leaning normals on both faces, no flip), darker at the root (windMaterial's grass ramp).
+    const trng = makeRng(seed + 733), P = [], C = [], N = [];
+    for (let b = 0; b < 10; b++) {
+      const a = trng() * 6.283, r = Math.sqrt(trng()) * .07, x0 = Math.cos(a) * r, z0 = Math.sin(a) * r, h = .55 + trng() * .45, w = .03 + trng() * .025;
+      const la = a + (trng() - .5) * 1.4, lean = h * (.12 + trng() * .45), fx = -Math.sin(la) * w, fz = Math.cos(la) * w, k = .72 + trng() * .5, straw = trng() < .14;
+      P.push(x0 - fx, -.04, z0 - fz, x0 + fx, -.04, z0 + fz, x0 + Math.cos(la) * lean, h, z0 + Math.sin(la) * lean);
+      for (let j = 0; j < 3; j++) { C.push(...(straw ? [1.3 * k, 1.12 * k, .55 * k] : [k, k * (1 + (trng() - .5) * .12), k])); N.push(Math.cos(la) * .287, .958, Math.sin(la) * .287); }
+    }
+    const tuftGeo = new THREE.BufferGeometry(); tuftGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); tuftGeo.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+    tuftGeo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    const tuftMat = windMaterial(toonMaterial({ color: cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), windCompile = tuftMat.onBeforeCompile;
+    tuftMat.onBeforeCompile = s => { windCompile(s); s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
+    tuftMat.customProgramCacheKey = () => 'chains-tuft-blades';
+    const fringeAt = (x, z) => {   // 1 on the turf just outside the ground shader's gravel (gCover without its noise)
+      const ax = Math.abs(at4(turf, 2, x, z)), sx = at4(splats, 0, x, z);
+      return Math.max(smooth(.25, .5, at4(turf, 3, x, z)) * smooth(.4, .52, ax) * (1 - smooth(.62, .85, ax)), smooth(.1, .28, sx) * (1 - smooth(.38, .55, sx)));   // the trail's 1 m strip, the apron and worn earth
     };
-    const spots = [], starts = [];
+    const tee = [], teeStarts = [], rim = [], rimStarts = []; let spots = tee;   // two meshes a hole: the tee's are culled behind the putt lens
+    const add = (x, z, s, dry) => spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, 0, 0, s * (.85 + trng() * .3), s * (.8 + trng() * .4), s * (.85 + trng() * .3)),
+      c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : col.setRGB(.85 + trng() * .25, .8 + trng() * .25, .75 + trng() * .3).clone() });   // a third of the fringe gone to seed, straw-olive
     for (const h of holes) {
-      starts.push(spots.length);
+      teeStarts.push(tee.length); rimStarts.push(rim.length); spots = tee;
       const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), at = (u, w) => [h.tee[0] + u * cy + w * sy, h.tee[1] - u * sy + w * cy];
-      for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .08 + tuftRng() * .2; spots.push({ p: at(2.4 + Math.cos(a) * r, -2.6 + Math.sin(a) * r), s: .14 + tuftRng() * .12 }); }
-      for (let k = 0; k < 5; k++) { const a = tuftRng() * 6.3, r = .3 + tuftRng() * .3; spots.push({ p: [h.basket[0] + Math.cos(a) * r, h.basket[1] + Math.sin(a) * r], s: .12 + tuftRng() * .1 }); }
+      for (let k = 0; k < 5; k++) { const a = trng() * 6.3, r = .08 + trng() * .2; add(...at(2.4 + Math.cos(a) * r, -2.6 + Math.sin(a) * r), .16 + trng() * .12); }   // round the sign post
       // Ragged fringe: tufts the mower and the rake miss, 12-30 cm, strung along the gravel's edge (trail, apron, worn
       // earth) and the bed's timbers on the ground the tee camera sees, so every grass-to-gravel border breaks into clumps
       // that lean over it instead of a clean cut. Placed where the shader's own gravel cover (same grid data) turns from turf.
-      for (let k = 0; k < 60000; k++) {
-        const u = (tuftRng() - .5) * 44, w = 5 - tuftRng() * 32, [x, z] = at(u, w);   // 22 m either side, 5 m behind to 27 m ahead
+      for (let k = 0; k < 90000; k++) {
+        const u = (trng() - .5) * 44, w = 5 - trng() * 32, [x, z] = at(u, w);   // 22 m either side, 5 m behind to 27 m ahead
         const bed = Math.max(Math.abs(u) - BED.u, -w - BED.f1, BED.f0 + w);   // metres outside the bed's timbers (props' f runs toward the basket: -w)
         const edge = Math.max(fringeAt(x, z), bed > .02 && bed < .3 ? 1 : 0) * smooth(.3, .6, noise(x / 1.4 + 13, z / 1.4 + 13));   // in clumps and gaps along the edge, not a planted border
-        if (bed < .02 || tuftRng() > edge) continue;
-        spots.push({ p: [x, z], s: .1 + tuftRng() ** 2 * .16, dry: tuftRng() < .3 });
+        if (bed < .02 || trng() > edge) continue;
+        add(x, z, .11 + trng() ** 2 * .18, trng() < .3);
+      }
+      // and a dense, taller band hugging the bed's edging timbers, where no mower reaches: it leans out over them (r4 ground:
+      // the edge 'a clean cutoff with little blending')
+      for (let k = 0; k < 1400; k++) {
+        const side = trng() * 4 | 0, t = trng(), o = .06 + trng() ** 1.5 * .32, u = side < 2 ? (side ? 1 : -1) * (BED.u + .1 + o) : lerp(-BED.u - .1, BED.u + .1, t), w = side < 2 ? lerp(-BED.f1 - .1, -BED.f0 + .1, t) : side === 2 ? -BED.f1 - .1 - o : -BED.f0 + .1 + o, [x, z] = at(u, w);
+        if (trng() < smooth(.25, .55, noise(x / .9 + 41, z / .9 + 17))) add(x, z, .14 + trng() ** 2 * .2, trng() < .25);
+      }
+      spots = rim;
+      // The putting circle's rim: no lone tufts at the pole (they read as stickers on the dirt), but clumps crowding the
+      // turf's edge where the litter thins out, so the circle frays into grass instead of fading.
+      for (let k = 0; k < 6000; k++) {
+        const a = trng() * 6.283, r = 1 + Math.sqrt(trng()) * 10, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r, l = at4(splats, 2, x, z);
+        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29))) add(x, z, .1 + trng() ** 2 * .14, trng() < .2);
       }
     }
-    const fixed = new THREE.InstancedMesh(tuftGeo, tuftMat, spots.length);
-    spots.forEach(({ p: [x, z], s, dry }, i) => { e.set(0, tuftRng() * 6.3, 0); q.setFromEuler(e); v.set(x, height(x, z) - .04, z); sc.set(s, s * (.8 + tuftRng() * .4), s); m.compose(v, q, sc); fixed.setMatrixAt(i, m); fixed.setColorAt(i, dry ? col.setRGB(1.05 + tuftRng() * .2, .8 + tuftRng() * .1, .42) : col.setRGB(.8 + tuftRng() * .25, .72 + tuftRng() * .2, .7 + tuftRng() * .3)); });   // a third of the fringe gone to seed, straw-olive
-    fixed.receiveShadow = true;
-    if (quality !== 'low') group.add(fixed);
-    else starts.forEach((a, i) => {   // Lite: only the hole in play (setHole), ~15k triangles; all of them, 131k, were more than the whole blade carpet
-      const b = starts[i + 1] ?? spots.length, t = new THREE.InstancedMesh(tuftGeo, tuftMat, b - a);
-      t.instanceMatrix.array.set(fixed.instanceMatrix.array.subarray(a * 16, b * 16)); t.instanceColor = new THREE.InstancedBufferAttribute(fixed.instanceColor.array.slice(a * 3, b * 3), 3);
-      t.receiveShadow = true; t.visible = i === 0; tuftHoles.push(t); group.add(t);
-    });
+    perHole(tuftGeo, tuftMat, tee, teeStarts); perHole(tuftGeo, tuftMat, rim, rimStarts);
+  }
+  {
+    // Fallen leaves and twigs on the putting circle's litter, as geometry: a leaf is 4 triangles, cupped (its edges curl up
+    // 4-8 mm, each half lit as its own facet), 4.5-11 cm long; a twig is the same shape drawn out to 10-28 cm and 1 cm wide.
+    // Tan, brown, damp dark, birch yellow, rust, a few still green. Dense where the ground shader's litter is (its splat,
+    // frayed by noise), a few strays into the turf, within 11 m of each pin: the dirt in front of the putt lens gets per-leaf
+    // shape and shade at any resolution, which the litter tile, magnified ~1.5x there on a phone, cannot.
+    const lrng = makeRng(seed + 919), cu = .07, Vt = { b: [0, 0, -.5], l1: [-.5, cu, -.1], l2: [-.3, cu * .8, .24], t: [0, .01, .5], r2: [.3, cu * .8, .24], r1: [.5, cu, -.1] };
+    const P = [], N = [];
+    for (const [a, b, c, s] of [['b', 'l1', 'l2', 1], ['b', 'l2', 't', 1], ['b', 't', 'r2', -1], ['b', 'r2', 'r1', -1]]) { P.push(...Vt[a], ...Vt[b], ...Vt[c]); for (let j = 0; j < 3; j++) N.push(s * .14, .99, 0); }
+    const leafGeo = new THREE.BufferGeometry(); leafGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); leafGeo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    const leafMat = toonMaterial({ roughness: .92 });
+    const PAL = [[.36, [.62, .43, .22]], [.32, [.42, .26, .12]], [.1, [.24, .15, .08]], [.08, [.78, .58, .16]], [.07, [.66, .3, .09]], [.07, [.34, .36, .12]]];   // linear albedo, the litter tile's own range (its shader lifts the photo ~2.5x)
+    const spots = [], starts = [], dens = quality === 'low' ? 85 : 100;   // leaves per m2 under a full litter weight
+    for (const h of holes) {
+      starts.push(spots.length);
+      for (let k = 0, n = Math.round(Math.PI * 121 * dens); k < n; k++) {
+        const a = lrng() * 6.283, r = .45 + Math.sqrt(lrng()) * 10.5, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r;
+        const l = at4(splats, 2, x, z) + (noise(x * 1.3 + 5, z * 1.3 + 5) - .5) * .5, keep = Math.max(smooth(.25, .65, l), smooth(.05, .25, l) * .07);
+        if (lrng() > keep) continue;
+        const twig = lrng() < .07, L = twig ? .1 + lrng() * .18 : .045 + lrng() * .065, w = twig ? .008 + lrng() * .006 : L * (.45 + lrng() * .3);
+        let p = lrng(), base = PAL[0][1]; for (const [pr, c] of PAL) { if ((p -= pr) < 0) { base = c; break; } }
+        const g = .75 + lrng() * .45, c = twig ? col.setRGB(.26 * g, .19 * g, .13 * g) : col.setRGB(base[0] * g, base[1] * g, base[2] * g);
+        spots.push({ m: lay(x, meshY(x, z) + .004, z, lrng() * 6.283, (lrng() - .5) * .3, (lrng() - .5) * .3, w, twig ? .03 : L * (.6 + lrng() * .8), L), c: c.clone() });
+      }
+    }
+    perHole(leafGeo, leafMat, spots, starts);
   }
 
   // --- sky, lights, fog ---
@@ -1050,7 +1121,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // 0 on the fairway, 1 in the rough: the flight model uses it for skip, roll and slide friction.
   const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough, capsules: dressing.capsules, camBlockers: [...dressing.capsules, ...(dressing.camCapsules || [])] };
-  const setHole = i => { const h = holes[i]; tuftHoles.forEach((t, k) => { t.visible = k === i; }); world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; gapHole.value.set(h.basket[0], h.basket[1], gapHole.value.z, h.basketY); const L = Math.hypot(h.tee[0] - h.basket[0], h.tee[1] - h.basket[1]) || 1; gapAim.value.set((h.tee[0] - h.basket[0]) / L, (h.tee[1] - h.basket[1]) / L, gapAim.value.z, gapAim.value.w); };
+  const setHole = i => { const h = holes[i]; tuftHoles.forEach((l, k) => l.forEach(t => { t.visible = k === i; })); world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; gapHole.value.set(h.basket[0], h.basket[1], gapHole.value.z, h.basketY); const L = Math.hypot(h.tee[0] - h.basket[0], h.tee[1] - h.basket[1]) || 1; gapAim.value.set((h.tee[0] - h.basket[0]) / L, (h.tee[1] - h.basket[1]) / L, gapAim.value.z, gapAim.value.w); };
   const update = (dt, t, focus, view, nearFocus = focus) => {   // nearFocus: where the near cascade sits (main.js holds it still through a flight)
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
     if (view) treeLod(view, t, focus);   // trees: 3D near the eye, impostors beyond (the trees section)
