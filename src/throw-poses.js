@@ -181,7 +181,9 @@ export const STANCE = {
   // hand and plate ~27 px, the plate now ~35 px under the shoulder across the chest. The off arm swings out from the ribs
   // with the elbow softer ("elbows tucked against the torso"; the reference's free arm hangs clear, counterbalancing). The
   // chin drops ~15° more: the m2 scan's longer neck read at the tee as "a pale column" under a head held upright.
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.28, -1.75, -.12], shR: [.583, 1.164, .872], elR: [.712, -.447, 0], shL: [.45, 0, -.32], elL: [.75, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // r3 athlete c1: the off arm still read "stiff, jutting out straight like a mannequin's" in every verdict: it hangs closer
+  // to the ribs and the elbow folds ~15 deg more, the forearm forward with the hand off the front of the thigh.
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.28, -1.75, -.12], shR: [.583, 1.164, .872], elR: [.712, -.447, 0], shL: [.42, 0, -.24], elL: [1.0, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
@@ -244,6 +246,7 @@ export function readyPose(type, time, rig = RIGS.lite, over = null) {
   // breathing and a slow settle of the coil, so the set-up never freezes
   pose.knR[0] -= .02 + .02 * breath; pose.knL[0] -= .02 + .02 * breath; pose.spine[0] += .015 * breath; pose.head[1] += .04 * Math.sin(time * .5);
   pose.root[1] += .03 * Math.sin(time * .7); pose.spine[1] += .02 * Math.sin(time * .7 + .6); pose.elR[0] += .03 * breath;
+  pose.shL[0] += .035 * Math.sin(time * .7 - .9); pose.elL[0] += .05 * Math.sin(time * .7 - 1.4);   // the free arm swings a little behind the torso's settle, never held rigid
   pose.rootY = -Math.min(...soleHeights(pose, false, rig));
   return pose;
 }
