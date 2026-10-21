@@ -153,7 +153,7 @@ float sunShadow() {
   float w = smoothstep( .5, .4, max( e.x, e.y ) ), f = 1., n = 1.;
   if ( w < 1. ) f = bodySelf( directionalShadowMap[ 0 ], 1. / directionalLightShadows[ 0 ].shadowMapSize.x, directionalLightShadows[ 0 ].shadowBias, vDirectionalShadowCoord[ 0 ], 120., 1. / 399. );
   if ( w > 0. ) n = bodySelf( directionalShadowMap[ 1 ], 1. / directionalLightShadows[ 1 ].shadowMapSize.x, directionalLightShadows[ 1 ].shadowBias, vDirectionalShadowCoord[ 1 ], sunFleck.z, 1. / 90. );
-  return pow( vCanopy, 1.25 ) * mix( f, n, w );   // the lattice's 50 cm reach takes in light from the sunlit edges round the patch he stands in: partial shade a step deeper (full sun and full shade stay) keeps the shirt's mean where the per-pixel shadow had it (phone tee)
+  return pow( saturate( vCanopy ), 1.25 ) * mix( f, n, w );   // saturate: multisampled edge pixels extrapolate the varying past [0, 1], and pow of a negative is NaN (Full's bloom spread one into a black box over him). The lattice's 50 cm reach takes in light from the sunlit edges round the patch he stands in: partial shade a step deeper (full sun and full shade stay) keeps the shirt's mean where the per-pixel shadow had it (phone tee)
 }
 #endif`);
 }
