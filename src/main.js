@@ -178,7 +178,10 @@ const buzz = pattern => { try { navigator.vibrate?.(pattern); } catch { /* no ha
 // ---------- players ----------
 // Every athlete (players, the clubhouse hero) tags its pixels in the stencil, so the phone resolve softens his outline into
 // the scene (temporal.js) instead of leaving a cut-out edge. The disc is a separate mesh and keeps its crisp rim.
-const athlete = c => { c.group.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) Object.assign(m, /^(hold|rest)_/.test(o.name) ? HAND_STENCIL : ATHLETE_STENCIL); }); return c; };   // his modelled hands: no history (temporal.js)
+// Phones also take his fresnel rim light off: with no history on his interior it drew sharp pale seams round every hair
+// lock and a light band inside the hand and forearm against the grass (g13 crisp: "a light halo-like rim with a hard boundary").
+// ponytail: read at build; a tier switch mid-round keeps the old players' rim until their bodies are rebuilt
+const athlete = c => { c.group.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) { Object.assign(m, /^(hold|rest)_/.test(o.name) ? HAND_STENCIL : ATHLETE_STENCIL); if (m.userData.rim && G.settings.quality === 'low') m.userData.rim.value.w = 0; } }); return c; };   // his modelled hands: no history (temporal.js)
 function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerId = null, avatar = null, hand }, i) {
   // bots and unnamed humans get a deterministic random look (same on every online client) in their player colour
   color = safeColor(color, COLORS[i % COLORS.length]); avatar = avatar && sanitizeAvatar(avatar); name = safeName(name);   // a room's config comes off the network
