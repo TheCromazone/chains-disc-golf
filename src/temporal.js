@@ -2,7 +2,7 @@
 // hair, thin chains that break into dots, stepped dash ends"; Disc Golf Masters gets its soft edges from Unreal's TAA).
 // While the camera holds still the projection is jittered by a sub-pixel Halton offset each frame and the frame is blended
 // into a history, clamped to the current frame's 3x3 neighbourhood: a held frame (aim, putt, a paused flyover) converges
-// on a ~10x supersampled image and wind-moved leaves or the idling athlete never ghost. No reprojection: the moment the
+// on a ~10x supersampled image and wind-moved leaves never ghost (the athlete takes no history on phones: canvas()). No reprojection: the moment the
 // camera moves the jitter stops and the frame shows as rendered (MSAA, plus FXAA on Desktop), so motion never smears.
 // ponytail: still-camera only; add depth reprojection if moving shots ever need the same edges.
 import * as THREE from 'three';
@@ -112,7 +112,14 @@ export function createTemporal() {
         cur = new THREE.FramebufferTexture(w, h); hist = new THREE.FramebufferTexture(w, h);
         for (const x of [cur, hist]) Object.assign(x, { format: THREE.RGBFormat, internalFormat: 'RGB8', minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });   // copyTexSubImage2D may only drop channels, never add alpha
       }
-      renderer.copyFramebufferToTexture(cur); t.resolve(renderer, cur, hist); renderer.copyFramebufferToTexture(hist);
+      // The athlete takes no history: his idle arms and hands move every frame and skinned meshes carry no motion vectors, so
+      // the running mean dragged them into a smear the colour box could not reject (g11 athlete: "arms and hands soft, smeared,
+      // blurred mush next to his sharp face"). The stencil splits the resolve: the scene accumulates, his tagged samples show
+      // the current jittered frame through the same Gaussian, MSAA still covers his edges and the sharpen pass softens his outline.
+      const m = resolve.material, a = u.uAlpha.value; Object.assign(m, { stencilWrite: true, stencilWriteMask: 0, stencilRef: ATHLETE_STENCIL.stencilRef, stencilFunc: THREE.NotEqualStencilFunc });
+      renderer.copyFramebufferToTexture(cur); t.resolve(renderer, cur, hist);
+      m.stencilFunc = THREE.EqualStencilFunc; u.uAlpha.value = 1; draw(renderer, resolve); u.uAlpha.value = a; m.stencilWrite = false;
+      renderer.copyFramebufferToTexture(hist);
       // the athlete mask reuses cur (spent once the history is saved): clear colour only, the stencil keeps his tags
       renderer.getClearColor(clear); const ca = renderer.getClearAlpha(); renderer.setClearColor(black, 1); renderer.clear(true, false, false); renderer.setClearColor(clear, ca);
       draw(renderer, tag); renderer.copyFramebufferToTexture(cur);
