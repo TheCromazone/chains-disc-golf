@@ -15,6 +15,10 @@ const HEIGHT = { short: .94, average: 1, tall: 1.06 };
 const SLOT = { hair: { roughness: .7, rim: .22 }, headwear: { roughness: .8 }, trim: { roughness: .78 }, frame: { roughness: .42, color: '#1a1c22' }, lens: { roughness: .15, color: '#14171c', metalness: .3, opacity: .86 } };
 const _v = new THREE.Vector3(), _e = new THREE.Vector3(), _f = new THREE.Vector3(), _gi = new THREE.Quaternion(), _q = new THREE.Quaternion(), _eu = new THREE.Euler();
 const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0);   // FLIP: half turn about the forearm, puts the carried disc's face on the knuckle side, where a lens in front sees it
+// Each character's idle clip starts at its own point, out of step with the others, from a golden-ratio sequence rather than
+// Math.random: a draw from the shared stream moved the hero's pose whenever anything else in the game drew one more or fewer.
+let idleN = 0;
+export const idlePhase = () => (++idleN * .6180339887) % 1;
 const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
 // ?liveclips: throws drawn straight from the shared keys (throw-poses.js) instead of the Blender-baked clips, so a key edit shows
 // on a reload without a bake (tools/author-throws.mjs authoring); the shipped game always plays the baked clips
@@ -491,7 +495,7 @@ export function createGLTFCharacter(avatar) {
   const handed = name => lefty && actions.has(name + '_left') ? name + '_left' : name;
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map(src.animations.map(c => [c.name, mixer.clipAction(c)]));
-  let phase = null, finish = 0, throwType = handed('backhand'), active = null, time = Math.random() * 8, mood = null, previous = null, blend = 1, frameDt = 0, locomotion = null;
+  let phase = null, finish = 0, throwType = handed('backhand'), active = null, time = idlePhase() * 8, mood = null, previous = null, blend = 1, frameDt = 0, locomotion = null;
   // Aim stance. main.js steers faceDir every frame for the player lining up a throw and for the menu hero; only the player
   // also grips the disc for a throw (holdDisc asks releaseFrame for the selected type), so two steered frames plus a grip
   // request mean "aiming" and the coiled stance blends over the idle clip, following the throw picker through aimType.

@@ -2,7 +2,7 @@
 // canvas texture, build). Faces -Z. Root yaw + = turns left. Throw animations are keyframed per throw
 // type; phase 0..0.5 is the windup (scrubbed by the swipe), 0.5..1 the release/follow-through.
 import * as THREE from 'three';
-import { createGLTFCharacter } from './gltf-player.js';
+import { createGLTFCharacter, idlePhase } from './gltf-player.js';
 import { FACE_OPTIONS, FACE_DEFAULTS, EYE_COLORS, createFaceParts } from './face-parts.js';
 import { paintDetail, jerseyStyle, JERSEY_STYLES } from './materials.js';
 
@@ -95,7 +95,7 @@ export function createCharacter(opts = {}) {
 
   const motionEuler = new THREE.Euler(), motionA = new THREE.Quaternion(), motionB = new THREE.Quaternion();
   const cur = {}; for (const j of JOINTS) cur[j] = [...IDLE[j]]; cur.rootY = 0;
-  let throwType = 'backhand', phase = null, time = Math.random() * 10, mood = null, locomotion = null;
+  let throwType = 'backhand', phase = null, time = idlePhase() * 10, mood = null, locomotion = null;
   let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, aimType = 'backhand';   // aiming = faceDir steered and the disc gripped for a throw every frame; the cover shot needs a carried disc (see gltf-player.js)
   let kept = false;   // keepTravel(): the throw's travel moved into the group's position
   const apply = () => { for (const j of JOINTS) joints[j].rotation.set(cur[j][0], cur[j][1], cur[j][2]); root.position.set(0, ROOT_Y + cur.rootY, 0); };
