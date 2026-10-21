@@ -584,7 +584,7 @@ function launchNow() {
   // eases onto the flight path over its first .16 s, a few metres out, so neither the hit nor the ribbon jumps
   { const d = p.discMesh.position, q = sim.traj[0], off = q && [d.x - q[0], d.y - q[1], d.z - q[2]]; G.flight.from = off && Math.hypot(...off) < 1.2 ? off : null; }
   G.flight.lock = params.throwType === 'putt' && staysInFrame(sim.traj);   // a putt holds its aim frame into the chains, unless it leaves that frame
-  trail.start(discById(params.discId)?.color || "#ffffff");
+  trail.start(discById(params.discId)?.color || "#ffffff", G.flight.lock ? basketPos() : null);   // a putt in its locked frame: a faint wisp (flight-trail.js)
   G.phase = 'flight'; cam.mode = 'flight'; sfx.whoosh(params.power);
   if (p.runUp) { cam.mode = 'aim'; G.flight.camAt = .55; }   // a watched run-up keeps the tee camera through the follow-through (Gemini: "the cut at release wipes it out"), then cuts to the chase
   UI.setHud({ throwNo: `Throw ${p.strokes + 1}` });
