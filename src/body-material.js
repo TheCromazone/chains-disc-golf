@@ -86,6 +86,12 @@ float chainsFolds(vec3 p, float armW) {
   h += .0042 * sin(p.y * 180. + 3. * chainsNoise(p * vec3(11., 4., 11.))) * band * brk * (.45 + .55 * smoothstep(.05, .13, ax)) * torso;
   vec2 d = vec2(ax - uFold.w, p.y - uFold.y); float r = length(d), a = atan(d.y, -d.x);
   h += .003 * sin(a * 9. + 1.5 * chainsNoise(p * 18.)) * (1. - smoothstep(.04, .14, r)) * smoothstep(.0, .025, r) * (1. - smoothstep(-.3, .9, a)) * torso;
+  // the loose cut hangs from the chest in long soft folds round the torso (~10 round it, 5 mm deep, deepest over the hem where it
+  // gathers, leaning with a 15 cm noise so no two run parallel), and the armpit's drag folds run on 28 cm across the chest in
+  // broader ridges: "blotchy, painterly shading with no fold structure" against the reference's draped jersey (round 13 body c2)
+  float th = atan(p.x, -p.z), dn = chainsNoise(p * vec3(6., 2.5, 6.));
+  h += .0051 * sin(th * 10. + 4. * dn + (p.y - uFold.x) * 6.) * (1. - smoothstep(uFold.x + .1, uFold.y, p.y)) * (.4 + .6 * chainsNoise(p * vec3(9., 3., 9.) + 11.)) * torso;
+  h += .0045 * sin(a * 6. + 1.5 * chainsNoise(p * 9.)) * smoothstep(.12, .16, r) * (1. - smoothstep(.14, .28, r)) * (1. - smoothstep(-.3, .9, a)) * torso;
   vec2 n0 = vec2(.062, uFold.z - .015), n1 = vec2(uFold.w - .005, uFold.y - .005), e = n1 - n0; float t = clamp(dot(vec2(ax, p.y) - n0, e) / dot(e, e), 0., 1.);
   float sd = length(vec2(ax, p.y) - n0 - e * t); h -= .0016 * exp(-sd * sd / 1.6e-5) * torso;
   return h;
@@ -97,6 +103,60 @@ export const PORES_GLSL = (pos, k, scale = '260.', depth = '.00028') => `{ vec3 
         if (fade > .01) { float h = (chainsNoise(bp) * .7 + chainsNoise(bp * 2.3) * .3) * ${depth} * fade;
           vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), r1 = cross(sy, normal), r2 = cross(normal, sx); float det = dot(sx, r1);
           vec3 bn = abs(det) * normal - sign(det) * (dFdx(h) * r1 + dFdy(h) * r2); if (dot(bn, bn) > 1e-30) normal = normalize(bn); } }`;   // a degenerate pixel quad (det 0) would normalise to NaN, and bloom smears one NaN pixel over the frame
+
+// The athlete's sun, body and modelled hands (s: the onBeforeCompile shader). Under the tee's canopy the course's shadow
+// (course.js sunShadow) laid the leaves' gaps across him at the near map's texels, nearest-depth taps turned per pixel: critics
+// read the red shirt as "posterized, hard-edged blotchy shadow shapes, almost like a paint filter". Dappled light on cloth
+// is broad and soft, so he takes it in two parts. Blockers more than 1.5 m above the surface along the light (crowns, the
+// arch) are read in the vertex shader at the nodes of a 25 cm lattice fixed in the light's plane (world-anchored: the sun
+// image slides over him as he moves, not with him), each node a 16-tap average over 25 cm, blended smoothly between nodes:
+// the same share of shade as before, as gradients across a sleeve instead of bars. Blockers within 1.5 m (his own arm over
+// the chest) keep a sharp per-pixel shadow, 16 fixed taps 3 cm wide, judged only on the taps the canopy leaves visible.
+// (Removing the canopy outright lit him brighter and flatter, "smooth plastic": round 13 body c2.) Depth per metre: the
+// near map spans 90 m along the light, the far one 399; the near map is 24 m across, the far one 120 (course.js).
+const LATTICE = .25;
+export function bodySun(s) {
+  const disk = name => `const vec2 ${name}[ 16 ] = vec2[ 16 ]( ${Array.from({ length: 16 }, (_, i) => { const r = Math.sqrt((i + .5) / 16), a = i * 2.39996323; return `vec2( ${(r * Math.cos(a)).toFixed(4)}, ${(r * Math.sin(a)).toFixed(4)} )`; }).join(', ')} );`;
+  s.vertexShader = s.vertexShader.replace('#include <shadowmap_pars_vertex>', `#include <shadowmap_pars_vertex>
+#if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 1
+#include <packing>
+uniform sampler2D directionalShadowMap[ NUM_DIR_LIGHT_SHADOWS ];
+uniform vec4 sunFleck;
+varying float vCanopy;
+${disk('canopyTap')}
+float canopyNode( sampler2D map, vec2 uv, float r, float reach ) { float s = 0.; for ( int i = 0; i < 16; i ++ ) s += step( reach, unpackRGBAToDepth( texture2D( map, uv + canopyTap[ i ] * r ) ) ); return s * .0625; }
+float canopy( sampler2D map, vec4 c, float bias, float width, float perM, vec2 p ) {   // p: the vertex in the light's plane (m)
+  c.xyz /= c.w; float reach = c.z + bias - 1.5 * perM; if ( c.z + bias > 1. ) return 1.;
+  vec2 g = p / ${LATTICE.toFixed(2)}, f = fract( g ), w = f * f * ( 3. - 2. * f ), o = c.xy + ( floor( g ) * ${LATTICE.toFixed(2)} - p ) / width;
+  float k = ${LATTICE.toFixed(2)} / width;
+  return mix( mix( canopyNode( map, o, k, reach ), canopyNode( map, o + vec2( k, 0. ), k, reach ), w.x ), mix( canopyNode( map, o + vec2( 0., k ), k, reach ), canopyNode( map, o + k, k, reach ), w.x ), w.y );
+}
+#endif`).replace('#include <shadowmap_vertex>', `#include <shadowmap_vertex>
+#if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 1
+  { vec4 nc = vDirectionalShadowCoord[ 1 ] / vDirectionalShadowCoord[ 1 ].w; vec2 e = abs( nc.xy - .5 ), p = ( nc.xy - .5 ) * sunFleck.z + sunFleck.xy;
+    float w = smoothstep( .5, .4, max( e.x, e.y ) ), f = 1., n = 1.;
+    if ( w < 1. ) f = canopy( directionalShadowMap[ 0 ], vDirectionalShadowCoord[ 0 ], directionalLightShadows[ 0 ].shadowBias, 120., 1. / 399., p );
+    if ( w > 0. ) n = canopy( directionalShadowMap[ 1 ], vDirectionalShadowCoord[ 1 ], directionalLightShadows[ 1 ].shadowBias, sunFleck.z, 1. / 90., p );
+    vCanopy = mix( f, n, w ); }
+#endif`);
+  s.fragmentShader = s.fragmentShader.replace('#include <shadowmap_pars_fragment>', THREE.ShaderChunk.shadowmap_pars_fragment.replace('float sunShadow() {', 'float sunShadowCourse() {') + `
+#if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 1
+varying float vCanopy;
+float bodySelf( sampler2D map, float texel, float bias, vec4 c, float width, float perM ) {   // the share of light his own limbs let through, among the taps no crown hides
+  c.xyz /= c.w; c.z += bias; if ( c.z > 1. ) return 1.;
+  float reach = c.z - 1.5 * perM, r = max( .03 / width, 1.5 * texel ), lit = 0., seen = 0.;
+  for ( int i = 0; i < 16; i ++ ) { float d = unpackRGBAToDepth( texture2D( map, c.xy + vogel[ i ] * r ) ); lit += step( c.z, d ); seen += step( reach, d ); }
+  return seen > 0. ? lit / seen : 1.;
+}
+float sunShadow() {
+  vec4 nc = vDirectionalShadowCoord[ 1 ] / vDirectionalShadowCoord[ 1 ].w; vec2 e = abs( nc.xy - .5 );
+  float w = smoothstep( .5, .4, max( e.x, e.y ) ), f = 1., n = 1.;
+  if ( w < 1. ) f = bodySelf( directionalShadowMap[ 0 ], 1. / directionalLightShadows[ 0 ].shadowMapSize.x, directionalLightShadows[ 0 ].shadowBias, vDirectionalShadowCoord[ 0 ], 120., 1. / 399. );
+  if ( w > 0. ) n = bodySelf( directionalShadowMap[ 1 ], 1. / directionalLightShadows[ 1 ].shadowMapSize.x, directionalLightShadows[ 1 ].shadowBias, vDirectionalShadowCoord[ 1 ], sunFleck.z, 1. / 90. );
+  return pow( saturate( vCanopy ), 1.25 ) * mix( f, n, w );   // saturate: multisampled edge pixels extrapolate the varying past [0, 1], and pow of a negative is NaN (Full's bloom spread one into a black box over him). The lattice's 50 cm reach takes in light from the sunlit edges round the patch he stands in: partial shade a step deeper (full sun and full shade stay) keeps the shirt's mean where the per-pixel shadow had it (phone tee)
+}
+#endif`);
+}
 
 export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   const suffix = lod ? '_lod' : '';   // the LOD body has its own bake: its UV layout differs
@@ -241,15 +301,19 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         float grain = fract(sin(dot(floor(vMapUv * 1100.), vec2(12.9898, 78.233))) * 43758.5453);
         col = mix(col, uHair * (.5 + .5 * clamp(lum / uMean[0], .3, 1.4)), zone * (.6 + .4 * grain));
         chainsKnit = (texture2D(uKnit, vec2(vJerseyPos.x * .7 + vJerseyPos.z * .7, vJerseyPos.y) * 16.).r - .49) * ${knitAmp.toFixed(2)} * (w[1] + .5 * w[2] + .6 * w[4]);   // bind-pose projection: ~3 mm cells, the same scale on every island
-        // crease lines along the same rumples the bump draws (a ridge where the noise crosses its mid value): the torso sits in
-        // shade at the tee, where a bump alone shows nothing, so the folds also carry a little occlusion in the cloth's tone
+        // a little occlusion in the cloth's tone along the same rumples the bump draws: the torso sits in shade at the tee, where a
+        // bump alone shows nothing. It follows the noise itself, one soft side to the other. Crease lines where the noise crossed
+        // its mid value (24 % darker within a narrow band, doubled either side of each ridge) laid the shade side of the shirt in
+        // hard-edged parallel bars: with the sun shadow off him entirely the bars stayed, and critics read them as "posterized,
+        // almost like a paint filter". Same mean tone (-.058), a third of the swing
         { vec3 fp = vJerseyPos * mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW)); float n = chainsNoise(fp) * .7 + chainsNoise(fp * 2.3) * .3;
-          chainsKnit += w[1] * (.06 - .3 * smoothstep(.72, .97, 1. - abs(2. * n - 1.))); }
+          chainsKnit += w[1] * (.35 * (n - .5) - .058); }
         // the fold valleys and seams hold a little shade in the cloth's own tone (the torso is in shade at the tee, where a bump shows little)
         chainsFoldH = chainsFolds(vJerseyPos, vArmW) * w[1]; chainsKnit += clamp(chainsFoldH / .0035, -1., 1.) * .16 * w[1]; chainsCloth = w[1] + .4 * w[2];
         // cloth roughness ~.75 with ~3 cm variation (a uniform .89 lit the shirt as one even gradient)
         chainsJersey = w[1]; chainsSkin = w[0]; chainsRough = 1. + w[0] * (.1 + (chainsMot - .5) * .4 + .12 * min(chainsCav, 1.)) + w[3] * (-.22 + (chainsHairS - .5) * .7) + w[1] * ((chainsMot - .5) * .3 + .02) + .2 * (w[2] + w[4]); diffuseColor.rgb = col;
         chainsPanel = uPanelN > .5 ? max(smoothstep(.5, .78, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.3, .45, -vBindN.x * sign(vJerseyPos.x))) : -1.; }`);   // the side panels follow the torso's turn (a hard cut flattened the back into one tone, a wide blend read as a shadow); her folded scan's normals scatter them into shards, so she takes the width-based panels
+    bodySun(s);
   };
   material.customProgramCacheKey = () => 'chains-body';
   jerseyStyle(material, avatar.jerseyStyle, avatar.accent, 1, [0, 0, 0], 'chainsJersey');
