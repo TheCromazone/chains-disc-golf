@@ -126,7 +126,12 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
-  thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
+  // r3a c2 (g7, every tee critic: "no thumb on the flight plate", "the disc floats beside a mitten"): the tee camera sees the
+  // hand from its thumb side, level with the plate, so the thumb is the one digit it can read. It ended 4.5 cm in from the rim
+  // and hung ~1 cm over the plate (main.js sinks the disc 1.2 cm into the fingers and tips it to the lens), a stub in the air on
+  // the hand's edge; now it lies along the top of the plate 6 cm in, slimmer, with a nail, the way Disc Golf Masters' thumb
+  // runs out over the disc
+  thumb: [[-.003, -.012, -.022], [-.007, -.03, -.035], [-.014, -.058, -.047], [-.042, .0075, -.05], [-.074, .0065, -.047]], thumbR: [.0118, .011, .0098, .0086, .0074] };   // thumb y after the MCP is relative to the rim
 // The same hand at rest, for the free hand in the set-up: the scan's hanging hand is one fused mitten ("a mitten under a
 // swollen wrist knob"). Fingers in a loose cascade, more curl toward the little finger; the thumb lies along the index. Curled
 // progressively toward the little finger, keeping a relaxed wrist and visible finger separation.
@@ -134,7 +139,10 @@ const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wri
 // r4 athlete (every g5 critic of the tee: "the trailing hand at the right hip is a rigid, splayed claw with no natural curl"):
 // a hanging hand's fingers lie together, so at rest they keep their full width and fall in toward the middle finger, the
 // gaps closing to creases, with a few degrees more curl
-const REST = { curl: [[26, 40, 20], [30, 46, 24], [34, 52, 28], [38, 58, 30]], fall: .22, thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]] };
+// r3a c2 (g7, every tee critic: "the trailing fist", "a claw", against Disc Golf Masters' "natural open counterweight hand"):
+// that hand hangs open in a C, the index nearly straight and each finger after it a little more bent, the thumb forward
+// and apart from the index so a dark gap shows between them; all four curled ~30-58 deg a joint read as a claw at the hip
+const REST = { curl: [[10, 18, 8], [16, 28, 12], [22, 36, 16], [28, 44, 20]], fall: .22, thumb: [[-.003, -.012, -.022], [-.008, -.03, -.035], [-.017, -.055, -.05], [-.026, -.075, -.056], [-.033, -.096, -.054]] };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const taperAt = y => 1 - GRIP.taper * smooth(.11, 0, y);   // y: metres above the wrist joint
 function turn(p, o, axis, ang) { const x = p.x - o.x, y = p.y - o.y, z = p.z - o.z; _v.set(x, y, z).applyAxisAngle(axis, ang); return p.set(o.x + _v.x, o.y + _v.y, o.z + _v.z); }
@@ -198,12 +206,19 @@ function gripHand(L, wrist, lod, rest = false, open = false) {
     ao[i] = .3 + .7 * smooth(0, .014 * k, clear);   // at .5 the gaps vanished at 640 px and critics saw "one fused block"
   }
   valley.forEach((v, i) => { ao[i] *= 1 - .4 * v; });
+  // r3a c2: the palm shades where a digit lies over it too (the thumb's web, the fingers' roots): it took no occlusion, so the
+  // thumb and the palm under it read as one pale block at the tee ("a mitten-like lump")
+  for (let i = 0; i < partEnd[0]; i++) {
+    const p = new THREE.Vector3(out.p[i * 3], out.p[i * 3 + 1], out.p[i * 3 + 2]); let clear = 1;
+    for (const ax of axes) for (let s = 3; s < ax.pts.length; s++) clear = Math.min(clear, segDist(p, ax.pts[s - 1], ax.pts[s]) - ax.r);
+    ao[i] *= .45 + .55 * smooth(0, .012 * k, clear);
+  }
   // knuckle creases and nails on the four fingers: a vertex's arc length along its finger's joint polyline says how near a
   // joint it sits (creases darken, and redden via the shader's AO tint); past the last joint, the side away from the curl
   // takes a paler nail. Critics: "no knuckles, nails or creases", "a smooth rubber mitten"
-  for (let f = 0; f < 4; f++) {
+  for (let f = 0; f < 5; f++) {   // f 4: the thumb, whose nail faces away from the plate (r3a c2)
     const P = axes[f].pts, cum = [0]; for (let s = 1; s < P.length; s++) cum.push(cum[s - 1] + P[s].distanceTo(P[s - 1]));
-    const T = P[P.length - 1].clone().sub(P[P.length - 2]).normalize(), D = new THREE.Vector3(-T.y, T.x, 0).normalize();
+    const T = P[P.length - 1].clone().sub(P[P.length - 2]).normalize(), D = f < 4 ? new THREE.Vector3(-T.y, T.x, 0).normalize() : rest ? new THREE.Vector3(.3, 0, -1).normalize() : new THREE.Vector3(Math.sin(t), Math.cos(t), 0);
     for (let i = partEnd[f]; i < partEnd[f + 1]; i++) {
       const p = new THREE.Vector3(out.p[i * 3], out.p[i * 3 + 1], out.p[i * 3 + 2]); let best = 1e9, arc = 0, foot = null;
       for (let s = 1; s < P.length; s++) { const ab = P[s].clone().sub(P[s - 1]), t = THREE.MathUtils.clamp(q.copy(p).sub(P[s - 1]).dot(ab) / ab.lengthSq(), 0, 1), c = P[s - 1].clone().addScaledVector(ab, t), d = p.distanceTo(c); if (d < best) { best = d; arc = cum[s - 1] + t * ab.length(); foot = c; } }
