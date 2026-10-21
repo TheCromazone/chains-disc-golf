@@ -159,7 +159,7 @@
     },
     "putt": {
       "file": "assets/models/golfer-putt.glb",
-      "bytes": 21496,
+      "bytes": 21500,
       "duration": 1,
       "meshes": 0
     },
@@ -219,13 +219,13 @@
     },
     "xstep": {
       "file": "assets/models/golfer-xstep.glb",
-      "bytes": 20960,
+      "bytes": 21360,
       "duration": 1,
       "meshes": 0
     },
     "xstep_left": {
       "file": "assets/models/golfer-xstep_left.glb",
-      "bytes": 21096,
+      "bytes": 21364,
       "duration": 1,
       "meshes": 0
     }
