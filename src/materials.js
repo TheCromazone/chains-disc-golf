@@ -50,8 +50,8 @@ export const GROUND_GLSL = `
 float gHash(vec2 p){vec3 q=fract(p.xyx*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}   // no sin(): cheap and stable on phones
 float gNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(gHash(i),gHash(i+vec2(1,0)),f.x),mix(gHash(i+vec2(0,1)),gHash(i+vec2(1,1)),f.x),f.y);}
 #ifdef GROUND_LITE   // Lite: the same turf as Full (r3 nature: its one-octave drift, no clumps, thin patches, scuffs or clover read "a smooth painted green carpet", ground 1/4); only its olive differs
-#define gOlive .7   /* Lite has no grade to ease greens toward olive: the turf does it alone */
-#define gGain vec3(1.2,1.22,1.08)   /* Full's thin patches, rough weeds and clump gaps took ~12% off its lawn (tee hill rgb 91,107,55 -> 82,95,52); this gives it back */
+#define gOlive .58   /* Lite has no grade to ease greens toward olive: the turf does it alone (.7 left the phone's hill at saturation .52-.59, hue 77-93; DGM's turf .40-.51, 60-69) */
+#define gGain vec3(1.26,1.19,1.04)   /* Full's thin patches, rough weeds and clump gaps took ~12% off its lawn (tee hill rgb 91,107,55 -> 82,95,52); this gives it back, leaning yellow (was 1.2,1.22,1.08, same luminance) */
 #else
 #define gOlive .62
 #define gGain 1.
@@ -85,6 +85,17 @@ vec3 gTurf(vec2 p,vec3 zone,vec2 turf,float dry){   // zone albedo -> turf: 10-4
   c*=1.+(smoothstep(-.03,.03,abs(fract(turf.y/7.)-.5)-.25)-.5)*mix(.14,.32,turf.x);   // 3.5 m mown stripes with a mower's crisp edge, fainter in the rough
   c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.42,1.18,.62),dry*.65);
   float wn=gWorn(p);c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.4,1.15,.6),wn*.7)*(1.-wn*.16);   // worn patches go straw-olive and a touch darker (thin cover shows thatch)
+  #ifdef GROUND_LITE
+  // r3 nature (phone ground 1/4: "one flat, oversaturated green across the hill"; DGM's fairway is olive with broad yellowed and
+  // trodden zones, colour std between 32 px blocks .12-.16 against our .06): the sward varies at the scale a 640 px frame resolves.
+  // 8-25 m drifts of sun-yellowed, paler turf against deeper lush green, and the walking line up the fairway's middle trodden
+  // olive-straw in broken 2-5 m patches. Through gTurf, so the blade carpet goes straw and lush with the ground under it.
+  { float l=dot(c,vec3(.3,.59,.11)),sw=gNoise(p/8.+29.)*.55+gNoise(p/21.+61.)*.45;
+    float lane=turf.x*(1.-smoothstep(1.,4.,abs(turf.y-1.75)+(gNoise(p/4.+19.)-.5)*3.))*smoothstep(.3,.6,gNoise(p/2.3+5.)*.6+gNoise(p/9.+47.)*.4);
+    c*=mix(vec3(1.),vec3(.8,.9,.84),1.-smoothstep(.25,.45,sw));
+    c=mix(c,l*vec3(1.4,1.2,.68)*1.12,smoothstep(.44,.66,sw)*.7);
+    c=mix(c,l*mix(vec3(1.32,1.12,.74)*.95,vec3(1.3,1.02,.7)*.78,smoothstep(.55,.8,gNoise(p*.9+23.))),lane*.8); }   // trodden to thatch and, in spots, dull bare earth
+  #endif
   return mix(vec3(dot(c,vec3(.3,.59,.11))),c,gOlive)*vec3(1.05,1.,.9)*gGain;   // summer olive, not lime: a fifth less saturation, a touch warmer
 }`;
 // Full also shades a contact band where each tee pad meets the ground (pads: [x, z, cos yaw, sin yaw], 1.6 x 3.2 m).
