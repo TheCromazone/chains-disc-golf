@@ -115,7 +115,11 @@ class Aerial extends Pass {
   }
   render(renderer, writeBuffer, readBuffer) {
     const sun = this.scene.userData.sun; if (!sun || !readBuffer.depthTexture || this.u.uShape.value.z <= 0) return;
-    const u = this.u, fog = sun.fog, v = this.camera.matrixWorldInverse;
+    const u = this.u, fog = sun.fog, v = this.camera.matrixWorldInverse, k = fog.putt || 0;
+    // At the putt (course.js FOG.putt) the air clears to 28 m and climbs faster to a higher ceiling, a step cooler, as Lite's
+    // putt air does: the 10-28 m trunks round the pin keep their bark and the stand 40-75 m back falls away (r3 d-look,
+    // vs the previous build: 'more cool haze on the trees behind the basket separates the layers'). The tee is unchanged.
+    u.uShape.value.set(15 + 13 * k, .013 + .022 * k, .52 + .23 * k, 10); u.uGain.value.set(.75 - .05 * k, .8, .85 + .1 * k);
     u.tDepth.value = readBuffer.depthTexture; u.uSun.value.copy(sun.dir).transformDirection(v); u.uUp.value.set(0, 1, 0).transformDirection(v);
     u.uHaze.value.setRGB(fog.haze.r, fog.haze.g, fog.haze.b); u.uWarm.value.setRGB(fog.warm.r, fog.warm.g, fog.warm.b); u.uGlow.value.setRGB(fog.glow.r, fog.glow.g, fog.glow.b);
     const auto = renderer.autoClear; renderer.autoClear = false; renderer.setRenderTarget(readBuffer); this.quad.render(renderer); renderer.autoClear = auto;
