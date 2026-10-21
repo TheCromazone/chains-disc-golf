@@ -974,15 +974,13 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     }
     const tuftGeo = new THREE.BufferGeometry(); tuftGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); tuftGeo.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
     tuftGeo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-    const tuftMat = windMaterial(toonMaterial({ color: cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), windCompile = tuftMat.onBeforeCompile;
-    tuftMat.onBeforeCompile = s => { windCompile(s); s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
-    tuftMat.customProgramCacheKey = () => 'chains-tuft-blades';
     // Round the pin the tufts grow out of what they stand in (grass.js gTuftTint, the carpet's own ground data): the lower
     // third of every blade fades into the ground at its root (mulch, gravel, or that turf in shade) before windMaterial's root
     // shade, a contact shadow in the ground's own colour, so a clump on brown mulch is no longer a lime card standing on it (r3
     // ground: "isolated billboard cards stuck onto a flat plane"). Above that the blades keep their own green: tinted to the lawn
     // round the pin (40%, or wholly in r3 nature c1) they went straw-olive, "pale and hazy" to the putt's haze critic, and on the
-    // tee's ridge they vanished into the dirt (light and trees 1/4). The tee's tufts keep tuftMat: the tee frame does not change.
+    // tee's ridge they vanished into the dirt (light and trees 1/4). Mobile's tee tufts too since r11: in plain lime they stood
+    // "on top of the flat fairway rather than coming out of it" (ground critics), and the tee exit's fringe needs the same root.
     const gr = carpet.userData.ground, rimMat = windMaterial(toonMaterial({ color: cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), rimCompile = rimMat.onBeforeCompile;
     rimMat.onBeforeCompile = s => { rimCompile(s); Object.assign(s.uniforms, gr.uniforms);
       s.vertexShader = `varying vec3 vTuftBlade,vTuftSoil;${gr.glsl}\n` + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
@@ -1044,7 +1042,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       }
       for (const t of trees) if (Math.hypot(t.x - h.basket[0], t.z - h.basket[1]) < 20) foot(t);   // and round the pin, in front of the putt lens
     }
-    perHole(tuftGeo, rimMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);   // Full's tee tufts root in the ground too: phones' light and trees critics judge the tee frame, and the Mobile tee stays as it was
+    perHole(tuftGeo, rimMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);
   }
   {
     // Fallen leaves and twigs on the putting circle's litter, as geometry: a leaf is 4 triangles, cupped (its edges curl up
