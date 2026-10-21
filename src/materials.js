@@ -126,6 +126,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, lite = fal
         float d=length(vViewPosition),u=${lite ? 'clamp((5.8-d)/2.8,0.,1.)*.55' : 'clamp((8.5-d)/5.,0.,1.)*.9+.12*(1.-smoothstep(9.,15.,d))'};
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.25,.28),u*.75)*(1.-u*.18);   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo or bare soil
         vec3 cov=gCover(vSplat,vTurf.zw,br);
+        cov.z=max(cov.z,smoothstep(.6,.78,gNoise(p*2.3+61.)*.7+gNoise(p*7.1+5.)*.3)*smoothstep(.0,.3,vSplat.z+br*.3)*.9);   // chip islands, 15-50 cm, strewn a metre or two past the mulch's edge: it frays out instead of ending on a lobed line (r3 ground: "a hard, blotchy edge")
         float reach=smoothstep(.02,.4,vSplat.z+br*.5);   // beyond the litter's edge single leaves stray into the turf (Mobile too: its mulch ended on a clean blend)
         if(reach>0.){ vec3 l=texture2D(gDuff,p/2.3).rgb; float dp=gPatch(p);
           l=mix(l,texture2D(gDuff,mat2(.6,-.8,.8,.6)*p/1.2+.3).rgb,smoothstep(.35,.65,gNoise(p/.9+41.)));   // finer, fresher shreds in drifts: chip size varies (Mobile too: one tile read "a flat, uniform brown")
