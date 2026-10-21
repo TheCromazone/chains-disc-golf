@@ -46,9 +46,10 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   geo.setAttribute('aRoot', new THREE.InstancedBufferAttribute(new Float32Array(roots), 4)); geo.instanceCount = roots.length / 4;
   // Round the pin (gDrift -> 1 as the eye comes within ~30 m of it: the putt) the second tile's clumps, and every near-tile
   // clump whose own root falls on the mulch or gravel (dropped there, wasted), move one by one to a second layout (aRoot2, on
-  // its own rng, so aRoot and every tee frame stay as they were): drifts of 3-18 clumps 0.6-3 m long over a 26 m tile reaching
-  // 26 m, as tall in the fairway as in the rough and dark at the root. The far tile alone, spread evenly, was one 24 cm puff per
-  // 0.6 m2, invisible past 9 m, and the lawn past the basket read "flat and washed-out", "sparse tufts dotted evenly" (r3 ground).
+  // its own rng, so aRoot and every tee frame stay as they were): drifts of 3-18 clumps 0.6-3 m long over a 40 m tile from ~6 to
+  // 46 m ahead, as tall in the fairway as in the rough and dark at the root. Hole 1's pin sits on a brow: the lawn the putt lens
+  // sees past the mulch lies 23-45 m out (raycast), where neither tile reached, so it read "flat and washed-out", "sparse tufts
+  // dotted evenly" (r3 ground); the far tile alone, spread evenly, was one 24 cm puff per 0.6 m2, invisible past 9 m anyway.
   // The same instances, so not one triangle more. Not on the tee: there tussocks chopped the sunlit pools on the fairway into
   // speckle (r3 ground c1: light 0/4).
   const DT = [40, 26, 30, 46], alt = roots.slice();
