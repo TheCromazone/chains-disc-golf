@@ -486,16 +486,16 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // g3 props verdicts ('thin, flat banner slabs ... like printed cards', 'no depth or bevel'): every cover is a padded
   // box whose edges roll over in an R-wide bevel, the print kept to the flat of each face, so a navy rim shades round
   // every leg and the beam the way stuffed fabric over a truss does.
-  const ARCH = { span: 11.2, leg: 2.5, deep: 1.7, beam: 1.85, R: .17 }, legX = ARCH.span / 2 + ARCH.leg / 2;
+  const ARCH = { span: 11.2, leg: 2.5, deep: 1.7, beam: 1.85, R: .28 }, legX = ARCH.span / 2 + ARCH.leg / 2;
   const addArch = (world, yb, feet) => {
     const { leg, deep, beam, R } = ARCH, face = deep / 2 + .004, skin = (g, region, color) => K.arch(g.applyMatrix4(world), region, color);
     const gy = (lx, lz) => { const e = world.elements; return height(e[0] * lx + e[8] * lz + e[12], e[2] * lx + e[10] * lz + e[14]); };   // ground under an arch-local point
     const cut = (g, mid) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) if (p.getY(i) < mid) p.setY(i, height(p.getX(i), p.getZ(i)) - .08); return g; };   // world space: the lower half's vertices 8 cm into the ground under each
     // Printed cover faces are cloth pulled over the frame: each bellies out a few centimetres between its edges (across
     // its width, `across`; down its height otherwise), so the light rolls across it instead of lying flat as on a board.
-    const pillow = (g, w, h, across) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const t = across ? 2 * p.getX(i) / w : 2 * p.getY(i) / h; p.setZ(i, p.getZ(i) + (full ? .05 : .03) * (1 - t * t)); } g.computeVertexNormals(); return g; };
+    const pillow = (g, w, h, across) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const t = across ? 2 * p.getX(i) / w : 2 * p.getY(i) / h; p.setZ(i, p.getZ(i) + .1 * (1 - t * t)); } g.computeVertexNormals(); return g; };
     const panel = (w, region, top, bottom) => {   // art of `region` at its own aspect, hung from `top`, cropped at `bottom`
-      const [, , rw, rh] = REGION[region], nat = w * rh / rw, h = Math.min(nat, top - bottom), g = new THREE.PlaneGeometry(w, h, full ? 6 : 2, 1), uv = g.attributes.uv;
+      const [, , rw, rh] = REGION[region], nat = w * rh / rw, h = Math.min(nat, top - bottom), g = new THREE.PlaneGeometry(w, h, full ? 6 : 4, 1), uv = g.attributes.uv;
       for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - (1 - uv.getY(i)) * h / nat);
       return pillow(g, w, h, true).translate(0, top - h / 2, 0);
     };
@@ -511,10 +511,10 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
       // sandbags slumped over the skirt's toe, front and back, each on the ground under it
       for (const z of [1, -1]) for (const dx of [-.55, 0, .55]) { const bz = z * (deep / 2 + .2), bx = x + dx; paint(roundBox(.62, .17, .34, .08, 2).rotateY(dx * .3 + z * .1).translate(bx, gy(bx, bz) + .07, bz).applyMatrix4(world), '#7d6e4d'); }
       shadeUnder(world, leg / 2 + .45, deep / 2 + .5, .72, .95, x, 0);   // a tight dark band hugging the skirt and bags
-      shadeUnder(world, leg / 2 + 1.3, deep / 2 + 1.3, .35, .45, x, 0);   // and the wider occlusion of a 7 m column standing on the turf
+      shadeUnder(world, leg / 2 + 1.6, deep / 2 + 1.6, .3, .6, x, 0);   // and the wider occlusion of a 7 m column standing on the turf
     });
     skin(roundBox(2 * legX + leg, beam, deep, R, 4, true).translate(0, yb + beam / 2, 0), 'white', '#1a2a48');
-    for (const z of [1, -1]) skin(pillow(new THREE.PlaneGeometry(2 * legX + leg - 2 * R, beam - 2 * R, 1, full ? 4 : 2), 0, beam - 2 * R, false).rotateY(z < 0 ? Math.PI : 0).translate(0, yb + beam / 2, z * face), 'archBeam');   // no extrusions on the beam: a chase camera passing through it would meet them as bars across the screen
+    for (const z of [1, -1]) skin(pillow(new THREE.PlaneGeometry(2 * legX + leg - 2 * R, beam - 2 * R, 1, 4), 0, beam - 2 * R, false).rotateY(z < 0 ? Math.PI : 0).translate(0, yb + beam / 2, z * face), 'archBeam');   // no extrusions on the beam: a chase camera passing through it would meet them as bars across the screen
   };
   // Event sign: an A-frame board, two 2.04 x .84 m black composite panels hinged at the top and standing on their own
   // bottom edges .44 m apart, the 2 x .57 m print on the top of each outer face (g3 props verdicts: the old panel on two
@@ -528,7 +528,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
       K.print(at(new THREE.PlaneGeometry(2, ph), pose(0, H / 2 - ph / 2 - .03, .0135), pw), 'board' + design);
     }
     K.steel(at(cyl(.012, .012, 2.04, 6).rotateZ(Math.PI / 2), pose(0, H * Math.cos(tilt) - .005, 0), world), '#3a3d40');   // hinge rod
-    shadeUnder(world, 1.18, .42, .55, .8);
+    shadeUnder(world, 1.18, .42, .55, .9); shadeUnder(world, 1.6, .85, .25, .45);   // r3: 'hard-edged and floaty': a wider, softer pool round the tight one
   };
   // Side-by-side utility vehicle, the course crew's: 3.0 x 1.5 x 1.98 m on 1.95 m of wheelbase, nose +z, origin on the
   // ground between the axles. Clear-coated paint (hood, fascia, fender flares, sills, bed sides, tailgate with the crew
@@ -551,7 +551,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
       S(cyl(.045, .055, .04, 8).rotateZ(Math.PI / 2).translate(s * .105, 0, 0), '#26292c', wm);   // hub
       B(flare(.4, .47, .42, Math.PI - .42, .3, full ? 10 : 6), pose(x, axle, z));
       for (const [y, dz] of [[.27, .07], [.39, -.07]]) P(box(.36, .03, .05).translate(-s * .2, 0, 0), UNDER, pose(x, y, z + dz));   // suspension arms
-      shadeUnder(world, .19, .28, .2, .75, x, z);
+      shadeUnder(world, .24, .34, .25, .9, x, z);
     }
     P(box(.9, .06, 2.7), UNDER, pose(0, .31, 0));   // skid plates and frame between the wheels
     // front clip: hood pitched down to the nose, fascia with a black grille, lamps in housings, bumper and brush guard
@@ -597,7 +597,7 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
     for (const k of [0, 1]) { const y = .9 + k * .07; P(cyl(.025, .14, .42, full ? 12 : 8, true), '#f0641c', pose(.42, y + .21, -.8)); P(cyl(.087, .105, .07, full ? 12 : 8, true), '#f2f2ee', pose(.42, y + .17, -.8)); }
     P(box(.3, .03, .3), '#1f1f1f', pose(.42, .9, -.8));
     [NAVY, '#1f5a3b', '#f2efe6'].forEach((c, k) => { const a = V(-.52 + k * .1, 1.22, -2), b = V(-.4 + k * .1, 1.24, -.68); P(rod(a.clone().lerp(b, .12), b.clone().lerp(a, .06), .048, full ? 8 : 5), c); S(rod(a, b, .013, 4), '#cfd3d6'); });
-    shadeUnder(world, .86, 1.62, .45, .6);
+    shadeUnder(world, .86, 1.62, .45, .7); shadeUnder(world, 1.25, 2, .3, .35);   // the body's own occlusion and a softer skirt past the tyres
   };
   const clearOf = (x, z, r) => !trees.some(t => (t.x - x) ** 2 + (t.z - z) ** 2 < (r + t.r * 2) ** 2) && !holes.some(h => h.ponds.some(p => ((x - p.x) / (p.rx * 1.3 + r)) ** 2 + ((z - p.z) / (p.rz * 1.3 + r)) ** 2 < 1));
   // A 10 x 12 cm landscape timber laid from (u0, f0) to (u1, f1) of hole h, 5 cm proud of the ground and dug in below
@@ -767,14 +767,24 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // The arch's skin: dye-sublimated polyester, a soft satin sheen. Single-sided (see the top). Stretched thin over the
   // truss it passes some of the daylight behind it, so a face turned from the sun still glows with its own print
   // (a fraction of its albedo): the whites stay white and the navy stays navy instead of both sinking to slate.
-  const arch = new THREE.Mesh(mergeGeometries(K.lists.arch), toonMaterial({ map, vertexColors: true, roughness: .62 }));
+  // r3 props verdicts (lost 2/2 against the reference's arch: 'flat, evenly lit graphic boxes with crisp emissive-looking
+  // print', 'flat glossy plastic', 'no fabric wrinkles, no thickness shading, no grounding darkness'): the glow that kept
+  // the print bright in shade is nearly gone so sun and shade read on it, the print's contrast is pulled toward a slate
+  // mid-tone (white ink ~.8, the navy lifted) so it sits in the scene's light like dyed cloth, the cloth is matte, and the
+  // skin's normal rides a field of soft vertical folds (a bump from screen derivatives, no texture) so the hemisphere and
+  // sky light roll unevenly across every face the way a stuffed cover's slack does.
+  const arch = new THREE.Mesh(mergeGeometries(K.lists.arch), toonMaterial({ map, vertexColors: true, roughness: .86 }));
   // A season outdoors: the dye bleaches and greys, more toward the beam that takes the most sun, and rain running off
   // the beam leaves faint vertical streaks down the legs.
   arch.material.onBeforeCompile = s => { GRIME_V(s); GRIME_F(s, !full); s.fragmentShader = s.fragmentShader.replace('#include <roughnessmap_fragment>', `{ float l=dot(diffuseColor.rgb,vec3(.3,.59,.11)),up=smoothstep(1.,7.,vLift);
         diffuseColor.rgb=mix(diffuseColor.rgb,vec3(l)*1.1+.01,.12+.12*up);
-        diffuseColor.rgb*=mix(.78,1.04,smoothstep(.3,4.,vLift));   // less sky reaches the foot of a leg than its top
+        diffuseColor.rgb=mix(vec3(.03,.038,.06),diffuseColor.rgb,.8);   // dyed cloth, not a lit print
+        diffuseColor.rgb*=mix(.5,1.03,smoothstep(.15,3.2,vLift));   // the foot of a leg sits in its own occlusion and the turf's bounce
         diffuseColor.rgb*=1.-.14*smoothstep(.55,.95,wNoise(vec3(vWp.x*13.,vWp.y*.4,vWp.z*13.)))*(1.-up*.4); }
-      #include <roughnessmap_fragment>`).replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * .22;'); };
+      #include <roughnessmap_fragment>`).replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      { float hb=.07*wNoise(vec3(vWp.x*1.9,vWp.y*.45,vWp.z*1.9))+.025*wNoise(vec3(vWp.x*5.,vWp.y*1.3,vWp.z*5.)+5.);   // metres of slack: long folds down the cover, a finer pucker over them
+        vec3 dpx=dFdx(-vViewPosition),dpy=dFdy(-vViewPosition),r1=cross(dpy,normal),r2=cross(normal,dpx);float det=dot(dpx,r1);
+        normal=normalize(abs(det)*normal-sign(det)*(dFdx(hb)*r1+dFdy(hb)*r2)); }`).replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * .06;'); };
   arch.material.customProgramCacheKey = () => 'chains-props-arch' + full;
   print.castShadow = print.receiveShadow = steel.receiveShadow = arch.castShadow = arch.receiveShadow = true; steel.castShadow = full;
   const meshes = [print, steel, arch, gravelBed(), contactShade(blobs, height)];
