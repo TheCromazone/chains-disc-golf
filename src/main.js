@@ -940,15 +940,16 @@ const dodge = { key: '', ds: 0 };
 const INTRO = { back: 20, side: 1.5, up: 7, ahead: 40, lift: 1.5 };   // far enough back that the group waiting by the pad stands whole in frame
 // The hole flyover (the Disc Golf Masters intro flies the hole from the tee to the basket). It opens on that establishing
 // drone, easing forward and down toward the tee exactly as before, so the frame at 1.7 s is unchanged; from there one line
-// carries on out over the event arch's banner (never through it) and glides down the fairway (w12 critics: "plunges into the
-// woods at ground level with the heading wandering", "lands against the side of a tree", "never lands on the basket"): a gentle
-// descent from ~10 m over the arch to ~4 m over the turf, under the crowns, riding the ground's humps, the eyes locked on the basket from the
-// arch on so the heading never swings, each key shifted off the line only where a crown blocks the leg in (and then kept
-// near the last key's shift), to a basket-centred view 6.5 m short of it, held a beat; a white flash takes it back to the tee.
+// glides down the fairway (w12 critics: "plunges into the woods at ground level with the heading wandering", "lands against
+// the side of a tree", "never lands on the basket") ~4 m over the turf, under the crowns, riding the ground's humps, the eyes
+// locked on the basket so the heading never swings, each key shifted off the line only where a crown blocks the leg in (and
+// then kept near the last key's shift), to a basket-centred view 6.5 m short of it, held a beat, then a clean cut to the tee.
+// A hole with the event arch on its line flies straight through its opening at that height (r3 m-intro verdicts: climbing
+// 3.5 m over the beam and dropping back under the crowns read as "a cut or teleport" between a close-up of the banner and a
+// low hillside; the white flash over the cut left "a washed-out shot of the player", so the cut is now bare).
 // One centripetal Catmull-Rom in space walked by arc length on one Hermite in time whose start speed is the push-in's at 1.7 s.
-const INTRO_T1 = 1.7, INTRO_HOLD = 1.1, INTRO_FLASH = .16, introSpan = h => Math.min(4.6, Math.max(3.8, h.len / 19)), introDur = h => INTRO_T1 + introSpan(h) + INTRO_HOLD;
+const INTRO_T1 = 1.7, INTRO_HOLD = 1.1, introSpan = h => Math.min(4.6, Math.max(3.8, h.len / 19)), introDur = h => INTRO_T1 + introSpan(h) + INTRO_HOLD;
 const intro = { key: '' };
-const flashEl = document.body.appendChild(Object.assign(document.createElement('div'), { style: 'position:fixed;inset:0;z-index:19;background:#fff;opacity:0;pointer-events:none' })); let flashA = 0;
 function wayAt(h, a) {   // the hole's own line (tee, dogleg, basket) a metres from the tee: [x, z, ux, uz]
   const w = h.way; let i = 0;
   for (; i < w.length - 2; i++) { const L = Math.hypot(w[i + 1][0] - w[i][0], w[i + 1][1] - w[i][1]); if (a <= L) break; a -= L; }
@@ -970,13 +971,12 @@ function introPath(h, t, pos, look) {
     const v1 = 4 * INTRO_T1 / 4.7 ** 2 * P0.distanceTo(_v2);   // the push-in's speed at 1.7 s
     const Lw = h.way.reduce((s, q, i) => i ? s + Math.hypot(q[0] - h.way[i - 1][0], q[1] - h.way[i - 1][1]) : 0, 0);
     const gnd = (x, z) => Math.max(world.height(x, z), world.height(x + 5, z), world.height(x - 5, z), world.height(x, z + 5), world.height(x, z - 5));   // rides over humps, never into them
-    const over = (x, y, z) => (world.capsules || []).reduce((m, c) => Math.min(Math.hypot(c.a[0] - x, c.a[2] - z), Math.hypot(c.b[0] - x, c.b[2] - z)) < 9 ? Math.max(m, c.a[1] + c.r + 3.5, c.b[1] + c.r + 3.5) : m, y);   // 3.5 m over the arch's beam (only near it: past it the line drops under the crowns)
     const B = new THREE.Vector3(h.basket[0], h.basketY + .9, h.basket[1]);
     let s0 = 0;
     const at = (a, up, from, g = gnd) => {   // over the line a m out: a clear leg in first, then room from the crowns beside it (w12: "a tree canopy covers the left 40% of the frame"), then the smallest move off the last key's shift
       let best = null, sc = -1e9, bs = 0;
       for (const side of [0, -1.5, 1.5, -3, 3, -4.5, 4.5]) for (const dy of [0, 1, 2, 4]) {
-        const [x0, z0, wx, wz] = wayAt(h, a), x = x0 - wz * side, z = z0 + wx * side, y = over(x, g(x, z) + up + dy, z);
+        const [x0, z0, wx, wz] = wayAt(h, a), x = x0 - wz * side, z = z0 + wx * side, y = g(x, z) + up + dy;
         const room = world.treesNear(x, z).reduce((m, t) => t.y + t.fy - t.fr < y + 3 ? Math.min(m, Math.hypot(t.x - x, t.z - z) - t.fr) : m, 5);   // metres to the nearest crown low enough to fill the frame's side
         const inside = world.treesNear(x, z).reduce((m, t) => Math.min(m, Math.hypot(t.x - x, t.z - z, y - t.y - t.fy) - t.fr * 1.2), 1);   // < 0: the key itself sits in a crown (the leg's cast only docks 5% for a hit at its far end)
         const q = clearFraction(world, from.x, from.y, from.z, x, y, z, .8, 0, 1.5) + Math.max(0, room) * .08 + Math.min(0, inside) - Math.abs(side - s0) * .03 - Math.abs(side) * .02 - dy * .04;
@@ -984,7 +984,15 @@ function introPath(h, t, pos, look) {
       }
       s0 = bs; return best;
     };
-    const a2 = Math.min(Math.max(14, Lw * .36), Lw * .6), aE = Lw - 6.5, n = Math.max(1, Math.round((aE - a2) / 12)), K = [P1, at(a2, 10, P1)];   // over the arch, then a key every ~12 m
+    // the arch's beam (a level capsule, its underside c.r under its axis) where it straddles this hole's first leg
+    const [, , ux0, uz0] = wayAt(h, 0), beam = (world.capsules || []).find(c => c.a[1] === c.b[1]), am = beam && [(beam.a[0] + beam.b[0]) / 2 - h.tee[0], (beam.a[2] + beam.b[2]) / 2 - h.tee[1]];
+    const aA = am && Math.abs(am[1] * ux0 - am[0] * uz0) < 3 && am[0] * ux0 + am[1] * uz0;   // metres down the line, if it stands on it
+    let a2 = Math.min(Math.max(14, Lw * .36), Lw * .6), K;
+    if (aA > 8 && aA < Lw * .7) {   // straight through the opening's middle, ~3.6 m over its ground and 1.6 m under the beam, 6 m either side of it on the same line
+      const ox = h.tee[0] + am[0], oz = h.tee[1] + am[1], y = Math.min(world.height(ox, oz) + 3.6, beam.a[1] - beam.r - 1.6) - world.height(ox, oz);
+      K = [P1, ...[-6, 0, 6].map(k => new THREE.Vector3(ox + ux0 * k, y + world.height(ox + ux0 * k, oz + uz0 * k), oz + uz0 * k))]; a2 = aA + 6;
+    } else K = [P1, at(a2, 10, P1)];   // a high key a third of the way out, then a key every ~12 m
+    const aE = Lw - 6.5, n = Math.max(1, Math.round((aE - a2) / 12));
     for (let i = 1; i < n; i++) K.push(at(a2 + (aE - a2) * i / n, 4, K[K.length - 1], world.height));
     const [, , ux, uz] = wayAt(h, Lw), rb = rightOf([ux, uz]); let P4 = null, best = -1;
     for (const sg of [0, 1.5, -1.5, 3, -3]) {   // the basket straight ahead, from wherever the woods leave the view open
@@ -1248,9 +1256,7 @@ function frame(dt, rawDt, background) {
   if (!course) return;
   // the coach waits for the turn's toast: in pass & play its card covered most of "Ben's throw"
   coach.update(dt, { on: cam.mode === 'aim' && (G.phase === 'aim' || G.phase === 'windup') && !G.overview && playable() && !document.body.classList.contains('result-mode') && !$('toast').classList.contains('show'), throwType: G.throwType, windup: G.phase === 'windup' });
-  if (G.phase === 'intro') { G.introT += dt; if (G.introT > introDur(holes[G.holeIdx]) || G.inbox.length) { nextTurn(); cam.snap = true; } }   // the cut from the basket back to the tee, under the flash
-  { const a = G.phase === 'intro' ? .7 * THREE.MathUtils.smoothstep(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH, introDur(holes[G.holeIdx])) : Math.max(0, flashA - dt / .2);   // the broadcast's white flash: up over the held basket, down over the tee
-    if (a !== flashA) flashEl.style.opacity = flashA = a; }
+  if (G.phase === 'intro') { G.introT += dt; if (G.introT > introDur(holes[G.holeIdx]) || G.inbox.length) { nextTurn(); cam.snap = true; } }   // the cut from the basket back to the tee
   if (G.inbox.length && (G.phase === 'aim' || G.phase === 'awaitThrow') && G.mode === 'online') applyRemoteThrow(G.inbox.shift());
   if (G.nextRequested && G.phase === 'holeEnd') { G.nextRequested = null; advanceHole(); }
   if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(tw.raw ? u : u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
