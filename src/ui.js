@@ -40,6 +40,16 @@ export function verdictAbove(y) {
   const b = innerHeight * (1 - y) + 28; $('toast').style.bottom = `${b}px`; $('react').style.bottom = `${b + $('toast').offsetHeight + 4}px`;
 }
 export function fade(on) { $('fade').classList.toggle('on', on); }
+// Out of bounds, your own throw: DGM's two pills under the verdict. onRethrow replays from the lie it left, onDrop plays from
+// where it went out (as does a tap anywhere else, main.js skipBeat); both +1. The verdict (and its womp) step up clear of them,
+// wherever verdictAbove stood it. obChoice(null) hides them, and the verdict held 6 s for the choice with them, so it never
+// lingers over the next aim.
+export function obChoice(onRethrow, onDrop = null) {
+  const el = $('obChoice'), was = !el.classList.contains('hidden');
+  el.classList.toggle('hidden', !onRethrow); $('btnRethrow').onclick = onRethrow; $('btnObDrop').onclick = onDrop;
+  if (onRethrow) { const lift = $('toast').getBoundingClientRect().bottom - el.getBoundingClientRect().top + 16; if (lift > 0) for (const id of ['toast', 'react']) $(id).style.bottom = `${parseFloat(getComputedStyle($(id)).bottom) + lift}px`; }
+  else if (was) { clearTimeout(toastTimer); $('toast').classList.remove('show'); }
+}
 
 export function setPower(p) { const value = Math.max(0, Math.min(1, p)).toFixed(3); if ($('power').style.getPropertyValue('--p') !== value) $('power').style.setProperty('--p', value); const label = p > 0 ? `${Math.round(p * 100)}%` : 'POWER'; if ($('powerLabel').textContent !== label) $('powerLabel').textContent = label; }
 export function gestureTrace(trace) {
