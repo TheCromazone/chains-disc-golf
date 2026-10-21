@@ -9,6 +9,7 @@ import { repairPlayerSkinning } from './player-skinning.js';
 import { createPlayerHeadwear } from './player-headwear.js';
 import { createAthleteMotion } from './athlete-motion.js';
 import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL } from './body-material.js';
+import { steadyShadows } from './temporal.js';
 import { JOINTS, RIGS, readyPose, heroPose, clapPose, dismayPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
@@ -483,6 +484,9 @@ export function createGLTFCharacter(avatar) {
     .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.')); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove
   gripMat.customProgramCacheKey = () => 'chains-grip'; rimLight(gripMat, { strength: .1 });
+  // phones: no rim light (sharp, with no history, it drew a pale band round the fist against the dark grass, g13 crisp: "a
+  // bright, hard-edged pale rim") and a grain-free sun penumbra (temporal.js steadyShadows); Desktop draws them as before
+  const gripCompile = gripMat.onBeforeCompile; gripMat.onBeforeCompile = s => { gripCompile(s); steadyShadows(s); s.fragmentShader = s.fragmentShader.replace('rimLight.a', 'rimLight.a * ( 1. - chainsSteady )'); };
   const gripSkin = a => { const c = gripMat.color.set(a.skin), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.setRGB((l + (c.r - l) * GRIP.chroma) * .93, (l + (c.g - l) * GRIP.chroma) * .96, (l + (c.b - l) * GRIP.chroma) * 1.25).multiplyScalar(GRIP.tone); };   // the body's cooler white balance
   gripSkin(avatar);
   const headwear = createPlayerHeadwear(joints.head, skin, spec, avatar, lod);

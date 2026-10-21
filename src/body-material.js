@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { texture } from './assets.js';
 import { rimLight, jerseyStyle } from './materials.js';
+import { steadyShadows } from './temporal.js';
 
 export const REGIONS = ['skin', 'jersey', 'shorts', 'hair', 'socks', 'shoes', 'iris'];
 const DETAIL = [.95, .9, .35, .7, .75, .55, .85];   // how much of the baked shading each region keeps (near-black shorts are mostly sensor noise)
@@ -229,6 +230,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   material.customProgramCacheKey = () => 'chains-body';
   jerseyStyle(material, avatar.jerseyStyle, avatar.accent, 1, [0, 0, 0], 'chainsJersey');
   rimLight(material, { strength: .1 });   // a whisper of edge light: stronger, it outlined the jaw and the dark shorts in white
+  const bodyCompile = material.onBeforeCompile; material.onBeforeCompile = s => { bodyCompile(s); steadyShadows(s); };   // phones: no shadow grain on him (temporal.js)
   const setPalette = a => {
     const p = u.uPal.value; p[0].set(a.skin); p[1].set(a.jersey); p[2].set(a.shorts); p[3].set(a.hair === 'none' ? a.skin : a.hairColor);
     p[4].set(a.socks || a.accent); p[5].set(a.shoes); p[6].set(a.eyeColor || '#2b2b2b');

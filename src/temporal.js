@@ -17,6 +17,13 @@ export const moved = (a, b, eps = MOVE_EPS) => a.some((v, i) => Math.abs(v - b[i
 export const ATHLETE_STENCIL = { stencilWrite: true, stencilRef: 1, stencilZPass: THREE.ReplaceStencilOp };
 // His modelled hands (gltf-player.js hold_/rest_ meshes) add bit 2: they take no history and a narrower outline (canvas())
 export const HAND_STENCIL = { ...ATHLETE_STENCIL, stencilRef: 3 };
+// Taking no phone history, his surfaces showed the sun's Vogel taps, turned per pixel by white noise (course.js shadow chunk),
+// as a grain over every penumbra on him that the history used to average away: stippled knuckles and shirt (g13 crisp: "the
+// forearm and hand look blocky and pixelated"). On phones (STEADY 1, main.js) his materials take one fixed turn instead,
+// 16 taps smooth; Desktop keeps the turn (and its frames stay as they were). steadyShadows(shader) in an onBeforeCompile.
+export const STEADY = { value: 0 };
+export const steadyShadows = s => { s.uniforms.chainsSteady = STEADY; s.fragmentShader = s.fragmentShader.replace('#include <shadowmap_pars_fragment>', () => 'uniform float chainsSteady;\n' +
+  THREE.ShaderChunk.shadowmap_pars_fragment.replace('vec2 vogelTurn() {', 'vec2 vogelTurn() { if ( chainsSteady > .5 ) return vec2( 1., 0. );')); };
 
 const VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
 export function createTemporal() {
@@ -68,20 +75,28 @@ export function createTemporal() {
       vec3 T(vec2 o){ return texture2D(tCur,vUv+o*uTexel).rgb; } float L(vec3 c){ return dot(c,vec3(.299,.587,.114)); }
       vec2 G(vec2 p){ float a=L(T(p+vec2(-1.5))),b=L(T(p+vec2(1.5,-1.5))),f=L(T(p+vec2(-1.5,1.5))),g=L(T(p+vec2(1.5))); return vec2(b+g-a-f,f+g-a-b)*.5; }
       void main(){
+      vec2 ma=M(vec2(-2.5)),mbb=M(vec2(2.5,-2.5)),mf=M(vec2(-2.5,2.5)),mg4=M(vec2(2.5));
+      float a=ma.r,b=mbb.r,f=mf.r,g=mg4.r,mb=(a+b+f+g)*.25,ka=4.*mb*(1.-mb);   // 16 texels round the pixel: 1 on the outline, 0 three pixels out
       vec3 c=T(vec2(0.)),n=T(vec2(0.,2.)),s=T(vec2(0.,-2.)),e=T(vec2(2.,0.)),w=T(vec2(-2.,0.)),lo=min(c,min(min(n,s),min(e,w))),hi=max(c,max(max(n,s),max(e,w)));
-      vec3 o=clamp(c+(4.*c-n-s-e-w)*.1,lo,hi);
+      vec3 o=clamp(c+(4.*c-n-s-e-w)*.1*(1.-min(1.,2.*ka)),lo,hi);   // no sharpen within 3 px of his outline: its 2 px taps lifted a pale rim inside the skin against dark grass (g13 crisp: "a light halo-like rim with a hard boundary")
       vec2 gr=G(vec2(0.)); float m=length(gr),k=smoothstep(.07,.16,m)*smoothstep(.5,.8,m/max(L(hi)-L(lo),1e-3));
       if(k>0.){ vec2 x=gr/m,t=vec2(-x.y,x.x),y=2.*x;
         k*=smoothstep(.45,.8,min(dot(G(3.*t),x),dot(G(-3.*t),x))/m);
         vec3 bl=c+T(t)+T(-t)+.5*(T(2.*t)+T(-2.*t))+2.*(T(y)+T(-y))+T(2.*y)+T(-2.*y);
         o=mix(o,bl/10.,k); }
-      vec2 ma=M(vec2(-2.5)),mbb=M(vec2(2.5,-2.5)),mf=M(vec2(-2.5,2.5)),mg4=M(vec2(2.5));
-      float a=ma.r,b=mbb.r,f=mf.r,g=mg4.r,mb=(a+b+f+g)*.25,ka=4.*mb*(1.-mb);   // 16 texels round the pixel: 1 on the outline, 0 three pixels out
+      // His silhouette's own anti-aliasing: with no history he shows one MSAA sample set, so the hand and forearm against the
+      // grass stepped in hard facets (g13 crisp 0/4: "chunky polygonal steps", "a sticker cut-out edge"). The 3x3 tent of his
+      // coverage (four bilinear taps half a pixel out) is a band two to three pixels wide on the outline and nothing inside him;
+      // its gradient is the outline's true direction, from the stencil, not a luma guess. There the pixel becomes a blur laid along
+      // the edge (+-1, +-2 px: the steps average out) and a little across it (+-1 px: a ~3 px coverage falloff), unsharpened.
+      vec4 q=vec4(M(vec2(-1.5)).r,M(vec2(1.5,-1.5)).r,M(vec2(-1.5,1.5)).r,M(vec2(1.5)).r); float qm=dot(q,vec4(.25)),kq=min(1.,6.*qm*(1.-qm));
+      if(kq>.02){ vec2 qg=vec2(q.y+q.w-q.x-q.z,q.z+q.w-q.x-q.y),x=qg/max(length(qg),1e-4),t=vec2(-x.y,x.x);
+        o=mix(o,.14*c+.12*(T(t)+T(-t))+.06*(T(2.*t)+T(-2.*t))+.2*(T(x)+T(-x))+.05*(T(2.*x)+T(-2.*x)),kq); }
       ka*=1.-.9*min(1.,(ma.g+mbb.g+mf.g+mg4.g)*.5);   // round his hands a tenth of the ramp: the full ~5 px one blurred the fist into a mitten (.5 kept a halo); MSAA still lands their edge over ~2 px
       if(ka>.02){ vec2 mg=vec2(b+g-a-f,f+g-a-b),x=1.5*mg/max(length(mg),1e-4),t=vec2(-x.y,x.x)/1.5;
         vec3 ab=.2*c+.15*(T(x)+T(-x))+.1*(T(2.*x)+T(-2.*x))+.05*(T(3.*x)+T(-3.*x))+.1*(T(t)+T(-t));
         o=mix(o,ab,ka*ka); }
-      gl_FragColor=vec4(DBG?vec3(k,ka,0.):o,1.); }` }));
+      gl_FragColor=vec4(DBG?vec3(k,ka,kq):o,1.); }` }));
   // canvas(): the stencil-tagged athlete pixels drawn white over black, read back as the mask
   const tag = new FullScreenQuad(new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: 'void main(){gl_FragColor=vec4(1.,0.,0.,1.);}', depthTest: false, depthWrite: false,
     stencilWrite: true, stencilFunc: THREE.EqualStencilFunc, stencilRef: ATHLETE_STENCIL.stencilRef, stencilFuncMask: 1, stencilWriteMask: 0 }));
