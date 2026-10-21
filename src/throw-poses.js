@@ -240,6 +240,13 @@ export const stanceFade = phase => { const u = Math.min(1, Math.max(0, phase / S
 // sleeve shears), the forearm roll still under 20°. Round 10: re-solved with the cocked grip like his (her forearm roll
 // ~70°, at the edge of where her skin shears). Round 11: his level-forearm address, re-solved for her arm (roll ~20°).
 export const STANCE_F = {};   // round 12: his screen-space address (small forearm roll, under where her skin shears) fits her arm too; re-solve if her disc misses the seat
+// r3 athlete (his GLB body only; her scan, the Lite rig and the baked clips' warm start keep STANCE.backhand): the tee camera
+// saw the grip hand from its thumb side at the end of a forearm pointed straight at the lens, so the fingers under the rim never
+// showed ("a mitten", "a clay lump glued to the disc" in every verdict). Solved in the page against the tee camera for the Disc
+// Golf Masters address: the forearm lies across the front of the chest from an elbow bent ~68°, rolled palm-down, and the hand
+// hangs off it in ~64° of plain wrist flexion (gltf-player.js GRIP.cock, no deviation or twist), so the back of the hand and
+// the curled fingers face the lens with the plate level, reaching back under the forearm across the chest.
+export const STANCE_M = { backhand: { shR: [.752, -.603, -.48], elR: [1.186, 2.46, 0] } };
 export function readyPose(type, time, rig = RIGS.lite, over = null) {
   const family = type.split('_')[0], stance = { ...(STANCE[family] || STANCE.forehand), ...over?.[family] }, breath = Math.sin(time * 1.3), pose = { rootY: 0 };
   for (const j of JOINTS) pose[j] = [...(stance[j] || IDLE[j])];
