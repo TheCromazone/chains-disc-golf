@@ -77,10 +77,14 @@ export function createTemporal() {
         o=mix(o,bl/10.,k); }
       vec2 ma=M(vec2(-2.5)),mbb=M(vec2(2.5,-2.5)),mf=M(vec2(-2.5,2.5)),mg4=M(vec2(2.5));
       float a=ma.r,b=mbb.r,f=mf.r,g=mg4.r,mb=(a+b+f+g)*.25,ka=4.*mb*(1.-mb);   // 16 texels round the pixel: 1 on the outline, 0 three pixels out
-      ka*=1.-.9*min(1.,(ma.g+mbb.g+mf.g+mg4.g)*.5);   // round his hands a tenth of the ramp: the full ~5 px one blurred the fist into a mitten (.5 kept a halo); MSAA still lands their edge over ~2 px
+      // Round his hands the ramp turns along the outline instead of across it: the full ~5 px one across blurred the fist into a
+      // mitten (.5 kept a halo), a tenth of it left MSAA's own stair steps on the finger against the turf (hand c1, crisp 0/4:
+      // "faceted, stair-stepped edges"). Averaged +-2 px along the edge and only .75 px across, the steps go and the fingers stay.
+      float hw=min(1.,(ma.g+mbb.g+mf.g+mg4.g)*.5);
       if(ka>.02){ vec2 mg=vec2(b+g-a-f,f+g-a-b),x=1.5*mg/max(length(mg),1e-4),t=vec2(-x.y,x.x)/1.5;
         vec3 ab=.2*c+.15*(T(x)+T(-x))+.1*(T(2.*x)+T(-2.*x))+.05*(T(3.*x)+T(-3.*x))+.1*(T(t)+T(-t));
-        o=mix(o,ab,ka*ka); }
+        vec3 al=.24*c+.19*(T(t)+T(-t))+.1*(T(2.*t)+T(-2.*t))+.09*(T(.5*x)+T(-.5*x));
+        o=mix(o,mix(ab,al,hw),mix(ka*ka,ka,hw)); }
       gl_FragColor=vec4(DBG?vec3(k,ka,0.):o,1.); }` }));
   // canvas(): the stencil-tagged athlete pixels drawn white over black, read back as the mask
   const tag = new FullScreenQuad(new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: 'void main(){gl_FragColor=vec4(1.,0.,0.,1.);}', depthTest: false, depthWrite: false,
