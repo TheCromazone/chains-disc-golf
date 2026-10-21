@@ -112,8 +112,9 @@ export function terrainSplat(material, geometry, { splat, turf, pads, pin = { va
         vec3 detail=mix(${tile('gRough', 1.7)},${tile('gLawn', .9)},vTurf.x);
         detail*=mix(vec3(1.),gTile(gMottle,mat2(.6,.8,-.8,.6)*p,8.,${vec3s(TILE_MEAN.mottle)}),.7);   // two orientations break the photo's diagonal mowing bands into patches
         detail*=mix(1.,dot(gTile(gRough,mat2(-.28,.96,-.96,-.28)*p,5.5,${vec3s(TILE_MEAN.rough)}),vec3(.33)),.45);   // clumps 0.5-2 m wide that still read at 20-80 m, where the fine tiles have gone to their mean (Mobile too: two fetches, mean 1; its mid lawn read "a smooth painted green", ground 1/4)
-        vec3 c=gTurf(p,vColor,vTurf.xy,dry)*mix(detail,vec3(dot(detail,vec3(.33))),dry*.4);
         vec2 fp=fwidth(p); float fw=max(fp.x,fp.y);   // metres per pixel along the view: the tee camera sees the slope at ~8 degrees, so ~.1 m at 20 m
+        detail*=mix(vec3(1.),gTile(gLawn,mat2(.8,.6,-.6,.8)*p+.53,3.1,${vec3s(TILE_MEAN.lawn)}),smoothstep(.006,.03,fw)*(1.-smoothstep(.25,.6,fw))*.85);   // r3 nature g12 (ground 2/4: 'the mid fairway a flat green with no blade structure'): 5-40 m out, where the .9 m lawn has gone to its mean, the same photo at 3.1 m (turned) still has its grain; mip-mapped, divided by its mean (hue kept), gone near the lens and in the far haze
+        vec3 c=gTurf(p,vColor,vTurf.xy,dry)*mix(detail,vec3(dot(detail,vec3(.33))),dry*.4);
         float lv=clamp(log2(fw*14./.3),0.,6.),l0=floor(lv),lt=lv-l0,s0=.3*exp2(l0);   // tufts stay ~14 px wide at every distance (7 at the critics' 640 px): a fine octave hands over to one twice as coarse instead of fading to a smooth mean, so the far hill keeps its clumps
         vec2 k0=gCell(p/s0+l0*17.),k1=gCell(p/(s0*2.)+l0*17.+17.);
         float gw=${lite ? '.16' : '.07'},gp=mix(1.-smoothstep(0.,gw+fw*1.4/s0,k0.x),1.-smoothstep(0.,gw+fw*.7/s0,k1.x),lt),cl=mix(k0.y,k1.y,lt)*(1.-gp*${lite ? '.5' : '.75'});   // dark soil and shadow between tufts; each tuft its own vigour
