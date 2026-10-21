@@ -6,7 +6,7 @@ import unreal, os, io, sys, json, time, traceback, contextlib
 JOBS = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "PyJobs")
 os.makedirs(JOBS, exist_ok=True)
 NS = {"__name__": "__uepy__", "unreal": unreal}
-_last = [0.0]
+_last = [0.0, False]   # last poll, a job running
 
 
 def _run(path):
@@ -31,12 +31,16 @@ def _run(path):
 
 def _tick(dt):
     now = time.time()
-    if now - _last[0] < 0.25:  # ponytail: 4 Hz poll, a file watcher if latency ever matters
+    if _last[1] or now - _last[0] < 0.25:  # ponytail: 4 Hz poll, a file watcher if latency ever matters
         return
     _last[0] = now
-    for f in sorted(os.listdir(JOBS)):
-        if f.endswith(".py") and not f.endswith(".done.py"):
-            _run(os.path.join(JOBS, f))
+    _last[1] = True   # a job that saves or compiles pumps Slate, which ticks us again: without this guard the same job re-ran inside itself until the editor crashed
+    try:
+        for f in sorted(os.listdir(JOBS)):
+            if f.endswith(".py") and not f.endswith(".done.py"):
+                _run(os.path.join(JOBS, f))
+    finally:
+        _last[1] = False
 
 
 unreal.register_slate_post_tick_callback(_tick)

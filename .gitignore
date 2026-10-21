@@ -42,3 +42,5 @@ dist/
 
 # headwear previews from tools/build-headwear.py --preview
 art/qa-headwear/
+# raw Gemini TTS runs (resampled WAVs, ~30 MB); the cut takes ship in assets/sfx, provenance in art/sfx/prompts.json
+art/sfx/gemini-tts/

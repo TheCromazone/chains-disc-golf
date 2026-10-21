@@ -43,7 +43,7 @@ export async function loadModels(renderer, quality = 'full') {
     .then(g => { g.scene.updateMatrixWorld(true); models.set('headwear', g); modelStatus.headwear = 'ready'; }, () => { modelStatus.headwear = 'procedural fallback'; }) : null;
   const clips = clipNames.flatMap(n=>models.get('golfer_'+n)?.animations || []);
   for (const [body, lod] of [['golfer', 'golfer_lod'], ['golfer_f', 'golfer_f_lod']]) {   // both figures share the rig and the clip set
-    const actor = models.get(full ? body : lod) || models.get(lod); if (!actor) continue;
+    const actor = models.get(body) || models.get(lod); if (!actor) continue;
     actor.animations = clips; if (models.get(lod)) models.get(lod).animations = clips;
     models.set(body, actor); modelStatus[body] = 'ready';
   }

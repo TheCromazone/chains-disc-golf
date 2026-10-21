@@ -12,6 +12,7 @@ import { createWindFx } from './wind.js';
 import { createShotGuide } from './shot-guide.js';
 import { suggestPower } from './shot-planning.js';
 import { createFlightTrail } from './flight-trail.js';
+import { createTemporal } from './temporal.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -103,9 +104,15 @@ THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars
   c *= mix( vec3( .94, .99, 1.06 ), vec3( 1.04, 1., .92 ), smoothstep( .06, .5, l ) );
   c = mix( vec3( l ), c, mix( .9, 1., smoothstep( .04, .3, l ) ) ) + vec3( .018, .022, .03 ) * ( 1. - l ) * ( 1. - l ) * ( 1. - l );
   c = max( c, 0. ); return c * c; }`);
+// Alpha-to-coverage cut-outs (leaves, tufts, hair, impostors, banners) ramp over ~2 px centred on the cut, not three's one
+// pixel above it. On a held frame the temporal resolve (temporal.js) averages the jittered coverage into a soft edge, the way
+// Disc Golf Masters' leaves fall off (gauntlet r2 crisp: "hard one-pixel alpha cut-out edges on foliage and hair").
+THREE.ShaderChunk.alphatest_fragment = THREE.ShaderChunk.alphatest_fragment.replace('smoothstep( alphaTest, alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )',
+  'smoothstep( alphaTest - min( fwidth( diffuseColor.a ), alphaTest ), alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )');   // capped below so a fully transparent texel never gains coverage
 const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
 const scene = new THREE.Scene();
+const taa = createTemporal();   // temporal.js: jittered, accumulated edges on held frames, both tiers
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
 let post = null, postEnabled = true, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0, slowTime = 0;
 const forcedDpr = +new URLSearchParams(location.search).get('dpr') || 0;   // QA: a fixed pixel ratio (e.g. a supersampled ground truth for the aliasing metric)
@@ -122,6 +129,16 @@ const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos
 // half the desktop's, a 1.6 pt thread that vanished over busy foliage (a blind critique, 2026-10-17).
 const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false }); previewMat.userData.css = isMobile ? 2.8 : 3.2;
 const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .5, depthTest: false, depthWrite: false }); previewEdge.userData.css = isMobile ? 5.8 : 6.4;
+// Dash ends as one-pixel coverage ramps instead of LineMaterial's per-pixel discard: MSAA never smooths a discard and the
+// flowing dashes defeat the temporal resolve, so every dash ended in a stair step (gauntlet r2 crisp: "stepped ends on the dashed arc")
+for (const m of [previewMat, previewEdge]) m.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader
+  .replace('if ( mod( vLineDistance + dashOffset, dashSize + gapSize ) > dashSize ) discard;', '')
+  .replace('float alpha = opacity;', `float alpha = opacity;
+    #ifdef USE_DASH
+    { float dp = mod( vLineDistance + dashOffset, dashSize + gapSize ), fw = max( fwidth( vLineDistance ), 1e-5 );
+      alpha *= clamp( ( dp < dashSize ? min( dp, dashSize - dp ) : - min( dp - dashSize, dashSize + gapSize - dp ) ) / fw + .5, 0., 1. );
+      if ( alpha <= 0. ) discard; }
+    #endif`); };
 const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();
 const shotGuide = createShotGuide(preview);
 const trail = createFlightTrail(scene);
@@ -345,9 +362,13 @@ async function applyCourse(id) {
   renderer.toneMapping = toneFor(G.settings.quality); document.body.classList.toggle('gfx-mobile', G.settings.quality === 'low');
   // Full: HDRI ambient, reflective water and a bloom + grade pass. Lite: same textures, no render targets.
   effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
-  const hdri = effects ? await effects.loadSky(renderer, asset('skies', def.id) || asset('skies', 'lake')) : null;
-  course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, hdri });
-  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }
+  // The sky panorama (course.js skyDome), loaded before the build because the environment fill is prefiltered from the dome. Mobile takes the 2048 copy.
+  // Phones only: on Desktop the bloom, shafts and aerial pass blew a sunlit cloud in the tee's canopy gap into a warm smudge
+  // (blind check: phone light 4/4, intro 4/4; desktop look 0/4), so Desktop keeps the gradient dome.
+  const panoUrl = G.settings.quality === 'low' && asset('skies', def.id + '-mobile');
+  const pano = panoUrl && await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null);   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps
+  course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, pano });
+  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }   // no temporal resolve on Desktop (see draw())
   windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
   world = course.world; holes = course.holes; course.setHole(0);
   G.courseId = def.id; saveLocal('chains.course', def.id); updateHub();
@@ -590,9 +611,9 @@ function onFlightEvent(e) {
   if (document.hidden) return;
   const f = G.flight, at = f?.pos, strength = f?.hv ? Math.min(2, Math.hypot(f.hv[0], f.hv[2]) * 60 / 12) : 1;
   if (at && ['land', 'skip', 'flop', 'roll', 'splash'].includes(e)) puffs.burst(at, e, strength, e === 'splash' ? 'water' : SURFACE_AT(at));
-  if (e === 'chains' || e === 'drop') { sfx[e === 'drop' ? 'drop' : 'chains'](G.flight?.params.power ?? .6); UI.toast('Chains!', 'Right in the heart!', 1600); return; }
-  if ((e === 'chainout' || e === 'band' || e === 'rim') && !G.flight?.result.holed && !G.flight?.missReaction) { if(G.flight)G.flight.missReaction=true;sfx.ohh(); }
-  const m = { land: () => sfx.thud(strength, at ? SURFACE_AT(at) : 'grass'), skip: () => sfx.skip(), tree: () => { sfx.tree(); UI.toast('Tree!', '', 900); }, branch: () => { sfx.leaves(); UI.toast('Kicked by a branch', '', 900); }, chains: () => sfx.chains(), drop: () => sfx.drop(), chainout: () => { sfx.chainout(); UI.toast('Chain out!', 'too hard', 1200); }, band: () => { sfx.band(); UI.toast('Off the band', '', 900); }, pole: () => sfx.pole(), arch: () => { sfx.pole(); UI.toast('Off the arch', '', 900); }, rim:() => { sfx.band(); UI.toast('Off the rim', '', 900); }, splash: () => sfx.splash(), roll: () => sfx.roll(), flop: () => sfx.thud(0.5), ob: () => {} };   // out of bounds: the womp plays with the verdict (resolveThrow)
+  if (e === 'chains' || e === 'drop') { sfx[e === 'drop' ? 'drop' : 'chains'](G.flight?.params.power ?? .6); UI.toast('Chains!', 'Right in the heart!', 1600); if (G.players?.[f?.pi]?.lieDist > 8) sfx.voice('chains'); return; }   // a tap-in gets no shout
+  if ((e === 'chainout' || e === 'band' || e === 'rim') && !G.flight?.result.holed && !G.flight?.missReaction) { if(G.flight)G.flight.missReaction=true;sfx.ohh(); sfx.voice('ohh'); }
+  const m = { land: () => sfx.thud(strength, at ? SURFACE_AT(at) : 'grass'), skip: () => sfx.skip(), tree: () => { sfx.tree(); UI.toast('Tree!', '', 900); if (f && !f.treeCall) { f.treeCall = true; sfx.voice('tree'); } }, branch: () => { sfx.leaves(); UI.toast('Kicked by a branch', '', 900); }, chains: () => sfx.chains(), drop: () => sfx.drop(), chainout: () => { sfx.chainout(); UI.toast('Chain out!', 'too hard', 1200); }, band: () => { sfx.band(); UI.toast('Off the band', '', 900); }, pole: () => sfx.pole(), arch: () => { sfx.pole(); UI.toast('Off the arch', '', 900); }, rim:() => { sfx.band(); UI.toast('Off the rim', '', 900); }, splash: () => sfx.splash(), roll: () => sfx.roll(), flop: () => sfx.thud(0.5), ob: () => {} };   // out of bounds: the womp plays with the verdict (resolveThrow)
   m[e]?.();
 }
 function resolveThrow(pi, r, f = null) {
@@ -610,19 +631,19 @@ function resolveThrow(pi, r, f = null) {
     { const [bx, bz] = basketPos(), g = p.char.group.position, dx = g.x - bx, dz = g.z - bz, dd = Math.hypot(dx, dz);
       if (dd < 1.25) { const ad = aimDir(), ux = dd > .05 ? dx / dd : -ad[0], uz = dd > .05 ? dz / dd : -ad[1], x = bx + ux * 1.3, z = bz + uz * 1.3; g.set(x, world.height(x, z), z); } }
     title = UI.scoreName(p.strokes, h.par); sub = `${p.name} · ${p.strokes} throw${p.strokes > 1 ? 's' : ''}`;
-    if (p.strokes <= h.par) { sfx.fanfare(p.strokes === 1 ? 'ace' : p.strokes - h.par <= -2 ? 'eagle' : p.strokes - h.par === -1 ? 'birdie' : 'par'); sfx.applause(); }
+    if (p.strokes <= h.par) { const kind = p.strokes === 1 ? 'ace' : p.strokes - h.par <= -2 ? 'eagle' : p.strokes - h.par === -1 ? 'birdie' : 'par'; sfx.fanfare(kind); sfx.applause(); sfx.voice(kind); }
     if (!reducedMotion && p.strokes <= h.par) { const at = p.char.group.position; celebration.burst([at.x, at.y, at.z], p.strokes === 1 || p.strokes < h.par - 1); }
   } else if (r.ob) { p.strokes++; p.lie = r.lie; title = 'Out of bounds'; sub = '+1 penalty · play from where it went out'; }
   else { p.lie = r.rest; title = r.thrown < 1 ? 'Dropped it' : `${Math.round(r.thrown)} m · ${world.rough(r.rest[0], r.rest[2]) > .5 ? 'Rough' : 'Fairway'}`; sub = `${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to the basket${Number.isFinite(r.airTime) ? ` · ${r.airTime.toFixed(1)} s flight` : ''}`; }
   const pickup = !r.holed && p.strokes >= h.par + 5;   // this throw ends the hole at the cap: never a "nice shot"
   // nice: a long throw that ends near the pin, or a putt or approach from inside 20 m that leaves a tap-in (a 10 m putt sliding 5 m past was cheered)
-  if (!r.holed && !r.ob && !pickup && r.thrown > 8 && r.dist < (p.lieDist > 20 ? Math.max(8, p.lieDist * .35) : 2.5)) { title = 'Nice shot!'; sfx.applause(); }
+  if (!r.holed && !r.ob && !pickup && r.thrown > 8 && r.dist < (p.lieDist > 20 ? Math.max(8, p.lieDist * .35) : 2.5)) { title = 'Nice shot!'; sfx.applause(); sfx.voice('nice'); }
   // The gallery's verdict: a good throw gets the group clapping (on screen and the other players on the course), a bad one a
   // sad trombone and the thrower's slump. A chain-out already drew its "ohh" in flight.
   const bad = !r.holed && (pickup || r.ob || r.thrown < 1 || r.dist > p.lieDist + 2 || (p.lieDist > 12 && r.thrown < p.lieDist * .3) || (p.lieDist <= 5 && !f?.missReaction));
   const good = r.holed ? p.strokes <= h.par : title === 'Nice shot!';
   if (good) { UI.react('good'); for (const q of G.players) if (q !== p) q.char.react?.('clap'); }
-  else if (bad) { UI.react('bad'); sfx.womp(); p.char.react?.('slump'); }
+  else if (bad) { UI.react('bad'); sfx.womp(); sfx.voice(r.ob ? 'ob' : 'bad'); p.char.react?.('slump'); }
   else if (r.holed) sfx.claps();
   if (pickup) { p.done = true; p.scores[G.holeIdx] = h.par + 6; title = 'Picked up'; sub = `max score for the hole (${h.par + 6})`; }   // a fixed cap, even when the last throw went out of bounds
   p.lieDist = distToBasket(p.lie[0], p.lie[2]);
@@ -1265,8 +1286,14 @@ function frame(dt, rawDt, background) {
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   trail.update(camera, !!G.flight);
-  if(post && postEnabled) post.render(); else renderer.render(scene, camera);
+  draw();
 }
+// One frame to the screen (Desktop's post chain, else the canvas), through the temporal resolve while the camera holds still.
+// Not through the throw and the flight: the aim camera holds while the arm and the disc sweep across the turf, and the
+// history's colour box let them leave a tinted streak behind (drive clip, release).
+// Phones only: on Desktop the resolve's Gaussian softened a 4x-MSAA + FXAA frame that was already clean (blind build-vs-build
+// check, r2: desktop crispness and look 0/4 against round 1, "softened all over like a blurry upscale"; phones won 3/4).
+function draw() { const still = taa.begin(renderer, camera, !post && !/^(windup|release|flight)$/.test(G.phase)); if (post && postEnabled) post.render(still); else { renderer.render(scene, camera); if (still) taa.canvas(renderer); } taa.end(camera); }
 
 // ---------- HUD / menu wiring ----------
 function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.selectThrow(id); if (id === 'putt') { G.discId = 'putter'; UI.selectDisc('putter'); ensureDisc(curP(), 'putter'); curP().discMesh.visible = true; } G.previewDirty = true; G.previewPower = null; sfx.click(); }
@@ -1692,7 +1719,7 @@ setTimeout(async () => {
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await Promise.all([warmShaders(), assetsIdle()]);
   UI.hide('loading'); loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, flightPlan, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: draw, taa, performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, flightPlan, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage

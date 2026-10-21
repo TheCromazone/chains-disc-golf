@@ -1,7 +1,7 @@
 // Sound. Everything is synthesized with small physical models (metallic modal rings for the basket,
 // wood knocks for trees, filtered-noise bursts for grass/water/air) and sits in a short synthetic
 // outdoor reverb. Real recordings override any effect: list them under "sfx" in assets/manifest.json
-// (see docs/codex-asset-prompts.md) and they are decoded on unlock and used instead of the synth.
+// (how each was made: art/sfx/prompts.json) and they are decoded on unlock and used instead of the synth.
 let ctx = null, master = null, verb = null, noiseBuf = null, muted = false, trim = 1;   // trim: the playing sound's level (TRIM_DB), set round each sfx call
 const samples = {};
 const VOL = 0.9;
@@ -28,7 +28,7 @@ export function unlock() {
   verb = ctx.createConvolver(); verb.buffer = ir;
   const vf = ctx.createBiquadFilter(); vf.type = 'lowpass'; vf.frequency.value = 3200;
   const vg = ctx.createGain(); vg.gain.value = 0.28; verb.connect(vf); vf.connect(vg); vg.connect(master);
-  ambient(); loadSamples();
+  loadSamples().then(ambient);   // the recorded bed, once decoded; the synth bed when there is none
 }
 // iOS ties Web Audio to the ring/silent switch unless the page asks for a 'playback' session (Safari 17+), as music and video
 // apps do: unmuted, the game asks for it so it is heard on silent. Muted, it drops to 'ambient', which leaves other apps' music alone.
@@ -152,7 +152,7 @@ export const sfx = {
       for (let t = rnd(0, .35); t < stop; t += 1 / rate + rnd(-.015, .015)) clap(t0 + t, f, level * Math.min(1, (stop - t) / (stop * .35)), .32);
     }
   },
-  claps() { this.applause(3, 1.5); },
+  claps() { if (ctx && play('applause', { gain: 0.55 })) return; this.applause(3, 1.5); },   // a made putt over par: the same gallery, politer
   // womp womp: two sagging muted-trombone notes, the second leaning on a slow vibrato
   womp() { if (!ctx) return; if (play('womp')) return;
     const t0 = now() + .05; brass(233, t0, .42, { f1: 220 }); brass(207, t0 + .5, 1.15, { f1: 182, vib: 1 }); },
@@ -179,6 +179,8 @@ export const sfx = {
     const seq = kind === 'ace' ? [523, 659, 784, 1047, 1319] : kind === 'eagle' ? [523, 659, 784, 1047] : kind === 'birdie' ? [659, 784, 1047] : [523, 659];
     seq.forEach((f, i) => { const t0 = now() + i * 0.12; partial(f, 0.4, 0.13, { t0, send: 0.5 }); partial(f * 4, 0.07, 0.03, { t0, send: 0.3 }); }); },  // marimba-ish
   bad() { if (!ctx) return; if (play('bad')) return; partial(230, 0.35, 0.1, { f1: 140, type: 'triangle', send: 0.3 }); },
+  // the group's shouted callouts (ace, eagle, birdie, par, chains, nice, ohh, bad, tree, ob): Gemini TTS takes, no synth fallback
+  voice(kind) { if (ctx) play('voice_' + kind, { gain: 0.8, send: 0.35 }); },
 };
 
 // Levels for a phone (2026-10-17). Each sound was rendered offline and measured through a small speaker's response (high-pass at
@@ -230,6 +232,11 @@ const SAMPLE_DB = { chains: 6, chainout: 8, applause: -3, ohh: -11, whoosh: 1, l
 function play(name, { gain = 1, rate = 1, loop = false, send = 0.25 } = {}) {
   const takes = samples[name]; if (!takes?.length) return false; const b = takes[Math.floor(Math.random() * takes.length)];
   const s = ctx.createBufferSource(); s.buffer = b; s.loop = loop; s.playbackRate.value = rate * (loop ? 1 : rnd(0.97, 1.03));
+  if (loop) {   // a decoder that keeps MP3's encoder delay and padding leaves silence at each end: loop only the recorded span
+    const d = b.getChannelData(0); let i = 0, j = d.length - 1;
+    while (i < j && Math.abs(d[i]) < 1e-3) i++; while (j > i && Math.abs(d[j]) < 1e-3) j--;
+    s.loopStart = i / b.sampleRate; s.loopEnd = (j + 1) / b.sampleRate;
+  }
   const g = ctx.createGain(); g.gain.value = gain * 10 ** ((SAMPLE_DB[name] || 0) / 20); s.connect(g);
   g.connect(master); if (!loop && send > 0) { const v = ctx.createGain(); v.gain.value = send; g.connect(v); v.connect(verb); }   // not out(): the synthesis trims don't apply
   s.start();
