@@ -147,14 +147,19 @@ const BH = [
   { t: .35, at: [-.03, -.12, .11], pelvis: [-9, 104, -2], chest: [-23, 100, 4], head: [3, -84, 0],
     handR: [.11, -.14, .61], elbowR: [.09, -.07, .30], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16],
     soleR: [-.11, .035, -.39], footR: 96 },
-  { t: .43, at: [-.03, -.13, .04], pelvis: [-9, 95, -2], chest: [-22, 107, 3], head: [2, -88, 0],
+  // r4 athlete (m-throw critics, all four: "the reach-back is held almost unchanged across frames 1-4, then the pull-through,
+  // wrap and release all happen within two frames", "shorten the held reach-back, let the hips start opening while the arm is
+  // still back, bring the disc tight across the chest at frame 4-5"): the judged strip samples the drive at .39 and .62, so
+  // the plant, the hips firing and the pocket now come right after the coil (.37, .385, .41) and the disc travels from the
+  // chest to the hit over the rest of the pull (.46 in front of the sternum, .53 the whip) instead of all of it after .5
+  { t: .37, at: [-.03, -.13, .04], pelvis: [-9, 95, -2], chest: [-22, 107, 3], head: [2, -88, 0],
     handR: [.13, -.13, .63], elbowR: [.09, -.07, .31], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
     soleR: [-.10, 0, -.42], footR: 100, soleL: [-.27, 0, .29], footL: 70 },
-  { t: .47, pelvis: [-9, 80, -1], chest: [-17, 120, 2], head: [1, -94, 0], handR: [.10, -.11, .42], elbowR: [.07, -.07, .0] },   // the hips go first: the chest holds its coil ~40 ms longer, and the elbow starts for the target while the disc stays back
-  { t: .5, at: [-.02, -.145, .01], pelvis: [-8, 55, 0], chest: [-16, 128, 2], head: [0, -100, 0],
+  { t: .385, pelvis: [-9, 80, -1], chest: [-17, 120, 2], head: [1, -94, 0], handR: [.10, -.11, .42], elbowR: [.07, -.07, .0] },   // the hips go first: the chest holds its coil ~40 ms longer, and the elbow starts for the target while the disc stays back
+  { t: .41, at: [-.02, -.145, .01], pelvis: [-8, 55, 0], chest: [-16, 128, 2], head: [0, -100, 0],
     handR: [.03, -.13, .15], elbowR: [.06, -.08, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10 },
-  { t: .53, pelvis: [-8, 45, 0], chest: [-16, 112, 0], head: [0, -90, 0], handR: [-.12, -.12, .12], elbowR: [.04, -.09, -.25], soleL: [-.27, 0, .28], footL: 60 },   // the rear heel turns in as the hips fire (a sole's y is its lowest point: the toe stays down)   // the disc swings in front of the sternum, not through the shoulder
-  { t: .565, at: [-.01, -.13, -.005], pelvis: [-8, 38, 0], chest: [-15, 82, -2], head: [0, -76, 0],
+  { t: .46, pelvis: [-8, 45, 0], chest: [-16, 112, 0], head: [0, -90, 0], handR: [-.12, -.12, .12], elbowR: [.04, -.09, -.25], soleL: [-.27, 0, .28], footL: 60 },   // the rear heel turns in as the hips fire (a sole's y is its lowest point: the toe stays down)   // the disc swings in front of the sternum, not through the shoulder
+  { t: .53, at: [-.01, -.13, -.005], pelvis: [-8, 38, 0], chest: [-15, 82, -2], head: [0, -76, 0],
     handR: [-.23, -.10, -.06], elbowR: [.06, -.09, -.26], handL: [.04, -.32, -.14], elbowL: [-.06, -.25, -.06], rollR: 20 },
   { t: .62, at: [0, -.115, -.01], pelvis: [-7, 30, 0], chest: [-14, 64, -6], head: [0, -60, 0],
     handR: [-.04, -.12, -.48], elbowR: [.04, -.08, -.22], handL: [-.02, -.36, -.08], elbowL: [-.07, -.25, .0], rollR: 30 },
@@ -198,11 +203,13 @@ const XSTEP = [
   // four frames while only the legs step", "no coil before the throw"): the arm now travels, from the tuck at the chest
   // (.46) through half way back at the cross-step (.62) to a full, slightly low extension behind with the chest turned past
   // the hips and dropped over the feet (.8-.9), the loaded coil the drive's .35 carries on from
-  { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-22, 64, 3], head: [2, -80, 0], soleL: [-.27, 0, .29], footL: 70,
-    soleR: [.06, 0, .95], handR: [-.02, -.11, .33], elbowR: [.07, -.10, .15] },
-  { t: .8, at: [-.03, -.12, .22], pelvis: [-9, 97, -1], chest: [-26, 100, 4], head: [3, -84, 0],
-    soleR: [-.05, .09, .28], footR: 85, handR: [.11, -.16, .61], elbowR: [.10, -.09, .31] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
-  { t: .9, chest: [-25, 101, 4], handR: [.12, -.15, .62], elbowR: [.10, -.08, .31] },
+  // r4: the judged strip samples the x-step at .54, .75 and .92 and the arm sat fully back at the last two, so the reach-back
+  // read as held: it now keeps travelling (a third back at .62, two thirds at .8) and arrives in full only at .92
+  { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-22, 54, 3], head: [2, -80, 0], soleL: [-.27, 0, .29], footL: 70,
+    soleR: [.06, 0, .95], handR: [-.10, -.12, .20], elbowR: [.06, -.12, .12] },
+  { t: .8, at: [-.03, -.12, .22], pelvis: [-9, 97, -1], chest: [-26, 86, 4], head: [3, -84, 0],
+    soleR: [-.05, .09, .28], footR: 85, handR: [.04, -.15, .45], elbowR: [.09, -.10, .26] },   // the arm and shoulders go back in the last step: full coil at the plant, not walked there
+  { t: .92, chest: [-25, 100, 4], handR: [.11, -.15, .60], elbowR: [.10, -.08, .31] },
   { ...coil, t: 1 },
 ];
 
