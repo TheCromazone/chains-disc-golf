@@ -115,8 +115,8 @@ float sunShadow() {
 	vec4 c = vDirectionalShadowCoord[ 1 ] / vDirectionalShadowCoord[ 1 ].w; vec2 e = abs( c.xy - .5 );
 	if ( max( e.x, e.y ) > .4 ) return sunShadowCourse();   // in the near box's blend band (never at the tee or the putt): the course's own
 	c.z += directionalLightShadows[ 1 ].shadowBias; if ( c.z > 1. ) return 1.;
-	float reach = c.z - 1.5 / sunFleck.w, k = .2 / sunFleck.z;
-	vec2 g = ( ( c.xy - .5 ) * sunFleck.z + sunFleck.xy ) / .2, f = fract( g ), o = c.xy - f * k; f = f * f * ( 3. - 2. * f );
+	float reach = c.z - 1.5 / sunFleck.w, k = 8.5 / directionalLightShadows[ 1 ].shadowMapSize.x;   // the lattice: 8.5 texels, 20 cm on the phone, 10 cm on Full, where the course filters over half the reach
+	vec2 g = ( ( c.xy - .5 ) * sunFleck.z + sunFleck.xy ) / ( k * sunFleck.z ), f = fract( g ), o = c.xy - f * k; f = f * f * ( 3. - 2. * f );
 	float canopy = mix( mix( athleteNode( o, k, reach ), athleteNode( o + vec2( k, 0. ), k, reach ), f.x ), mix( athleteNode( o + vec2( 0., k ), k, reach ), athleteNode( o + k, k, reach ), f.x ), f.y );
 	float r = max( .03 / sunFleck.z, 1.5 / directionalLightShadows[ 1 ].shadowMapSize.x ), lit = 0., seen = 0.;
 	for ( int i = 0; i < 16; i ++ ) { float d = unpackRGBAToDepth( texture2D( directionalShadowMap[ 1 ], c.xy + vogel[ i ] * r ) ); lit += step( c.z, d ); seen += step( reach, d ); }
