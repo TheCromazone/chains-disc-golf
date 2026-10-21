@@ -918,7 +918,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The blade carpet (grass.js) is the turf near the camera: tinted from the ground under each root, taller in the
   // rough, gone on gravel, litter, sand and the pads. Blade tufts stand where mowers miss: at the sign post, along
   // every gravel edge and round the putting circle's rim.
-  const carpet = grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }); group.add(carpet);
+  group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }));
   // Tufts and fallen leaves are geometry, not photo cards (r4 ground: "sparse billboard cards that stand out as pasted-on
   // sprites"; the putting circle "a smeared brown texture with no real leaf or twig detail"). Both are per hole and only the
   // hole in play draws (setHole), on both tiers: nothing this small reads from another hole, and Full's tee sat at its 2.3M budget.
@@ -958,18 +958,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     }
     const tuftGeo = new THREE.BufferGeometry(); tuftGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); tuftGeo.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
     tuftGeo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-    // Coloured by the ground they stand in (grass.js gTuftTint, the carpet's own data): the blade takes the turf's colour at
-    // its root, its foot the ground's (turf in shade, mulch, gravel), so a tuft grows out of the ground instead of a fixed
-    // lime clump standing on straw-olive turf or brown mulch ("billboard clumps stuck onto it", r3 ground 1/4).
-    const gr = carpet.userData.ground, tuftMat = windMaterial(toonMaterial({ color: new THREE.Color(1, 1, 1).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), windCompile = tuftMat.onBeforeCompile;
-    tuftMat.onBeforeCompile = s => { windCompile(s); Object.assign(s.uniforms, gr.uniforms);
-      s.vertexShader = `varying vec3 vTuftBlade,vTuftSoil;${gr.glsl}\n` + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-        #ifdef USE_INSTANCING
-        gTuftTint((modelMatrix*vec4(instanceMatrix[3].xyz,1.)).xz,vTuftBlade,vTuftSoil);
-        #endif`);
-      s.fragmentShader = 'varying vec3 vTuftBlade,vTuftSoil;\n' + s.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb*=mix(vTuftSoil,vTuftBlade,smoothstep(0.,.4,vBladeY));')   // then windMaterial's root shade: a contact shadow in the ground's own colour
-        .replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
-    tuftMat.customProgramCacheKey = () => 'chains-tuft-blades-' + quality;
+    const tuftMat = windMaterial(toonMaterial({ color: cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), windCompile = tuftMat.onBeforeCompile;
+    tuftMat.onBeforeCompile = s => { windCompile(s); s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
+    tuftMat.customProgramCacheKey = () => 'chains-tuft-blades';
     const fringeAt = (x, z) => {   // 1 on the turf just outside the ground shader's gravel (gCover without its noise)
       const ax = Math.abs(at4(turf, 2, x, z)), sx = at4(splats, 0, x, z);
       return Math.max(smooth(.25, .5, at4(turf, 3, x, z)) * smooth(.4, .52, ax) * (1 - smooth(.62, .85, ax)), smooth(.1, .28, sx) * (1 - smooth(.38, .55, sx)));   // the trail's 1 m strip, the apron and worn earth
@@ -1007,11 +998,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // The putting circle's rim: no lone tufts at the pole (they read as stickers on the dirt), but clumps crowding the
       // turf's edge where the litter thins out, so the circle frays into grass instead of fading.
       // In crowds of 2-7, 10-34 cm, round a seed (r3 ground: one-by-one they read 'sparse, evenly spaced billboard sprites').
-      // Bunched into drifts 3-5 m long (a slow noise): dense in some arcs of the rim, bare in others, as many tufts in all (r3
-      // ground: "evenly spaced billboard clumps").
-      for (let k = 0; k < 8400; k++) {
+      for (let k = 0; k < 4200; k++) {
         const a = trng() * 6.283, r = 1 + Math.sqrt(trng()) * 10, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r, l = at4(splats, 2, x, z);
-        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29)) * smooth(.42, .68, noise(x / 3.8 + 7, z / 3.8 + 91))) {
+        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29))) {
           const big = .1 + trng() ** 1.5 * .24, dry = trng() < .2;
           for (let j = 2 + trng() * 6 | 0; j > 0; j--) { const b = trng() * 6.283, d = Math.sqrt(trng()) * (.08 + big * .7); add(x + Math.cos(b) * d, z + Math.sin(b) * d, big * (.45 + trng() * .65), dry && trng() < .7); } }
       }
