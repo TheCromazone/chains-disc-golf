@@ -1007,9 +1007,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // The putting circle's rim: no lone tufts at the pole (they read as stickers on the dirt), but clumps crowding the
       // turf's edge where the litter thins out, so the circle frays into grass instead of fading.
       // In crowds of 2-7, 10-34 cm, round a seed (r3 ground: one-by-one they read 'sparse, evenly spaced billboard sprites').
-      for (let k = 0; k < 4200; k++) {
+      // Bunched into drifts 3-5 m long (a slow noise): dense in some arcs of the rim, bare in others, as many tufts in all (r3
+      // ground: "evenly spaced billboard clumps").
+      for (let k = 0; k < 8400; k++) {
         const a = trng() * 6.283, r = 1 + Math.sqrt(trng()) * 10, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r, l = at4(splats, 2, x, z);
-        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29))) {
+        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29)) * smooth(.42, .68, noise(x / 3.8 + 7, z / 3.8 + 91))) {
           const big = .1 + trng() ** 1.5 * .24, dry = trng() < .2;
           for (let j = 2 + trng() * 6 | 0; j > 0; j--) { const b = trng() * 6.283, d = Math.sqrt(trng()) * (.08 + big * .7); add(x + Math.cos(b) * d, z + Math.sin(b) * d, big * (.45 + trng() * .65), dry && trng() < .7); } }
       }
