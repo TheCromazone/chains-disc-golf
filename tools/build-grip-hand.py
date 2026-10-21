@@ -23,7 +23,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 OUT = os.path.join(ROOT, arg('--out', 'assets/models/grip-hand.glb'))
 PREVIEW = arg('--preview'); PREVIEW = PREVIEW and os.path.join(ROOT, PREVIEW)
 VOX = float(arg('--vox', '.0008'))
-TRIS = int(arg('--tris', '4400'))   # the full hand (the tee's and the clubhouse's): at 2600 its knuckles and finger sides broke into flat planes at 120 px
+TRIS = int(arg('--tris', '3800'))   # the full hand (the tee's and the clubhouse's): at 2600 its silhouette stepped at 120 px; 3800 keeps the phone scorecard (9 hand draws with shadows) under 1.0M
 
 # ---- the disc, as gltf-player.js seats it -----------------------------------------------------------------------------------
 TILT = .6; C = np.array([-.015, -.092, 0.])
