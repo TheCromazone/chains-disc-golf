@@ -14,6 +14,8 @@
     "turf_mottle": "textures/turf_mottle.jpg",
     "gravel": "textures/gravel.jpg",
     "litter": "textures/litter.jpg",
+    "chips": "textures/chips.webp",
+    "chips_n": "textures/chips_n.webp",
     "grass_detail": "textures/r3/fairway.jpg",
     "rough_detail": "textures/r3/rough.jpg",
     "green_detail": "textures/r3/green.jpg",
@@ -101,11 +103,22 @@
     ],
     "applause": [
       "sfx/applause_1.mp3"
-    ]
+    ],
+    "voice_ace": ["sfx/voice_ace_1.mp3", "sfx/voice_ace_2.mp3", "sfx/voice_ace_3.mp3", "sfx/voice_ace_4.mp3", "sfx/voice_ace_5.mp3"],
+    "voice_eagle": ["sfx/voice_eagle_1.mp3", "sfx/voice_eagle_2.mp3", "sfx/voice_eagle_3.mp3", "sfx/voice_eagle_4.mp3", "sfx/voice_eagle_5.mp3"],
+    "voice_birdie": ["sfx/voice_birdie_1.mp3", "sfx/voice_birdie_2.mp3", "sfx/voice_birdie_3.mp3", "sfx/voice_birdie_4.mp3"],
+    "voice_par": ["sfx/voice_par_1.mp3", "sfx/voice_par_2.mp3", "sfx/voice_par_3.mp3"],
+    "voice_chains": ["sfx/voice_chains_1.mp3", "sfx/voice_chains_2.mp3", "sfx/voice_chains_3.mp3", "sfx/voice_chains_4.mp3"],
+    "voice_nice": ["sfx/voice_nice_1.mp3", "sfx/voice_nice_2.mp3", "sfx/voice_nice_3.mp3", "sfx/voice_nice_4.mp3"],
+    "voice_ohh": ["sfx/voice_ohh_1.mp3", "sfx/voice_ohh_2.mp3", "sfx/voice_ohh_3.mp3", "sfx/voice_ohh_4.mp3"],
+    "voice_bad": ["sfx/voice_bad_1.mp3", "sfx/voice_bad_2.mp3", "sfx/voice_bad_3.mp3"],
+    "voice_tree": ["sfx/voice_tree_1.mp3", "sfx/voice_tree_2.mp3", "sfx/voice_tree_3.mp3", "sfx/voice_tree_4.mp3"],
+    "voice_ob": ["sfx/voice_ob_1.mp3", "sfx/voice_ob_2.mp3"]
   },
   "models": {
     "golfer": "models/golfer-premium.glb",
     "disc": "models/disc.glb",
+    "hand": "models/grip-hand.glb",
     "basket": "models/basket.glb",
     "tee_sign": "models/tee_sign.glb",
     "pine": "models/pine.glb",
@@ -154,9 +167,14 @@
     "golfer_fxstep_left": "models/golfer-fxstep_left.glb"
   },
   "skies": {
-    "pine": "skies/pine.exr",
-    "meadow": "skies/meadow.exr",
-    "lake": "skies/lake.exr"
+    "pine": "skies/pine.webp",
+    "pine-mobile": "skies/pine-mobile.webp",
+    "meadow": "skies/meadow.webp",
+    "meadow-mobile": "skies/meadow-mobile.webp",
+    "lake": "skies/lake.webp",
+    "lake-mobile": "skies/lake-mobile.webp",
+    "bluff": "skies/bluff.webp",
+    "bluff-mobile": "skies/bluff-mobile.webp"
   },
   "renders": {
     "pine": "courses/pine_unity.jpg",

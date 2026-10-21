@@ -27,7 +27,7 @@
     },
     "backhand_io_left": {
       "file": "assets/models/golfer-backhand_io_left.glb",
-      "bytes": 21504,
+      "bytes": 21508,
       "duration": 1,
       "meshes": 0
     },
@@ -45,7 +45,7 @@
     },
     "backhand_oi_left": {
       "file": "assets/models/golfer-backhand_oi_left.glb",
-      "bytes": 21504,
+      "bytes": 21508,
       "duration": 1,
       "meshes": 0
     },
@@ -75,7 +75,7 @@
     },
     "forehand": {
       "file": "assets/models/golfer-forehand.glb",
-      "bytes": 21500,
+      "bytes": 21504,
       "duration": 1,
       "meshes": 0
     },
@@ -123,7 +123,7 @@
     },
     "hammer": {
       "file": "assets/models/golfer-hammer.glb",
-      "bytes": 21360,
+      "bytes": 21364,
       "duration": 1,
       "meshes": 0
     },
@@ -207,7 +207,7 @@
     },
     "walk": {
       "file": "assets/models/golfer-walk.glb",
-      "bytes": 16944,
+      "bytes": 16940,
       "duration": 1,
       "meshes": 0
     },
@@ -219,13 +219,13 @@
     },
     "xstep": {
       "file": "assets/models/golfer-xstep.glb",
-      "bytes": 21496,
+      "bytes": 20960,
       "duration": 1,
       "meshes": 0
     },
     "xstep_left": {
       "file": "assets/models/golfer-xstep_left.glb",
-      "bytes": 21500,
+      "bytes": 21096,
       "duration": 1,
       "meshes": 0
     }

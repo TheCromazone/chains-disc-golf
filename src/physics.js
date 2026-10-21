@@ -9,7 +9,7 @@ export const DISCS = [
   { id: 'driver',  name: 'VORTEX',   type: 'Distance Driver', speed: 12, glide: 5, turn: -1, fade: 3, color: '#ff2e88' },
   { id: 'fairway', name: 'FALCON',   type: 'Fairway Driver',  speed: 7,  glide: 5, turn: 0,  fade: 2, color: '#2f80ff' },
   { id: 'mid',     name: 'MERIDIAN', type: 'Midrange',        speed: 5,  glide: 4, turn: -1, fade: 1, color: '#ffcc00' },
-  { id: 'putter',  name: 'ANCHOR',   type: 'Putter',          speed: 2,  glide: 3, turn: 0,  fade: 1, color: '#f4f4f4' },
+  { id: 'putter',  name: 'ANCHOR',   type: 'Putter',          speed: 2,  glide: 3, turn: 0,  fade: 1, color: '#ff7a1a' },   // blaze orange: white vanished against sunlit trees on the putt (round 4: 0/4 vs DGM's yellow putter)
 ];
 export const discById = id => DISCS.find(d => d.id === id);
 
@@ -29,8 +29,12 @@ export const THROWS = {
   scoober:  { name: 'Scoober',  icon: '⤴', spin: -1, maxSpeed: 22, launch: 30, nose: 8,  bank: 160, liftMul: 0.7,  dragMul: 1.3, flip: -1.9,  swipe: [-0.7071, -0.7071], lat: [0.7071, -0.7071], latMode: 'hyzer', hint: 'swipe up-left ↖' },
   // Ultimate's hammer: forehand grip over the top, released past vertical so it flies inverted, flattens at the apex and drops. RH drifts left.
   hammer:   { ...FH, name: 'Hammer', maxSpeed: 28, launch: 36, nose: 0, bank: -130, liftMul: 0.9, dragMul: 1.15, flip: -0.35, swipe: [0.7071, 0.7071], lat: [-0.7071, 0.7071], latMode: 'yaw', hint: 'swipe down-right ↘' },
-  putt:     { name: 'Putt',     icon: '⇡', spin: +1, maxSpeed: 14, launch: 12, nose: 7,  bank: 0,   liftMul: 1,    dragMul: 1,   flip: 0,    swipe: [0, -1], lat: [1, 0],  latMode: 'yaw',   hint: 'swipe up ↑' },
+  // A push putt: firm and flat along the line into the chains (launch is measured from that line, see launch()). It used to go
+  // out at 14 m/s max, 12 deg up with the nose 7 deg up: slow enough to fade, lofted enough to float, so it read as a lob.
+  // Firmer and flatter stops at the chains' catch speed (hitBasket: 13 m/s chains out): 17 m/s, 8 deg, nose 1 holes to 15 m.
+  putt:     { name: 'Putt',     icon: '⇡', spin: +1, maxSpeed: 17, launch: 8,  nose: 1,  bank: 0,   liftMul: 1,    dragMul: 1,   flip: 0,    swipe: [0, -1], lat: [1, 0],  latMode: 'yaw',   hint: 'swipe up ↑', chainLine: true },
 };
+export const CHAIN_MID = 1.03;   // hitBasket: the chains catch from .72 to 1.34 m over the basket's foot
 
 const len = a => Math.hypot(a[0], a[1], a[2]);
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -46,12 +50,15 @@ export const stableSpeed = disc => 6 + 1.35 * disc.speed;
 export const speedFor = (throwType, power) => THROWS[throwType].maxSpeed * clamp(power, 0.12, 1);
 
 // params: { pos:[x,y,z], dir:[dx,dz], power, throwType, disc, hyzer(deg, +=toward fade side), yawOffset(deg), launchOffset(deg) }
-export function launch(p) {
+// basket: the {x,y,z} a chainLine throw (the putt) is pushed at: its launch counts from the line up or down to the chains'
+// middle (within 15 deg) instead of the horizon, so a downhill putt drives down the line instead of floating up and dropping in.
+export function launch(p, basket) {
   const th = THROWS[p.throwType], disc = p.disc;
   const speed = speedFor(p.throwType, p.power);
   const yaw = ((p.yawOffset || 0)) * Math.PI / 180;
   const hdg = rotAxis(norm([p.dir[0], 0, p.dir[1]]), [0, 1, 0], yaw);
-  const la = clamp(th.launch + (p.launchOffset || 0), -5, 60) * Math.PI / 180;
+  const tilt = th.chainLine && basket ? clamp(Math.atan2(basket.y + CHAIN_MID - p.pos[1], Math.hypot(basket.x - p.pos[0], basket.z - p.pos[2])), -0.26, 0.26) : 0;
+  const la = clamp(th.launch + (p.launchOffset || 0), -5, 60) * Math.PI / 180 + tilt;
   const right = cross(hdg, [0, 1, 0]);
   const v = [hdg[0] * Math.cos(la) * speed, Math.sin(la) * speed, hdg[2] * Math.cos(la) * speed];
   const pitch = la + th.nose * Math.PI / 180;
@@ -351,8 +358,8 @@ export function resultOf(s, w) {
   return { holed, ob, rest, lie, dist, thrown, maxH: s.maxH, airTime: s.t };
 }
 
-export function simulate(params, w, opts = {}) {
-  const s = launch(params);
+export function simulate(params, w, opts = {}) {   // opts.basket: aim the putt at it in a world without one (shot-planning's open line)
+  const s = launch(params, opts.basket || w.basket);
   const every = opts.every || 4, maxT = opts.maxT || 25, rec = opts.record ? [] : null;
   let i = 0;
   while (!isDone(s) && s.t < maxT) {

@@ -181,7 +181,9 @@ export const STANCE = {
   // hand and plate ~27 px, the plate now ~35 px under the shoulder across the chest. The off arm swings out from the ribs
   // with the elbow softer ("elbows tucked against the torso"; the reference's free arm hangs clear, counterbalancing). The
   // chin drops ~15° more: the m2 scan's longer neck read at the tee as "a pale column" under a head held upright.
-  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.28, -1.75, -.12], shR: [.583, 1.164, .872], elR: [.712, -.447, 0], shL: [.45, 0, -.32], elL: [.75, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
+  // r3 athlete c1: the off arm still read "stiff, jutting out straight like a mannequin's" in every verdict: it hangs closer
+  // to the ribs and the elbow folds ~15 deg more, the forearm forward with the hand off the front of the thigh.
+  backhand: { root: [-.12, 1.22, 0], spine: [-.3, 1.4, .1], head: [-.28, -1.75, -.12], shR: [.583, 1.164, .872], elR: [.712, -.447, 0], shL: [.42, 0, -.24], elL: [1.0, -.8, 0], hipR: [.8, 0, .42], knR: [-.66, 0, 0], hipL: [.63, 0, -.2], knL: [-.68, 0, 0] },
   // forehand (and the other overhand-side throws): hips a little closed, shoulders loaded away from the line, elbow at
   // the ribs with the disc cocked out beside the hip, lead foot opposite the throwing hand, eyes on the target
   forehand: { root: [-.12, -.35, 0], spine: [-.16, -.35, 0], head: [.22, .7, 0], shR: [-.2, -.2, .25], elR: [1.5, 0, 0], shL: [.25, 0, -.25], elL: [.7, 0, 0], hipR: [.62, 0, .1], knR: [-.6, 0, 0], hipL: [.64, 0, -.2], knL: [-.48, 0, 0] },
@@ -191,9 +193,11 @@ export const STANCE = {
   putt: { root: [-.12, .2, 0], spine: [-.16, -.17, 0], head: [.14, -.05, 0], shR: [.1, .65, -.05], elR: [1.5, 0, 0], shL: [-.1, -.1, -.3], elL: [1.6, 0, 0], hipR: [.76, 0, .1], knR: [-.54, 0, 0], hipL: [.72, 0, -.12], knL: [-.66, 0, 0] },
 };
 // Cover-shot idle for the menu tee and bystanders: weight over the right leg, the left knee soft with its toe still on the
-// ground, disc carried beside the thigh, shoulders loose and head level.
+// ground, the left hand on the hip, the disc carried at hip height on a soft elbow, head level. (r3 menu critics: "stiff,
+// near A-pose with arms hanging straight", "the pink disc dangles at the bottom edge", against the reference's hand-on-hip
+// athlete.) The hip hand's shoulder is abduct -.8, twist -1.4 inward, extend -.35, composed Z-Y-X and read back as XYZ.
 // Right-handed; callers mirror. Absolute joint values, breathing sway added per frame.
-const HERO = { root: [0, .08, -.02], spine: [.02, -.06, .03], head: [.02, .12, -.02], shR: [.12, -.10, .12], elR: [.30, 0, 0], shL: [.08, .08, -.14], elL: [.24, 0, 0], hipR: [.02, 0, .04], knR: [-.03, 0, 0], hipL: [.02, 0, -.08], knL: [-.22, 0, 0] };
+const HERO = { root: [0, .08, -.02], spine: [.02, -.06, .03], head: [.02, .12, -.02], shR: [.12, -.10, .14], elR: [.75, 0, 0], shL: [-1.396, -.41, -1.441], elL: [1.75, 0, 0], hipR: [.02, 0, .04], knR: [-.03, 0, 0], hipL: [.02, 0, -.08], knL: [-.22, 0, 0] };
 export function heroPose(time, rig = RIGS.lite) {
   const pose = { rootY: 0 }; for (const j of JOINTS) pose[j] = [...(HERO[j] || IDLE[j])];
   const breath = Math.sin(time * 1.2);
@@ -244,6 +248,7 @@ export function readyPose(type, time, rig = RIGS.lite, over = null) {
   // breathing and a slow settle of the coil, so the set-up never freezes
   pose.knR[0] -= .02 + .02 * breath; pose.knL[0] -= .02 + .02 * breath; pose.spine[0] += .015 * breath; pose.head[1] += .04 * Math.sin(time * .5);
   pose.root[1] += .03 * Math.sin(time * .7); pose.spine[1] += .02 * Math.sin(time * .7 + .6); pose.elR[0] += .03 * breath;
+  pose.shL[0] += .035 * Math.sin(time * .7 - .9); pose.elL[0] += .05 * Math.sin(time * .7 - 1.4);   // the free arm swings a little behind the torso's settle, never held rigid
   pose.rootY = -Math.min(...soleHeights(pose, false, rig));
   return pose;
 }

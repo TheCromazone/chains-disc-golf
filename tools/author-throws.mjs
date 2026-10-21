@@ -98,13 +98,15 @@ function pose(s, warm) {
 }
 
 // ---- clips: beats -> keys every 1/40
-function clip(name, beats, start) {
-  const B = fill(beats), keys = []; let warm = start;
+// lead (optional): other beats that the samples up to lead.upto are eased from, so a follow-through can change without moving
+// the stroke before it (each beat's easing tangent reads its neighbours, so a new finish nudged the release key by ~.003 rad)
+function clip(name, beats, start, lead) {
+  const B = fill(beats), L = lead ? fill(lead.beats) : B, keys = []; let warm = start;
   // the 1/40 grid plus every beat, minus grid samples crowding a beat (.62 beside .625 made a 5 ms segment whose curvature broke the
   // release's velocity continuity)
   const ts = new Set(B.map(b => b.t)); for (let i = 0; i <= 40; i++) { const t = +(i / 40).toFixed(4); if (B.every(b => Math.abs(b.t - t) > .009 || b.t === t)) ts.add(t); }
   for (const t of [...ts].sort((a, b) => a - b)) {
-    const s = { t }; for (const ch of Object.keys(B[0])) if (ch !== 't') s[ch] = channel(B, ch, t);
+    const s = { t }, S = lead && t <= lead.upto ? L : B; for (const ch of Object.keys(B[0])) if (ch !== 't') s[ch] = channel(S, ch, t);
     const k = pose(s, warm); warm = k;
     keys.push({ t, ...Object.fromEntries(Object.entries(k).map(([j, v]) => [j, Array.isArray(v) ? v.map(x => +x.toFixed(4)) : +(+v).toFixed(4)])) });
   }
@@ -141,35 +143,48 @@ const BH = [
   { t: 0, at: [0, -.08, 0], pelvis: [-7, 70, 0], chest: [-17, 80, 6], head: [-16, -100, -7],
     handR: [-.23, 0, .53], elbowR: [.04, -.02, .29], rollR: 0, handL: [-.04, -.58, -.10], elbowL: [-.03, -.29, .02], rollL: 0,
     soleR: [-.14, 0, -.38], footR: 70, soleL: [-.27, 0, .29], footL: 70 },
-  { t: .2, at: [-.02, -.09, .07], pelvis: [-7, 86, 0], chest: [-16, 86, 5], head: [-8, -90, -4],
-    handR: [0, -.05, .58], elbowR: [.08, 0, .29], handL: [.16, -.36, -.34], elbowL: [-.06, -.25, -.14] },
-  { t: .35, at: [-.03, -.12, .11], pelvis: [-9, 104, -2], chest: [-18, 96, 4], head: [2, -82, 0],
-    handR: [.10, -.10, .57], elbowR: [.08, -.05, .28], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16],
+  // r3 athlete c3 (all four m-throw critics: "frames 1-4 hold almost the same pose for 0.45 s", "a static hold, not a coil",
+  // "no wrap across the chest"): the address already reaches 56 cm across the chest, so the old windup moved the hand ~10 cm
+  // and turned the chest 54 deg over the whole .9 s a bot takes. Now the disc first comes in to the chest, elbow out (.12: the
+  // wrap), then reaches back nearly straight-armed as the shoulders coil past where they were (~214 deg, .35, one beat at full
+  // reach while the front foot lands, .40), and the hips fire at once with the elbow leading the disc back in (.44), so every
+  // 0.15 s of the windup shows a different shape: in, out, back, and the hips opening ahead of the arm
+  { t: .12, at: [-.01, -.085, .035], pelvis: [-7, 78, 0], chest: [-17, 84, 5], head: [-12, -96, -5],
+    handR: [.09, -.10, .26], elbowR: [-.17, -.18, -.05], handL: [.10, -.42, -.26], elbowL: [-.05, -.26, -.10] },
+  { t: .24, at: [-.02, -.10, .08], pelvis: [-8, 92, -1], chest: [-19, 93, 5], head: [-3, -88, -2],
+    handR: [.04, -.08, .50], elbowR: [.06, -.04, .26], handL: [.16, -.36, -.34], elbowL: [-.06, -.25, -.14] },
+  // r3 athlete c2: the coil keeps the x-step's chest drop (-18 read "upright and square, no coil") and its slightly low hand
+  { t: .35, at: [-.035, -.13, .12], pelvis: [-10, 106, -2], chest: [-22, 108, 4], head: [4, -86, 0],
+    handR: [.16, -.13, .60], elbowR: [.10, -.07, .30], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16],
     soleR: [-.11, .035, -.39], footR: 96 },
-  { t: .43, at: [-.03, -.13, .04], pelvis: [-9, 95, -2], chest: [-18, 105, 3], head: [2, -86, 0],
-    handR: [.12, -.10, .63], elbowR: [.09, -.06, .31], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
+  { t: .40, at: [-.03, -.135, .05], pelvis: [-9, 96, -2], chest: [-22, 116, 3], head: [2, -90, 0],
+    handR: [.15, -.13, .62], elbowR: [.10, -.07, .31], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
     soleR: [-.10, 0, -.42], footR: 100, soleL: [-.27, 0, .29], footL: 70 },
-  { t: .47, pelvis: [-9, 80, -1], chest: [-17, 120, 2], head: [1, -94, 0], handR: [.10, -.11, .42], elbowR: [.07, -.07, .0] },   // the hips go first: the chest holds its coil ~40 ms longer, and the elbow starts for the target while the disc stays back
+  { t: .44, pelvis: [-9, 76, -1], chest: [-17, 126, 2], head: [1, -96, 0], handR: [.10, -.11, .40], elbowR: [.07, -.07, -.02] },   // the hips go first: the chest holds its coil while they open, and the elbow starts for the target with the disc still back
   { t: .5, at: [-.02, -.145, .01], pelvis: [-8, 55, 0], chest: [-16, 128, 2], head: [0, -100, 0],
     handR: [.03, -.13, .15], elbowR: [.06, -.08, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10 },
   { t: .53, pelvis: [-8, 45, 0], chest: [-16, 112, 0], head: [0, -90, 0], handR: [-.12, -.12, .12], elbowR: [.04, -.09, -.25], soleL: [-.27, 0, .28], footL: 60 },   // the rear heel turns in as the hips fire (a sole's y is its lowest point: the toe stays down)   // the disc swings in front of the sternum, not through the shoulder
   { t: .565, at: [-.01, -.13, -.005], pelvis: [-8, 38, 0], chest: [-15, 82, -2], head: [0, -76, 0],
     handR: [-.23, -.10, -.06], elbowR: [.06, -.09, -.26], handL: [.04, -.32, -.14], elbowL: [-.06, -.25, -.06], rollR: 20 },
   { t: .62, at: [0, -.115, -.01], pelvis: [-7, 30, 0], chest: [-14, 64, -6], head: [0, -60, 0],
-    handR: [-.04, -.12, -.48], elbowR: [.04, -.08, -.22], handL: [-.08, -.38, -.02], elbowL: [-.07, -.26, .02], rollR: 30 },
+    handR: [-.04, -.12, -.48], elbowR: [.04, -.08, -.22], handL: [-.02, -.36, -.08], elbowL: [-.07, -.25, .0], rollR: 30 },
   { t: .66, soleL: [-.28, .01, .26], footL: 48, handR: [-.28, -.10, -.50], elbowR: [-.10, -.06, -.25] },   // the rear foot pivots on its ball as the hips finish opening; the arm flies on across
+  // r3 athlete c1 (all four m-throw critics: "both arms open into a rigid T / airplane spread after the release, the off arm
+  // mirrors the throwing arm"): the throwing elbow folds once the hand passes the far shoulder, so the arm wraps high round
+  // the body instead of sweeping out flat at full length, and the off arm stays tucked, elbow bent with the forearm across
+  // the belly, instead of swinging out behind (it was 56 cm from its shoulder, almost straight, opposite the throwing arm)
   { t: .7, at: [-.015, -.10, -.06], pelvis: [-9, 10, 0], chest: [-18, 45, -6], head: [0, -42, 0],
-    handR: [-.42, -.06, -.40], elbowR: [-.18, -.03, -.22], handL: [-.24, -.42, .22], elbowL: [-.12, -.25, .11],
+    handR: [-.42, -.04, -.38], elbowR: [-.18, -.03, -.22], handL: [.06, -.34, -.14], elbowL: [-.08, -.24, -.02],
     soleL: [-.30, .04, .20], footL: 32, footR: 80 },
-  { t: .74, soleL: [-.33, .15, .04], footL: 20, handR: [-.56, -.01, -.20], elbowR: [-.27, .0, -.14] },   // ...and only then lets go and swings round the posted front leg
+  { t: .74, soleL: [-.33, .15, .04], footL: 20, handR: [-.52, .03, -.18], elbowR: [-.24, -.02, -.20] },   // ...and only then lets go and swings round the posted front leg
   { t: .8, at: [-.06, -.10, -.20], pelvis: [-14, -20, 0], chest: [-27, 16, -2], head: [4, -6, 0],
-    handR: [-.60, .02, -.04], elbowR: [-.29, .03, -.08], handL: [-.32, -.38, .26], elbowL: [-.15, -.23, .13],
+    handR: [-.50, .12, .02], elbowR: [-.30, -.04, -.16], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
     soleL: [-.38, .15, -.26], footL: 6, footR: 34 },
   { t: .9, at: [-.13, -.11, -.36], pelvis: [-13, -38, 0], chest: [-25, -14, 0], head: [6, 18, 0],
-    handR: [-.48, .06, .32], elbowR: [-.26, .08, .02], handL: [-.26, -.46, .18], elbowL: [-.12, -.26, .10],
+    handR: [-.40, .16, .22], elbowR: [-.30, -.02, -.12], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
     soleL: [-.40, 0, -.62], footL: -24, footR: 4 },
   { t: 1, at: [-.16, -.11, -.40], pelvis: [-12, -42, 0], chest: [-21, -16, 0], head: [5, 22, 0],
-    handR: [-.42, -.06, .30], elbowR: [-.25, .02, .02], handL: [-.16, -.52, .10], elbowL: [-.08, -.28, .06],
+    handR: [-.36, .10, .22], elbowR: [-.30, -.06, -.10], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
     soleL: [-.40, 0, -.62], footL: -28, footR: 0 },
 ];
 
@@ -189,10 +204,15 @@ const XSTEP = [
     handR: [-.22, -.16, -.08], elbowR: [.04, -.22, .08] },
   { t: .46, at: [.02, -.10, .80], pelvis: [-8, 70, -1], chest: [-20, 36, 2], head: [4, -62, 0], soleL: [.04, .08, .86], footL: 60,
     handR: [-.20, -.13, .02], elbowR: [.05, -.18, .14], handL: [.16, -.30, -.30] },
-  { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-21, 56, 3], head: [2, -76, 0], soleL: [-.27, 0, .29], footL: 70,
-    soleR: [.06, 0, .95], handR: [-.12, -.10, .17], elbowR: [.05, -.10, .08] },
-  { t: .8, at: [-.03, -.11, .22], pelvis: [-9, 96, -1], chest: [-20, 82, 3], head: [2, -78, 0],
-    soleR: [-.05, .09, .28], footR: 85, handR: [.04, -.12, .45], elbowR: [.07, -.06, .22] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
+  // r3 athlete c2 (both m-throw critics: "the reach-back is frozen: the disc holds one shoulder-height spot behind him for
+  // four frames while only the legs step", "no coil before the throw"): the arm now travels, from the tuck at the chest
+  // (.46) through half way back at the cross-step (.62) to a full, slightly low extension behind with the chest turned past
+  // the hips and dropped over the feet (.8-.9), the loaded coil the drive's .35 carries on from
+  { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-22, 64, 3], head: [2, -80, 0], soleL: [-.27, 0, .29], footL: 70,
+    soleR: [.06, 0, .95], handR: [-.02, -.11, .33], elbowR: [.07, -.10, .15] },
+  { t: .8, at: [-.03, -.12, .22], pelvis: [-9, 97, -1], chest: [-26, 100, 4], head: [3, -84, 0],
+    soleR: [-.05, .09, .28], footR: 85, handR: [.11, -.16, .61], elbowR: [.10, -.09, .31] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
+  { t: .9, chest: [-25, 101, 4], handR: [.12, -.15, .62], elbowR: [.10, -.08, .31] },
   { ...coil, t: 1 },
 ];
 
@@ -209,12 +229,35 @@ const PUTT = [
   { t: .5, at: [0, -.11, .04], pelvis: [-8, 12, 0], chest: [-16, -8, 0], head: [12, -3, 0],
     handR: [-.19, -.40, -.13], elbowR: [.02, -.28, .10], handL: [-.06, -.40, -.17], elbowL: [-.08, -.27, .10] },
   { t: .565, at: [0, -.07, -.03], chest: [-10, -4, 0], head: [9, -2, 0], handR: [-.13, -.30, -.38], elbowR: [.02, -.20, -.10], handL: [-.08, -.46, -.05] },
+  // r3 athlete c1 tried a finish held high over the chains so the putt camera (1.4 m to his left, 3.6 m back, at head height)
+  // could see it: any forward reach from the right shoulder projects onto his head and torso from there, and a hand raised
+  // clear of the head read as a hand on the head. Unchanged; the visible stroke needs the camera on the throwing side.
+  // r3 athlete c2 (m-putt critics: "after release his arms drop limp to his sides, the stroke barely reads"): from behind,
+  // the putting arm hides behind his back whatever it does, so the stroke shows in what the camera does see: the push
+  // finishes at shoulder height toward his midline (the hand clears his head's edge instead of sitting behind his shoulder)
+  // and the off arm, on the camera's side, swings out from the ribs, elbow bent, as the counterweight, instead of hanging
+  // r3 athlete c4 (m-putt critics: "the arm opens out to the side, a sideways wave, not a push along the line"; DGM's arm
+  // "extends straight at the chains and holds"): from the putt camera (behind his left side) the finish above, 16 cm inside
+  // the right shoulder at its height, hid behind his head, and the only arm in view was the off arm swinging out low: the wave.
+  // After the release the right shoulder drives through (the chest opens ~25 deg over the planted feet) and the arm extends
+  // fully toward the chains, the hand ~12 cm under the shoulder and ~10 cm past his midline, so the forearm and hand show
+  // past his left side sloping down onto the basket and hold there; the off arm hangs by the hip instead of competing.
+  // The release beat's throwing arm and torso are untouched: the aim stance seats the disc from the clip's .62 hand
+  // (gltf-player.js releaseFrame), and a changed .62 changed the putt camera's still (r3 c1: camera 0/4).
   { t: .62, at: [0, -.03, -.07], pelvis: [-5, 10, 0], chest: [-6, -2, 0], head: [6, -2, 0],
-    handR: [-.08, -.20, -.52], elbowR: [0, -.12, -.24], handL: [-.06, -.52, .02], elbowL: [-.06, -.28, .05] },
-  { t: .8, at: [0, -.01, -.10], pelvis: [-4, 6, 0], chest: [-4, 0, 0], head: [4, 0, 0],
-    handR: [-.06, -.06, -.60], elbowR: [-.01, -.03, -.30], handL: [-.08, -.55, .04], elbowL: [-.05, -.28, .04], soleL: [-.24, .03, -.12] },
-  { t: 1, at: [0, -.02, -.10], handR: [-.06, -.09, -.59], elbowR: [-.01, -.05, -.30], soleL: [-.24, .015, -.12] },
+    handR: [-.12, -.14, -.55], elbowR: [-.01, -.10, -.25], handL: [-.14, -.43, -.03], elbowL: [-.09, -.26, .04] },
+  { t: .7, at: [0, -.02, -.10], pelvis: [-5, 11, 0], chest: [-6, 7, 0], head: [6, -15, 0],
+    handR: [-.22, -.11, -.60], elbowR: [-.08, -.06, -.29] },
+  { t: .8, at: [0, -.01, -.12], pelvis: [-5, 12, 0], chest: [-6, 13, 0], head: [6, -22, 0],
+    handR: [-.28, -.12, -.58], elbowR: [-.11, -.05, -.29], handL: [-.12, -.49, -.01], elbowL: [-.08, -.27, .03], soleL: [-.24, .03, -.12] },
+  { t: 1, at: [0, -.02, -.12], handR: [-.28, -.13, -.57], elbowR: [-.11, -.06, -.29], handL: [-.12, -.50, -.01], soleL: [-.24, .015, -.12] },
 ];
+// the stroke up to the release is eased toward the r3 c2 finish (its throwing arm and torso), so the release key and the
+// disc the aim stance seats from it stay exactly as shipped; the new finish takes over after .62
+const PUTT_STROKE = [...PUTT.filter(b => b.t <= .62),
+  { t: .8, at: [0, -.01, -.10], pelvis: [-4, 6, 0], chest: [-4, 0, 0], head: [4, 0, 0], handR: [-.16, .0, -.60], elbowR: [-.04, -.03, -.30],
+    handL: [-.12, -.49, -.01], elbowL: [-.08, -.27, .03], soleL: [-.24, .03, -.12] },
+  { t: 1, at: [0, -.02, -.10], handR: [-.16, -.02, -.60], elbowR: [-.04, -.05, -.30], handL: [-.12, -.50, -.01], soleL: [-.24, .015, -.12] }];
 
 // ============ the forehand (sidearm) ============
 // Right-handed: loaded on the right (back) foot with the hips and shoulders turned away and the disc drawn back beside the
@@ -261,7 +304,7 @@ const FXSTEP = [
 const SOLVED = {};
 SOLVED.backhand = clip('backhand', BH, warmFrom('backhand'));
 SOLVED.xstep = clip('xstep', XSTEP, warmFrom('putt'));
-SOLVED.putt = clip('putt', PUTT, warmFrom('putt'));
+SOLVED.putt = clip('putt', PUTT, warmFrom('putt'), { beats: PUTT_STROKE, upto: .62 });
 SOLVED.forehand = clip('forehand', FH, warmFrom('forehand'));
 SOLVED.fxstep = clip('fxstep', FXSTEP, warmFrom('putt'));
 // a run-up's last key is its drive's .35 key itself: the same targets solved from another warm start can land on an equivalent

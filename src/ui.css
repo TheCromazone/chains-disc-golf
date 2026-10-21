@@ -295,10 +295,13 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 @keyframes rot { to {transform:rotate(360deg)} }
 /* Scorecard: a folder-tab card in black and mint over the dimmed course, with a RESULTS watermark. */
 #score.overlay { overflow: hidden; background: rgba(0, 0, 0, .5); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }   /* the panel scrolls itself; hidden keeps the watermark's bleed off the scrollbar */
-#score::before, #score::after { content: 'RESULTS'; position: fixed; z-index: 0; pointer-events: none; font-family: var(--display); font-size: clamp(110px, 22vw, 300px); font-weight: 800; line-height: .8; text-transform: uppercase; color: transparent; -webkit-text-stroke: 1.5px #ffffff2a; user-select: none; }
-#score::before { top: -1vw; left: -1vw; }
-#score::after { right: -1vw; bottom: -1vw; }
-#score .panel { --gutter: 28px; position: relative; z-index: 1; width: min(560px, 100%); padding: 0; gap: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; color: var(--black); font-family: var(--display); filter: drop-shadow(0 24px 50px #000a); scrollbar-color: #ffffff60 transparent; }
+/* The watermark stands upright in the margins either side of the card, whole (r3 critics: the corner pair was "clipped behind the
+   card at the top left and bottom right", "collides with its edges"); a screen with no margin to spare drops it. */
+#score { --card: 560px; }
+#score::before, #score::after { content: 'RESULTS'; position: fixed; top: 50%; left: calc((100vw - var(--card)) / 4); z-index: 0; pointer-events: none; font-family: var(--display); font-size: min(21vh, 15vw); font-weight: 800; line-height: .8; text-transform: uppercase; writing-mode: vertical-rl; color: transparent; -webkit-text-stroke: 1.5px #ffffff30; user-select: none; transform: translate(-50%, -50%) rotate(180deg); }
+#score::after { left: calc(100vw - (100vw - var(--card)) / 4); transform: translate(-50%, -50%); }
+@media (max-aspect-ratio: 4/3) { #score::before, #score::after { display: none; } }
+#score .panel { --gutter: 28px; position: relative; z-index: 1; width: min(var(--card), 100%); padding: 0; gap: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; color: var(--black); font-family: var(--display); filter: drop-shadow(0 24px 50px #000a); scrollbar-color: #ffffff60 transparent; }
 #score .eyebrow { align-self: flex-start; display: inline-flex; gap: 6px; padding: 7px 14px 6px; border-radius: 6px 6px 0 0; background: #0f5a3c; color: #fff; font-size: 12px; letter-spacing: 2px; }
 /* Two loud things only: this headline and the lit current-hole column. Everything else stays at body weight with air around it. */
 #score h2 { margin: 0; padding: 16px var(--gutter) 12px; border-radius: 0 6px 0 0; background: var(--mint); color: var(--black); font-size: clamp(40px, 6vw, 56px); letter-spacing: -.02em; line-height: .95; }
@@ -307,6 +310,9 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 /* A golfer's scorecard shorthand: circle under par, square over, a second ring for each stroke past one; par stays bare. */
 #score .mk { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 800; }
 #score .badge { width: 40px; height: 40px; font-size: 19px; }
+/* holes still to play: an empty box in each player's row, as a paper card prints them (r3 critics: "holes 2-9 leave a large empty
+   white area across the middle of the card", "the middle of the card feels hollow") */
+#score td.blank i { display: inline-block; width: 26px; height: 26px; border-radius: 5px; vertical-align: middle; background: #0c111409; box-shadow: inset 0 0 0 1.5px #0c111418; }
 #score td.s-1 .mk, #score td.s-2 .mk, #score td.s-3 .mk { background: var(--mint); color: var(--black); }
 #score td.s-2 .mk, #score td.s-3 .mk { outline: 2px solid var(--mint); outline-offset: 2px; }
 #score td.s1 .mk, #score td.s2 .mk, #score td.s3 .mk, #score td.s4 .mk { border-radius: 3px; box-shadow: inset 0 0 0 2px currentColor; }
@@ -350,7 +356,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #top { width: min(236px, calc(100% - 136px)); }   /* room for the sound and tools buttons beside it */
   #score .panel { --gutter: 18px; }
   #score th { font-size: 14px; } #score th .muted { font-size: 12px; } #score th.key { font-size: 10px; letter-spacing: .8px; }
-  #score .mk { width: 20px; height: 20px; }
+  #score .mk, #score td.blank i { width: 20px; height: 20px; }
   #score .badge { width: 30px; height: 30px; font-size: 15px; }
   #score table { font-size: 14px; }
   #score td { padding: 6px 2px; }
@@ -411,12 +417,12 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   body[data-phase='result'] #toast, body.result-mode #toast { top: auto; bottom: calc(16% + var(--sab)); left: calc(25% + var(--sal) / 2); width: 46%; }
   body[data-phase='result'] #react, body.result-mode #react { left: calc(25% + var(--sal) / 2); bottom: calc(16% + 92px + var(--sab)); }
   body[data-phase='result'] #toast b, body.result-mode #toast b { font-size: 42px; }
-  #score .panel { --gutter: 20px; width: min(620px, 100%); }
+  #score { --card: 620px; } #score .panel { --gutter: 20px; }
   #score .eyebrow { padding: 5px 12px 4px; }
   #score h2 { font-size: 34px; padding: 8px var(--gutter) 6px; }
   #score #scoreBest { padding-top: 8px; }
   .score-grid { padding: 4px 0 0; }
-  #score .mk { width: 20px; height: 20px; }
+  #score .mk, #score td.blank i { width: 20px; height: 20px; }
   #score .badge { width: 30px; height: 30px; font-size: 15px; }
   #score th { padding: 5px 2px 4px; font-size: 14px; }
   #score th .muted { font-size: 12px; }
@@ -473,13 +479,44 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
 #toast span:empty { display: none; }
 #toast.show { transform: translate(-50%, -8px) rotate(-3deg); }
 @media (prefers-reduced-motion: reduce) { #toast.show { transform: translate(-50%, -8px); } }
+/* Calls during a flight ("Chains!", "Tree!") ride high and smaller: at 22% down and 60 px a putt's "CHAINS!" covered the basket
+   through its slow-motion catch, the shot the putt is for. The verdict after it keeps the big type. */
+body[data-phase='flight'] #toast { top: calc(5% + var(--sat)); }
+body[data-phase='flight'] #toast b { font-size: clamp(26px, 5vw, 38px); }
+/* The release grade over the power ring (ui.js releaseTag), held into the flight as DGM holds "Perfect Throw". */
+#releaseTag { position: absolute; left: 50%; bottom: calc(100px + var(--sab)); z-index: 2; pointer-events: none; padding: 4px 11px 3px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; color: #fff; font-size: 15px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3); opacity: 0; transform: translate(-50%, 6px); transition: opacity .25s, transform .25s; }
+#releaseTag.show { opacity: 1; transform: translate(-50%, 0); }
+#releaseTag.perfect { border-color: transparent; background: var(--mint); color: var(--black); }
+#releaseTag.wobbly { border-color: transparent; background: #ff9275eb; color: var(--black); }
+body[data-phase='result'] #releaseTag, body[data-phase='aim'] #releaseTag { display: none; }
+@media (max-height: 520px) and (min-aspect-ratio: 5/4) { #releaseTag { bottom: calc(80px + var(--sab)); font-size: 13px; } }
+/* upright: the score plate spans the top and the wind plate the bottom right, so the call drops under one and the grade clears the other */
+@media (orientation: portrait) { body[data-phase='flight'] #toast { top: calc(104px + var(--sat)); } #releaseTag { bottom: calc(126px + var(--sab)); font-size: 13px; } }
+/* Out of bounds, your own throw (ui.js obChoice): DGM's Rethrow / Move to lie as two dark glass pills at the foot of the frame,
+   under the verdict and in reach of either thumb; only in the result beat, so a round left mid-choice never carries them over */
+#obChoice { position: absolute; left: 50%; bottom: calc(16px + var(--sab)); z-index: 5; display: flex; gap: 10px; transform: translateX(-50%); pointer-events: auto; }
+#obChoice button { min-width: 136px; min-height: 48px; padding: 8px 20px 7px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c1114c4; color: #fff; font-family: var(--display); font-size: 19px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; white-space: nowrap; box-shadow: inset 0 1px 0 #ffffff26, inset 0 -1px 0 #0000004d, 0 2px 8px #0006; backdrop-filter: blur(12px) saturate(1.5); -webkit-backdrop-filter: blur(12px) saturate(1.5); }
+#obChoice #btnRethrow { border-color: var(--mint); }
+@media (hover: hover) { #obChoice button:hover { background: #0c1114ee; border-color: var(--mint); } }
+body:not([data-phase='result']) #obChoice { display: none; }
+#holeTitle small { display: inline-block; margin-top: 14px; padding: 6px 12px 5px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; font-family: var(--display); font-size: 14px; letter-spacing: .08em; line-height: 1; text-shadow: none; }
 
 .ccard .cinfo b, .ccard .chev { color: #fff; }
 /* ---------- hole intro: flyover title, HUD hidden while the camera flies ---------- */
 #hud { transition: opacity .45s; }
 body[data-phase='intro'] #hud { opacity: 0; }
-#holeTitle { position: fixed; left: calc(22px + env(safe-area-inset-left, 0px)); bottom: calc(24px + var(--sab)); z-index: 11; pointer-events: none; opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; color: #fff; font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', Impact, sans-serif; font-weight: 800; text-transform: uppercase; line-height: .9; letter-spacing: .005em; text-shadow: 0 2px 3px #0009, 0 10px 34px #0008; }
+#holeTitle { position: fixed; left: calc(22px + env(safe-area-inset-left, 0px)); bottom: calc(5.5vh + 18px + var(--sab)); z-index: 11; pointer-events: none; opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; color: #fff; font-family: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', Impact, sans-serif; font-weight: 800; text-transform: uppercase; line-height: .9; letter-spacing: .005em; text-shadow: 0 2px 3px #0009, 0 10px 34px #0008; }
 #holeTitle b, #holeTitle span { display: block; font-size: clamp(42px, 9.5vmin, 104px); font-weight: 800; }
+/* A broadcast lower third (r3 intro critics: "the white title floats on bright grass with no backing", "no backing plate or
+   hierarchy"): the hole number big over a mint rule, par and length a step down on a dark plate, the corner of the shot
+   shaded under both; and the flyover plays letterboxed, so it reads as a camera move, not the game waiting ("looks staged
+   and static", "more like a gameplay view than a composed cinematic shot"). */
+#holeTitle b { padding-bottom: .1em; margin-bottom: .14em; border-bottom: max(4px, .06em) solid var(--mint); width: fit-content; }
+#holeTitle span { width: fit-content; padding: .2em .42em .12em; border-radius: 6px; background: #0c1114c4; font-size: clamp(22px, 4.6vmin, 52px); letter-spacing: .05em; text-shadow: none; box-shadow: 0 6px 18px #0005; }
+#holeTitle::after { content: ''; position: absolute; z-index: -1; left: calc(-22px - env(safe-area-inset-left, 0px)); bottom: calc(-5.5vh - 18px - var(--sab)); width: max(60vw, 420px); height: 58vh; background: radial-gradient(farthest-side at 0 100%, #000a, #0005 45%, #0000); }
+body::before, body::after { content: ''; position: fixed; left: 0; right: 0; z-index: 10; height: 5.5vh; background: #050708; pointer-events: none; transform: scaleY(0); transition: transform .5s ease; }
+body::before { top: 0; transform-origin: top; } body::after { bottom: 0; transform-origin: bottom; }
+body[data-phase='intro']::before, body[data-phase='intro']::after { transform: none; }
 body[data-phase='intro'] #holeTitle { opacity: 1; transform: none; transition-duration: .5s; }
 /* Target tag: the basket's distance on a hairline over the pin (the camera in main.js places it every frame, UI.setHud writes
    the metres). Dark glass like the HUD chips and a step under them in weight; it bows out inside the putting range. */
@@ -489,8 +526,18 @@ body[data-phase='intro'] #holeTitle { opacity: 1; transform: none; transition-du
 #pin i { width: 1.5px; height: 24px; background: linear-gradient(#ffffffd9, #ffffff59); transition: height .8s var(--ease); }
 body[data-phase='intro'] #pin i { height: 46px; }   /* the establishing shot sees the pin past the hole's gantry: the tag flies clear of its banner */
 #pin::after { content: ''; width: 5px; height: 5px; margin-top: -1px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 1.5px #0c111466; }
+/* The landing tag (ui.js placeLandTag): the pin tag's glass pill on a shorter stem, the distance over what it leaves in mint. */
+#landTag { position: fixed; left: 0; top: 0; z-index: 9; display: flex; flex-direction: column-reverse; align-items: center; pointer-events: none; opacity: 0; font-family: var(--display); transition: opacity .2s; will-change: transform, opacity; }
+#landTag b { display: flex; align-items: baseline; gap: 7px; padding: 3px 10px 2px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; color: #fff; font-size: 16px; font-weight: 800; line-height: 1.1; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; box-shadow: inset 0 1px #ffffff1f, 0 2px 8px #0004; -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3); }
+#landTag small { color: var(--mint); font-size: 12px; font-weight: 700; }
+#landTag i { position: relative; width: 1.5px; height: 18px; background: linear-gradient(#ffffff59, #ffffffd9); }
+#landTag i::after { content: ''; position: absolute; left: -2.25px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 1.5px #0c1114a0; }   /* the spot itself, even where a crest hides the reticle's ring */
+#landTag.danger b { border-color: transparent; background: #ff9275eb; color: var(--black); }
+#landTag.danger small { color: var(--black); }
+@media (pointer: coarse) { body[data-phase='aim'] #hud.land-tag:not(.spectating) #shotPlan:not(.off) { display: none; } }   /* phones: the tag says what the card said, where it lands */
+@media (max-height: 520px) and (min-aspect-ratio: 5/4) { #landTag b { font-size: 14px; padding: 2px 8px 1px; } #landTag small { font-size: 11px; } #landTag i { height: 14px; } }
 @media (max-height: 520px) and (min-aspect-ratio: 5/4) { #pin b { font-size: 13px; padding: 2px 8px 1px 6px; } #pin svg { width: 11px; height: 11px; } #pin i { height: 18px; } }
-@media (prefers-reduced-motion: reduce) { #holeTitle, #hud { transition: none; } }
+@media (prefers-reduced-motion: reduce) { #holeTitle, #hud, body::before, body::after { transition: none; } }
 
 /* ---- invite matches: turn-based play on everyone's own time ---- */
 .match-badge { position: absolute; top: -7px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #f14e5a; color: #fff; font: 800 12px/22px var(--display); letter-spacing: .3px; box-shadow: 0 2px 6px #c2395155; }
@@ -561,14 +608,26 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
    with the power ring under the swipe hand. One finger still works: drag on the left, swipe on the right. */
 @media (pointer: coarse) and (min-aspect-ratio: 6/5) {
   #pad { left: 40%; top: calc(70px + var(--sat)); height: auto; padding-left: 12px; padding-right: 12px; }
-  #pad::before { content: ''; position: absolute; left: 0; top: 10%; bottom: 22%; width: 1px; background: linear-gradient(#ffffff00, #ffffff38, #ffffff00); pointer-events: none; }
-  body.thrown #pad::before { opacity: .5; }
   #aimZone { top: auto; left: 16px; bottom: calc(76px + var(--sab)); }
-  #power, #powerLabel, #waiting { left: 63%; }   /* clear of the wind plate on a 390-430 pt tall phone on its side */
-  #pad { padding-bottom: calc(108px + var(--sab)); }   /* the hint rides over the wind plate, not into it */
+  #waiting { left: 63%; }
+  #pad { padding-bottom: calc(108px + var(--sab)); }
+  /* DGM's ring is ~100 px on a phone on its side; ours was 60-76 with its % in the middle, under the swiping thumb. The ring
+     grows, the % rides above it as a pill (the release grade takes its place from the release), and both stand at 53%: left of
+     the swipe hint (centred at 70% over the pad) and of the athlete in the right third, so neither is covered */
+  #power, #powerLabel, #releaseTag { left: 53%; }
+  #power { width: 100px; height: 100px; margin-left: -50px; }
+  #powerLabel, #releaseTag { bottom: calc(120px + var(--sab)); }
+  #powerLabel { transform: translateX(-50%); padding: 3px 11px 2px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; font-size: 17px; text-shadow: none; -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3); }
+  body[data-phase='release'] #powerLabel { visibility: hidden; }
   /* the wind plate under the score plate: at the bottom right it sat on the athlete's hip, who stands in the right third over
      the swipe pad (AIM.driveS), and the left column between the score and the aim pill is open sky and trees */
   #conditions { right: auto; left: 12px; bottom: auto; top: calc(84px + var(--sat)); flex-direction: column; align-items: flex-start; gap: 3px; }
+}
+/* A taller landscape touch screen (tablet, foldable): the wide score plate (min-width 900px) ends ~104 px down, so 84 px put the
+   wind plate over its throw strip; it goes under the plate on one row, and the aim-time shot plan under that */
+@media (pointer: coarse) and (min-aspect-ratio: 6/5) and (min-height: 521px) {
+  #conditions { left: 24px; top: calc(112px + var(--sat)); flex-direction: row; align-items: center; gap: 12px; }
+  #shotPlan { top: calc(156px + var(--sat)); }
 }
 /* A phone on its side: the notch or Dynamic Island takes ~50 px of one long edge (viewport-fit=cover), where the score plate
    and the menu button used to sit. */

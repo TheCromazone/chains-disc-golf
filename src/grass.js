@@ -25,7 +25,7 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   // neighbouring clumps overlap into an even carpet instead of reading as tufts. A 20 px blade barely shows curvature,
   // and one triangle per blade buys three times the blades.
   let s = seed >>> 0 || 1; const rnd = () => (s = Math.imul(s, 1664525) + 1013904223 >>> 0) / 4294967296;
-  const B = lite ? 7 : 34, P = [], S = [], N = [], U = [];
+  const B = lite ? 16 : 34, P = [], S = [], N = [], U = [];
   for (let b = 0; b < B; b++) {
     const a = rnd() * 6.283, r = Math.sqrt(rnd()) * .12, x0 = Math.cos(a) * r, z0 = Math.sin(a) * r;
     const h = .1 * (.45 + rnd() * .55), w = .0035 + rnd() * .003, fa = rnd() * 3.1416, fx = Math.cos(fa), fz = Math.sin(fa);
@@ -39,8 +39,9 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
   // Tiles: [size m, anchor distance ahead of the camera m, thinning from, gone at (m from the eye), roots per side].
   // Each clump drops out at its own random distance inside the thinning band, so density falls off smoothly instead of
   // stepping at a fade line; the far tile's clumps spread twice as wide (its spacing is three times the near one's).
-  // Mobile: the two near tiles, sparser (~19k triangles): its single 5.8 m tile left the turf a flat colour from a few metres out
-  const layers = lite ? [[11, 4.5, 3.5, 8.5, 40], [34, 14, 9, 19, 34]] : [[11, 4.5, 3.5, 8.5, 80], [34, 14, 9, 19, 60], [76, 39, 24, 62, 80], [130, 66, 55, 95, 48]], roots = [];
+  // Mobile: the two near tiles, sparser (~42k triangles): its single 5.8 m tile left the turf a flat colour from a few metres out, and at
+  // 19 m the tee's mid lawn up to the arch was still "a smooth painted green with no blades" (gauntlet r3 ground 1/4), so the far one reaches 25 m
+  const layers = lite ? [[11, 4.5, 3.5, 8.5, 64], [32, 13.5, 9, 23, 42]] : [[11, 4.5, 3.5, 8.5, 80], [34, 14, 9, 19, 60], [76, 39, 24, 62, 80], [130, 66, 55, 95, 48]], roots = [];
   layers.forEach(([, , , , m], l) => { for (let i = 0; i < m; i++) for (let k = 0; k < m; k++) roots.push((i + rnd()) / m, (k + rnd()) / m, rnd(), l); });
   geo.setAttribute('aRoot', new THREE.InstancedBufferAttribute(new Float32Array(roots), 4)); geo.instanceCount = roots.length / 4;
 
@@ -68,11 +69,11 @@ export function grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads,
         float k=smoothstep(drop+.6,drop,dCam)*(aRoot.w>2.5?smoothstep(42.,54.,dCam):aRoot.w>1.5?smoothstep(13.,18.,dCam):1.)*smoothstep(L.x*.5,L.x*.5-.8,max(abs(rel.x),abs(rel.y)));   // zero at the wrap edge: roots jump unseen
         vec2 guv=(root+vec2(${f(W / 2)},${f(H / 2)}))*vec2(${f(segX / W / nx)},${f(segZ / H / nz)})+vec2(${f(.5 / nx)},${f(.5 / nz)});
         vec4 zf=texture2D(gZone,guv),sp=texture2D(gSplat,guv);float br=gBreak(root);vec3 cov=gCover(sp,ga.zw,br);
-        float through=step(.9,fract(aRoot.z*7.7));   // one clump in ten pushes up through the litter, ragged
+        float through=step(.9,fract(aRoot.z*7.7))*(1.-smoothstep(.6,.95,cov.z));   // one clump in ten pushes up through the litter's thin edge, ragged (not out of its deep middle: lone sprigs on the putting circle read as stickers, r4 ground)
         float grow=1.-max(max(cov.x,cov.y),cov.z*(1.-through));
         for(int i=0;i<${pads.length};i++){vec2 d=root-gPads[i].xy;vec2 q=vec2(d.x*gPads[i].z-d.y*gPads[i].w,d.x*gPads[i].w+d.y*gPads[i].z);grow*=smoothstep(.05,.3,max(abs(q.x)-.8,abs(q.y)-1.6));}
         vec2 spot=gSpot(root,gEdge(sp.x,ga.zw));grow*=1.-spot.x*.92;   // bare scuffs keep only a few blades; clover mats hold them low
-        float keep=${lite ? '1.' : 'mix(.55,1.,fract(aRoot.z*23.9))'}*mix(1.,.5,through*cov.z);   // each clump drops its own subset of blades: no two share a silhouette
+        float keep=mix(.55,1.,fract(aRoot.z*23.9))*mix(1.,.5,through*cov.z);   // each clump drops its own subset of blades: no two share a silhouette
         float sc=k*step(mix(.06,.5,fract(aRoot.z*5.3)),grow)*step(fract(aBlade.y*13.1+aRoot.z*7.3),keep),fair=zf.a,cl=gNoise(root*.8+3.)*.6+gNoise(root*2.9+7.)*.4;   // each clump gives up at its own point of the thinning into path, gravel and litter: a ragged edge of whole tufts, not a fade
         float hs=mix(.9+cl*.8,.55+cl*.4,fair)*(.8+.4*fract(aRoot.z*13.7))*sc;   // x the 4.5-10 cm blades, in 0.3-1 m clumps: rough 3-17 cm, fairway 2-9 cm
         hs*=1.+(1.-smoothstep(.5,.9,grow))*(.6+cl*1.4);
