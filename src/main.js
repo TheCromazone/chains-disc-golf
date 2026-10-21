@@ -629,7 +629,7 @@ function resolveThrow(pi, r, f = null) {
   if (G.mode === 'async' && G.asyncThrows) G.asyncThrows.push({ t: G.lastParams?.throwType, d: G.lastParams?.discId, m: r.thrown, left: r.dist, ob: r.ob, holed: r.holed });
   const p = G.players[pi], h = holes[G.holeIdx];
   p.strokes++;
-  let title, sub;
+  let title, sub, obFrom = null;
   if (r.holed) {
     p.done = true; p.scores[G.holeIdx] = p.strokes;
     if (isMine(p)) buzz([30, 40, 60]);
@@ -641,7 +641,7 @@ function resolveThrow(pi, r, f = null) {
     title = UI.scoreName(p.strokes, h.par); sub = `${p.name} · ${p.strokes} throw${p.strokes > 1 ? 's' : ''}`;
     if (p.strokes <= h.par) { const kind = p.strokes === 1 ? 'ace' : p.strokes - h.par <= -2 ? 'eagle' : p.strokes - h.par === -1 ? 'birdie' : 'par'; sfx.fanfare(kind); sfx.applause(); sfx.voice(kind); }
     if (!reducedMotion && p.strokes <= h.par) { const at = p.char.group.position; celebration.burst([at.x, at.y, at.z], p.strokes === 1 || p.strokes < h.par - 1); }
-  } else if (r.ob) { p.strokes++; p.lie = r.lie; title = 'Out of bounds'; sub = '+1 penalty · play from where it went out'; }
+  } else if (r.ob) { p.strokes++; obFrom = p.lie; p.lie = r.lie; title = 'Out of bounds'; sub = '+1 penalty · play from where it went out'; }
   else { p.lie = r.rest; title = r.thrown < 1 ? 'Dropped it' : `${Math.round(r.thrown)} m · ${world.rough(r.rest[0], r.rest[2]) > .5 ? 'Rough' : 'Fairway'}`; sub = `${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to the basket${Number.isFinite(r.airTime) ? ` · ${r.airTime.toFixed(1)} s flight` : ''}`; }
   const pickup = !r.holed && p.strokes >= h.par + 5;   // this throw ends the hole at the cap: never a "nice shot"
   // nice: a long throw that ends near the pin, or a putt or approach from inside 20 m that leaves a tap-in (a 10 m putt sliding 5 m past was cheered)
@@ -659,15 +659,20 @@ function resolveThrow(pi, r, f = null) {
   p.marker.position.set(p.lie[0], world.height(p.lie[0], p.lie[2]) + 0.04, p.lie[2]); p.marker.visible = !p.done;
   const session = G.sessionId, hole = G.holeIdx;
   if (p.done) setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && p.done && G.players.includes(p)) p.discMesh.visible = false; }, 2500);
-  UI.toast(title, sub, r.holed ? 2400 : 2000); UI.setHud({ dist: p.lieDist, holed: r.holed });
+  // Out of bounds, your own throw off line: DGM's choice, the drop where it went out (a tap anywhere, or 6 s) or a rethrow from the
+  // lie it left, both +1. Bots and online rooms keep the drop (the host's result is the room's; the choice would need a message).
+  const choose = !!obFrom && !p.done && isMine(p) && !p.isBot && G.mode !== 'online';
+  if (choose) sub = '+1 penalty · from where it went out, or rethrow';
+  UI.toast(title, sub, r.holed ? 2400 : choose ? 6000 : 2000); UI.setHud({ dist: p.lieDist, holed: r.holed });
   cam.hold = r.holed ? null : { fov: cam.fov, shift: cam.shift };   // a miss holds the landing shot (or the putt's locked frame); only a holed throw cuts to the reaction
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
   // a landing shot's verdict stands over the disc, as DGM's distance callout does (QA: "NICE SHOT!" sat right on the landed disc)
   if (cam.hold) { camera.updateMatrixWorld(); _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null); }
   // the verdict holds 2.4 s, or until a tap (skipBeat): DGM is aiming again within a second of most landings
-  const advance = () => { if (G.skipResult !== advance) return; G.skipResult = null; if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') { nextTurn(); cam.snap = true; } UI.fade(false); }, 320); } };
-  G.skipResult = advance; G.resultAt = performance.now(); setTimeout(advance, 2400);
+  const advance = () => { if (G.skipResult !== advance) return; G.skipResult = null; UI.obChoice(null); if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') { nextTurn(); cam.snap = true; } UI.fade(false); }, 320); } };
+  if (choose) UI.obChoice(() => { if (G.skipResult !== advance) return; p.lie = obFrom; p.lieDist = distToBasket(obFrom[0], obFrom[2]); p.marker.position.set(obFrom[0], world.height(obFrom[0], obFrom[2]) + .04, obFrom[2]); UI.setHud({ dist: p.lieDist }); advance(); }, advance);
+  G.skipResult = advance; G.resultAt = performance.now(); setTimeout(advance, choose ? 6000 : 2400);
 }
 // A tap on the course cuts the flyover to its flash, and a verdict short once it has been seen (.6 s). Not online: the host
 // paces a room's turns. Taps on buttons and dialogs are theirs (the swipe pad is idle in both beats, and covers half the glass).

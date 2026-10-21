@@ -492,6 +492,13 @@ body[data-phase='result'] #releaseTag, body[data-phase='aim'] #releaseTag { disp
 @media (max-height: 520px) and (min-aspect-ratio: 5/4) { #releaseTag { bottom: calc(80px + var(--sab)); font-size: 13px; } }
 /* upright: the score plate spans the top and the wind plate the bottom right, so the call drops under one and the grade clears the other */
 @media (orientation: portrait) { body[data-phase='flight'] #toast { top: calc(104px + var(--sat)); } #releaseTag { bottom: calc(126px + var(--sab)); font-size: 13px; } }
+/* Out of bounds, your own throw (ui.js obChoice): DGM's Rethrow / Move to lie as two dark glass pills at the foot of the frame,
+   under the verdict and in reach of either thumb; only in the result beat, so a round left mid-choice never carries them over */
+#obChoice { position: absolute; left: 50%; bottom: calc(16px + var(--sab)); z-index: 5; display: flex; gap: 10px; transform: translateX(-50%); pointer-events: auto; }
+#obChoice button { min-width: 136px; min-height: 48px; padding: 8px 20px 7px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c1114c4; color: #fff; font-family: var(--display); font-size: 19px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; white-space: nowrap; box-shadow: inset 0 1px 0 #ffffff26, inset 0 -1px 0 #0000004d, 0 2px 8px #0006; backdrop-filter: blur(12px) saturate(1.5); -webkit-backdrop-filter: blur(12px) saturate(1.5); }
+#obChoice #btnRethrow { border-color: var(--mint); }
+@media (hover: hover) { #obChoice button:hover { background: #0c1114ee; border-color: var(--mint); } }
+body:not([data-phase='result']) #obChoice { display: none; }
 #holeTitle small { display: inline-block; margin-top: 14px; padding: 6px 12px 5px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; font-family: var(--display); font-size: 14px; letter-spacing: .08em; line-height: 1; text-shadow: none; }
 
 .ccard .cinfo b, .ccard .chev { color: #fff; }
@@ -603,7 +610,13 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
   #pad { left: 40%; top: calc(70px + var(--sat)); height: auto; padding-left: 12px; padding-right: 12px; }
   #aimZone { top: auto; left: 16px; bottom: calc(76px + var(--sab)); }
   #power, #powerLabel, #waiting, #releaseTag { left: 63%; }   /* clear of the wind plate on a 390-430 pt tall phone on its side */
-  #pad { padding-bottom: calc(108px + var(--sab)); }   /* the hint rides over the wind plate, not into it */
+  /* DGM's ring is ~100 px on a phone on its side; ours was 60-76 with its % in the middle, under the swiping thumb. The ring
+     grows, the % rides above it as a pill (the release grade takes its place from the release), and the swipe hint above that */
+  #power { width: 100px; height: 100px; margin-left: -50px; }
+  #powerLabel, #releaseTag { bottom: calc(120px + var(--sab)); }
+  #powerLabel { transform: translateX(-50%); padding: 3px 11px 2px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; font-size: 17px; text-shadow: none; -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3); }
+  body[data-phase='release'] #powerLabel { visibility: hidden; }
+  #pad { padding-bottom: calc(154px + var(--sab)); }   /* the hint over the % pill, and over the wind plate, not into it */
   /* the wind plate under the score plate: at the bottom right it sat on the athlete's hip, who stands in the right third over
      the swipe pad (AIM.driveS), and the left column between the score and the aim pill is open sky and trees */
   #conditions { right: auto; left: 12px; bottom: auto; top: calc(84px + var(--sat)); flex-direction: column; align-items: flex-start; gap: 3px; }

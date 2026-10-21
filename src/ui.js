@@ -40,6 +40,11 @@ export function verdictAbove(y) {
   const b = innerHeight * (1 - y) + 28; $('toast').style.bottom = `${b}px`; $('react').style.bottom = `${b + $('toast').offsetHeight + 4}px`;
 }
 export function fade(on) { $('fade').classList.toggle('on', on); }
+// Out of bounds, your own throw: DGM's two pills under the verdict. onRethrow replays from the lie it left, onDrop plays from
+// where it went out (as does a tap anywhere else, main.js skipBeat); both +1. obChoice(null) hides them.
+export function obChoice(onRethrow, onDrop = null) {
+  $('obChoice').classList.toggle('hidden', !onRethrow); $('btnRethrow').onclick = onRethrow; $('btnObDrop').onclick = onDrop;
+}
 
 export function setPower(p) { const value = Math.max(0, Math.min(1, p)).toFixed(3); if ($('power').style.getPropertyValue('--p') !== value) $('power').style.setProperty('--p', value); const label = p > 0 ? `${Math.round(p * 100)}%` : 'POWER'; if ($('powerLabel').textContent !== label) $('powerLabel').textContent = label; }
 export function gestureTrace(trace) {
