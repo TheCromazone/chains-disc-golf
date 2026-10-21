@@ -439,6 +439,19 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const near = treesNear(x, z); if (!near.some(t => Math.hypot(t.x - x, t.z - z) < 8) || near.some(t => Math.hypot(t.x - x, t.z - z) < t.r + 1.2)) continue;
     shrubs.push({ x, y: height(x, z), z, s, rot });
   }
+  // Edge understory (r4 trees: "the forest edge meets bare dirt without understory"): shrubs 1.3-2.8 m, in clumps
+  // along the treeline the tee cameras and the flyover face, 3-18 m off the fairway's edge under a crown. None within 17 m
+  // of a tee (a card nearer the lens magnifies into texel steps) or 18 m of a pin. Own rng: every other layout stays put.
+  const urng2 = makeRng(seed * 173 + 7);
+  for (let gx = -W / 2 + 10; gx < W / 2 - 10; gx += 2.5) for (let gz = -H / 2 + 10; gz < H / 2 - 10; gz += 2.5) {
+    const x = gx + (urng2() - .5) * 2.3, z = gz + (urng2() - .5) * 2.3, pick = urng2(), s = .34 + urng2() * .4, rot = urng2() * Math.PI * 2;
+    const { fi, halfW } = stand(x, z);
+    if (fi.d < halfW + 3 || fi.d > halfW + 18 || pick > .85 * smooth(.25, .5, noise(x / 8 + 13, z / 8 + 71))) continue;
+    if (ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7) || inLane({ x, z })) continue;
+    if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 18 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 17)) continue;
+    const near = treesNear(x, z); if (!near.some(t => Math.hypot(t.x - x, t.z - z) < 9) || near.some(t => Math.hypot(t.x - x, t.z - z) < t.r + 1)) continue;
+    shrubs.push({ x, y: height(x, z), z, s, rot });
+  }
   // Under crowns the turf goes thin and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
   // earth shows at the trunk base. Colour and splat weights only: no height change.
   // Tee-stands round: up to 40% darker under a crown (was 20%) and less of the pale dry grass (.15, was .4): from the tee the
@@ -906,8 +919,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // every gravel edge and round the putting circle's rim.
   group.add(grassCarpet({ W, H, segX, segZ, pos, colors, splats, turf, pads, lite: quality === 'low', seed }));
   // Tufts and fallen leaves are geometry, not photo cards (r4 ground: "sparse billboard cards that stand out as pasted-on
-  // sprites"; the putting circle "a smeared brown texture with no real leaf or twig detail"). Both are per hole: Lite draws
-  // only the hole in play (setHole), Full all of them in one draw each.
+  // sprites"; the putting circle "a smeared brown texture with no real leaf or twig detail"). Both are per hole and only the
+  // hole in play draws (setHole), on both tiers: nothing this small reads from another hole, and Full's tee sat at its 2.3M budget.
   const tuftHoles = holes.map(() => []), nx = segX + 1;
   const at4 = (arr, o, x, z) => {   // bilinear on the terrain grid
     const gx = clamp((x + W / 2) / W * segX, 0, segX - 1e-3), gz = clamp((z + H / 2) / H * segZ, 0, segZ - 1e-3), ix = gx | 0, iz = gz | 0, fx = gx - ix, fz = gz - iz, a = iz * nx + ix, b = a + nx;
@@ -918,15 +931,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const A = pos.getY(a), B = pos.getY(a + nx), C = pos.getY(a + nx + 1), D = pos.getY(a + 1);
     return qx + qz < 1 ? A + (D - A) * qx + (B - A) * qz : C - (C - B) * (1 - qx) - (C - D) * (1 - qz);
   };
-  const perHole = (geo, mat, spots, starts, shadow = false) => {   // spots: { m: Matrix4 elements, c: Color }
-    const all = new THREE.InstancedMesh(geo, mat, spots.length);
-    spots.forEach((s, i) => { all.instanceMatrix.array.set(s.m, i * 16); all.setColorAt(i, s.c); });
-    all.receiveShadow = true; all.castShadow = shadow;
-    if (quality !== 'low') { group.add(all); return; }
-    starts.forEach((a, i) => { const b = starts[i + 1] ?? spots.length, t = new THREE.InstancedMesh(geo, mat, b - a);
-      t.instanceMatrix.array.set(all.instanceMatrix.array.subarray(a * 16, b * 16)); t.instanceColor = new THREE.InstancedBufferAttribute(all.instanceColor.array.slice(a * 3, b * 3), 3);
-      t.receiveShadow = true; t.castShadow = shadow; t.visible = i === 0; tuftHoles[i].push(t); group.add(t); });
-  };
+  const perHole = (geo, mat, spots, starts) => starts.forEach((a, i) => {   // spots: { m: Matrix4 elements, c: Color }, one mesh a hole
+    const b = starts[i + 1] ?? spots.length, t = new THREE.InstancedMesh(geo, mat, b - a);
+    for (let k = a; k < b; k++) { t.instanceMatrix.array.set(spots[k].m, (k - a) * 16); t.setColorAt(k - a, spots[k].c); }
+    t.receiveShadow = true; t.visible = i === 0; tuftHoles[i].push(t); group.add(t);
+  });
   const lay = (x, y, z, yaw, pitch, roll, sx, sy, sz) => { e.set(pitch, yaw, roll, 'YXZ'); q.setFromEuler(e); v.set(x, y, z); sc.set(sx, sy, sz); return m.compose(v, q, sc).elements.slice(); };
   {
     // One tuft: 10 single-triangle blades, 55-100% of the clump's height, fanning out from a 7 cm root, a few gone to straw.
