@@ -4,7 +4,10 @@
 //   node tools/capture.mjs --out art/qa/r4 [--port 8101] [--size 1280x720] [--dpr 1] [--quality high|low]
 //                          [--moments menu,flyover,tee,putt,scorecard] [--mobile] [--course pine|meadow|lake|bluff]
 // Writes <moment>.jpeg per requested moment and stats.json: draw calls and triangles for one full frame (shadow map
-// and post passes included), mean rAF interval, GPU string, and every console error / exception (shader failures).
+// and post passes included), real ms per frame stepped uncapped, GPU string, and every console error / exception (shader failures).
+// Deterministic: tools/vclock.mjs owns the page's clock and Math.random (--seed), and each moment is shot after a fixed amount of
+// game time, so two captures of one build draw the same frames. On real time they differed in 7-11% of pixels (the idle pose, the
+// wind ribbons, the aim dashes), which blind critics then judged as if a build had changed them.
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,13 +15,14 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { CHROME } from './chrome-path.mjs';
+import { clock, settle } from './vclock.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/capture' }, port: { type: 'string', default: '8101' },
   size: { type: 'string', default: '1280x720' }, dpr: { type: 'string', default: '1' }, quality: { type: 'string' },
   moments: { type: 'string', default: 'menu,flyover,tee,putt,scorecard' }, mobile: { type: 'boolean', default: false },
-  url: { type: 'string' }, course: { type: 'string' }, uncapped: { type: 'boolean', default: false },
+  url: { type: 'string' }, course: { type: 'string' }, seed: { type: 'string', default: '4' }, cpu: { type: 'string', default: '1' },   // --cpu 4: a mid-range phone's CPU (frameMs only)
   chrome: { type: 'string', default: CHROME },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -32,9 +36,9 @@ const server = spawn(process.execPath, ['serve.mjs'], { cwd: ROOT, env: { ...pro
 const profile = mkdtempSync(join(tmpdir(), 'chains-capture-'));
 const chrome = spawn(o.chrome, ['--headless=new', '--mute-audio', `--remote-debugging-port=${cdp}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--ignore-gpu-blocklist',
-  // --uncapped: rAF as fast as the GPU goes, so frameMs compares builds instead of reading 16.7 ms. Off by default: six builders
-  // capturing uncapped at once pinned the owner's GPU, and the judged frames are identical either way.
-  ...(o.uncapped ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : []),
+  // No vsync: the game's rAF is virtual (vclock.mjs), so the GPU only draws inside a step, and the step's real rAF hand-off
+  // returns at once instead of waiting on a 60 Hz beat. Between steps nothing renders, which also keeps the owner's GPU free.
+  '--disable-gpu-vsync', '--disable-frame-rate-limit',
   `--window-size=${w},${h}`, 'about:blank'], { stdio: 'ignore' });
 process.on('exit', () => { chrome.kill(); server.kill(); try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* temp dir, harmless */ } });
 
@@ -46,7 +50,7 @@ const ws = new WebSocket(wsUrl); await new Promise((r, j) => { ws.onopen = r; ws
 let seq = 0; const pending = new Map(), errors = [];
 ws.onmessage = ev => {
   const m = JSON.parse(ev.data);
-  if (m.id) { const p = pending.get(m.id); pending.delete(m.id); return m.error ? p.reject(new Error(m.error.message)) : p.resolve(m.result); }
+  if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); return m.error ? p.reject(new Error(m.error.message)) : p.resolve(m.result); }
   if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text);
   if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push(m.params.args.map(a => a.value ?? a.description).join(' ').slice(0, 4000));
 };
@@ -59,11 +63,16 @@ async function js(expression) {
 const until = (expr, ms = 60000) => poll(() => js(expr), expr, ms);
 
 const stats = { size: o.size, dpr: +o.dpr, mobile: o.mobile, moments: {} };
-// One full frame (shadow map, scene, bloom, grade) counted with info.autoReset off, then the mean rAF interval over 60 frames.
-const measure = () => js(`(async () => { const c = __chains, info = c.renderer.info; info.autoReset = false; info.reset(); c.renderFrame();
-  const calls = info.render.calls, tris = info.render.triangles; info.autoReset = true; const t0 = performance.now(); let n = 0;
-  await new Promise(res => { const f = () => (++n < 60 ? requestAnimationFrame(f) : res()); requestAnimationFrame(f); });
-  return { calls, tris, frameMs: +((performance.now() - t0) / 60).toFixed(2), pixelRatio: +c.renderer.getPixelRatio().toFixed(3), textures: info.memory.textures, geometries: info.memory.geometries }; })()`);
+// One full frame (shadow map, scene, bloom, grade) counted with info.autoReset off, then 60 frames (1 s of game time) stepped as fast
+// as the GPU goes: real ms per frame, CDP hand-offs included, so it compares builds rather than promising an fps.
+const step = (ms, frames = Math.round(ms * .06)) => js(`__motion.step(${ms}, ${frames})`);   // <= 1/60 s a frame: main.js's resolution scaler reads longer ones as a slow GPU
+async function measure() {
+  const m = await js(`(() => { const c = __chains, info = c.renderer.info; info.autoReset = false; info.reset(); c.renderFrame();
+    const calls = info.render.calls, tris = info.render.triangles; info.autoReset = true;
+    return { calls, tris, pixelRatio: +c.renderer.getPixelRatio().toFixed(3), textures: info.memory.textures, geometries: info.memory.geometries }; })()`);
+  const t0 = performance.now(); await step(1000, 60);
+  return { ...m, frameMs: +((performance.now() - t0) / 60).toFixed(2) };
+}
 async function shoot(name) {
   if (!want.has(name)) return;
   stats.moments[name] = await measure();
@@ -76,12 +85,9 @@ try {
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: +o.dpr, mobile: o.mobile });
   if (o.mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  if (+o.cpu > 1) await send('Emulation.setCPUThrottlingRate', { rate: +o.cpu });
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.coach', '["aim","throw","both"]'); } catch {}` });   // a returning player: the first-round thumb coach covered a third of the phone tee frame
-  // Headless Chrome has no vsync, so without --uncapped the game's rAF is held to ~80 Hz here (under the resolution scaler's 50 fps line): the draws (all the GPU work) run at
-  // most once per ~12 ms instead of ~240 times a second.
-  // Gated per frame, not per callback: every callback of an allowed frame runs (a per-callback gate starved the second loop).
-  if (!o.uncapped) await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { const raf = requestAnimationFrame.bind(window); let open = -1, next = 0;
-    window.requestAnimationFrame = cb => raf(function tick(t) { if (t !== open) { if (t < next) return raf(tick); open = t; next = t + 10.5; } cb(t); }); })()` });
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: `(${clock})(${+o.seed})` });
   if (o.course) await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.course', ${JSON.stringify(o.course)}); } catch {}` });   // pine | meadow | lake | bluff
   await send('Page.navigate', { url: o.url || `http://localhost:${port}/` });
   await until(`!!(window.__chains && __chains.course && __chains.hero)`, 120000);
@@ -92,22 +98,23 @@ try {
   }
   stats.quality = await js('__chains.G.settings.quality');
   stats.gpu = await js(`(() => { const g = __chains.renderer.getContext(), e = g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; })()`);
-  await sleep(4500); await shoot('menu');   // textures land and the clubhouse camera settles
+  await settle(js); await step(4500); await shoot('menu');   // boot's loads land on real timers, then 4.5 s of game time settle the clubhouse camera
   if (upto >= 1) {
     await js(`document.getElementById('btnSolo').click()`);
-    await until(`__chains.G.phase === 'intro' && __chains.G.introT >= ${want.has('flyover') ? 1.7 : 0}`);
-    if (want.has('flyover')) { await js('__chains.G.maxDt = 1e-9'); await sleep(300); await shoot('flyover'); }   // dt ~ 0 freezes the drone at 1.7 s
+    const at = `__chains.G.phase === 'intro' && __chains.G.introT >= ${want.has('flyover') ? 1.7 : 0}`;
+    for (let i = 0; !(await js(at)); i++) { if (i > 1800) throw new Error('timed out: ' + at); await step(1000 / 60, 1); }   // one frame at a time: the same frame every run
+    if (want.has('flyover')) { await js('__chains.G.maxDt = 1e-9'); await shoot('flyover'); }   // dt ~ 0 freezes the drone at 1.7 s
     await js('delete __chains.G.maxDt');
   }
-  if (upto >= 2) { await js(`(() => { const c = __chains; while (c.G.phase === 'intro') { c.G.introT = 10; c.nextTurn(); } })()`); await sleep(3500); await shoot('tee'); }
+  if (upto >= 2) { await js(`(() => { const c = __chains; while (c.G.phase === 'intro') { c.G.introT = 10; c.nextTurn(); } })()`); await step(3500); await shoot('tee'); }
   if (upto >= 3) {   // the human's third throw, 6.5 m short of the pin on the tee side
     await js(`(() => { const c = __chains, G = c.G, p = G.players[0], h = c.holes[G.holeIdx], b = h.basket, dx = h.tee[0] - b[0], dz = h.tee[1] - b[1], L = Math.hypot(dx, dz);
       const x = b[0] + dx / L * 6.5, z = b[1] + dz / L * 6.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 2; c.setupTurn(0); })()`);
-    await sleep(3500); await shoot('putt');
+    await step(3500); await shoot('putt');
   }
   if (upto >= 4) {
     await js(`(() => { const c = __chains, G = c.G; G.players.forEach((p, i) => { p.done = true; p.scores[G.holeIdx] = [3, 2, 4][i % 3]; p.strokes = p.scores[G.holeIdx]; }); c.nextTurn(); })()`);
-    await sleep(2000); await shoot('scorecard');
+    await step(2000); await shoot('scorecard');
   }
   stats.errors = errors;
   writeFileSync(join(out, 'stats.json'), JSON.stringify(stats, null, 2));

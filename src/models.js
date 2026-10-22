@@ -20,7 +20,7 @@ export async function loadModels(renderer, quality = 'full') {
   const bodies = full ? ['golfer', 'golfer_lod', 'golfer_f', 'golfer_f_lod'] : ['golfer_lod', 'golfer_f_lod'];
   const baseClips = ['idle','practice','backhand','backhand_io','backhand_oi','forehand','forehand_io','forehand_oi','tomahawk','scoober','hammer','blade','putt','xstep','fxstep','celebrate','slump','walk'];   // xstep/fxstep: the run-ups into a drive
   const clipNames = [...baseClips,...baseClips.map(n=>n+'_left')];
-  const names = [...bodies, 'disc', 'pine', 'deciduous', 'bush', ...clipNames.map(n=>'golfer_'+n)];   // both tiers fetch the Blender trees (~230 KB): Lite draws the near ones in 3D too
+  const names = [...bodies, 'disc', 'hand', 'pine', 'deciduous', 'bush', ...clipNames.map(n=>'golfer_'+n)];   // both tiers fetch the Blender trees (~230 KB): Lite draws the near ones in 3D too
   if (!names.some(n => asset('models', n))) return;
   // relative to the page, not the site root: Chains also runs one level down as Huck Yeah's disc golf (/discgolf/)
   const vendor = location.pathname.startsWith('/node_modules/') ? '/node_modules/three/examples/jsm/libs/' : new URL(document.querySelector('script[type="importmap"]') ? 'node_modules/three/examples/jsm/libs/' : 'vendor/', document.baseURI).pathname;
@@ -43,7 +43,7 @@ export async function loadModels(renderer, quality = 'full') {
     .then(g => { g.scene.updateMatrixWorld(true); models.set('headwear', g); modelStatus.headwear = 'ready'; }, () => { modelStatus.headwear = 'procedural fallback'; }) : null;
   const clips = clipNames.flatMap(n=>models.get('golfer_'+n)?.animations || []);
   for (const [body, lod] of [['golfer', 'golfer_lod'], ['golfer_f', 'golfer_f_lod']]) {   // both figures share the rig and the clip set
-    const actor = models.get(full ? body : lod) || models.get(lod); if (!actor) continue;
+    const actor = models.get(body) || models.get(lod); if (!actor) continue;
     actor.animations = clips; if (models.get(lod)) models.get(lod).animations = clips;
     models.set(body, actor); modelStatus[body] = 'ready';
   }

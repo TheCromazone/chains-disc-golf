@@ -1,10 +1,10 @@
 // Sound. Everything is synthesized with small physical models (metallic modal rings for the basket,
 // wood knocks for trees, filtered-noise bursts for grass/water/air) and sits in a short synthetic
 // outdoor reverb. Real recordings override any effect: list them under "sfx" in assets/manifest.json
-// (see docs/codex-asset-prompts.md) and they are decoded on unlock and used instead of the synth.
-let ctx = null, master = null, verb = null, noiseBuf = null, muted = false;
+// (how each was made: art/sfx/prompts.json) and they are decoded on unlock and used instead of the synth.
+let ctx = null, master = null, verb = null, noiseBuf = null, muted = false, trim = 1;   // trim: the playing sound's level (TRIM_DB), set round each sfx call
 const samples = {};
-const VOL = 0.22;
+const VOL = 0.9;
 
 // Phones only let audio start inside a gesture that counts as one: touchend, pointerup or click, never a touch's pointerdown (the
 // old trigger, so on phones the context was born suspended and stayed so). main.js calls this on each of them, which also wakes a
@@ -14,8 +14,12 @@ export function unlock() {
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
   session(); try { ctx = new AC(); } catch { return; } prime();   // refused (a locked-down browser): no sound, and no error on every tap
   master = ctx.createGain(); master.gain.value = muted ? 0 : VOL;
-  const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -20; lim.knee.value = 10; lim.ratio.value = 12; lim.attack.value = 0.002; lim.release.value = 0.12;
-  master.connect(lim); lim.connect(ctx.destination);
+  // a peak limiter, not a bus compressor (it squeezed everything over -20 dBFS at 12:1, so the chains and a fanfare ducked each
+  // other and the mix sat ~10 dB under a phone's other apps), after a high-pass that keeps sub-bass a phone can't play from
+  // driving it
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 60; hp.Q.value = .6;
+  const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -7; lim.knee.value = 3; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.15;
+  master.connect(hp); hp.connect(lim); lim.connect(ctx.destination);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   // outdoor "air": short, dark, fast-decaying reverb
@@ -24,7 +28,7 @@ export function unlock() {
   verb = ctx.createConvolver(); verb.buffer = ir;
   const vf = ctx.createBiquadFilter(); vf.type = 'lowpass'; vf.frequency.value = 3200;
   const vg = ctx.createGain(); vg.gain.value = 0.28; verb.connect(vf); vf.connect(vg); vg.connect(master);
-  ambient(); loadSamples();
+  loadSamples().then(ambient);   // the recorded bed, once decoded; the synth bed when there is none
 }
 // iOS ties Web Audio to the ring/silent switch unless the page asks for a 'playback' session (Safari 17+), as music and video
 // apps do: unmuted, the game asks for it so it is heard on silent. Muted, it drops to 'ambient', which leaves other apps' music alone.
@@ -36,7 +40,7 @@ export const isMuted = () => muted;
 
 const now = () => ctx.currentTime;
 const rnd = (a, b) => a + Math.random() * (b - a);
-function out(g, send) { g.connect(master); if (send > 0) { const s = ctx.createGain(); s.gain.value = send; g.connect(s); s.connect(verb); } }
+function out(g, send) { let o = g; if (trim !== 1) { o = ctx.createGain(); o.gain.value = trim; g.connect(o); } o.connect(master); if (send > 0) { const s = ctx.createGain(); s.gain.value = send; o.connect(s); s.connect(verb); } }
 // one decaying sine partial
 function partial(f0, dur, gain, { f1 = f0, type = 'sine', t0 = now(), send = 0, attack = 0.003 } = {}) {
   const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t0); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
@@ -55,13 +59,15 @@ function burst(dur, { f0 = 800, f1 = f0, q = 1, gain = 0.5, type = 'bandpass', a
   s.start(t0); s.stop(t0 + dur + 0.05);
 }
 // metallic / wooden modal ring: inharmonic partials, higher ones die faster
-function ring(base, ratios, gains, dur, gain, { t0 = now(), send = 0.3, detune = 0.012 } = {}) {
-  ratios.forEach((r, i) => partial(base * r * rnd(1 - detune, 1 + detune), dur * (1 - i * 0.18), gain * gains[i], { t0, send }));
+function ring(base, ratios, gains, dur, gain, { t0 = now(), send = 0.3, detune = 0.012, sharp = 0 } = {}) {   // sharp: start that much high and settle (a struck link flexing)
+  ratios.forEach((r, i) => { const f = base * r * rnd(1 - detune, 1 + detune); partial(f * (1 + sharp), dur * (1 - i * 0.18), gain * gains[i], { t0, send, f1: f }); });
 }
 // a hand clap: the palms meet in a quick flam of micro-transients, then the cupped air rings briefly in a band
-function clap(t0, f, gain, send) {
-  for (let i = 0; i < 3; i++) burst(.012, { f0: f * rnd(.95, 1.35), q: 1, gain: gain * (i === 2 ? 1 : .5), t0: t0 + i * rnd(.003, .008), attack: .0008 });
-  burst(rnd(.05, .085), { f0: f, f1: f * .78, q: 1.5, gain: gain * .9, t0: t0 + .016, attack: .001, send });
+function clap(t0, f, gain, send) {   // f: the clapper's cupped-palm resonance (750-1900 Hz); each clap jitters it ±12%
+  const fc = f * rnd(.88, 1.12), d = rnd(.004, .009);
+  burst(.011, { f0: rnd(2500, 5500), q: .9, gain: gain * .38, t0, attack: .003 });   // fingers meeting: a bright skin snap
+  burst(rnd(.028, .04), { f0: fc, f1: fc * .88, q: rnd(2.5, 3.5), gain: gain * 1.6, t0: t0 + d, attack: .0015, send });   // then the palms' hollow pop
+  if (Math.random() < .5) burst(rnd(.015, .025), { f0: rnd(800, 1200), q: 3, gain: gain * 1.2, t0: t0 + d, attack: .0015 });   // a cupped clap's body (round 3: "thin and papery")
 }
 // a muted brass note: sawtooth and square through a resonant low-pass that opens and closes like a plunger ("wah")
 function brass(f0, t0, dur, { f1 = f0, vib = 0, gain = .15 } = {}) {
@@ -70,75 +76,122 @@ function brass(f0, t0, dur, { f1 = f0, vib = 0, gain = .15 } = {}) {
   if (vib) { const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 5.2; lg.gain.setValueAtTime(0, t0); lg.gain.linearRampToValueAtTime(f0 * .018 * vib, t0 + dur * .5); l.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency); l.start(t0); l.stop(t0 + dur + .05); }
   const m2 = ctx.createGain(); m2.gain.value = .3; o2.connect(m2);
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 5;
-  lp.frequency.setValueAtTime(280, t0); lp.frequency.exponentialRampToValueAtTime(1500, t0 + .09); lp.frequency.exponentialRampToValueAtTime(800, t0 + dur * .55); lp.frequency.exponentialRampToValueAtTime(300, t0 + dur);
+  lp.frequency.setValueAtTime(400, t0); lp.frequency.exponentialRampToValueAtTime(2200, t0 + .07); lp.frequency.exponentialRampToValueAtTime(900, t0 + .25); lp.frequency.exponentialRampToValueAtTime(320, t0 + dur);   // the blat opens with the breath and settles
+  burst(.05, { f0: 1100, q: .7, gain: gain * .25, t0: t0 - .03, attack: .02 });   // breath into the mouthpiece
   const g = ctx.createGain(); g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(gain, t0 + .05); g.gain.setValueAtTime(gain, t0 + dur * .6); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
   o1.connect(lp); m2.connect(lp); lp.connect(g); out(g, .25);
   for (const o of [o1, o2]) { o.start(t0); o.stop(t0 + dur + .05); }
 }
-const CHAIN = { r: [1, 1.47, 2.09, 2.86], g: [1, 0.55, 0.32, 0.16] };
-const trayDrop = (t0, k = 1) => {  // disc settling on the basket tray: dull steel pan clank + two smaller bounces
+// Chains (rebuilt 2026-10-17 from a blind critique, 3/10: "coins on a desk, stops dead at 400 ms"). Each struck link rings its own
+// inharmonic modes (1 : 2.14 : 3.41 : 5.18 of a 1.8-4.2 kHz fundamental, the higher ones dying faster); the hits come dense for the
+// first ~150 ms as the disc tears into the curtain, then thin out over most of a second as the links swing back and settle.
+const CHAIN = { r: [1, 2.14, 3.41, 5.18], g: [1, 0.5, 0.28, 0.14] };
+const chainCascade = (t0, hits, loud, { lo = 1800, hi = 4200, span = 1 } = {}) => {  // returns when the last hit lands
+  let t = 0;
+  for (let i = 0; i < hits; i++) {
+    const k = i / hits;   // (choking the crash's rings to 15-75 ms with a flex in pitch scored lower in a third blind round: kept as is)
+    ring(rnd(lo, hi), CHAIN.r, CHAIN.g, rnd(.08, .4) * (1 - k * .45), loud * (1 - k * .78) * rnd(.45, 1), { t0: t0 + t, send: 0.35, detune: .02 });   // a drier send: the reverb's noise tail read as fizz on a phone
+    t += span * (k < .4 ? rnd(.004, .012) : rnd(.018, .065));
+  }
+  partial(rnd(4600, 5600), 0.9, loud * 0.1, { t0: t0 + 0.04, send: 0.7 }); partial(rnd(3500, 4200), 0.7, loud * 0.08, { t0: t0 + 0.06, send: 0.7 });
+  return t;
+};
+// the disc's plastic rim deforming against steel: a short mid-band crack and a thump that drops in pitch
+const chainImpact = (t0, k = 1) => { burst(.025, { f0: 1300, q: 1.2, gain: .5 * k, t0, attack: .001 }); partial(300, .035, .3 * k, { f1: 90, t0 }); burst(.012, { f0: 5200, q: .8, gain: .06 * k, t0, attack: .0008 }); };
+const trayDrop = (t0, k = 1) => {  // disc settling on the basket tray: dull steel pan clank + two smaller bounces (a blind A/B kept this over a
+  // rebuilt one with the wire ringing and a chatter of bounces: 7.5 to 4)
   ring(rnd(300, 360), [1, 1.83, 2.71], [1, 0.4, 0.2], 0.22, 0.2 * k, { t0, send: 0.4 });
   burst(0.07, { f0: 900, f1: 260, q: 0.6, gain: 0.22 * k, type: 'lowpass', t0 });
   ring(rnd(310, 380), [1, 1.83], [1, 0.4], 0.1, 0.07 * k, { t0: t0 + rnd(0.1, 0.14), send: 0.3 });
   ring(rnd(320, 400), [1, 1.83], [1, 0.4], 0.07, 0.035 * k, { t0: t0 + rnd(0.2, 0.26), send: 0.3 });
 };
-const chainCascade = (t0, hits, loud) => {  // N link collisions, dense then sparse, bright ringing tail
-  let t = 0;
-  for (let i = 0; i < hits; i++) {
-    const k = i / hits;
-    ring(rnd(2300, 5100), CHAIN.r, CHAIN.g, rnd(0.05, 0.09) + (1 - k) * 0.1, loud * (1 - k * 0.75) * rnd(0.5, 1), { t0: t0 + t, send: 0.55 });
-    t += 0.005 + k * 0.03 + rnd(0, 0.014);
-  }
-  partial(rnd(4600, 5600), 0.75, loud * 0.12, { t0: t0 + 0.04, send: 0.7 }); partial(rnd(3500, 4200), 0.55, loud * 0.1, { t0: t0 + 0.06, send: 0.7 });
-  return t;
-};
 
 export const sfx = {
   whoosh(power = 1) { if (!ctx) return; if (play('whoosh', { gain: 0.5 + power * 0.5, rate: 0.9 + power * 0.25 })) return;
     burst(0.4 + power * 0.55, { f0: 900 + power * 1500, f1: 220, q: 0.7, gain: 0.1 + power * 0.22, attack: 0.012, lfo: [rnd(17, 26), 0.35] }); },
-  chains(power = 0.6) { if (!ctx) return; if (play(power < 0.35 ? 'chains_soft' : power > 0.75 ? 'chains_fast' : 'chains_medium') || play('chains')) return;
-    const t0 = now(); burst(0.05, { f0: 2600, f1: 1100, q: 0.5, gain: 0.45, t0 });
-    const len = chainCascade(t0, Math.round(rnd(20, 30)), 0.22); trayDrop(t0 + Math.max(0.2, len * 0.8)); },
+  chains(power = 0.6) { if (!ctx) return; if (play(power < 0.35 ? 'chains_soft' : power > 0.75 ? 'chains_fast' : 'chains_medium') || play('chains', { gain: .55 + .5 * power, rate: .97 + .06 * power })) return;   // one recorded take: a soft putt quieter and a touch lower
+    const t0 = now(); chainImpact(t0, .8 + power * .4);
+    ring(rnd(400, 440), [1, 2.62], [1, .45], .3, .16, { t0: t0 + .04, send: .4 });   // the chains wrapping into the pole: a hollow tube clank
+    const len = chainCascade(t0, Math.round(22 + power * 12), 0.2 + power * .06);
+    for (let i = 0; i < 5; i++) ring(rnd(2000, 4000), CHAIN.r, CHAIN.g, rnd(.06, .14), .035 * rnd(.5, 1), { t0: t0 + len + rnd(.05, .6), send: .6, detune: .02 });   // a last few links settling
+    trayDrop(t0 + Math.max(0.22, len * 0.55)); },
   drop() { if (!ctx) return; if (play('tray') || play('chains', { gain: 0.6 })) return; const t0 = now(); chainCascade(t0, 6, 0.12); trayDrop(t0 + 0.08, 1.1); },
-  chainout() { if (!ctx) return; if (play('chainout')) return; const t0 = now(); burst(0.04, { f0: 3000, f1: 1500, q: 0.5, gain: 0.35, t0 }); chainCascade(t0, 9, 0.2); },
+  // a chain-out glances off the outer links: a narrow plastic crack, the struck outer link's own bright zing, and a few sparse clinks
+  // as it deflects away (round 2 of a blind A/B preferred this short glance to a longer, busier one that "sounds like a make")
+  chainout() { if (!ctx) return; if (play('chainout')) return; const t0 = now(); burst(0.04, { f0: 2400, f1: 1300, q: 0.8, gain: 0.32, t0 });
+    for (const dt of [.005, .045]) ring(rnd(2100, 2200), [1, 1.81, 2.99], [1, .6, .35], .095, .09, { t0: t0 + dt, send: .45, detune: .01, sharp: .03 });
+    for (const [dt, g] of [[.03, .09], [.07, .06], [rnd(.15, .18), .035], [rnd(.26, .29), .03], [rnd(.39, .43), .022]]) ring(rnd(2300, 4800), CHAIN.r, CHAIN.g, .09, g, { t0: t0 + dt, send: .4, detune: .02 }); },   // a brief flurry, then a gap with two or three lazy clinks as the outer chain swings back (round 3: a dense rattle to 0.4 s read close to a made putt)
   band() { if (!ctx) return; if (play('band')) return; const t0 = now();
     burst(0.05, { f0: 1800, f1: 600, q: 0.5, gain: 0.35, t0 }); ring(rnd(820, 980), [1, 1.58, 2.32, 3.1], [1, 0.5, 0.3, 0.15], 0.32, 0.3, { t0, send: 0.45 }); partial(170, 0.12, 0.16, { f1: 90, t0 }); chainCascade(t0 + 0.02, 4, 0.08); },
   pole() { if (!ctx) return; if (play('band', { rate: 0.7 })) return; const t0 = now(); burst(0.04, { f0: 1200, f1: 500, q: 0.6, gain: 0.3, t0 }); ring(rnd(480, 560), [1, 2.76, 5.4], [1, 0.35, 0.15], 0.22, 0.3, { t0, send: 0.4 }); },
   thud(k = 1, surface = 'grass') { if (!ctx) return;   // k: impact speed (1 = a typical landing); recorded takes per surface first
     if (play(surface === 'dirt' ? 'land_dirt' : 'land_grass', { gain: Math.min(1.25, .45 + .45 * k), rate: rnd(.94, 1.06) }) || play('grass', {gain:k}) || play('thud', { gain: k, rate: rnd(0.9, 1.1) })) return; const t0 = now();
     partial(105, 0.16, 0.34 * k, { f1: 48, t0 }); burst(0.09, { f0: 420, f1: 120, q: 0.7, gain: 0.3 * k, type: 'lowpass', t0 }); burst(0.24, { f0: 2600, f1: 1500, q: 0.4, gain: 0.07 * k, type: 'highpass', t0: t0 + 0.01, attack: 0.02 }); },
-  skip() { if (!ctx) return; if (play('skip')) return; const t0 = now(); burst(0.07, { f0: 800, f1: 300, q: 0.7, gain: 0.22, t0 }); partial(150, 0.07, 0.18, { f1: 70, t0 }); burst(0.14, { f0: 3000, f1: 1800, q: 0.4, gain: 0.05, type: 'highpass', t0 }); },
+  skip() { if (!ctx) return; if (play('skip')) return; const t0 = now(); burst(0.07, { f0: 800, f1: 300, q: 0.7, gain: 0.22, t0 }); partial(150, 0.07, 0.18, { f1: 70, t0 }); burst(0.14, { f0: 3000, f1: 1800, q: 0.4, gain: 0.05, type: 'highpass', t0 });
+    burst(0.045, { f0: 2400, f1: 1200, q: 0.9, gain: 0.16, t0, attack: 0.002 }); },   // the plastic's slap, where a phone hears it
+  // (a blind A/B kept this knock over a rebuilt one with hollow trunk modes, 6.5 to 4.5: 'a soft object on a hollow door')
   tree() { if (!ctx) return; if (play('tree')) return; const t0 = now();
     burst(0.025, { f0: 1600, f1: 500, q: 0.5, gain: 0.35, t0 }); ring(rnd(190, 320), [1, 2.3, 3.9, 5.4], [1, 0.45, 0.3, 0.15], 0.1, 0.45, { t0, send: 0.35, detune: 0.03 });
     partial(rnd(90, 120), 0.09, 0.2, { f1: 60, t0 }); for (let i = 0; i < 3; i++) burst(rnd(0.12, 0.3), { f0: rnd(2000, 3500), f1: 1500, q: 0.4, gain: 0.05, type: 'highpass', t0: t0 + 0.03 + i * rnd(0.04, 0.09), attack: 0.02 }); },
   leaves() { if (!ctx) return; if (play('leaves')) return; const t0 = now(); for (let i = 0; i < 4; i++) burst(rnd(0.1, 0.3), { f0: rnd(1800, 3800), f1: 1400, q: 0.4, gain: rnd(0.05, 0.09), type: 'highpass', t0: t0 + i * rnd(0.03, 0.1), attack: 0.02 }); for (let i = 0; i < 5; i++) burst(0.012, { f0: rnd(2500, 5000), q: 2, gain: 0.05, t0: t0 + rnd(0, 0.35) }); },
+  // (a blind A/B kept this staged splash, 6 to 3, over a rebuilt one whose noise plume read as 'a steam hiss')
   splash() { if (!ctx) return; if (play('splash')) return; const t0 = now();
     burst(0.12, { f0: 650, f1: 160, q: 0.6, gain: 0.45, type: 'lowpass', t0 }); partial(150, 0.28, 0.24, { f1: 42, t0 });
     burst(0.75, { f0: 1900, f1: 700, q: 0.5, gain: 0.16, attack: 0.05, t0: t0 + 0.03, send: 0.4, lfo: [rnd(7, 11), 0.5] });
     for (let i = 0; i < 6; i++) partial(rnd(1400, 3600), 0.03, 0.04, { f1: 900, t0: t0 + rnd(0.12, 0.55) }); },
+  // (a blind A/B kept this low rumble over one with a rim whirr layered on, 4.5 to 2.5: subtle on a phone, as a roll is)
   roll() { if (!ctx) return; if (play('roll')) return; burst(0.9, { f0: 320, f1: 140, q: 0.5, gain: 0.2, type: 'lowpass', attack: 0.03, lfo: [rnd(4, 7), 0.6] }); },
   click() { if (!ctx) return; if (play('click', { gain: 0.6 })) return; partial(2300, 0.03, 0.05, { f1: 1600 }); burst(0.012, { f0: 4200, q: 1.5, gain: 0.04 }); },
   // the group on the tee claps: a few people, each at their own rate and hand size, starting raggedly and tailing off
+  // (a blind A/B, 2026-10-17: eight clappers at up to 5.5 claps a second blurred into "rain on a tent"; six at 3.2-4.4, each with
+  // their own palm and their own start and finish, keep the claps distinct)
   applause(people = 6, dur = 2.3) { if (!ctx) return; if (play('applause')) return;
     const t0 = now() + .04;
     for (let p = 0; p < people; p++) {
-      const rate = rnd(3.3, 4.8), f = rnd(1050, 2300), level = rnd(.05, .1);
-      for (let t = rnd(0, .3); t < dur; t += rnd(.85, 1.15) / rate) clap(t0 + t, f, level * Math.min(1, (dur - t) / (dur * .35)), .32);
+      const rate = rnd(3.2, 4.4), f = rnd(750, 1900), level = rnd(.05, .1), stop = dur - rnd(0, .5);
+      for (let t = rnd(0, .35); t < stop; t += 1 / rate + rnd(-.015, .015)) clap(t0 + t, f, level * Math.min(1, (stop - t) / (stop * .35)), .32);
     }
   },
-  claps() { this.applause(3, 1.5); },
+  claps() { if (ctx && play('applause', { gain: 0.55 })) return; this.applause(3, 1.5); },   // a made putt over par: the same gallery, politer
   // womp womp: two sagging muted-trombone notes, the second leaning on a slow vibrato
   womp() { if (!ctx) return; if (play('womp')) return;
     const t0 = now() + .05; brass(233, t0, .42, { f1: 220 }); brass(207, t0 + .5, 1.15, { f1: 182, vib: 1 }); },
+  // the gallery's "ohh" at a near miss: a few voices gliding down on an open "o" (formants ~500 and ~900 Hz carry it on a phone,
+  // where the old bare triangle tones at 190-285 Hz all but vanished). Wordless; never presented as a recording.
   ohh() { if (!ctx) return; if (play('ohh')) return;
-    // Wordless descending vowel fallback; never represented as a recording.
-    for (const f of [190,238,285]) partial(f,1.3,.035,{f1:f*.66,type:'triangle',send:.45,attack:.12}); },
+    // round 2 (a blind A/B: "a kazoo choir, formants frozen"): the buzz low-passed off the voice, a breath of "h" before it and a
+    // sigh after, the vowel closing from "ah" to "oh", and every voice with its own flutter and its own droop
+    const t0 = now() + .03;
+    for (let v = 0; v < 7; v++) {
+      const f0 = v < 4 ? rnd(105, 150) : rnd(195, 255), dur = rnd(.85, 1.3), t = t0 + rnd(0, .22), drop = Math.pow(2, -rnd(2, 5) / 12), o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0 * 1.04, t); o.frequency.exponentialRampToValueAtTime(f0, t + .18); o.frequency.exponentialRampToValueAtTime(f0 * drop, t + dur * rnd(.65, .95));
+      const vib = ctx.createOscillator(), vg = ctx.createGain(); vib.frequency.value = rnd(4.5, 6.5); vg.gain.value = f0 * rnd(.009, .015); vib.connect(vg); vg.connect(o.frequency);
+      const soft = ctx.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = 2200; soft.Q.value = .5; o.connect(soft);
+      const g = ctx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.05, t + .16); g.gain.setValueAtTime(.05, t + dur * .45); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      for (const [a, z, Q, k] of [[rnd(600, 640), rnd(410, 430), 5, 1], [rnd(1020, 1080), rnd(760, 800), 7, .55], [rnd(2400, 2800), rnd(2400, 2800), 9, .12]]) {   // F1 and F2 close from "ah" to "oh"
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = Q; f.frequency.setValueAtTime(a, t); f.frequency.setValueAtTime(a, t + .15); f.frequency.exponentialRampToValueAtTime(z, t + .8);
+        const fg = ctx.createGain(); fg.gain.value = k * 2.2; soft.connect(f); f.connect(fg); fg.connect(g); }
+      out(g, .45); for (const n of [o, vib]) { n.start(t); n.stop(t + dur + .05); }
+    }
+    burst(.14, { f0: 1600, q: .7, gain: .05, attack: .02, t0, send: .3 });   // the breath before it
+    burst(.45, { f0: 1200, f1: 700, q: .8, gain: .03, attack: .1, t0: t0 + .75, send: .4 }); },   // and the sigh after
   fanfare(kind) { if (!ctx) return; if ((['birdie','eagle','ace'].includes(kind) && play('birdie_jingle')) || play('fanfare_' + kind)) return;
     const seq = kind === 'ace' ? [523, 659, 784, 1047, 1319] : kind === 'eagle' ? [523, 659, 784, 1047] : kind === 'birdie' ? [659, 784, 1047] : [523, 659];
     seq.forEach((f, i) => { const t0 = now() + i * 0.12; partial(f, 0.4, 0.13, { t0, send: 0.5 }); partial(f * 4, 0.07, 0.03, { t0, send: 0.3 }); }); },  // marimba-ish
   bad() { if (!ctx) return; if (play('bad')) return; partial(230, 0.35, 0.1, { f1: 140, type: 'triangle', send: 0.3 }); },
+  // the group's shouted callouts (ace, eagle, birdie, par, chains, nice, ohh, bad, tree, ob): Gemini TTS takes, no synth fallback
+  voice(kind) { if (ctx) play('voice_' + kind, { gain: 0.8, send: 0.35 }); },
 };
 
+// Levels for a phone (2026-10-17). Each sound was rendered offline and measured through a small speaker's response (high-pass at
+// 350 Hz, EBU R128 momentary maximum): the chains came out at -21, the applause at -46, the near-miss "ohh" at -50 and a skip or
+// a roll at -54, so on an iPhone the gallery, the misses and the landings were all but silent beside the chains. Each now plays at
+// its place in the mix (chains first, the gallery and the verdicts close behind, impacts under them, UI clicks and rolls lowest).
+const TRIM_DB = { applause: 23, ohh: -1, claps: -4, womp: -4.5, fanfare: 2, whoosh: 1, thud: 3, tree: 10, leaves: 7, splash: 11, band: 1.5, pole: 3, chainout: 10, drop: 5, skip: 22, roll: 6, click: 20 };   // dB
+for (const [k, f] of Object.entries(sfx)) sfx[k] = function (...a) { const prev = trim; trim = prev * 10 ** ((TRIM_DB[k] || 0) / 20); try { return f.apply(this, a); } finally { trim = prev; } };
+
+// (a live 14 s recording, blind and loudness-matched, preferred this bed over one with a leaf-rustle layer following the gusts:
+// 7.5 to 4, 'static, unmodulated noise' under a whole round)
 function ambient() { // wind bed with slow gusts + bird calls (frequency-swept chirps, trills)
   if (play('ambient', { loop: true, gain: 1 })) return;
   const wind = ctx.createBufferSource(); wind.buffer = noiseBuf; wind.loop = true;
@@ -173,9 +226,19 @@ async function loadSamples() {
     })));
   } catch { /* Optional recordings retain their synth fallback independently. */ }
 }
+// Recordings sit at their own level in the mix (SAMPLE_DB, measured through a phone speaker's response like the synthesis was),
+// not the synthesis trims: chains first, the gallery and the verdicts close behind, landings and whooshes under them.
+const SAMPLE_DB = { chains: 6, chainout: 8, applause: -3, ohh: -11, whoosh: 1, land_grass: 5, land_dirt: 5 };   // dB
 function play(name, { gain = 1, rate = 1, loop = false, send = 0.25 } = {}) {
   const takes = samples[name]; if (!takes?.length) return false; const b = takes[Math.floor(Math.random() * takes.length)];
   const s = ctx.createBufferSource(); s.buffer = b; s.loop = loop; s.playbackRate.value = rate * (loop ? 1 : rnd(0.97, 1.03));
-  const g = ctx.createGain(); g.gain.value = gain; s.connect(g); out(g, loop ? 0 : send); s.start();
+  if (loop) {   // a decoder that keeps MP3's encoder delay and padding leaves silence at each end: loop only the recorded span
+    const d = b.getChannelData(0); let i = 0, j = d.length - 1;
+    while (i < j && Math.abs(d[i]) < 1e-3) i++; while (j > i && Math.abs(d[j]) < 1e-3) j--;
+    s.loopStart = i / b.sampleRate; s.loopEnd = (j + 1) / b.sampleRate;
+  }
+  const g = ctx.createGain(); g.gain.value = gain * 10 ** ((SAMPLE_DB[name] || 0) / 20); s.connect(g);
+  g.connect(master); if (!loop && send > 0) { const v = ctx.createGain(); v.gain.value = send; g.connect(v); v.connect(verb); }   // not out(): the synthesis trims don't apply
+  s.start();
   return true;
 }

@@ -43,9 +43,17 @@ async function fileSave(id, data, etag) {
     const current = await readFile(file, 'utf8').catch(e => { if (e.code === 'ENOENT') return null; throw e; });
     if (etag ? current === null || fileEtag(current) !== etag : current !== null) throw new Conflict();
     const text = JSON.stringify(data), tmp = `${file}.${process.pid}.tmp`;
-    await writeFile(tmp, text); await rename(tmp, file);
+    await writeFile(tmp, text); await replace(tmp, file);
     return fileEtag(text);
   } finally { release(); }
+}
+// Windows refuses a rename over a file another handle still has open (a concurrent load, the virus scanner) with EPERM, EACCES
+// or EBUSY for a few ms: retry with a short backoff, as graceful-fs does, instead of failing the write (test/match.test.mjs flaked on it).
+async function replace(tmp, file) {
+  for (let i = 0; ; i++) {
+    try { return await rename(tmp, file); }
+    catch (e) { if (i >= 12 || !['EPERM', 'EACCES', 'EBUSY'].includes(e.code)) throw e; await new Promise(r => setTimeout(r, 10 * (i + 1))); }
+  }
 }
 
 export const loadMatch = id => (useBlob() ? blobLoad : fileLoad)(id);

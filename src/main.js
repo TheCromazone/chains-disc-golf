@@ -10,8 +10,9 @@ import { createPuffs } from './puffs.js';
 import { createCelebration } from './celebration.js';
 import { createWindFx } from './wind.js';
 import { createShotGuide } from './shot-guide.js';
-import { suggestPower } from './shot-planning.js';
+import { suggestPower, basketLine, puttPower } from './shot-planning.js';
 import { createFlightTrail } from './flight-trail.js';
+import { createTemporal } from './temporal.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -103,23 +104,49 @@ THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars
   c *= mix( vec3( .94, .99, 1.06 ), vec3( 1.04, 1., .92 ), smoothstep( .06, .5, l ) );
   c = mix( vec3( l ), c, mix( .9, 1., smoothstep( .04, .3, l ) ) ) + vec3( .018, .022, .03 ) * ( 1. - l ) * ( 1. - l ) * ( 1. - l );
   c = max( c, 0. ); return c * c; }`);
+// Alpha-to-coverage cut-outs (leaves, tufts, hair, impostors, banners) ramp over ~2 px centred on the cut, not three's one
+// pixel above it. On a held frame the temporal resolve (temporal.js) averages the jittered coverage into a soft edge, the way
+// Disc Golf Masters' leaves fall off (gauntlet r2 crisp: "hard one-pixel alpha cut-out edges on foliage and hair").
+THREE.ShaderChunk.alphatest_fragment = THREE.ShaderChunk.alphatest_fragment.replace('smoothstep( alphaTest, alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )',
+  'smoothstep( alphaTest - min( fwidth( diffuseColor.a ), alphaTest ), alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )');   // capped below so a fully transparent texel never gains coverage
 const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
 const scene = new THREE.Scene();
+const taa = createTemporal();   // temporal.js: jittered, accumulated edges on held frames, both tiers
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
 let post = null, postEnabled = true, resolutionScale = 1, frameAverage = 1/60, frameSamples = 0, lastResolutionChange = 0, slowTime = 0;
 const forcedDpr = +new URLSearchParams(location.search).get('dpr') || 0;   // QA: a fixed pixel ratio (e.g. a supersampled ground truth for the aliasing metric)
 const lineMats = [];   // screen-space line materials that need the framebuffer size
 const resize = () => { if (!innerWidth || !innerHeight) return;   // a page opened in a background tab (or a hidden pane) reports 0x0: an aspect of 0/0 poisoned the camera with NaN for good
-  renderer.setPixelRatio(forcedDpr || Math.min(devicePixelRatio, 2, Math.sqrt((isMobile ? 2100000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); /* phones render at 2x (1.5x on a 3x screen read as soft stair-steps; the 2.1 M pixel cap keeps a 960 x 540 view at exactly 2x, 1.8 M gave 1.86x resampled up to the screen); the frame-budget scaler sheds pixels on slow ones */ renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); };
+  renderer.setPixelRatio(forcedDpr || Math.min(devicePixelRatio, 2, Math.sqrt((isMobile ? 2100000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); /* phones render at 2x (1.5x on a 3x screen read as soft stair-steps; the 2.1 M pixel cap keeps a 960 x 540 view at exactly 2x, 1.8 M gave 1.86x resampled up to the screen); the frame-budget scaler sheds pixels on slow ones */ renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) { m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); if (m.userData.css) m.linewidth = m.userData.css * renderer.getPixelRatio(); } };   // widths in CSS px: a phone's 2x buffer had halved them
 addEventListener('resize', resize); resize();
 
 let course, world, holes, effects = null;
 const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos: new THREE.Vector3(), tLook: new THREE.Vector3(), mode: 'menu', lastHv: new THREE.Vector3(0, 0, -1), fov: 58 };
 // Flight preview: a screen-space dashed ribbon (readable at any pixel ratio) over a dark outline, and a ground
 // arrow at the lie that turns with the aim. The dashes flow toward the basket so the direction reads at a glance.
-const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false });
-const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .42, depthTest: false, depthWrite: false });
+// Widths are CSS px (userData.css, scaled by the pixel ratio in resize()): set in buffer px, the line on a phone's 2x buffer was
+// half the desktop's, a 1.6 pt thread that vanished over busy foliage (a blind critique, 2026-10-17).
+const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false }); previewMat.userData.css = isMobile ? 3.3 : 3.7;
+const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .5, depthTest: false, depthWrite: false }); previewEdge.userData.css = isMobile ? 6.3 : 6.9;
+// Dash ends as one-pixel coverage ramps instead of LineMaterial's per-pixel discard: MSAA never smooths a discard and the
+// flowing dashes defeat the temporal resolve, so every dash ended in a stair step (gauntlet r2 crisp: "stepped ends on the dashed arc")
+// Each dash is a rounded box measured in screen px from the line's coordinates, every side fading over its last pixel inside
+// the quad (widths are .5 css px up to keep the weight). The flowing dashes never settle in the temporal resolve, so their
+// sides were MSAA-only and their square corners sat along a curve like a staircase (gauntlet r3 crisp, all four critics: "the
+// dashed flight line steps along its diagonal edges"). DASH_R: the corner radius over the line's half-width, .6 of the white's
+// for both lines (rounded, never pills, which read as a line broken into dots), so the dark edge's corners ring the white's.
+previewMat.defines.DASH_R = '.6'; previewEdge.defines.DASH_R = (.6 * previewMat.userData.css / previewEdge.userData.css).toFixed(3);
+for (const m of [previewMat, previewEdge]) m.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader
+  .replace('if ( mod( vLineDistance + dashOffset, dashSize + gapSize ) > dashSize ) discard;', '')
+  .replace('float alpha = opacity;', `float alpha = opacity;
+    #ifdef USE_DASH
+    { float dp = mod( vLineDistance + dashOffset, dashSize + gapSize ), fl = max( fwidth( vLineDistance ), 1e-5 ), hw = 1. / max( fwidth( vUv.x ), 1e-5 );   // hw: half the line's width, px
+      float e = ( dp < dashSize ? min( dp, dashSize - dp ) : - min( dp - dashSize, dashSize + gapSize - dp ) ) / fl, r = min( hw * DASH_R, .5 * dashSize / fl );   // e: px inside the dash
+      vec2 q = vec2( r - e, abs( vUv.x ) * hw - hw + r );
+      alpha *= clamp( r - length( max( q, 0. ) ) - min( max( q.x, q.y ), 0. ), 0., 1. );
+      if ( alpha <= 0. ) discard; }
+    #endif`); };
 const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();
 const shotGuide = createShotGuide(preview);
 const trail = createFlightTrail(scene);
@@ -221,6 +248,27 @@ const menuStage = { d: [0, 1], r: [-1, 0] };
 const blobCanvas = document.createElement('canvas'); blobCanvas.width = blobCanvas.height = 64; const blobInk = blobCanvas.getContext('2d'), blobGrad = blobInk.createRadialGradient(32, 32, 0, 32, 32, 32);
 blobGrad.addColorStop(0, 'rgba(0,0,0,.72)'); blobGrad.addColorStop(.38, 'rgba(0,0,0,.42)'); blobGrad.addColorStop(1, 'rgba(0,0,0,0)'); blobInk.fillStyle = blobGrad; blobInk.fillRect(0, 0, 64, 64);
 const menuBlob = new THREE.Mesh(heroBlob.geometry, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(blobCanvas), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); menuBlob.scale.setScalar(.62); menuBlob.visible = false; scene.add(menuBlob);
+// Contact shade under every athlete on the course (a blind critique, 2026-10-17: "no contact shadow under his feet at the putt"):
+// in a crown's shadow the sun casts none, and he stood on the turf like a cut-out. A soft dark disc under the pelvis, square to the
+// slope, following him through the throw's travel.
+const footBlobMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,   // the falloff drawn in the shader: the clubhouse blob's canvas map came out empty here
+  vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader: 'varying vec2 vUv;void main(){float r=length(vUv-.5)*2.;float a=.72*pow(1.-smoothstep(0.,1.,r),1.4);gl_FragColor=vec4(0.,0.,0.,a);}' }), footBlobs = new Map(), _vBlob = new THREE.Vector3();
+const teeMatTop = (x, z) => {   // the tee's turf mat (props.js: 1.6 x 5 m, its top face at teeY + .07) stands proud of the ground the blob would sit on
+  const h = holes[G.holeIdx]; if (!h) return -Infinity;
+  const dx = x - h.tee[0], dz = z - h.tee[1], c = Math.cos(h.yaw), s = Math.sin(h.yaw), lx = c * dx - s * dz, lz = s * dx + c * dz;
+  return Math.abs(lx) < .8 && Math.abs(lz + .9) < 2.5 ? h.teeY + .07 : -Infinity;
+};
+function updateFootBlobs() {
+  for (const [p, m] of footBlobs) if (!G.players.includes(p)) { scene.remove(m); footBlobs.delete(p); }
+  const onCourse = !['menu', 'locker', 'courses'].includes(cam.mode);
+  for (const p of G.players) {
+    let m = footBlobs.get(p); if (!m) { m = new THREE.Mesh(heroBlob.geometry, footBlobMat); m.scale.setScalar(.5); m.renderOrder = 1; scene.add(m); footBlobs.set(p, m); }
+    m.visible = onCourse && p.char.group.visible; if (!m.visible) continue;
+    const r = p.char.joints?.root ? p.char.joints.root.getWorldPosition(_vBlob) : p.char.group.position, n = world.normal(r.x, r.z);
+    m.position.set(r.x, Math.max(world.height(r.x, r.z) + .03, teeMatTop(r.x, r.z) + .01), r.z); m.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]));
+  }
+}
 // Key art: a kicker raking the hero's far edge and a sheet of haze standing just behind him, so he poses in front of the woods
 // instead of being pasted on them. The kicker is patched into the hero's own materials (a scene light would recompile every
 // course material on the way in and out of the clubhouse); the haze is depth tested, so it veils only what stands behind him.
@@ -322,9 +370,13 @@ async function applyCourse(id) {
   renderer.toneMapping = toneFor(G.settings.quality); document.body.classList.toggle('gfx-mobile', G.settings.quality === 'low');
   // Full: HDRI ambient, reflective water and a bloom + grade pass. Lite: same textures, no render targets.
   effects = G.settings.quality === 'high' ? await import('./effects.js') : null;
-  const hdri = effects ? await effects.loadSky(renderer, asset('skies', def.id) || asset('skies', 'lake')) : null;
-  course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, hdri });
-  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }
+  // The sky panorama (course.js skyDome), loaded before the build because the environment fill is prefiltered from the dome. Mobile takes the 2048 copy.
+  // Phones only: on Desktop the bloom, shafts and aerial pass blew a sunlit cloud in the tee's canopy gap into a warm smudge
+  // (blind check: phone light 4/4, intro 4/4; desktop look 0/4), so Desktop keeps the gradient dome.
+  const panoUrl = G.settings.quality === 'low' && asset('skies', def.id + '-mobile');
+  const pano = panoUrl && await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null);   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps
+  course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, pano });
+  if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }   // no temporal resolve on Desktop (see draw())
   windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
   world = course.world; holes = course.holes; course.setHole(0);
   G.courseId = def.id; saveLocal('chains.course', def.id); updateHub();
@@ -372,7 +424,7 @@ function startHole() {
   UI.setControlsEnabled(false); UI.waiting(null); preview.visible = false;
   G.phase = 'intro'; G.introT = reducedMotion ? introDur(h) : 0; G.aim.pitch = 0; cam.mode = 'intro'; G.overview = false;
   // Broadcast-style title over the flyover (the HUD is hidden while data-phase is 'intro'; set it now so the HUD never flashes).
-  const title = $('holeTitle'); if (title) { title.firstElementChild.textContent = `Hole ${G.holeIdx + 1}`; title.lastElementChild.textContent = `Par ${h.par} · ${Math.round(h.len)} m`; }
+  const title = $('holeTitle'); if (title) { title.firstElementChild.textContent = `Hole ${G.holeIdx + 1}`; title.querySelector('span').textContent = `Par ${h.par} · ${Math.round(h.len)} m`; }
   document.body.dataset.phase = 'intro';
 }
 function updateWindHud() {
@@ -401,6 +453,8 @@ function parkOthers(idx) {
     const d = [bx - q.lie[0], bz - q.lie[2]], L = Math.hypot(d[0], d[1]) || 1; d[0] /= L; d[1] /= L;
     const r = rightOf(d);
     let x = q.lie[0], z = q.lie[2];
+    // someone who has holed out waits a couple of metres off the basket, not inside its footprint where his tap-in left him
+    if (q.done) { const ox = x - bx, oz = z - bz, od = Math.hypot(ox, oz); if (od < 2.6) { const ux = od > .05 ? ox / od : -d[0], uz = od > .05 ? oz / od : -d[1]; x = bx + ux * 2.6; z = bz + uz * 2.6; } }
     // step out of the thrower's line: anyone standing within 1.6 m of the lie→basket segment moves to its side
     const [ax, az] = taken[0], ex = bx - ax, ez = bz - az, EL = Math.hypot(ex, ez) || 1, rn = rightOf([ex / EL, ez / EL]);
     const along = ((x - ax) * ex + (z - az) * ez) / EL, across = (x - ax) * rn[0] + (z - az) * rn[1];
@@ -483,7 +537,7 @@ function doThrow(pi, o, sim = null) {
   p.char.setThrow(G.throwType); UI.setControlsEnabled(false); preview.visible = false;
 }
 function runSim(params) {
-  const s = launch({ ...params, disc: discById(params.discId) });
+  const s = launch({ ...params, disc: discById(params.discId) }, world.basket);
   const traj = [], events = []; let i = 0, le = 0;
   const rnd = v => Math.round(v * 1000) / 1000;
   while (!isDone(s) && s.t < 25) {
@@ -530,7 +584,7 @@ function launchNow() {
   // eases onto the flight path over its first .16 s, a few metres out, so neither the hit nor the ribbon jumps
   { const d = p.discMesh.position, q = sim.traj[0], off = q && [d.x - q[0], d.y - q[1], d.z - q[2]]; G.flight.from = off && Math.hypot(...off) < 1.2 ? off : null; }
   G.flight.lock = params.throwType === 'putt' && staysInFrame(sim.traj);   // a putt holds its aim frame into the chains, unless it leaves that frame
-  trail.start(discById(params.discId)?.color || "#ffffff");
+  trail.start(discById(params.discId)?.color || "#ffffff", G.flight.lock ? basketPos() : null);   // a putt in its locked frame: a faint wisp (flight-trail.js)
   G.phase = 'flight'; cam.mode = 'flight'; sfx.whoosh(params.power);
   if (p.runUp) { cam.mode = 'aim'; G.flight.camAt = .55; }   // a watched run-up keeps the tee camera through the follow-through (Gemini: "the cut at release wipes it out"), then cuts to the chase
   UI.setHud({ throwNo: `Throw ${p.strokes + 1}` });
@@ -565,9 +619,9 @@ function onFlightEvent(e) {
   if (document.hidden) return;
   const f = G.flight, at = f?.pos, strength = f?.hv ? Math.min(2, Math.hypot(f.hv[0], f.hv[2]) * 60 / 12) : 1;
   if (at && ['land', 'skip', 'flop', 'roll', 'splash'].includes(e)) puffs.burst(at, e, strength, e === 'splash' ? 'water' : SURFACE_AT(at));
-  if (e === 'chains' || e === 'drop') { sfx[e === 'drop' ? 'drop' : 'chains'](G.flight?.params.power ?? .6); UI.toast('Chains!', 'Right in the heart!', 1600); return; }
-  if ((e === 'chainout' || e === 'band' || e === 'rim') && !G.flight?.result.holed && !G.flight?.missReaction) { if(G.flight)G.flight.missReaction=true;sfx.ohh(); }
-  const m = { land: () => sfx.thud(strength, at ? SURFACE_AT(at) : 'grass'), skip: () => sfx.skip(), tree: () => { sfx.tree(); UI.toast('Tree!', '', 900); }, branch: () => { sfx.leaves(); UI.toast('Kicked by a branch', '', 900); }, chains: () => sfx.chains(), drop: () => sfx.drop(), chainout: () => { sfx.chainout(); UI.toast('Chain out!', 'too hard', 1200); }, band: () => { sfx.band(); UI.toast('Off the band', '', 900); }, pole: () => sfx.pole(), arch: () => { sfx.pole(); UI.toast('Off the arch', '', 900); }, rim:() => { sfx.band(); UI.toast('Off the rim', '', 900); }, splash: () => sfx.splash(), roll: () => sfx.roll(), flop: () => sfx.thud(0.5), ob: () => {} };   // out of bounds: the womp plays with the verdict (resolveThrow)
+  if (e === 'chains' || e === 'drop') { sfx[e === 'drop' ? 'drop' : 'chains'](G.flight?.params.power ?? .6); UI.toast('Chains!', 'Right in the heart!', 1600); if (G.players?.[f?.pi]?.lieDist > 8) sfx.voice('chains'); return; }   // a tap-in gets no shout
+  if ((e === 'chainout' || e === 'band' || e === 'rim') && !G.flight?.result.holed && !G.flight?.missReaction) { if(G.flight)G.flight.missReaction=true;sfx.ohh(); sfx.voice('ohh'); }
+  const m = { land: () => sfx.thud(strength, at ? SURFACE_AT(at) : 'grass'), skip: () => sfx.skip(), tree: () => { sfx.tree(); UI.toast('Tree!', '', 900); if (f && !f.treeCall) { f.treeCall = true; sfx.voice('tree'); } }, branch: () => { sfx.leaves(); UI.toast('Kicked by a branch', '', 900); }, chains: () => sfx.chains(), drop: () => sfx.drop(), chainout: () => { sfx.chainout(); UI.toast('Chain out!', 'too hard', 1200); }, band: () => { sfx.band(); UI.toast('Off the band', '', 900); }, pole: () => sfx.pole(), arch: () => { sfx.pole(); UI.toast('Off the arch', '', 900); }, rim:() => { sfx.band(); UI.toast('Off the rim', '', 900); }, splash: () => sfx.splash(), roll: () => sfx.roll(), flop: () => sfx.thud(0.5), ob: () => {} };   // out of bounds: the womp plays with the verdict (resolveThrow)
   m[e]?.();
 }
 function resolveThrow(pi, r, f = null) {
@@ -575,36 +629,57 @@ function resolveThrow(pi, r, f = null) {
   if (G.mode === 'async' && G.asyncThrows) G.asyncThrows.push({ t: G.lastParams?.throwType, d: G.lastParams?.discId, m: r.thrown, left: r.dist, ob: r.ob, holed: r.holed });
   const p = G.players[pi], h = holes[G.holeIdx];
   p.strokes++;
-  let title, sub;
+  let title, sub, obFrom = null;
   if (r.holed) {
     p.done = true; p.scores[G.holeIdx] = p.strokes;
     if (isMine(p)) buzz([30, 40, 60]);
     p.char.react?.(p.strokes<h.par?'celebrate':p.strokes>h.par?'slump':'idle');
+    // a tap-in leaves him standing in the basket's footprint, where no lens parts him from the cage (QA: every short par was shot
+    // through the chains): he steps back to arm's length as the camera cuts to the reaction, as a player does once he's holed out
+    { const [bx, bz] = basketPos(), g = p.char.group.position, dx = g.x - bx, dz = g.z - bz, dd = Math.hypot(dx, dz);
+      if (dd < 1.25) { const ad = aimDir(), ux = dd > .05 ? dx / dd : -ad[0], uz = dd > .05 ? dz / dd : -ad[1], x = bx + ux * 1.3, z = bz + uz * 1.3; g.set(x, world.height(x, z), z); } }
     title = UI.scoreName(p.strokes, h.par); sub = `${p.name} · ${p.strokes} throw${p.strokes > 1 ? 's' : ''}`;
-    if (p.strokes <= h.par) { sfx.fanfare(p.strokes === 1 ? 'ace' : p.strokes - h.par <= -2 ? 'eagle' : p.strokes - h.par === -1 ? 'birdie' : 'par'); sfx.applause(); }
+    if (p.strokes <= h.par) { const kind = p.strokes === 1 ? 'ace' : p.strokes - h.par <= -2 ? 'eagle' : p.strokes - h.par === -1 ? 'birdie' : 'par'; sfx.fanfare(kind); sfx.applause(); sfx.voice(kind); }
     if (!reducedMotion && p.strokes <= h.par) { const at = p.char.group.position; celebration.burst([at.x, at.y, at.z], p.strokes === 1 || p.strokes < h.par - 1); }
-  } else if (r.ob) { p.strokes++; p.lie = r.lie; title = 'Out of bounds'; sub = '+1 penalty · play from where it went out'; }
+  } else if (r.ob) { p.strokes++; obFrom = p.lie; p.lie = r.lie; title = 'Out of bounds'; sub = '+1 penalty · play from where it went out'; }
   else { p.lie = r.rest; title = r.thrown < 1 ? 'Dropped it' : `${Math.round(r.thrown)} m · ${world.rough(r.rest[0], r.rest[2]) > .5 ? 'Rough' : 'Fairway'}`; sub = `${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to the basket${Number.isFinite(r.airTime) ? ` · ${r.airTime.toFixed(1)} s flight` : ''}`; }
   const pickup = !r.holed && p.strokes >= h.par + 5;   // this throw ends the hole at the cap: never a "nice shot"
   // nice: a long throw that ends near the pin, or a putt or approach from inside 20 m that leaves a tap-in (a 10 m putt sliding 5 m past was cheered)
-  if (!r.holed && !r.ob && !pickup && r.thrown > 8 && r.dist < (p.lieDist > 20 ? Math.max(8, p.lieDist * .35) : 2.5)) { title = 'Nice shot!'; sfx.applause(); }
+  // the cheer keeps the throw's numbers (DGM's landing callout is the distance thrown): "Nice shot!" used to replace "61 m · Fairway"
+  if (!r.holed && !r.ob && !pickup && r.thrown > 8 && r.dist < (p.lieDist > 20 ? Math.max(8, p.lieDist * .35) : 2.5)) { sub = `${title} · ${r.dist.toFixed(r.dist < 20 ? 1 : 0)} m to go`; title = 'Nice shot!'; sfx.applause(); sfx.voice('nice'); }
   // The gallery's verdict: a good throw gets the group clapping (on screen and the other players on the course), a bad one a
   // sad trombone and the thrower's slump. A chain-out already drew its "ohh" in flight.
   const bad = !r.holed && (pickup || r.ob || r.thrown < 1 || r.dist > p.lieDist + 2 || (p.lieDist > 12 && r.thrown < p.lieDist * .3) || (p.lieDist <= 5 && !f?.missReaction));
   const good = r.holed ? p.strokes <= h.par : title === 'Nice shot!';
   if (good) { UI.react('good'); for (const q of G.players) if (q !== p) q.char.react?.('clap'); }
-  else if (bad) { UI.react('bad'); sfx.womp(); p.char.react?.('slump'); }
+  else if (bad) { UI.react('bad'); sfx.womp(); sfx.voice(r.ob ? 'ob' : 'bad'); p.char.react?.('slump'); }
   else if (r.holed) sfx.claps();
   if (pickup) { p.done = true; p.scores[G.holeIdx] = h.par + 6; title = 'Picked up'; sub = `max score for the hole (${h.par + 6})`; }   // a fixed cap, even when the last throw went out of bounds
   p.lieDist = distToBasket(p.lie[0], p.lie[2]);
   p.marker.position.set(p.lie[0], world.height(p.lie[0], p.lie[2]) + 0.04, p.lie[2]); p.marker.visible = !p.done;
   const session = G.sessionId, hole = G.holeIdx;
   if (p.done) setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && p.done && G.players.includes(p)) p.discMesh.visible = false; }, 2500);
-  UI.toast(title, sub, r.holed ? 2400 : 2000); UI.setHud({ dist: p.lieDist, holed: r.holed });
+  // Out of bounds, your own throw off line: DGM's choice, the drop where it went out (a tap anywhere, or 6 s) or a rethrow from the
+  // lie it left, both +1. Bots and online rooms keep the drop (the host's result is the room's; the choice would need a message).
+  const choose = !!obFrom && !p.done && isMine(p) && !p.isBot && G.mode !== 'online';
+  if (choose) sub = '+1 penalty either way';   // the pills under it name the two choices
+  UI.toast(title, sub, r.holed ? 2400 : choose ? 6000 : 2000); UI.setHud({ dist: p.lieDist, holed: r.holed });
   cam.hold = r.holed ? null : { fov: cam.fov, shift: cam.shift };   // a miss holds the landing shot (or the putt's locked frame); only a holed throw cuts to the reaction
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
-  setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') nextTurn(); UI.fade(false); }, 320); } }, 2400);
+  // a landing shot's verdict stands over the disc, as DGM's distance callout does (QA: "NICE SHOT!" sat right on the landed disc)
+  if (cam.hold) { camera.updateMatrixWorld(); _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null); }
+  // the verdict holds 2.4 s, or until a tap (skipBeat): DGM is aiming again within a second of most landings
+  const advance = () => { if (G.skipResult !== advance) return; G.skipResult = null; UI.obChoice(null); if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') { nextTurn(); cam.snap = true; } UI.fade(false); }, 320); } };
+  if (choose) UI.obChoice(() => { if (G.skipResult !== advance) return; p.lie = obFrom; p.lieDist = distToBasket(obFrom[0], obFrom[2]); p.marker.position.set(obFrom[0], world.height(obFrom[0], obFrom[2]) + .04, obFrom[2]); UI.setHud({ dist: p.lieDist }); advance(); }, advance);
+  G.skipResult = advance; G.resultAt = performance.now(); setTimeout(advance, choose ? 6000 : 2400);
+}
+// A tap on the course cuts the flyover to its flash, and a verdict short once it has been seen (.6 s). Not online: the host
+// paces a room's turns. Taps on buttons and dialogs are theirs (the swipe pad is idle in both beats, and covers half the glass).
+function skipBeat(e) {
+  if (G.mode === 'online' || e.target.closest?.('button,a,input,select,textarea,dialog,.overlay')) return;
+  if (G.phase === 'intro') G.introT = Math.max(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH);
+  else if (G.phase === 'result' && G.skipResult && performance.now() - G.resultAt > 600) G.skipResult();
 }
 function endHole() {
   G.phase = 'holeEnd'; preview.visible = false; UI.setControlsEnabled(false);
@@ -688,6 +763,7 @@ function onGesture(g) {
   // fire
   const th = THROWS[G.throwType], wob = Math.min(1, g.wobble * 1.5);
   const o = { power: g.progress, hyzer: 0, yawOffset: (Math.random() - 0.5) * 6 * wob, launchOffset: G.aim.pitch };
+  UI.releaseTag(g.progress, wob, o.yawOffset);   // the wobble's pull only; the stroke's own lateral aim below is intended
   if (th.latMode === 'hyzer') o.hyzer = Math.max(-35, Math.min(35, g.lateral * 80)); else o.yawOffset += Math.max(-25, Math.min(25, g.lateral * 50));
   UI.setHint(G.throwType, 'longer swipe = more power');
   buzz(15); coach.thrown();
@@ -709,9 +785,10 @@ function updatePreview() {
   if (!G.previewDirty || now - G.lastPreview < 70) return;
   G.previewDirty = false; G.lastPreview = now;
   // The landing guide plans the shot; it never solves the putt. Inside the circle, for putts, and once the swipe starts,
-  // the ribbon stops at 70% of the flight and the ring, readout and power mark go away, so the player's swipe decides it.
+  // the ring, readout and power mark go away, so the player's swipe decides it. A drive's swiped ribbon stops at 70% of the
+  // flight; a putt's (shot-planning.js basketLine) stops at the basket: idle it meets the chains, swiped it shows that power.
   const charging = G.phase === 'windup', assist = G.throwType !== 'putt' && curP().lieDist > 10, guided = assist && !charging;
-  if (G.previewPower == null) G.previewPower = assist ? suggestPower(gestureParams(.72, 0), previewWorld()) : .72;
+  if (G.previewPower == null) G.previewPower = assist ? suggestPower(gestureParams(.72, 0), previewWorld()) : puttPower(gestureParams(.72, 0), world);
   const pw = charging ? Math.max(.10, G.gesture.power) : G.previewPower;
   const o = gestureParams(pw, charging ? G.gesture.lateral : 0);
   const r = simulate(o, previewWorld(), { record: true, every: 6, maxT: 12 });
@@ -719,9 +796,17 @@ function updatePreview() {
   shotGuide.group.visible = guided;
   UI.setShotPlan(guided ? { ...estimate, power: pw } : null, assist ? G.previewPower : null);
   G.shotPreview = { ...estimate, power: pw, rest: r.result.rest, guided };
-  const lie = curP().lie, pts = (guided ? r.traj : r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7)))).filter((q, i, a) => i >= a.length - 2 || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);   // the ribbon starts at the thrower's shoulder instead of slashing across his back
+  // A drive's ribbon starts 1.5 m out, at his shoulder, instead of slashing across his back. A putt's leaves his hand, depth tested:
+  // from behind his shoulder its first metre runs behind his body, so it emerges from him instead of dropping in from the upper
+  // right (its first 1.5 m, rising, sat over his head in the putt lens) or painting over him.
+  for (const m of [previewMat, previewEdge]) m.depthTest = !assist;
+  // A putt's line stops ~1.7 m short of the pole, pointing into the chains: run on into the cage its last dashes crossed the
+  // band and chains, 'a row of white dashes cutting through the top of the basket' (r3 camera), and the basket is the target.
+  // 1.2 m still left a stub over the chains' near edge: the line closes on the cage from the lens's side, so its last metres
+  // project onto it.
+  const lie = curP().lie, pts = (guided ? r.traj : assist ? r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))) : basketLine(o, world).traj.filter((q, i) => i < 2 || distToBasket(q[0], q[2]) > 1.7)).filter((q, i, a) => i >= a.length - 2 || !assist || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);
   const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
-  for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); }
+  for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); l.visible = !(G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4); }   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the ground arrow aims it
   previewMat.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
   const p = curP(), d = aimDir(), ax = p.lie[0] + d[0] * 1.15, az = p.lie[2] + d[1] * 1.15, n = world.normal ? world.normal(ax, az) : [0, 1, 0];
   aimArrow.position.set(p.lie[0] + d[0] * 1.7, world.height(p.lie[0] + d[0] * 1.7, p.lie[2] + d[1] * 1.7) + .04, p.lie[2] + d[1] * 1.7);
@@ -784,8 +869,11 @@ AIM.driveS = { back: 3.4, side: .95, up: 1.55, pitch: 5, yaw: 0, vfov: 38 };   /
 // closer) by a clear line from the athlete's head to the lens, clear air over the first 8 m ahead of it and the athlete where the
 // rig puts him across the frame (a phone's portrait lens is narrow: a wider shoulder put him out of it), and keeps the best, the
 // rig's own spot on a tie. Once per lie, measured down the line to the pin, so aiming never swaps sides.
-const AIM_SPOTS = [[1, 1], [1, -1], [1, 1.8], [1, -1.8], [1, .3], [.8, -1], [.8, 1], [.65, -.5], [.65, .5]];   // back and side factors
+const AIM_SPOTS = [[1, 1], [1, -1], [1, 1.8], [1, -1.8], [1, .3], [.8, -1], [.8, 1], [.65, -.5], [.65, .5], [.85, 2.6], [.85, -2.6]];   // back and side factors; the last two stand wide beside a trunk right behind the lie (QA: one 1.5 m behind blocked every other spot), the lens turning to keep him in
 const aimSpot = { key: '', k: 0 };
+// the upright camera blockers (feather flags, tents, the arch's legs) as trunk-like records: a feather flag a metre off the lens
+// filled a third of a portrait frame beside the athlete (QA on Lakeshore), and only trees counted against a spot
+const uprights = () => (world.camBlockers || []).filter(c => Math.abs(c.b[1] - c.a[1]) > .5).map(c => ({ x: c.a[0], z: c.a[2], r: c.r }));
 function aimSpotFor(lie, P, side, putt, halfW) {
   const h = holes[G.holeIdx], key = `${G.seed}|${G.holeIdx}|${lie.x.toFixed(1)}|${lie.z.toFixed(1)}|${putt}|${P === AIM.tall.putt || P === AIM.tall.drive}`;
   if (aimSpot.key === key) return aimSpot.k;
@@ -799,8 +887,8 @@ function aimSpotFor(lie, P, side, putt, halfW) {
     if (k === 0) off0 = off;   // the rig's composition (a phone's portrait putt keeps him half out at the edge, over the shoulder)
     const framed = Math.max(0, 1 - Math.abs(off - off0) / (halfW * .5));
     // a trunk close in front of the lens fills the frame even when it blocks neither line (the QA birch: 1 m out, 11° off centre)
-    const lens = world.treesNear(x, z).reduce((m, t) => { const tx = t.x - x, tz = t.z - z, D = Math.hypot(tx, tz) || 1e-3, a = Math.abs(Math.atan2(vx * tz - vz * tx, vx * tx + vz * tz));
-      return a < halfW + .2 ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);
+    const lens = [...world.treesNear(x, z), ...uprights()].reduce((m, t) => { const tx = t.x - x, tz = t.z - z, D = Math.hypot(tx, tz) || 1e-3, a = Math.abs(Math.atan2(vx * tz - vz * tx, vx * tx + vz * tz));
+      return a - Math.asin(Math.min(1, (t.r + .2) / D)) < halfW + .2 ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);   // the trunk's own width counts (with its stubs): one 1 m off the lens filled a portrait frame from 33° off its centre line
     const score = see + ahead * .6 + framed * .8 - lens - k * .02;   // the nearest alternative wins a tie
     scores.push(+score.toFixed(3));
     if (k === 0) score0 = score;
@@ -829,6 +917,10 @@ function aimFrameBase(lie, d, putt, pos, look) {
   const vt = portrait ? Math.tan(P.fov * DEG / 2) : P.vfov ? Math.tan(P.vfov * DEG / 2) : Math.max(Math.tan((innerHeight > 520 && P.vmin || 14.5) * DEG), Math.tan(P.hfov * DEG / 2) / camera.aspect);   // tangent of the vertical half-angle; 29° at least on a short phone, so it keeps headroom
   const side0 = P.side + (putt && P.nudge ? puttDodge(lie, P) : 0), [fb, fs] = AIM_SPOTS[aimSpotFor(lie, P, side0, putt, Math.atan(vt * camera.aspect))], back = P.back * fb, side = side0 * fs, rho = Math.hypot(back, side);
   pos.set(lie.x - d[0] * back - r[0] * side, lie.y, lie.z - d[1] * back - r[1] * side);
+  // a tap-in: from behind the shoulder the athlete's back hid the whole basket, and the chains' slow-motion catch played to his
+  // jersey (QA on a phone). The lens climbs over his throwing shoulder and looks down into the basket instead.
+  const tapL = Math.hypot(h.basket[0] - lie.x, h.basket[1] - lie.z), tap = putt && tapL < 1.8, tapS = side * (1.4 + (1.8 - tapL) * .8);   // the nearer the pin, the wider round his shoulder
+  if (tap) { pos.set(lie.x - d[0] * 1.5 - r[0] * tapS, lie.y + 2.55, lie.z - d[1] * 1.5 - r[1] * tapS); look.set(h.basket[0], h.basketY + .75, h.basket[1]); return 2 * Math.atan(vt) / DEG; }
   const bd = Math.hypot(h.basket[0] - pos.x, h.basket[1] - pos.z), bh = h.basketY - lie.y + 1.4, eye = putt && Math.atan(P.eye * vt), band = putt && Math.atan(P.band * vt);   // bh: band centre over the lie
   const B = putt && P.lo ? Math.max(P.band, P.base + 1.4 / bd / vt) : P.band;   // a short putt's basket looms: lift the band until its base plate (1.4 m under it) stays over P.base
   const eh = (curP()?.char.headY || 1.72) - .09;   // eyes in the putting stance, which sinks them ~9 cm
@@ -837,7 +929,12 @@ function aimFrameBase(lie, d, putt, pos, look) {
   pos.y += up;
   if (putt && P.lo) cam.tShift = Math.max(-.3, Math.min(1, Math.min(B - (bh - up) / bd / vt, P.eye - (eh - up) / rho / vt)));   // slide the lens, don't tip it: the green drops into frame and the trunks stay upright
   const pitch = (putt ? P.lo ? 0 : Math.max(-4, Math.min(14, Math.min(band - Math.atan2(bh - up, bd), eye - Math.atan2(eh - up, rho)) / DEG)) : P.pitch) - G.aim.pitch;   // drag up = look up
-  const yaw = putt ? Math.atan2(side, bd) + Math.sign(fs) * Math.atan((P.x || 0) * vt * camera.aspect) : Math.sign(fs) * P.yaw * DEG, fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
+  let yaw = putt ? Math.atan2(side, bd) + Math.sign(fs) * Math.atan((P.x || 0) * vt * camera.aspect) : Math.sign(fs) * P.yaw * DEG;
+  if (!putt) {   // a drive's lens turns as far as it must to keep the athlete whole (QA, a portrait phone in the woods: a wide-shoulder spot round a trunk left him cut in half at the edge of the ~15° half-width)
+    const th = Math.atan2(side, back), lim = Math.atan(vt * camera.aspect) - Math.atan(.3 / Math.max(1, rho)) - .5 * DEG;   // the rig's own spots never reach it, so a run-up's dolly ends where it always did
+    yaw = Math.max(th - lim, Math.min(th + lim, yaw));
+  }
+  const fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
   return 2 * Math.atan(vt) / DEG;
 }
@@ -870,15 +967,16 @@ const dodge = { key: '', ds: 0 };
 const INTRO = { back: 20, side: 1.5, up: 7, ahead: 40, lift: 1.5 };   // far enough back that the group waiting by the pad stands whole in frame
 // The hole flyover (the Disc Golf Masters intro flies the hole from the tee to the basket). It opens on that establishing
 // drone, easing forward and down toward the tee exactly as before, so the frame at 1.7 s is unchanged; from there one line
-// carries on out over the event arch's banner (never through it) and glides down the fairway (w12 critics: "plunges into the
-// woods at ground level with the heading wandering", "lands against the side of a tree", "never lands on the basket"): a gentle
-// descent from ~10 m over the arch to ~4 m over the turf, under the crowns, riding the ground's humps, the eyes locked on the basket from the
-// arch on so the heading never swings, each key shifted off the line only where a crown blocks the leg in (and then kept
-// near the last key's shift), to a basket-centred view 6.5 m short of it, held a beat; a white flash takes it back to the tee.
+// glides down the fairway (w12 critics: "plunges into the woods at ground level with the heading wandering", "lands against
+// the side of a tree", "never lands on the basket") ~4 m over the turf, under the crowns, riding the ground's humps, the eyes
+// locked on the basket so the heading never swings, each key shifted off the line only where a crown blocks the leg in (and
+// then kept near the last key's shift), to a basket-centred view 6.5 m short of it, held a beat, then a clean cut to the tee.
+// A hole with the event arch on its line flies straight through its opening at that height (r3 m-intro verdicts: climbing
+// 3.5 m over the beam and dropping back under the crowns read as "a cut or teleport" between a close-up of the banner and a
+// low hillside; the white flash over the cut left "a washed-out shot of the player", so the cut is now bare).
 // One centripetal Catmull-Rom in space walked by arc length on one Hermite in time whose start speed is the push-in's at 1.7 s.
-const INTRO_T1 = 1.7, INTRO_HOLD = 1.1, INTRO_FLASH = .16, introSpan = h => Math.min(4.6, Math.max(3.8, h.len / 19)), introDur = h => INTRO_T1 + introSpan(h) + INTRO_HOLD;
+const INTRO_T1 = 1.7, INTRO_HOLD = 1.1, introSpan = h => Math.min(4.6, Math.max(3.8, h.len / 19)), introDur = h => INTRO_T1 + introSpan(h) + INTRO_HOLD;
 const intro = { key: '' };
-const flashEl = document.body.appendChild(Object.assign(document.createElement('div'), { style: 'position:fixed;inset:0;z-index:19;background:#fff;opacity:0;pointer-events:none' })); let flashA = 0;
 function wayAt(h, a) {   // the hole's own line (tee, dogleg, basket) a metres from the tee: [x, z, ux, uz]
   const w = h.way; let i = 0;
   for (; i < w.length - 2; i++) { const L = Math.hypot(w[i + 1][0] - w[i][0], w[i + 1][1] - w[i][1]); if (a <= L) break; a -= L; }
@@ -900,13 +998,12 @@ function introPath(h, t, pos, look) {
     const v1 = 4 * INTRO_T1 / 4.7 ** 2 * P0.distanceTo(_v2);   // the push-in's speed at 1.7 s
     const Lw = h.way.reduce((s, q, i) => i ? s + Math.hypot(q[0] - h.way[i - 1][0], q[1] - h.way[i - 1][1]) : 0, 0);
     const gnd = (x, z) => Math.max(world.height(x, z), world.height(x + 5, z), world.height(x - 5, z), world.height(x, z + 5), world.height(x, z - 5));   // rides over humps, never into them
-    const over = (x, y, z) => (world.capsules || []).reduce((m, c) => Math.min(Math.hypot(c.a[0] - x, c.a[2] - z), Math.hypot(c.b[0] - x, c.b[2] - z)) < 9 ? Math.max(m, c.a[1] + c.r + 3.5, c.b[1] + c.r + 3.5) : m, y);   // 3.5 m over the arch's beam (only near it: past it the line drops under the crowns)
     const B = new THREE.Vector3(h.basket[0], h.basketY + .9, h.basket[1]);
     let s0 = 0;
     const at = (a, up, from, g = gnd) => {   // over the line a m out: a clear leg in first, then room from the crowns beside it (w12: "a tree canopy covers the left 40% of the frame"), then the smallest move off the last key's shift
       let best = null, sc = -1e9, bs = 0;
       for (const side of [0, -1.5, 1.5, -3, 3, -4.5, 4.5]) for (const dy of [0, 1, 2, 4]) {
-        const [x0, z0, wx, wz] = wayAt(h, a), x = x0 - wz * side, z = z0 + wx * side, y = over(x, g(x, z) + up + dy, z);
+        const [x0, z0, wx, wz] = wayAt(h, a), x = x0 - wz * side, z = z0 + wx * side, y = g(x, z) + up + dy;
         const room = world.treesNear(x, z).reduce((m, t) => t.y + t.fy - t.fr < y + 3 ? Math.min(m, Math.hypot(t.x - x, t.z - z) - t.fr) : m, 5);   // metres to the nearest crown low enough to fill the frame's side
         const inside = world.treesNear(x, z).reduce((m, t) => Math.min(m, Math.hypot(t.x - x, t.z - z, y - t.y - t.fy) - t.fr * 1.2), 1);   // < 0: the key itself sits in a crown (the leg's cast only docks 5% for a hit at its far end)
         const q = clearFraction(world, from.x, from.y, from.z, x, y, z, .8, 0, 1.5) + Math.max(0, room) * .08 + Math.min(0, inside) - Math.abs(side - s0) * .03 - Math.abs(side) * .02 - dy * .04;
@@ -914,7 +1011,15 @@ function introPath(h, t, pos, look) {
       }
       s0 = bs; return best;
     };
-    const a2 = Math.min(Math.max(14, Lw * .36), Lw * .6), aE = Lw - 6.5, n = Math.max(1, Math.round((aE - a2) / 12)), K = [P1, at(a2, 10, P1)];   // over the arch, then a key every ~12 m
+    // the arch's beam (a level capsule, its underside c.r under its axis) where it straddles this hole's first leg
+    const [, , ux0, uz0] = wayAt(h, 0), beam = (world.capsules || []).find(c => c.a[1] === c.b[1]), am = beam && [(beam.a[0] + beam.b[0]) / 2 - h.tee[0], (beam.a[2] + beam.b[2]) / 2 - h.tee[1]];
+    const aA = am && Math.abs(am[1] * ux0 - am[0] * uz0) < 3 && am[0] * ux0 + am[1] * uz0;   // metres down the line, if it stands on it
+    let a2 = Math.min(Math.max(14, Lw * .36), Lw * .6), K;
+    if (aA > 8 && aA < Lw * .7) {   // straight through the opening's middle, ~3.6 m over its ground and 1.6 m under the beam, 6 m either side of it on the same line
+      const ox = h.tee[0] + am[0], oz = h.tee[1] + am[1], y = Math.min(world.height(ox, oz) + 3.6, beam.a[1] - beam.r - 1.6) - world.height(ox, oz);
+      K = [P1, ...[-6, 0, 6].map(k => new THREE.Vector3(ox + ux0 * k, y + world.height(ox + ux0 * k, oz + uz0 * k), oz + uz0 * k))]; a2 = aA + 6;
+    } else K = [P1, at(a2, 10, P1)];   // a high key a third of the way out, then a key every ~12 m
+    const aE = Lw - 6.5, n = Math.max(1, Math.round((aE - a2) / 12));
     for (let i = 1; i < n; i++) K.push(at(a2 + (aE - a2) * i / n, 4, K[K.length - 1], world.height));
     const [, , ux, uz] = wayAt(h, Lw), rb = rightOf([ux, uz]); let P4 = null, best = -1;
     for (const sg of [0, 1.5, -1.5, 3, -3]) {   // the basket straight ahead, from wherever the woods leave the view open
@@ -969,16 +1074,33 @@ function flightPlan(f) {
   // result shot was bark.
   // metres a spot stands inside a crown's leaf spread (the cards reach past the collider) or a trunk's berth
   const crowded = P => world.treesNear(P.x, P.z).reduce((m, t) => Math.max(m, t.fr * 1.3 - Math.hypot(t.x - P.x, t.y + t.fy - P.y, t.z - P.z), t.r + 1.2 - Math.hypot(t.x - P.x, t.z - P.z)), 0);
+  // and, with the pin near (2-45 m), a spot from which the disc and the basket fit one frame: a portrait phone's lens is ~17° each
+  // side of centre, so a spot round the side of the disc (QA: a roller 7 m short of the pin among birches) showed turf and trunks
+  // with the pin out of shot
+  const halfW = Math.atan(Math.tan(chaseFov() * DEG / 2) * camera.aspect), _d = new THREE.Vector3(), _t = new THREE.Vector3();
   let LP = null, best = -Infinity;
+  // a disc at a trunk's foot sits inside the 1 m berth the line test keeps, so every spot read as blocked and the shot fell back
+  // to looking straight down past the bark (QA: a disc 0.64 m from a birch): the berth shrinks to the room the disc has
+  const berth = Math.max(.15, Math.min(1, ...world.treesNear(R[0], R[2]).map(t => Math.hypot(t.x - R[0], t.z - R[2]) - t.r - .1)));
   for (const ang of [.35, -.35, .9, -.9, 1.5, -1.5, 2.3, -2.3]) for (const reach of [6.4, 3.8]) for (const up of [2.2, 3.4, 4.6, 6]) {   // 2.2: under a low canopy
     const ca = Math.cos(ang), sa = Math.sin(ang) * pref, dx = -ux * ca + rs[0] * sa, dz = -uz * ca + rs[1] * sa;
     const x = R[0] + dx * reach, z = R[2] + dz * reach, y = Math.max(world.height(x, z) + up * reach / 6.4 + .1, ry + up * reach / 6.4);
-    const fr = clearFraction(world, R[0], ry, R[2], x, y, z, 1, 1.2, 1.05), P = new THREE.Vector3(R[0] + (x - R[0]) * fr, ry + (y - ry) * fr, R[2] + (z - R[2]) * fr), out = P.distanceTo(_v.set(R[0], ry, R[2]));
+    const fr = clearFraction(world, R[0], ry, R[2], x, y, z, berth, 1.2, 1.05), P = new THREE.Vector3(R[0] + (x - R[0]) * fr, ry + (y - ry) * fr, R[2] + (z - R[2]) * fr), out = P.distanceTo(_v.set(R[0], ry, R[2]));
     const sight = bd > 2 && bd < 45 ? clearFraction(world, P.x, P.y, P.z, T[0], T[1], T[2], .2, .3, .7) : 1;
-    const score = fr * 2 + sight - Math.abs(up - 3.4) * .06 - Math.abs(ang) * .12 - (reach < 6 ? .35 : 0) - (out < 2.2 ? 3 : 0) - crowded(P) * .8;
+    const both = bd > 2 && bd < 45 ? Math.max(0, Math.min(1, 1 - (_d.set(R[0], ry, R[2]).sub(P).normalize().angleTo(_t.set(...T).sub(P).normalize()) - 1.2 * halfW) / halfW)) : 1;
+    // a trunk close in front of the lens fills a portrait frame even when the line to the disc is clear (QA: half a landing shot was bark)
+    const lens = world.treesNear(P.x, P.z).reduce((m, t) => { const tx = t.x - P.x, tz = t.z - P.z, D = Math.hypot(tx, tz) || 1e-3, a = _d.set(tx, 0, tz).normalize().angleTo(_t.set(R[0] - P.x, 0, R[2] - P.z).normalize());
+      return a - Math.asin(Math.min(1, (t.r + .2) / D)) < halfW ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);
+    const score = fr * 2 + sight * (.4 + .6 * both) + both * .5 - Math.abs(up - 3.4) * .06 - Math.abs(ang) * .12 - (reach < 6 ? .35 : 0) - (out < 2.2 ? 3 : 0) - crowded(P) * .8 - lens * .8;
     if (score > best) { best = score; LP = P; }
   }
-  if (LP.distanceTo(_v.set(R[0], ry, R[2])) < 2.2) LP.set(R[0] - ux * 1.2, ry + 2.6, R[2] - uz * 1.2);   // boxed in: look down on it from just over its head
+  if (LP.distanceTo(_v.set(R[0], ry, R[2])) < 2.2) {   // boxed in: look down on it from over its head, from the side with a clear line to it, no trunk at the lens and nobody waiting there (QA: a disc at a waiting player's feet framed the top of his cap; one at a birch's foot put the lens against the bark)
+    let top = -Infinity; for (const [a, b] of [[-ux, -uz], [rs[0], rs[1]], [-rs[0], -rs[1]], [ux, uz]]) { const x = R[0] + a * 2, z = R[2] + b * 2, y = ry + 3.4;
+      const people = Math.min(9, ...G.players.map(q => q.char.group.position).filter(q => Math.hypot(q.x - R[0], q.z - R[2]) < 4).map(q => Math.hypot(q.x - x, q.z - z)));
+      const bark = Math.min(3, ...world.treesNear(x, z).map(t => Math.hypot(t.x - x, t.z - z) - t.r));
+      const sc = clearFraction(world, R[0], ry, R[2], x, y, z, .4, .2, 1) * 2 + Math.min(1, bark / 1.5) * 1.5 + Math.min(1, people / 2);
+      if (sc > top) { top = sc; LP.set(x, y, z); } }
+  }
   // aim between the disc at rest and the basket so both hold the frame (the disc low, the pin and the tree line beyond it, not a wall of hillside); a far pin: down the line
   const la = Math.min(bd * .45, 9), LL = new THREE.Vector3(R[0] + ux * la, ry + .25 + la * .06, R[2] + uz * la);
   if (bd > 2 && bd < 45) { _v.set(R[0], ry, R[2]).sub(LP).normalize(); _v2.set(...T).sub(LP).normalize();
@@ -994,6 +1116,21 @@ function flightCam(f, dt) {
   const fr = clearFraction(world, D[0], D[1], D[2], cx, cy, cz, 1.2);   // wide of trunks and well under the arch's banner
   c.pull += (fr - c.pull) * (1 - Math.exp(-(fr < c.pull ? 7 : 2.5) * dt));   // in briskly past a trunk, out slowly; never a one-frame lurch
   const q = Math.max(.25, c.pull); cx = D[0] + (cx - D[0]) * q; cy = D[1] + (cy - D[1]) * q; cz = D[2] + (cz - D[2]) * q;
+  // beside the line, not on it: an upright blocker (the arch's 2.5 m pillars, a tent, a feather flag) the lens passes near filled
+  // a third of a portrait frame (QA: every Meadows tee shot past the BIRDIE BREW pillar). The chase spot steps sideways until the
+  // blocker's near edge clears the frame's half-width (a portrait lens is only ~17° each side, so one 6 m ahead still needs ~3 m),
+  // weighted smoothly in and out of the window and eased in time, with the side fixed per blocker so the lens never swaps across
+  // one: the tracker is fed the target's velocity, and any step in the push would show as a lurch.
+  { const rn = rightOf([hv.x, hv.z]), tw = Math.tan(Math.atan(Math.tan(chaseFov() * DEG / 2) * camera.aspect)); let want = 0; c.side ||= new Map();
+    (world.camBlockers || []).forEach((bk, k) => { if (Math.abs(bk.b[1] - bk.a[1]) < .5) return;
+      const ox = cx - bk.a[0], oz = cz - bk.a[2], ahead = -(ox * hv.x + oz * hv.z), side = ox * rn[0] + oz * rn[1];
+      const wA = S(ahead, -1.5, 0) * (1 - S(ahead, 5.5, 8)) * (1 - S(cy, Math.max(bk.a[1], bk.b[1]) + .5, Math.max(bk.a[1], bk.b[1]) + 2));
+      if (wA <= 0) { c.side.delete(k); return; }
+      if (!c.side.has(k)) c.side.set(k, side < 0 ? -1 : 1);
+      const sg = c.side.get(k), need = Math.min(3.2, bk.r + .5 + Math.max(0, ahead) * tw) - side * sg;
+      if (need > 0) want += sg * need * wA; });
+    want = Math.max(-3.2, Math.min(3.2, want));
+    c.nudge = (c.nudge || 0) + (want - (c.nudge || 0)) * (1 - Math.exp(-4 * dt)); cx += rn[0] * c.nudge; cz += rn[1] * c.nudge; }
   const ceil = beamCeiling(cx, cz, D[1] + .2), lift = CHASE.lift * Math.max(0, Math.min(1, (ceil - D[1] - 1) / 2));   // under the arch: level with the disc, the banner out of the top of frame
   cy = Math.min(Math.max(cy, D[1] + 1), ceil); cy = Math.max(cy, world.height(cx, cz) + 1.5);
   // the hand-off's blends run from the moment the chase took over: timed from the release, a run-up's late hand-off (camAt .55)
@@ -1073,8 +1210,21 @@ function updateCamera(dt) {
       const mx = (lie.x + basketPos()[0]) / 2, mz = (lie.z + basketPos()[1]) / 2;
       cam.tPos.set(mx - d[0] * dist * 0.22, world.height(mx, mz) + Math.max(45, dist * 0.95), mz - d[1] * dist * 0.22); cam.tLook.set(mx, world.height(mx, mz), mz); k = 4;
     } else if (cam.mode === 'result') {
-      const r=rightOf(d);cam.tPos.set(lie.x+d[0]*3.8+r[0]*.7,lie.y+1.45,lie.z+d[1]*3.8+r[1]*.7);
-      cam.tLook.set(lie.x,lie.y+.92,lie.z); k=5; fov=camera.aspect<1.2?54:38;
+      // the reaction from in front of the athlete; when he holed out from inside 6.5 m the pin stands on that line, so the lens
+      // swings 40° to the clearer side (QA on a phone: a tap-in's reaction framed him through the basket's chains and cage)
+      const key = `${G.cur}|${lie.x.toFixed(2)}|${lie.z.toFixed(2)}`;
+      if (cam.react?.key !== key) { const bd = distToBasket(lie.x, lie.z), swing = bd < 1.5 ? 1.2 : .7, me = curP();   // a tap-in stands at the basket: only a side view parts them
+        // a side's score: the line to the athlete clear of trunks and props, and nobody else standing near it (QA: a partner a
+        // metre off the lens filled half the reaction shot)
+        const side = a => { const ux = d[0] * Math.cos(a) + rightOf(d)[0] * Math.sin(a), uz = d[1] * Math.cos(a) + rightOf(d)[1] * Math.sin(a), cx = lie.x + ux * 3.8, cz = lie.z + uz * 3.8;
+          const crowd = G.players.some(q => { if (q === me) return false; const o = q.char.group.position, t = Math.max(0, Math.min(1, ((o.x - lie.x) * ux + (o.z - lie.z) * uz) / 3.8)); return Math.hypot(o.x - lie.x - ux * 3.8 * t, o.z - lie.z - uz * 3.8 * t) < .9 && t > .15; });
+          return clearFraction(world, lie.x, lie.y + 1.4, lie.z, cx, lie.y + 1.45, cz, .3, .15) - (crowd ? 1 : 0); };
+        const opts = bd < 6.5 ? [swing, -swing] : [0, .5, -.5];   // a long make keeps the straight-on view unless someone stands in it
+        let best = opts[0], top = -Infinity; for (const a of opts) { const sc = side(a) - Math.abs(a) * .05; if (sc > top + .01) { top = sc; best = a; } }
+        cam.react = { key, a: best }; }
+      const r=rightOf(d), ca = Math.cos(cam.react.a), sa = Math.sin(cam.react.a), fx = d[0] * ca + r[0] * sa, fz = d[1] * ca + r[1] * sa;
+      cam.tPos.set(lie.x+fx*3.8+r[0]*.7*ca,lie.y+1.45,lie.z+fz*3.8+r[1]*.7*ca);
+      cam.tLook.set(lie.x,lie.y+(camera.aspect<1.2?.92:1.08),lie.z); k=5; fov=camera.aspect<1.2?54:38;   // wide: a raised fist (2.2 m) left the top of a 38° frame
     }
     else fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
@@ -1096,6 +1246,13 @@ function updateCamera(dt) {
   // the camera closes inside ~20 m, where the basket itself is the target. This frame's matrices, so it never trails the drone.
   if (/^(intro|aim|windup|release|flight)$/.test(G.phase)) { camera.updateMatrixWorld(); _v.set(h.basket[0], h.basketY + 2.3, h.basket[1]); const fade = THREE.MathUtils.smoothstep(_v.distanceTo(camera.position), 14, 22); _v.project(camera); UI.placePin((_v.x + 1) / 2 * innerWidth, (1 - _v.y) / 2 * innerHeight, _v.z < 1 ? fade : 0); }
   else UI.placePin(0, 0, 0);
+  // The landing tag (DGM's "To Throw 61m") hangs under the reticle while a planned shot is aimed: down the line a landing short of
+  // the pin sits just under it on screen, so a tag standing over the reticle ran into the pin's own tag. Off the frame it bows out.
+  const sp = G.shotPreview;
+  if (G.phase === 'aim' && preview.visible && sp?.guided && sp.rest) {
+    camera.updateMatrixWorld(); _v.set(sp.rest[0], sp.rest[1] + .05, sp.rest[2]).project(camera);
+    UI.placeLandTag((_v.x + 1) / 2 * innerWidth, (1 - _v.y) / 2 * innerHeight, _v.z < 1 && Math.abs(_v.x) < .92 && _v.y > -.72 && _v.y < .95, sp);
+  } else UI.placeLandTag(0, 0, false);
 }
 
 // ---------- main loop ----------
@@ -1133,9 +1290,7 @@ function frame(dt, rawDt, background) {
   if (!course) return;
   // the coach waits for the turn's toast: in pass & play its card covered most of "Ben's throw"
   coach.update(dt, { on: cam.mode === 'aim' && (G.phase === 'aim' || G.phase === 'windup') && !G.overview && playable() && !document.body.classList.contains('result-mode') && !$('toast').classList.contains('show'), throwType: G.throwType, windup: G.phase === 'windup' });
-  if (G.phase === 'intro') { G.introT += dt; if (G.introT > introDur(holes[G.holeIdx]) || G.inbox.length) { nextTurn(); cam.snap = true; } }   // the cut from the basket back to the tee, under the flash
-  { const a = G.phase === 'intro' ? .7 * THREE.MathUtils.smoothstep(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH, introDur(holes[G.holeIdx])) : Math.max(0, flashA - dt / .2);   // the broadcast's white flash: up over the held basket, down over the tee
-    if (a !== flashA) flashEl.style.opacity = flashA = a; }
+  if (G.phase === 'intro') { G.introT += dt; if (G.introT > introDur(holes[G.holeIdx]) || G.inbox.length) { nextTurn(); cam.snap = true; } }   // the cut from the basket back to the tee
   if (G.inbox.length && (G.phase === 'aim' || G.phase === 'awaitThrow') && G.mode === 'online') applyRemoteThrow(G.inbox.shift());
   if (G.nextRequested && G.phase === 'holeEnd') { G.nextRequested = null; advanceHole(); }
   if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(tw.raw ? u : u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
@@ -1155,13 +1310,14 @@ function frame(dt, rawDt, background) {
     if (b) p.char.lookAt?.(_gazeTarget.set(at ? at[0] : b.x, at ? at[1] : b.y + 1.35, at ? at[2] : b.z));
     p.char.update(p.animationDt); p.animationDt = 0;
   } }
+  updateFootBlobs();
   if (hero?.group.visible) { hero.update(dt); if (heroDisc) { heroDisc.visible = true; hero.group.getWorldDirection(_v2); holdDisc(hero, heroDisc, [_v2.x * .25, 1, _v2.z * .25], time * .3); } } else if (heroDisc) heroDisc.visible = false;
   const p = curP();
   if (p && (G.phase === 'aim' || G.phase === 'windup' || (G.phase === 'release' && G.pending && !G.pending.fired))) {
     const d = aimDir(); p.char.faceDir(d[0], d[1]);
     // disc in hand, oriented like the release
     const lat = G.phase === 'windup' ? G.gesture.lateral : 0;
-    const s0 = launch(gestureParams(0.5, lat));
+    const s0 = launch(gestureParams(0.5, lat), world.basket);
     holdDisc(p.char, p.discMesh, s0.n, time * 0.4, G.throwType);
     updatePreview();
   }
@@ -1173,19 +1329,26 @@ function frame(dt, rawDt, background) {
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : G.phase === 'result' && cam.hold ? cam.look : p ? p.char.group.position : cam.look;
   if (!G.flight && G.phase !== 'result') nearFocus.copy(focus);
   course.update(dt, time, focus, camera.position, nearFocus);
-  puffs.update(dt); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera);
-  previewMat.dashOffset -= dt * 1.6; previewEdge.dashOffset = previewMat.dashOffset;
+  puffs.update(dt, camera, renderer); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera, !G.flight && cam.mode === 'aim' && G.throwType === 'putt');   // held only over a putt: there the level lens puts a ribbon straight across the basket at flag height
+  if (G.throwType !== 'putt') previewMat.dashOffset -= dt * 1.6; previewEdge.dashOffset = previewMat.dashOffset;   // a putt's dashes hold still (its direction is the basket): flowing, the held frame's temporal resolve averaged them into one thin white arc, broken by the bushes ('floating white arcs that look like rendering glitches', r3 d-look)
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   trail.update(camera, !!G.flight);
-  if(post && postEnabled) post.render(); else renderer.render(scene, camera);
+  draw();
 }
+// One frame to the screen (Desktop's post chain, else the canvas), through the temporal resolve while the camera holds still.
+// Not through the throw and the flight: the aim camera holds while the arm and the disc sweep across the turf, and the
+// history's colour box let them leave a tinted streak behind (drive clip, release).
+// Phones only: on Desktop the resolve's Gaussian softened a 4x-MSAA + FXAA frame that was already clean (blind build-vs-build
+// check, r2: desktop crispness and look 0/4 against round 1, "softened all over like a blurry upscale"; phones won 3/4).
+function draw() { const still = taa.begin(renderer, camera, !post && !/^(windup|release|flight)$/.test(G.phase)); if (post && postEnabled) post.render(still); else { renderer.render(scene, camera); if (still) taa.canvas(renderer); } taa.end(camera); }
 
 // ---------- HUD / menu wiring ----------
 function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.selectThrow(id); if (id === 'putt') { G.discId = 'putter'; UI.selectDisc('putter'); ensureDisc(curP(), 'putter'); curP().discMesh.visible = true; } G.previewDirty = true; G.previewPower = null; sfx.click(); }
 function pickDisc(id) { if (G.phase !== 'aim') return; G.discId = id; ensureDisc(curP(), id); curP().discMesh.visible = true; UI.selectDisc(id); G.previewDirty = true; G.previewPower = null; sfx.click(); }
 UI.buildThrowButtons(pickThrow); UI.buildDiscChips(pickDisc);
 $('btnTarget').onclick = () => { if (G.phase === 'aim') { const l = curP().lie; G.aim.yaw = Math.atan2(basketPos()[1] - l[2], basketPos()[0] - l[0]); G.aim.pitch = 0; G.previewDirty = true; G.previewPower = null; G.planDirty = false; sfx.click(); } };
+document.addEventListener('pointerdown', skipBeat);
 $('btnOverview').onclick = () => { if (G.phase !== 'aim') return; G.overview = !G.overview; $('btnOverview').classList.toggle('on', G.overview); $('btnOverview').setAttribute('aria-pressed', String(G.overview)); sfx.click(); };
 // Full screen: Android and iPad browsers can hand the game the whole screen (the button in the course tools). An iPhone's
 // Safari cannot; it plays full screen only from the Home Screen, so the first turn on its side there says how, once.
@@ -1605,7 +1768,7 @@ setTimeout(async () => {
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await Promise.all([warmShaders(), assetsIdle()]);
   UI.hide('loading'); loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: () => post && postEnabled ? post.render() : renderer.render(scene,camera), performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: draw, taa, performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, flightPlan, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage

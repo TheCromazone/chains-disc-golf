@@ -10,6 +10,10 @@ const RIBBONS = 26, POINTS = 22, RANGE = 30, SEG = .34;   // metres between stor
 const _dir = new THREE.Vector3(), _side = new THREE.Vector3(), _tan = new THREE.Vector3(), _toCam = new THREE.Vector3(), _p = new THREE.Vector3();
 
 export function createWindFx(scene, holes, height) {
+  // Their own seeded stream (mulberry32), not Math.random: the ribbons respawn every few seconds, so drawing from the shared
+  // stream shifted every later random in the game (the athlete's idle phase among them) whenever they changed, and a
+  // deterministic capture of a wind-only change showed the hero in another pose.
+  let s = 0x2545f491; const rnd = () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   const verts = RIBBONS * POINTS * 2;
   const positions = new Float32Array(verts * 3), alphas = new Float32Array(verts), index = [];
   for (let r = 0; r < RIBBONS; r++) for (let i = 0; i < POINTS - 1; i++) { const a = (r * POINTS + i) * 2; index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
@@ -23,12 +27,12 @@ export function createWindFx(scene, holes, height) {
     fragmentShader: 'uniform vec3 color; uniform float strength; varying float vA; void main(){ gl_FragColor = vec4(color, vA * strength);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
   });
   const streaks = new THREE.Mesh(geo, mat); streaks.frustumCulled = false; streaks.renderOrder = 3; scene.add(streaks);
-  const ribbons = Array.from({ length: RIBBONS }, () => ({ pts: new Float32Array(POINTS * 3), n: 0, life: Math.random(), dur: 3 + Math.random() * 2.5, seed: Math.random() * 100, speed: 1.15 + Math.random() * .7, lift: 0, x: 0, y: 0, z: 0 }));
+  const ribbons = Array.from({ length: RIBBONS }, () => ({ pts: new Float32Array(POINTS * 3), n: 0, life: rnd(), dur: 3 + rnd() * 2.5, seed: rnd() * 100, speed: 1.15 + rnd() * .7, lift: 0, x: 0, y: 0, z: 0 }));
   const spawn = (rb, focus, upwind) => {
-    rb.n = 0; rb.life = 0; rb.dur = 3 + Math.random() * 2.5; rb.seed = Math.random() * 100; rb.speed = 1.15 + Math.random() * .7;
-    const side = (Math.random() - .5) * RANGE * 1.2, back = upwind ? -RANGE * (.35 + Math.random() * .45) : (Math.random() - .5) * RANGE * 1.2;   // always inside the far radius below
+    rb.n = 0; rb.life = 0; rb.dur = 3 + rnd() * 2.5; rb.seed = rnd() * 100; rb.speed = 1.15 + rnd() * .7;
+    const side = (rnd() - .5) * RANGE * 1.2, back = upwind ? -RANGE * (.35 + rnd() * .45) : (rnd() - .5) * RANGE * 1.2;   // always inside the far radius below
     rb.x = focus.x + _dir.x * back - _dir.z * side; rb.z = focus.z + _dir.z * back + _dir.x * side;
-    rb.lift = .35 + Math.random() * 2.6; rb.y = height(rb.x, rb.z) + rb.lift;
+    rb.lift = .35 + rnd() * 2.6; rb.y = height(rb.x, rb.z) + rb.lift;
   };
   // windsocks: orange and white cone on a pole beside each tee pad
   const sockCanvas = document.createElement('canvas'); sockCanvas.width = 8; sockCanvas.height = 64; const ink = sockCanvas.getContext('2d');
@@ -43,14 +47,18 @@ export function createWindFx(scene, holes, height) {
     const x = h.tee[0] - rx * 4.4 - dx / L * 2.2, z = h.tee[1] - rz * 4.4 - dz / L * 2.2, y = height(x, z);   // left of and behind the pad, opposite the sign
     const pole = new THREE.Mesh(poleGeo, poleMat); pole.position.set(x, y + 1.3, z); group.add(pole);
     const pivot = new THREE.Group(); pivot.position.set(x, y + 2.55, z); group.add(pivot);
-    const sock = new THREE.Mesh(sockGeo, sockMat); pivot.add(sock); socks.push({ pivot, seed: Math.random() * 9 });
+    const sock = new THREE.Mesh(sockGeo, sockMat); pivot.add(sock); socks.push({ pivot, seed: rnd() * 9 });
   }
-  let calm = true, camPos = new THREE.Vector3();
-  const update = (t, dt, wind, focus, camera) => {
+  let calm = true, shown = 1, camPos = new THREE.Vector3();
+  // hold: the player is lining up a shot. The ribbons fade out there and come back with the disc: in a held aim frame a
+  // 7 m camera-facing streak hangs still across the woods at flag height and read as a rendering glitch ('a stray white
+  // line', 'floating white arcs', r3 d-look); the HUD's wind readout, the windsocks and the leaning grass carry it then.
+  const update = (t, dt, wind, focus, camera, hold = false) => {
     const ws = Math.hypot(wind[0], wind[1]), k = Math.min(1, ws / 7);
     windVec.value.set(wind[0] / 7, wind[1] / 7);   // grass and leaves lean downwind
     _dir.set(wind[0], 0, wind[1]).normalize();
-    mat.uniforms.strength.value = Math.min(1, Math.max(0, (ws - 1.0) / 4.5));
+    shown = hold ? Math.max(0, shown - dt * 1.5) : Math.min(1, shown + dt * 2);
+    mat.uniforms.strength.value = Math.min(1, Math.max(0, (ws - 1.0) / 4.5)) * shown * shown * (3 - 2 * shown);
     if (camera) camera.getWorldPosition(camPos);
     if (mat.uniforms.strength.value > 0 || !calm) {
       calm = mat.uniforms.strength.value <= 0;

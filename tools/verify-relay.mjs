@@ -42,7 +42,7 @@ async function phone(name, { relayOnly = false } = {}) {
   const t = (await (await fetch(`http://127.0.0.1:${dbg}/json/list`)).json()).find(x => x.id === targetId);
   const ws = new WebSocket(t.webSocketDebuggerUrl); await new Promise(r => ws.onopen = r);
   let seq = 0; const pend = new Map();
-  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id) { const p = pend.get(m.id); pend.delete(m.id); m.error ? p?.rej(Error(m.error.message)) : p?.res(m.result); }
+  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { const p = pend.get(m.id); pend.delete(m.id); m.error ? p?.rej(Error(m.error.message)) : p?.res(m.result); }
     if (m.method === 'Runtime.exceptionThrown') errors.push(`${name}: ${m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text}`);
     if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push(`${name}: ${m.params.args.map(a => a.value ?? a.description).join(' ')}`); };
   const send = (method, params = {}) => new Promise((res, rej) => { const id = ++seq; const to = setTimeout(() => { pend.delete(id); rej(Error('CDP timed out: ' + method)); }, 30000);

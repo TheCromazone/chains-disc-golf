@@ -34,8 +34,8 @@ Launcher install option `metahuman_content`: 1,816 files, 5.75 GiB, all under `M
 - 4096x2048 HDR per course, kept local in `ChainsUnreal/Saved/Sky`; JPEG previews tone-mapped by `blender/hdr_preview.py`.
 - Axes: Unreal +X is the game's +z (hole 1's direction); positive azimuth is Unreal -Y.
 - Gotcha: clouds render empty unless the scene capture has `always_persist_rendering_state` on and captures repeatedly.
-- Only engine features (sky atmosphere, volumetric clouds, the engine's default cloud material); no Epic sample, Fab or Quixel content.
-- Before shipping: our own cloud material; crop to the upper half (4096x1024 WebP); rotate the dome slowly so the clouds drift; keep the shader's sun disc.
+- Shipped (sky pass): `scripts/cloud_material.py` builds our own cloud material (one Custom node of our HLSL noise, no engine cloud content); `sky-render.sh` renders all four courses through `scripts/sky_panorama.py` and `tools/sky-webp.py` into `assets/skies/*.webp`, which `skyDome()` draws. Close the editor after a batch.
+- Gotchas: a cloud material needs `used_with_volumetric_cloud` (else the capture is black); unrolled noise loops take minutes per shader permutation; recompiling the material while the cloud draws it crashed the renderer; cube render targets clamp to 2048 a face; `r.VolumetricCloud.HighQualityAerialPerspective 1` trips an RDG ensure in captures.
 
 ## Unity
 - Unity CLI 1.0.0-beta.8, already signed in by the owner, Personal licence. `unity pipeline install` added `com.unity.pipeline` 0.8.0-exp.1; the MCP lists 160 tools; registered as `unity` (user scope).
