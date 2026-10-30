@@ -236,7 +236,7 @@ body[data-phase='release'] #pad .hint, body[data-phase='flight'] #pad .hint { op
 #powerFill::before { content: ''; position: absolute; top: -5px; left: 50%; width: 13px; height: 13px; margin-left: -6.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px var(--black), 0 1px 4px #0008; }
 #powerLabel { position: absolute; left: 50%; bottom: calc(52px + var(--sab)); transform: translate(-50%, 50%); z-index: 2; pointer-events: none; color: #fff; font-size: 15px; font-weight: 800; letter-spacing: .5px; text-shadow: 0 1px 3px #000c; font-variant-numeric: tabular-nums; }
 #power, #powerLabel { visibility: hidden; }
-body[data-phase='aim'] #power, body[data-phase='windup'] #power, body[data-phase='windup'] #powerLabel, body[data-phase='release'] #power, body[data-phase='release'] #powerLabel { visibility: visible; }
+body[data-phase='aim'] #power, body[data-phase='windup'] #power, body[data-phase='windup'] #powerLabel { visibility: visible; }   /* the ring stands down as the finger lifts: the grade says the power */
 #hud.equipment-open #power, #hud.equipment-open #powerLabel, #hud.equipment-open #pad .hint, #hud.equipment-open #conditions, #hud.equipment-open #waiting { visibility: hidden; }
 /* Someone else's turn: the ring and its % stand down (they sat on the athlete's feet through a bot's whole throw) and the
    line naming the throw moves up under the score plate (beside it on a wide screen), fading once the disc is away. */
@@ -363,7 +363,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .brand { font-size: 40px; }
   .panel { padding: 16px; }
   .hub-main { padding: 12px; border-radius: 24px; }
-  #top { width: min(236px, calc(100% - 136px)); }   /* room for the sound and tools buttons beside it */
+  #top { width: min(236px, calc(100% - 152px)); }   /* room for the sound and tools buttons beside it, and under them the wind plate (upright) */
   #score .panel { --gutter: 18px; }
   #score th { font-size: 14px; } #score th .muted { font-size: 12px; } #score th.key { font-size: 10px; letter-spacing: .8px; }
   #score .mk, #score td.blank i { width: 20px; height: 20px; }
@@ -403,6 +403,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #powerLabel { bottom: calc(44px + var(--sab)); font-size: 13px; }
   #pad { padding-bottom: calc(84px + var(--sab)); }
   #toast { top: 18%; }
+  body[data-phase='aim'] #toast { left: 38%; max-width: 48%; } body[data-phase='aim'] #toast b { font-size: 40px; }   /* pass & play's "Ben's throw" on one line over the fairway: at 60 px it broke in two across the middle and onto the athlete */
   .overlay.hub { align-items: flex-start; justify-content: flex-start; padding-left: 12px; padding-top: calc(72px + var(--sat)); }
   .overlay.hub .panel { width: min(360px, 52%); max-height: 100%; }
   /* a landscape phone has ~300px under the brand: the whole card fits without scrolling */
@@ -508,6 +509,7 @@ body[data-phase='result'] #releaseTag, body[data-phase='aim'] #releaseTag { disp
   body[data-phase='flight'] #toast { top: calc(104px + var(--sat)); } #releaseTag { bottom: calc(102px + var(--sab)); font-size: 13px; }
   #conditions { top: calc(66px + var(--sat)); bottom: auto; }
   body[data-phase='flight'] #conditions, #hud:has(#btnUtilities[aria-expanded='true']) #conditions { visibility: hidden; }
+  body[data-phase='result'] #hud.verdict-left #toast, body[data-phase='result'] #hud.verdict-left #react { left: 36%; width: 66%; }   /* the held putt frame stands him on the right (ui.js verdictSide) */
 }
 @media (orientation: portrait) and (min-width: 900px) { #conditions { top: calc(76px + var(--sat)); } }
 /* Out of bounds, your own throw (ui.js obChoice): DGM's Rethrow / Move to lie as two dark glass pills at the foot of the frame,
@@ -543,6 +545,7 @@ body[data-phase='intro'] #holeTitle { opacity: 1; transform: none; transition-du
 #pin svg { width: 13px; height: 13px; color: var(--mint); }
 #pin i { width: 1.5px; height: 24px; background: linear-gradient(#ffffffd9, #ffffff59); transition: height .8s var(--ease); }
 body[data-phase='intro'] #pin i { height: 46px; }   /* the establishing shot sees the pin past the hole's gantry: the tag flies clear of its banner */
+body[data-phase='aim']:has(#toast.show) #pin, body[data-phase='aim']:has(#toast.show) #landTag, body.coaching #pin, body.coaching #landTag { visibility: hidden; }   /* pass & play's "Ben's throw" call and the thumb coach's card land where the upright lens now holds the pin (22-30% down) */
 #pin::after { content: ''; width: 5px; height: 5px; margin-top: -1px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 1.5px #0c111466; }
 /* The landing tag (ui.js placeLandTag): the pin tag's glass pill on a shorter stem, the distance over what it leaves in mint. */
 #landTag { position: fixed; left: 0; top: 0; z-index: 9; display: flex; flex-direction: column-reverse; align-items: center; pointer-events: none; opacity: 0; font-family: var(--display); transition: opacity .2s; will-change: transform, opacity; }
@@ -641,6 +644,7 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
   #releaseTag { transform: translate(-100%, 6px); } #releaseTag.show { transform: translate(-100%, 0); }
   #pad .hint { position: absolute; right: calc(78.33% - 40px); bottom: calc(120px + var(--sab)); }   /* the pad starts at 40%: 53% + 40 px of the screen from its left */
   body[data-phase='windup'] #pad .hint { bottom: calc(156px + var(--sab)); }
+  #releaseTag { bottom: calc(51px + var(--sab)); }   /* the grade drops into the ring's own place as it stands down: a slot higher, over a putt, it covered the basket's band as the disc flew in */
   #powerLabel { transform: translateX(-100%); padding: 3px 11px 2px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; font-size: 17px; text-shadow: none; -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3); }
   body[data-phase='release'] #powerLabel { visibility: hidden; }
   /* the wind plate under the score plate: at the bottom right it sat on the athlete's hip, who stands in the right third over

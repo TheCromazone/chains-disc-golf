@@ -28,7 +28,7 @@ export function setConnecting(id, busy) {
 
 let toastTimer = null;
 export function toast(title, sub = '', ms = 1800) {
-  $('toast').style.bottom = $('react').style.bottom = ''; $('hud').classList.remove('verdict-right');   // verdictAbove's lift and verdictSide's side are for their own verdict only
+  $('toast').style.bottom = $('react').style.bottom = ''; $('hud').classList.remove('verdict-right', 'verdict-left');   // verdictAbove's lift and verdictSide's side are for their own verdict only
   $('toastTitle').textContent = title; $('toastSub').textContent = sub;
   $('toast').classList.add('show'); clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $('toast').classList.remove('show'), ms);
@@ -37,15 +37,18 @@ export function toast(title, sub = '', ms = 1800) {
 // (0 top, 1 bottom; null: out of view). Below the middle, the verdict's foot stands 28 px over it instead, the clap over that,
 // but never so high the clap meets the score plate (r4 QA on a phone on its side: a disc 45% down lifted "NICE SHOT!" and
 // its clapping hands into the plate).
-// The clap always stands on the verdict's own height (a fixed 92 px under a two-line verdict overlapped it).
+// The clap always stands on the verdict's own height (a fixed 92 px under a two-line verdict overlapped it); upright, with the
+// verdict unlifted, under it instead, in the swipe controls' empty place: over it, it sat on the feet of the athlete the reaction
+// shot centres (QA on a 360 x 640 phone).
 export function verdictAbove(y) {
-  const t = $('toast'), room = innerHeight - $('top').getBoundingClientRect().bottom - 8 - t.offsetHeight - 8 - $('react').offsetHeight;
-  let b = parseFloat(getComputedStyle(t).bottom); if (y != null && y >= .5) b = Math.max(b, Math.min(innerHeight * (1 - y) + 28, room));
-  t.style.bottom = `${b}px`; $('react').style.bottom = `${b + t.offsetHeight + 8}px`;
+  const t = $('toast'), r = $('react'), room = innerHeight - $('top').getBoundingClientRect().bottom - 8 - t.offsetHeight - 8 - r.offsetHeight;
+  let b = parseFloat(getComputedStyle(t).bottom); const lift = y != null && y >= .5; if (lift) b = Math.max(b, Math.min(innerHeight * (1 - y) + 28, room));
+  const under = b - r.offsetHeight - 6; t.style.bottom = `${b}px`; r.style.bottom = `${!lift && innerWidth < innerHeight && under >= 4 ? under : b + t.offsetHeight + 8}px`;
 }
-// A held landing shot with the athlete on the left of a wide frame (a putt's mirrored rig) puts the verdict in the right
-// third instead (ui.css), so it stands off him. x: his centre across the frame, 0-1, or null.
-export const verdictSide = x => $('hud').classList.toggle('verdict-right', x != null && x < .5);
+// A held landing shot with the athlete in it stands the verdict on the other side (ui.css): the right third of a wide frame
+// when he is on the left (a putt's mirrored rig), the left two thirds of an upright one when he is on the right (the rig's own
+// putt frame, where the wide centred verdict sat on his chest). x: his centre across the frame, 0-1, or null.
+export function verdictSide(x) { $('hud').classList.toggle('verdict-right', x != null && x < .5); $('hud').classList.toggle('verdict-left', x != null && x >= .5); }
 export function fade(on) { $('fade').classList.toggle('on', on); }
 // Out of bounds, your own throw: DGM's two pills under the verdict. onRethrow replays from the lie it left, onDrop plays from
 // where it went out (as does a tap anywhere else, main.js skipBeat); both +1. The verdict (and its womp) step up clear of them,
@@ -54,7 +57,8 @@ export function fade(on) { $('fade').classList.toggle('on', on); }
 export function obChoice(onRethrow, onDrop = null) {
   const el = $('obChoice'), was = !el.classList.contains('hidden');
   el.classList.toggle('hidden', !onRethrow); $('btnRethrow').onclick = onRethrow; $('btnObDrop').onclick = onDrop;
-  if (onRethrow) { const lift = $('toast').getBoundingClientRect().bottom - el.getBoundingClientRect().top + 16; if (lift > 0) for (const id of ['toast', 'react']) $(id).style.bottom = `${parseFloat(getComputedStyle($(id)).bottom) + lift}px`; }
+  if (onRethrow) { const lift = $('toast').getBoundingClientRect().bottom - el.getBoundingClientRect().top + 16; if (lift > 0) for (const id of ['toast', 'react']) $(id).style.bottom = `${parseFloat(getComputedStyle($(id)).bottom) + lift}px`;
+    $('react').style.bottom = `${parseFloat(getComputedStyle($('toast')).bottom) + $('toast').offsetHeight + 8}px`; }   // the womp over the verdict: the pills hold the place under it
   else if (was) { clearTimeout(toastTimer); $('toast').classList.remove('show'); }
 }
 
