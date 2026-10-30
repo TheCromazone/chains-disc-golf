@@ -374,7 +374,7 @@ async function applyCourse(id) {
   // Phones only: on Desktop the bloom, shafts and aerial pass blew a sunlit cloud in the tee's canopy gap into a warm smudge
   // (blind check: phone light 4/4, intro 4/4; desktop look 0/4), so Desktop keeps the gradient dome.
   const panoUrl = G.settings.quality === 'low' && asset('skies', def.id + '-mobile');
-  const pano = panoUrl && await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null);   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps
+  const pano = panoUrl ? await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null) : null;   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps; null, not false: course.dispose() calls pano?.dispose() (Desktop's false threw and left every later course change on a black screen)
   course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, pano });
   if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }   // no temporal resolve on Desktop (see draw())
   windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
