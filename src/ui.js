@@ -28,17 +28,24 @@ export function setConnecting(id, busy) {
 
 let toastTimer = null;
 export function toast(title, sub = '', ms = 1800) {
-  $('toast').style.bottom = $('react').style.bottom = '';   // verdictAbove's lift is for its own verdict only
+  $('toast').style.bottom = $('react').style.bottom = ''; $('hud').classList.remove('verdict-right');   // verdictAbove's lift and verdictSide's side are for their own verdict only
   $('toastTitle').textContent = title; $('toastSub').textContent = sub;
   $('toast').classList.add('show'); clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $('toast').classList.remove('show'), ms);
 }
 // The landing verdict sits low (bottom 12-16%), where the landing shot usually holds the disc. y: the disc's height in the frame
-// (0 top, 1 bottom; null: out of view). Below the middle, the verdict's foot stands 28 px over it instead, the clap over that.
+// (0 top, 1 bottom; null: out of view). Below the middle, the verdict's foot stands 28 px over it instead, the clap over that,
+// but never so high the clap meets the score plate (r4 QA on a phone on its side: a disc 45% down lifted "NICE SHOT!" and
+// its clapping hands into the plate).
+// The clap always stands on the verdict's own height (a fixed 92 px under a two-line verdict overlapped it).
 export function verdictAbove(y) {
-  if (y == null || y < .5) return;
-  const b = innerHeight * (1 - y) + 28; $('toast').style.bottom = `${b}px`; $('react').style.bottom = `${b + $('toast').offsetHeight + 4}px`;
+  const t = $('toast'), room = innerHeight - $('top').getBoundingClientRect().bottom - 8 - t.offsetHeight - 8 - $('react').offsetHeight;
+  let b = parseFloat(getComputedStyle(t).bottom); if (y != null && y >= .5) b = Math.max(b, Math.min(innerHeight * (1 - y) + 28, room));
+  t.style.bottom = `${b}px`; $('react').style.bottom = `${b + t.offsetHeight + 8}px`;
 }
+// A held landing shot with the athlete on the left of a wide frame (a putt's mirrored rig) puts the verdict in the right
+// third instead (ui.css), so it stands off him. x: his centre across the frame, 0-1, or null.
+export const verdictSide = x => $('hud').classList.toggle('verdict-right', x != null && x < .5);
 export function fade(on) { $('fade').classList.toggle('on', on); }
 // Out of bounds, your own throw: DGM's two pills under the verdict. onRethrow replays from the lie it left, onDrop plays from
 // where it went out (as does a tap anywhere else, main.js skipBeat); both +1. The verdict (and its womp) step up clear of them,
@@ -108,8 +115,14 @@ export function setShotPlan(plan, suggested = null) {
   $('shotPlan').title = 'Estimated flight with current wind and terrain. Tree collisions can change the landing.';
 }
 
-let pinAt = '';
+let pinAt = '', band = null;
+// The top corners' plates (score and wind, sound and tools), read once per viewport: an uphill pin's tag rose under the score
+// plate (r4 QA, a phone on its side, a chase past the treeline), so it bows out over the ~20 px it would share with them.
+const topBand = () => { const k = innerWidth + 'x' + innerHeight; if (band?.k !== k) { const a = $('top').getBoundingClientRect(), b = $('utilities').getBoundingClientRect(), c = $('conditions').getBoundingClientRect(), up = c.width && c.top < innerHeight / 2, left = c.right < innerWidth / 2;
+  band = a.width ? { k, l: a.right + 6, yl: Math.max(a.bottom, up && left ? c.bottom : 0) + 4, r: Math.min(b.left, up && !left ? c.left : 1e4) - 6, yr: Math.max(b.bottom, up && !left ? c.bottom : 0) + 4 } : null; } return band; };
 export function placePin(x, y, alpha) {
+  const t = alpha > .01 && topBand(), under = (x - 45 < t?.l ? t.yl : 0) || (x + 45 > t?.r ? t.yr : 0);   // the tag stands ~52 px over its foot, ~90 wide
+  if (under) alpha *= Math.max(0, Math.min(1, (y - 52 - under) / 20));
   const key = alpha > .01 ? `${x.toFixed(1)} ${y.toFixed(1)} ${alpha.toFixed(2)}` : '';
   if (key === pinAt) return; pinAt = key;
   const el = $('pin'); el.style.opacity = key ? alpha.toFixed(2) : '0';

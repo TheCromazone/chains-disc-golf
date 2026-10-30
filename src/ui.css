@@ -425,6 +425,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
      him mid-screen (QA on Gull Point Bluffs), and the controls it would meet there are hidden for the result */
   body[data-phase='result'] #toast, body.result-mode #toast { top: auto; bottom: calc(16% + var(--sab)); left: calc(25% + var(--sal) / 2); width: 46%; }
   body[data-phase='result'] #react, body.result-mode #react { left: calc(25% + var(--sal) / 2); bottom: calc(16% + 92px + var(--sab)); }
+  body[data-phase='result'] #hud.verdict-right #toast, body.result-mode #hud.verdict-right #toast, body[data-phase='result'] #hud.verdict-right #react, body.result-mode #hud.verdict-right #react { left: calc(75% - var(--sar) / 2); }   /* the held putt frame's mirrored rig stands him on the left (ui.js verdictSide) */
   body[data-phase='result'] #toast b, body.result-mode #toast b { font-size: 42px; }
   #score { --card: 620px; } #score .panel { --gutter: 20px; }
   #score .eyebrow { padding: 5px 12px 4px; }

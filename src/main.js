@@ -668,7 +668,9 @@ function resolveThrow(pi, r, f = null) {
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
   // a landing shot's verdict stands over the disc, as DGM's distance callout does (QA: "NICE SHOT!" sat right on the landed disc)
-  if (cam.hold) { camera.updateMatrixWorld(); _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null); }
+  if (cam.hold) { camera.updateMatrixWorld(); _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null);
+    _v.copy(p.char.group.position).y += 1; const near = _v.distanceTo(camera.position) < 9; _v.project(camera); UI.verdictSide(near && _v.z < 1 && Math.abs(_v.x) < 1 ? (_v.x + 1) / 2 : null); }   // a thrower standing in the held frame keeps the verdict off him
+  else UI.verdictAbove(null);
   // the verdict holds 2.4 s, or until a tap (skipBeat): DGM is aiming again within a second of most landings
   const advance = () => { if (G.skipResult !== advance) return; G.skipResult = null; UI.obChoice(null); if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') { nextTurn(); cam.snap = true; } UI.fade(false); }, 320); } };
   if (choose) UI.obChoice(() => { if (G.skipResult !== advance) return; p.lie = obFrom; p.lieDist = distToBasket(obFrom[0], obFrom[2]); p.marker.position.set(obFrom[0], world.height(obFrom[0], obFrom[2]) + .04, obFrom[2]); UI.setHud({ dist: p.lieDist }); advance(); }, advance);
