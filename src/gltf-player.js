@@ -579,9 +579,19 @@ export function createGLTFCharacter(avatar) {
     if (k > 0 && /^(backhand|xstep)/.test(family)) { forearm.quaternion.multiply(_q.setFromAxisAngle(UP, (lefty ? -1 : 1) * k * Math.PI / 2)); group.updateMatrixWorld(true); }
     placeSocket();
   }
+  // Out of a throw the legs re-plant one at a time instead of gliding: the clip's finish (the putt's staggered stance, a drive's
+  // follow-through) cross-faded to the idle's feet in .22 s, and both soles skated ~15 cm across the green in the putt's locked
+  // frame. The foot standing higher (the rear one up on its toe) steps first, then the other, each lifted through its move while
+  // the grounding (athlete-motion.js) keeps the lower one planted.
+  const LEGS = ['hipR', 'knR', 'hipL', 'knL'], planted = LEGS.map(() => new THREE.Quaternion()), STEP = .5, _ql = new THREE.Quaternion(), XA = new THREE.Vector3(1, 0, 0);
+  const pos = skin.geometry.attributes.position, heels = [1, -1].map(side => Array.from({ length: pos.count }, (_, i) => i).filter(i => pos.getX(i) * side > .02 && pos.getY(i) < .03).sort((a, b) => pos.getY(a) - pos.getY(b)).slice(0, 24));
+  const soleY = k => { let y = Infinity; for (const i of heels[k]) y = Math.min(y, skin.localToWorld(skin.getVertexPosition(i, _v)).y); return y; };
+  let replant = STEP, lead = 'R';
   function sample(name, at) {
     const action = actions.get(name); if (!action) return;
-    if (active !== action) { previous?.stop(); previous = active; active = action; blend = phase === null ? 0 : 1; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
+    if (active !== action) {
+      if (phase === null && active && !/^(idle|celebrate|slump|walk|practice)/.test(active.getClip().name)) { LEGS.forEach((n, i) => planted[i].copy(joints[n].quaternion)); replant = 0; skin.skeleton.update(); lead = soleY(0) > soleY(1) ? 'R' : 'L'; }   // still the pose shown last frame
+      previous?.stop(); previous = active; active = action; blend = phase === null ? 0 : 1; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
     blend = Math.min(1, blend + frameDt / .22); active.setEffectiveWeight(blend); previous?.setEffectiveWeight(1 - blend); if (blend === 1) { previous?.stop(); previous = null; }
     action.paused = true; action.time = THREE.MathUtils.clamp(at, 0, action.getClip().duration - .00001); mixer.update(0);
   }
@@ -666,6 +676,13 @@ export function createGLTFCharacter(avatar) {
         restHands[side].visible = !throwingHand || !held;
       }
       overlay();
+      if (phase !== null || aiming || snapN > 0) replant = STEP;   // a new throw, the aim stance or a jump to a new spot take over
+      if (replant < STEP) {
+        replant += dt; const u = replant / STEP;
+        LEGS.forEach((n, i) => { const b = joints[n], w = n.endsWith(lead) ? smooth(0, .55, u) : smooth(.45, 1, u), lift = Math.sin(Math.PI * w);
+          _q.copy(b.quaternion); b.quaternion.copy(planted[i]).slerp(_q, w).multiply(_ql.setFromAxisAngle(XA, n.startsWith('kn') ? -.7 * lift : .35 * lift)); });
+        group.updateMatrixWorld(true);
+      }
       // the pelvis's travel through the throw (rootX/rootZ of the keys), faded in as the clip takes over from the aim stance
       let tx = 0, tz = 0;
       if (phase !== null && !kept) { const t = poseAt(keysFor(throwType.replace(/_left$/, '')), phase), w = 1 - coilW(); tx = (lefty ? -t.rootX : t.rootX) * w; tz = t.rootZ * w; }
