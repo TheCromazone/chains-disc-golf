@@ -58,20 +58,49 @@ Desktop: 1440x900 dpr 1 `--quality high`), all four courses, before on `7e1e53a`
   ms off / 21.95 on, lower quartile 18.44 / 16.65 (noise from ~11 other headless Chromes on the GPU; no measurable cost).
   Triangles and draw calls identical.
 
-## 3. Temporal: the putt's swipe snapped the whole frame
+## 3. Temporal: the putt's swipe snapped the whole frame (revised after verify)
 
 - **Problem.** Under the putt's locked lens the frame changed character the instant the swipe began: soft resolved edges and
   textures turned to raw MSAA (bushes speckled, bark lost its sharpen) in one frame (`putt-swipe-snap-before.jpg`, frames
   29 | 30 of the putt clip). Frame-to-frame change left of the athlete: 0.5 on held frames, 3.42 at the swipe.
 - **Cause.** `temporal.js` dropped its history and stopped the resolve and sharpen at once whenever `hold` went false
   (windup, release, flight), even with the camera still.
-- **Fix.** With the camera still, the history now hands over to the live frame over 12 frames, each taking an even share of
-  it, unjittered; after that the live frames keep the resolve's filter and the sharpen with no history (nothing moving can
-  streak). A moving camera still goes raw at once. Same cost as the aim frame before it. `test/temporal.test.mjs` updated.
-- **Result.** Largest step at the swipe 3.42 -> 1.28 (frames 30-35: 1.04 .70 .68 .94 .88 1.28, against ~0.9-1.1 of the arm's
-  own motion), `putt-swipe-snap-after.jpg`. No streaks on the arm in the hand-over frames.
+- **Fix (putts only).** With the camera still, the history hands over to the live frame over 3 frames, each taking an even
+  share of it, unjittered; after that the live frames keep the resolve's filter and the sharpen with no history (nothing
+  moving can streak). A moving camera still goes raw at once. `draw()` passes the hand-over only for `G.throwType === 'putt'`;
+  every other throw drops the history at the swipe exactly as before this round. Same cost as the aim frame before it.
+  `test/temporal.test.mjs`: the putt hand-over, and a still-camera drive that must drop its history.
+- **Why only putts, and why 3 frames (verify round).** The first version handed over across 12 frames for every throw under a
+  still camera. On the player's own swipe drive (60 fps, 150 and 300 ms swipes) the body turns to the lens while the history
+  still weighs 80-90%: the face, the jersey number, CHAINS and the arm doubled for ~12 frames (`drive-swipe-ghost.jpg`, middle
+  row), and the resolved-to-raw step only moved to the flight camera's first move (19.5% of pixels > 8/255 there, base 12.7%).
+  The same 12-frame ramp also doubled the jersey lettering on a player's own fast putt (83 and 150 ms swipes at 60 fps; the
+  bot's slow 0.9 s putt had hidden it): `putt-swipe-handover.jpg`, middle row. 5 frames still doubled it on the 83 ms swipe
+  (third frame, 40% history left); 3 frames end before the body has moved and are clean on both (bottom row).
+- **Result.** Share of pixels changing > 8/255, frame to frame (whole frame / left half), the swipe at frame 10 (60 fps) or 30
+  (30 fps):
+
+| clip | base (drop) | 12-frame hand-over (f47088e) | now (putt 3 frames, others drop) |
+|---|---|---|---|
+| player swipe drive, 150 ms, 60 fps: swipe frame | 18.6 / 18.6 | 1.9 / 0.4, then ghosting | 18.9 / 18.9 (= base) |
+| same, flight camera's first move (frame 32) | 12.7 / 11.1 | 19.5 / 18.8 | 12.7 / 11.0 (= base) |
+| player swipe putt, 150 ms, 60 fps: frames 10-12 | 21.2, 2.2, 4.4 | 1.7, 0.3, 0.9, then ghosting | 3.5, 3.0, 7.4 |
+| player swipe putt, 83 ms, 60 fps: frames 10-12 | 21.6, 5.8, 7.1 | 1.8, 2.1, 4.1, then ghosting | 3.6, 5.6, 10.2 |
+| bot putt, landscape 30 fps (capture-motion): frames 30-31 | 21.8, 3.6 | 1.8, 1.2 ... 7.5 at 35 | 8.9, 6.0 |
+| bot putt, portrait 30 fps: frames 30-31 | 24.8, 5.2 | (not captured) | 12.9, 10.4 |
+
+  The drive is back to base frame for frame (temporal history count 0 from the swipe, the same per-frame change profile on
+  the 150 and 300 ms swipes). The putt's one-frame snap becomes three smaller steps (the 30 fps clips step two game frames
+  per video frame, so the 50 ms hand-over spans 1.5 video frames there), with no doubling on the athlete.
+  `putt-swipe-snap-after.jpg` is frames 29 | 30 of the landscape putt clip. Held-frame stills are unchanged (Pine menu, flyover,
+  tee and putt identical to f47088e).
 
 ## Checked, nothing to fix
+
+- **The drive's swipe still snaps resolved -> raw (18.6% of pixels, as in base).** A history hand-over ghosts the body as it
+  turns to the lens, and a history-free live resolve held through the windup only moves the snap to the flight camera's
+  first move. Fixing it needs per-pixel motion (a velocity pass for the athletes) or a resolve that also runs on moving
+  frames; both cost Mobile frame time, so it is left for a measured round.
 
 - **3D/impostor tree swap (40 m on Mobile).** A walk-up across the threshold (0.5 m steps, three trees) shows no step above
   the motion's own change (max/median 1.15-1.28, peaks not at the swap); the impostors are renders of the same model.
