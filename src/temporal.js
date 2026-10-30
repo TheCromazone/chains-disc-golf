@@ -65,23 +65,28 @@ export function createTemporal() {
         o=mix(o,bl/10.,k); }
       gl_FragColor=vec4(DBG?vec3(k):o,1.); }` }));
   const lastW = new THREE.Matrix4(), lastP = new THREE.Matrix4(), held = new THREE.Matrix4(), size = new THREE.Vector2();
-  // Action in front of a held lens (hold false: a putt's swipe, windup and flight under its locked camera, a drive's windup)
-  // no longer drops to the raw MSAA frame: the whole frame snapped from resolved and sharpened to raw as the swipe began, 7x
-  // the frame-to-frame change of the held frames round it (r4, putt clip frame 30), most of it the sharpen. The history hands
-  // over to the live frame over FADE frames, unjittered (the arm is still slow there), then the frame keeps the resolve's filter
-  // and the sharpen with no history, so nothing moving can streak. Costs what the aim frame before it did.
-  const FADE = 12;
+  // A putt (ease: its swipe, windup and flight under the locked lens) no longer drops to the raw MSAA frame: the whole frame
+  // snapped from resolved and sharpened to raw as the swipe began (21% of pixels moved > 8/255 in that one frame, r4 putt
+  // clip). The history hands over to the live frame over FADE frames, unjittered, then the frame keeps the resolve's filter
+  // and the sharpen with no history, so nothing moving can streak. Costs what the aim frame before it did. FADE is 3 because
+  // the hand-over has to end before the body moves: over 12 (5) frames the history still held 75% (40%) four (three) frames
+  // in and doubled the jersey lettering on a player's own 150 ms (83 ms) putt swipe at 60 fps; 3 is clean on both and still
+  // splits the step into three of under 10%. Every other throw drops the history at once: a drive's windup turns the whole
+  // body to the lens (the 12-frame hand-over doubled the face, the number and the arm, r4 verify), and a live resolve kept
+  // through it only moved the snap to the flight camera's first move.
+  const FADE = 3;
   let n = 0, fade = 0, w = 0, h = 0, cur = null, hist = null;
   const draw = (renderer, quad) => { const auto = renderer.autoClear; renderer.autoClear = false; quad.render(renderer); renderer.autoClear = auto; };
   const t = {
     get frames() { return n; },
-    // Call with the frame's final, unjittered camera; hold false drops the history (fast action in front of a held camera).
+    // Call with the frame's final, unjittered camera; hold false drops the history (fast action in front of a held camera),
+    // unless ease (a putt): then it hands over to the live frame (see FADE).
     // Returns true when the camera holds still: the frame is jittered (or live, see FADE) and goes through the resolve.
-    begin(renderer, camera, hold = true) {
+    begin(renderer, camera, hold = true, ease = false) {
       renderer.getDrawingBufferSize(size); camera.updateMatrixWorld();
       const steady = size.x === w && size.y === h && !moved(camera.matrixWorld.elements, lastW.elements) && !moved(camera.projectionMatrix.elements, lastP.elements);
       w = size.x; h = size.y; lastW.copy(camera.matrixWorld); lastP.copy(camera.projectionMatrix);
-      if (hold && steady) { n++; fade = 0; } else if (steady && n) { n++; fade = Math.min(fade + 1, FADE); } else n = fade = 0;
+      if (hold && steady) { n++; fade = 0; } else if (ease && steady && n) { n++; fade = Math.min(fade + 1, FADE); } else n = fade = 0;
       if (!n) return false;
       const [jx, jy] = fade ? [0, 0] : JITTER[n % JITTER.length], e = camera.projectionMatrix.elements; held.copy(camera.projectionMatrix);
       e[8] += jx * 2 / w; e[9] += jy * 2 / h; camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();

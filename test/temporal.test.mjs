@@ -13,11 +13,17 @@ assert.equal(t.begin(renderer, cam), false); t.end(cam);
 assert.equal(t.begin(renderer, cam), true); assert(!cam.projectionMatrix.equals(p0)); t.end(cam); assert(cam.projectionMatrix.equals(p0));
 assert.equal(t.begin(renderer, cam), true); t.end(cam); assert.equal(t.frames, 2);
 cam.position.x += .01; assert.equal(t.begin(renderer, cam), false); t.end(cam); assert.equal(t.frames, 0); assert(cam.projectionMatrix.equals(p0));
-// Action in front of a held camera (hold false) hands the history over to the live frame over a few frames (a one-frame drop
-// snapped the whole putt frame from resolved to raw as the swipe began) and keeps the resolve's filter, never jittered; a
-// camera that moves goes raw at once.
+// A putt in front of its held camera (hold false, ease) hands the history over to the live frame over a few frames (a
+// one-frame drop snapped the whole putt frame from resolved to raw as the swipe began) and keeps the resolve's filter, never
+// jittered; a camera that moves goes raw at once.
 t.begin(renderer, cam); t.end(cam); t.begin(renderer, cam); t.end(cam);
-for (let i = 0; i < 30; i++) { assert.equal(t.begin(renderer, cam, false), true); assert(cam.projectionMatrix.equals(p0), 'hand-over and live frames are not jittered'); t.end(cam); }
-cam.position.x += .01; assert.equal(t.begin(renderer, cam, false), false); t.end(cam); assert.equal(t.frames, 0);
-assert.equal(t.begin(renderer, cam, false), false, 'live action needs a history to hand over from'); t.end(cam);
+for (let i = 0; i < 30; i++) { assert.equal(t.begin(renderer, cam, false, true), true); assert(cam.projectionMatrix.equals(p0), 'hand-over and live frames are not jittered'); t.end(cam); }
+cam.position.x += .01; assert.equal(t.begin(renderer, cam, false, true), false); t.end(cam); assert.equal(t.frames, 0);
+assert.equal(t.begin(renderer, cam, false, true), false, 'live action needs a history to hand over from'); t.end(cam);
+// Any other throw (a drive's windup turns the whole body to the lens and doubled under the history) drops it at once, camera
+// still or not, and the next held frame starts a fresh history.
+t.begin(renderer, cam); t.end(cam); assert.equal(t.begin(renderer, cam), true); t.end(cam); assert(t.frames > 0);
+assert.equal(t.begin(renderer, cam, false), false, 'a still-camera drive drops the history'); assert(cam.projectionMatrix.equals(p0)); t.end(cam); assert.equal(t.frames, 0);
+assert.equal(t.begin(renderer, cam, false), false); t.end(cam); assert.equal(t.frames, 0);
+assert.equal(t.begin(renderer, cam), true); t.end(cam); assert.equal(t.frames, 1);
 console.log('Temporal resolve: Halton jitter in-pixel and centred, jitter only on held frames, projection restored.');
