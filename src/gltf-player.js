@@ -538,7 +538,7 @@ export function createGLTFCharacter(avatar) {
   // The menu hero, whose disc holdDisc carries outside any throw (carry()), gets the cover-shot pose instead; bystanders,
   // who hold no visible disc, keep the relaxed idle clip rather than raising an empty hand. ponytail: inferred rather than
   // a setStance() call because main.js is shared; add the call if a second consumer needs the state.
-  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand', clapFor = 0, clapW = 0, dismayW = 0;
+  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand', clapFor = 0, clapW = 0, dismayW = 0, snapN = 0;
   // The mixer writes a bone only when its sampled value differs from the last one it wrote (PropertyMixer.apply), so while a
   // swipe holds still every bone keeps last frame's overlays and the overlays land on top of them again: the backhand's
   // quarter-turn forearm roll spun the hand 90° a frame late in the windup, the gaze and the leg scale crept. Each update
@@ -624,6 +624,10 @@ export function createGLTFCharacter(avatar) {
     gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c)); nrm.copy(s.n).transformDirection(forearm.matrixWorld); } return w; },   // holdDisc: the disc seated in the gripping hand, and how much of it to use
     carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
     setGround: fn => motion.setGround(fn),
+    // main.js moved him to a new spot (a turn's lie, a parked bystander): whatever he stands in there shows at once. The aim stance
+    // used to cross-fade in over ~.3 s after the jump, both feet skating 30-40 cm across the tee into it at every turn's start.
+    // Three frames: the stance is only known once faceDir has steered two frames running (aiming, above)
+    snap() { snapN = 3; motion.snap(); },
     lookAt: value => motion.lookAt(value),
     react(kind) { if (kind === 'clap') { clapFor = 2.6; return; } mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
@@ -641,8 +645,9 @@ export function createGLTFCharacter(avatar) {
       if (LIVE && phase !== null) { let pose = poseAt(keysFor(throwType.replace(/_left$/, '')), phase); if (lefty) pose = mirrorPose(pose); pose.rootY = -Math.min(...soleHeights(pose, false, RIGS.glb)); blendTo(pose, 1); }
       // the stance weight holds through the whole windup (a swipe pulled back under STANCE_FADE eases back into the coil
       // instead of popping onto the bare clip) and lets go once the release starts
-      readyW = aiming ? Math.min(1, readyW + dt / .22) : runUp() ? 0 : phase !== null && phase <= .5 ? readyW : Math.max(0, readyW - dt / .22);
-      heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
+      const fade = snapN > 0 ? 1e3 : dt; if (snapN > 0) snapN--;   // just placed (snap()): the stance he takes there shows at once
+      readyW = aiming ? Math.min(1, readyW + fade / .22) : runUp() ? 0 : phase !== null && phase <= .5 ? readyW : Math.max(0, readyW - fade / .22);
+      heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + fade / .35) : Math.max(0, heroW - fade / .35);
       dismayW = mood?.name.startsWith('slump') ? smooth(0, .28, mood.t) * (1 - smooth(1.15, 1.7, mood.t)) : 0;
       clapFor = Math.max(0, clapFor - dt); clapW = clapFor > 0 && phase === null && !mood && !aiming ? Math.min(1, clapW + dt / .25) : Math.max(0, clapW - dt / .3);
       // the disc hand hooks round the rim while it holds one (a bystander's hands hang open) and lets go just after release;

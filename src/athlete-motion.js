@@ -6,7 +6,7 @@ import * as THREE from 'three';
 export function createAthleteMotion({ joints, actor, skin, group }) {
   const bones = Object.values(joints), last = bones.map(b => b.quaternion.clone());
   const from = last.map(q => q.clone()), root = joints.root;
-  let mode = null, transition = 1, lastY = root.position.y, fromY = lastY;
+  let mode = null, transition = 1, lastY = root.position.y, fromY = lastY, snapN = 0;
   let ground = null, gaze = null, gazeYaw = 0, gazePitch = 0;
   const point = new THREE.Vector3(), target = new THREE.Vector3(), q = new THREE.Quaternion(), euler = new THREE.Euler();
   // Heel, toe and both sides of each sole, sampled from each figure's own mesh.
@@ -27,13 +27,14 @@ export function createAthleteMotion({ joints, actor, skin, group }) {
   return {
     setGround(fn) { ground = fn; },
     lookAt(value) { gaze = value ? target.copy(value) : null; },
+    snap() { snapN = 4; },   // just placed somewhere new: the poses of the next few frames show at once, no cross-fade from where he stood
     update(dt, nextMode, phase) {
       if (mode !== nextMode) {
         from.forEach((q, i) => q.copy(last[i])); fromY = lastY;
         transition = mode === null || phase !== null ? 1 : 0;
         mode = nextMode;
       }
-      transition = Math.min(1, transition + Math.max(0, dt) / .32);
+      transition = snapN > 0 ? (snapN--, 1) : Math.min(1, transition + Math.max(0, dt) / .32);
       if (transition < 1) {
         const t = transition * transition * (3 - 2 * transition);
         bones.forEach((b, i) => { q.copy(b.quaternion); b.quaternion.copy(from[i]).slerp(q, t); });

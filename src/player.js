@@ -97,7 +97,7 @@ export function createCharacter(opts = {}) {
   const cur = {}; for (const j of JOINTS) cur[j] = [...IDLE[j]]; cur.rootY = 0;
   let throwType = 'backhand', phase = null, time = idlePhase() * 10, mood = null, locomotion = null;
   let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, aimType = 'backhand';   // aiming = faceDir steered and the disc gripped for a throw every frame; the cover shot needs a carried disc (see gltf-player.js)
-  let kept = false;   // keepTravel(): the throw's travel moved into the group's position
+  let kept = false, snapN = 0;   // keepTravel(): the throw's travel moved into the group's position; snapN: snap() frames left
   const apply = () => { for (const j of JOINTS) joints[j].rotation.set(cur[j][0], cur[j][1], cur[j][2]); root.position.set(0, ROOT_Y + cur.rootY, 0); };
   const frames = new Map(), _gi = new THREE.Quaternion();
   function releaseFrame(t) {
@@ -122,6 +122,7 @@ export function createCharacter(opts = {}) {
     play(name) { locomotion=name;phase=null;mood=null;time=0; },
     getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },
     carry() { carryHit = true; },
+    snap() { snapN = 3; },   // moved to a new spot: the pose there shows at once (gltf-player.js)
     update(dt) {
       time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false; carries = carryHit ? carries + 1 : 0; carryHit = false;
       let target;
@@ -136,7 +137,7 @@ export function createCharacter(opts = {}) {
         else if(mood) { mood.t+=dt;const strength=Math.sin(Math.min(1,mood.t/2.4)*Math.PI);if(mood.name==='celebrate'){target.shR[0]=2.9*strength;target.shL[0]=2.9*strength;target.elR[0]=.4;target.elL[0]=.4;target.rootY=.1*strength;}else{target.spine[0]=.28*strength;target.head[0]=.35*strength;target.shR[0]=.1;}if(mood.t>=2.4)mood=null; }
       } else target = poseAt(keysFor(throwType), phase);
       if (lefty) target = mirrorPose(target);
-      const k = phase === null ? 1 - Math.exp(-7 * dt) : 1; // phase is already eased by the shared key sampler
+      const k = phase === null && !(snapN > 0 && snapN--) ? 1 - Math.exp(-7 * dt) : 1; // phase is already eased by the shared key sampler; just placed (snap()): at once
       for (const j of JOINTS) for (let i = 0; i < 3; i++) cur[j][i] += (target[j][i] - cur[j][i]) * k;
       cur.rootY += (target.rootY - cur.rootY) * k;
       apply();

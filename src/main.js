@@ -423,7 +423,7 @@ function startHole() {
     const row = Math.floor(i / 4), col = i % 4;
     const sx = h.tee[0] - d[0] * (1.2 + col * 1.3) - r[0] * (2.8 + row * 1.5), sz = h.tee[1] - d[1] * (1.2 + col * 1.3) - r[1] * (2.8 + row * 1.5);
     p.char.group.position.set(sx, world.height(sx, sz), sz);
-    p.char.faceDir(d[0], d[1]); p.char.setPhase(null);
+    p.char.faceDir(d[0], d[1]); p.char.setPhase(null); p.char.snap?.();
     ensureDisc(p, p.discId || 'driver'); p.discMesh.visible = false;
   });
   UI.setHud({ hole: G.holeIdx + 1, par: h.par, len: h.len, dist: h.len, throwNo: 'Tee', playerName: '' });
@@ -468,7 +468,8 @@ function parkOthers(idx) {
     const x0 = x, z0 = z;
     for (let k = 1; k < 8 && taken.some(([tx, tz]) => Math.hypot(tx - x, tz - z) < 1.1); k++) { x = x0 + r[0] * 1.3 * k; z = z0 + r[1] * 1.3 * k; }
     taken.push([x, z]);
-    q.char.group.position.set(x, world.height(x, z), z); q.char.faceDir(d[0], d[1]); q.char.setPhase(null);
+    const moved = Math.hypot(q.char.group.position.x - x, q.char.group.position.z - z) > .3;
+    q.char.group.position.set(x, world.height(x, z), z); q.char.faceDir(d[0], d[1]); q.char.setPhase(null); if (moved) q.char.snap?.();   // a jump to a new spot: no cross-fade sliding his feet into the stance there
   });
 }
 function setupTurn(idx) {
@@ -476,6 +477,7 @@ function setupTurn(idx) {
   const p = G.players[idx]; G.cur = idx;
   const lie = p.lie, dist = distToBasket(lie[0], lie[2]);
   G.aim.yaw = Math.atan2(basketPos()[1] - lie[2], basketPos()[0] - lie[0]); G.aim.pitch = 0;
+  if (Math.hypot(p.char.group.position.x - lie[0], p.char.group.position.z - lie[2]) > .3) p.char.snap?.();   // walked to the lie off camera: he arrives in his aim stance instead of skating into it
   p.char.group.position.set(lie[0], world.height(lie[0], lie[2]), lie[2]);
   p.char.setPhase(null);
   parkOthers(idx);
