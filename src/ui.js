@@ -90,7 +90,7 @@ export function react(kind) {
 let releaseTimer = null;
 export function releaseTag(power, wobble, pull) {
   const el = $('releaseTag'), grade = wobble < .15 ? 'perfect' : wobble < .4 ? 'good' : 'wobbly';
-  el.textContent = `${Math.round(power * 100)}% · ${pull < 0 ? '−' : '+'}${Math.abs(pull).toFixed(1)}° · ${grade} release`;
+  el.textContent = `${Math.round(power * 100)}% · ${pull < -.05 ? '−' : '+'}${Math.abs(pull).toFixed(1)}° · ${grade} release`;
   el.className = 'show ' + grade; clearTimeout(releaseTimer); releaseTimer = setTimeout(() => { el.className = grade; }, 1700);
 }
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }

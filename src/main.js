@@ -869,9 +869,10 @@ AIM.puttS = { ...AIM.putt, back: 2.3, side: 1.2, hi: 1.9, hfov: 50, eye: .6, ban
 // pushed his arm out of the right edge. Further back on a taller lens he stands whole, feet to head, in the right third over
 // the swipe pad (ui.css landscape split), with the line and the pin left of centre.
 // r4 QA: from .95 m aside, looking straight down the line, his reach-back and hip stood under the swipe hint and the release
-// grade at 53-60%, and his feet ran off the bottom edge. 1.35 m aside, turned 4.3 degrees right and tipped 1.5 more, he
-// stands at x .63-.75 with his feet on the frame (.96) and the pin moves left of centre (.46), the labels hanging between.
-AIM.driveS = { back: 3.4, side: 1.35, up: 1.55, pitch: 6.5, yaw: 4.3, vfov: 38 };   // a short phone: the swipe pill and ring fill the lower third's middle
+// grade at 53-60%, and his feet ran off the bottom edge. 1.2 m aside, turned 3 degrees right and tipped 1 more, he stands at
+// x .62-.74 with his feet on the frame (.98) and the pin moves left of centre (.47), the labels hanging between. (1.35 m and 4.3
+// degrees put him at .63-.75 but brought Pine 1's cart and tent into view: 7 more draw calls on a phone.)
+AIM.driveS = { back: 3.4, side: 1.2, up: 1.55, pitch: 6, yaw: 3, vfov: 38 };   // a short phone: the swipe pill and ring fill the lower third's middle
 // A lie beside a trunk, a tent or a banner: the rig's spot behind the shoulder could stand inside it or behind it (QA on an
 // iPhone: a birch trunk filled two thirds of a putt's frame; on a desktop the same lie looked at the back of a feather flag
 // over the athlete). Each lie scores the rig's spot and its alternatives (the mirror side, a wider or narrower shoulder, a step
@@ -969,10 +970,6 @@ function runCamSide(lie, d) {
     const crowd = G.players.some(q => q !== curP() && (Math.hypot(q.char.group.position.x - x, q.char.group.position.z - z) < 2.2 || seg(q.char.group.position.x, q.char.group.position.z) < .7));
     // and the built props themselves (tee signs, benches, banners): rays from the lens to the athlete's chest along his run-up
     let props = 0; for (const s of [0, .75, 1.5]) { _v.set(lie.x - d[0] * s, lie.y + 1.2, lie.z - d[1] * s); _v2.set(x, y, z); _ray.far = _v2.distanceTo(_v); _ray.set(_v2, _v.sub(_v2).normalize()); if (_ray.intersectObjects(course.props || [], false).length) props++; }
-    // and none standing in the frame's sides within 4 m of the lens (r4 QA, a phone on its side: Pine 1's tee sign filled the
-    // right fifth of every bot's run-up from the chest side, clear of the line to him)
-    const hw = Math.atan(Math.tan((camera.aspect < 1.2 ? C.fov : C.wide) * DEG / 2) * camera.aspect) * .7;
-    for (const sg of [-1, 1]) { _v2.set(x, y, z); _v.set(lie.x - x, 0, lie.z - z).normalize().applyAxisAngle(UP, sg * hw); _ray.far = 4; _ray.set(_v2, _v); if (_ray.intersectObjects(course.props || [], false).length) props += .5; }
     return clearFraction(world, lie.x, head, lie.z, x, y, z, .3, .15) + clearFraction(world, lie.x - d[0] * 1.5, head, lie.z - d[1] * 1.5, x, y, z, .3, .15) - (lens.some(m => m < 1.4) ? 1 : 0) - (crowd ? 1.5 : 0) - props * .8;
   };
   const chest = score(fore), arm = score(-fore); runCam.key = key; runCam.side = chest >= arm - .1 ? fore : -fore; return runCam.side;

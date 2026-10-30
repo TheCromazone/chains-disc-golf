@@ -403,7 +403,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #powerLabel { bottom: calc(44px + var(--sab)); font-size: 13px; }
   #pad { padding-bottom: calc(84px + var(--sab)); }
   #toast { top: 18%; }
-  body[data-phase='aim'] #toast { left: 38%; max-width: 48%; } body[data-phase='aim'] #toast b { font-size: 40px; }   /* pass & play's "Ben's throw" on one line over the fairway: at 60 px it broke in two across the middle and onto the athlete */
+  body[data-phase='aim'] #toast { top: 24%; left: 41%; max-width: 44%; } body[data-phase='aim'] #toast b { font-size: 40px; }   /* pass & play's "Ben's throw" on one line over the fairway: at 60 px it broke in two across the middle and onto the athlete */
   .overlay.hub { align-items: flex-start; justify-content: flex-start; padding-left: 12px; padding-top: calc(72px + var(--sat)); }
   .overlay.hub .panel { width: min(360px, 52%); max-height: 100%; }
   /* a landscape phone has ~300px under the brand: the whole card fits without scrolling */
@@ -509,7 +509,8 @@ body[data-phase='result'] #releaseTag, body[data-phase='aim'] #releaseTag { disp
   body[data-phase='flight'] #toast { top: calc(104px + var(--sat)); } #releaseTag { bottom: calc(102px + var(--sab)); font-size: 13px; }
   #conditions { top: calc(66px + var(--sat)); bottom: auto; }
   body[data-phase='flight'] #conditions, #hud:has(#btnUtilities[aria-expanded='true']) #conditions { visibility: hidden; }
-  body[data-phase='result'] #hud.verdict-left #toast, body[data-phase='result'] #hud.verdict-left #react { left: 36%; width: 66%; }   /* the held putt frame stands him on the right (ui.js verdictSide) */
+  body[data-phase='result'] #hud.verdict-left #toast, body[data-phase='result'] #hud.verdict-left #react { left: 36%; width: 66%; }   /* the held putt frame stands him on the right (ui.js verdictSide), its mirrored rig on the left */
+  body[data-phase='result'] #hud.verdict-right #toast, body[data-phase='result'] #hud.verdict-right #react { left: 64%; width: 66%; }
 }
 @media (orientation: portrait) and (min-width: 900px) { #conditions { top: calc(76px + var(--sat)); } }
 /* Out of bounds, your own throw (ui.js obChoice): DGM's Rethrow / Move to lie as two dark glass pills at the foot of the frame,
