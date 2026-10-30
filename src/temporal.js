@@ -68,8 +68,8 @@ export function createTemporal() {
   // Action in front of a held lens (hold false: a putt's swipe, windup and flight under its locked camera, a drive's windup)
   // no longer drops to the raw MSAA frame: the whole frame snapped from resolved and sharpened to raw as the swipe began, 7x
   // the frame-to-frame change of the held frames round it (r4, putt clip frame 30), most of it the sharpen. The history hands
-  // over to the live frame over FADE frames (the arm is still slow there), then the frame keeps the resolve's filter and the
-  // sharpen with no history and no jitter, so nothing moving can streak. Costs what the aim frame before it did.
+  // over to the live frame over FADE frames, unjittered (the arm is still slow there), then the frame keeps the resolve's filter
+  // and the sharpen with no history, so nothing moving can streak. Costs what the aim frame before it did.
   const FADE = 12;
   let n = 0, fade = 0, w = 0, h = 0, cur = null, hist = null;
   const draw = (renderer, quad) => { const auto = renderer.autoClear; renderer.autoClear = false; quad.render(renderer); renderer.autoClear = auto; };
@@ -83,7 +83,7 @@ export function createTemporal() {
       w = size.x; h = size.y; lastW.copy(camera.matrixWorld); lastP.copy(camera.projectionMatrix);
       if (hold && steady) { n++; fade = 0; } else if (steady && n) { n++; fade = Math.min(fade + 1, FADE); } else n = fade = 0;
       if (!n) return false;
-      const [jx, jy] = fade < FADE ? JITTER[n % JITTER.length] : [0, 0], e = camera.projectionMatrix.elements; held.copy(camera.projectionMatrix);
+      const [jx, jy] = fade ? [0, 0] : JITTER[n % JITTER.length], e = camera.projectionMatrix.elements; held.copy(camera.projectionMatrix);
       e[8] += jx * 2 / w; e[9] += jy * 2 / h; camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
       u.uTexel.value.set(1 / w, 1 / h); u.uJit.value.set(jx, jy); u.uSeed.value = n % 97;
       u.uAlpha.value = n === 1 ? 1 : Math.max(1 / n, .1, fade && 1 / (FADE + 1 - fade));   // the hand-over takes an even share of the history each frame (a linear ramp left most of it to the last two)
