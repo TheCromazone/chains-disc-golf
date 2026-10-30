@@ -13,9 +13,7 @@ import { createShotGuide } from './shot-guide.js';
 import { suggestPower, basketLine, puttPower } from './shot-planning.js';
 import { createFlightTrail } from './flight-trail.js';
 import { createTemporal } from './temporal.js';
-import { Line2 } from 'three/addons/lines/Line2.js';
-import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { createAimLine } from './aim-line.js';
 import { setupInput } from './input.js';
 import { createCoach } from './coach.js';
 import { planBotThrow } from './bot.js';
@@ -118,39 +116,18 @@ let post = null, postEnabled = true, resolutionScale = 1, frameAverage = 1/60, f
 const forcedDpr = +new URLSearchParams(location.search).get('dpr') || 0;   // QA: a fixed pixel ratio (e.g. a supersampled ground truth for the aliasing metric)
 const lineMats = [];   // screen-space line materials that need the framebuffer size
 const resize = () => { if (!innerWidth || !innerHeight) return;   // a page opened in a background tab (or a hidden pane) reports 0x0: an aspect of 0/0 poisoned the camera with NaN for good
-  renderer.setPixelRatio(forcedDpr || Math.min(devicePixelRatio, 2, Math.sqrt((isMobile ? 2100000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); /* phones render at 2x (1.5x on a 3x screen read as soft stair-steps; the 2.1 M pixel cap keeps a 960 x 540 view at exactly 2x, 1.8 M gave 1.86x resampled up to the screen); the frame-budget scaler sheds pixels on slow ones */ renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) { m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); if (m.userData.css) m.linewidth = m.userData.css * renderer.getPixelRatio(); } };   // widths in CSS px: a phone's 2x buffer had halved them
+  renderer.setPixelRatio(forcedDpr || Math.min(devicePixelRatio, 2, Math.sqrt((isMobile ? 2100000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); /* phones render at 2x (1.5x on a 3x screen read as soft stair-steps; the 2.1 M pixel cap keeps a 960 x 540 view at exactly 2x, 1.8 M gave 1.86x resampled up to the screen); the frame-budget scaler sheds pixels on slow ones */ renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) { m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); m.uniforms.px.value = renderer.getPixelRatio(); } };   // widths in CSS px: a phone's 2x buffer had halved them
 addEventListener('resize', resize); resize();
 
 let course, world, holes, effects = null;
 const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos: new THREE.Vector3(), tLook: new THREE.Vector3(), mode: 'menu', lastHv: new THREE.Vector3(0, 0, -1), fov: 58 };
-// Flight preview: a screen-space dashed ribbon (readable at any pixel ratio) over a dark outline, and a ground
-// arrow at the lie that turns with the aim. The dashes flow toward the basket so the direction reads at a glance.
-// Widths are CSS px (userData.css, scaled by the pixel ratio in resize()): set in buffer px, the line on a phone's 2x buffer was
-// half the desktop's, a 1.6 pt thread that vanished over busy foliage (a blind critique, 2026-10-17).
-const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false }); previewMat.userData.css = isMobile ? 3.3 : 3.7;
-const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .5, depthTest: false, depthWrite: false }); previewEdge.userData.css = isMobile ? 6.3 : 6.9;
-// Dash ends as one-pixel coverage ramps instead of LineMaterial's per-pixel discard: MSAA never smooths a discard and the
-// flowing dashes defeat the temporal resolve, so every dash ended in a stair step (gauntlet r2 crisp: "stepped ends on the dashed arc")
-// Each dash is a rounded box measured in screen px from the line's coordinates, every side fading over its last pixel inside
-// the quad (widths are .5 css px up to keep the weight). The flowing dashes never settle in the temporal resolve, so their
-// sides were MSAA-only and their square corners sat along a curve like a staircase (gauntlet r3 crisp, all four critics: "the
-// dashed flight line steps along its diagonal edges"). DASH_R: the corner radius over the line's half-width, .6 of the white's
-// for both lines (rounded, never pills, which read as a line broken into dots), so the dark edge's corners ring the white's.
-previewMat.defines.DASH_R = '.6'; previewEdge.defines.DASH_R = (.6 * previewMat.userData.css / previewEdge.userData.css).toFixed(3);
-for (const m of [previewMat, previewEdge]) m.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader
-  .replace('if ( mod( vLineDistance + dashOffset, dashSize + gapSize ) > dashSize ) discard;', '')
-  .replace('float alpha = opacity;', `float alpha = opacity;
-    #ifdef USE_DASH
-    { float dp = mod( vLineDistance + dashOffset, dashSize + gapSize ), fl = max( fwidth( vLineDistance ), 1e-5 ), hw = 1. / max( fwidth( vUv.x ), 1e-5 );   // hw: half the line's width, px
-      float e = ( dp < dashSize ? min( dp, dashSize - dp ) : - min( dp - dashSize, dashSize + gapSize - dp ) ) / fl, r = min( hw * DASH_R, .5 * dashSize / fl );   // e: px inside the dash
-      vec2 q = vec2( r - e, abs( vUv.x ) * hw - hw + r );
-      alpha *= clamp( r - length( max( q, 0. ) ) - min( max( q.x, q.y ), 0. ), 0., 1. );
-      if ( alpha <= 0. ) discard; }
-    #endif`); };
-const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();
+// Flight preview: a screen-space ribbon (aim-line.js: a white core in a soft dark halo, tapering with depth, readable at any
+// pixel ratio) and a ground arrow at the lie that turns with the aim. A drive's core swells slowly toward the basket so the
+// direction reads at a glance.
+const preview = new THREE.Group(); preview.visible = false; scene.add(preview);
+const aimLine = createAimLine(preview), previewMat = aimLine.material; lineMats.push(previewMat); resize();
 const shotGuide = createShotGuide(preview);
 const trail = createFlightTrail(scene);
-const previewLines = [previewEdge, previewMat].map((m, i) => { const l = new Line2(new LineGeometry(), m); l.frustumCulled = false; l.renderOrder = 5 + i; preview.add(l); return l; });
 const aimArrow = (() => {
   const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(.34, -.42); shape.lineTo(.12, -.36); shape.lineTo(.12, -1.15); shape.lineTo(-.12, -1.15); shape.lineTo(-.12, -.36); shape.lineTo(-.34, -.42); shape.closePath();
   // depth tested (the athlete's legs stand in front of it from the tee camera; drawn over everything it cut across his shorts), lifted off the turf by polygon offset
@@ -799,18 +776,21 @@ function updatePreview() {
   // A drive's ribbon starts 1.5 m out, at his shoulder, instead of slashing across his back. A putt's leaves his hand, depth tested:
   // from behind his shoulder its first metre runs behind his body, so it emerges from him instead of dropping in from the upper
   // right (its first 1.5 m, rising, sat over his head in the putt lens) or painting over him.
-  for (const m of [previewMat, previewEdge]) m.depthTest = !assist;
+  previewMat.depthTest = !assist;
   // A putt's line stops ~1.7 m short of the pole, pointing into the chains: run on into the cage its last dashes crossed the
   // band and chains, 'a row of white dashes cutting through the top of the basket' (r3 camera), and the basket is the target.
   // 1.2 m still left a stub over the chains' near edge: the line closes on the cage from the lens's side, so its last metres
   // project onto it.
   const lie = curP().lie, pts = (guided ? r.traj : assist ? r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))) : basketLine(o, world).traj.filter((q, i) => i < 2 || distToBasket(q[0], q[2]) > 1.7)).filter((q, i, a) => i >= a.length - 2 || !assist || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);
-  const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
-  for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); l.visible = !(G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4); }   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the ground arrow aims it
-  previewMat.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
+  // Faded in where it leaves him (a drive's 1.5 m out at the shoulder, a putt's at the hand) and out where it stops: a guided
+  // drive's runs on into its landing ring at half strength, a swiped drive's 70% fades away (the flight goes on), a putt's dies
+  // into the chains.
+  aimLine.set(pts, guided ? { fadeIn: 1.5, fadeOut: 4, end: .5, swell: .3 } : assist ? { fadeIn: 1.5, fadeOut: 12, end: 0, swell: .3 } : { fadeIn: .8, fadeOut: 1.2, end: .15 });
+  if (G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4) aimLine.mesh.visible = false;   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the ground arrow aims it
+  aimLine.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
   const p = curP(), d = aimDir(), ax = p.lie[0] + d[0] * 1.15, az = p.lie[2] + d[1] * 1.15, n = world.normal ? world.normal(ax, az) : [0, 1, 0];
   aimArrow.position.set(p.lie[0] + d[0] * 1.7, world.height(p.lie[0] + d[0] * 1.7, p.lie[2] + d[1] * 1.7) + .04, p.lie[2] + d[1] * 1.7);
-  aimArrow.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]).normalize()).multiply(_q0.setFromAxisAngle(UP, Math.atan2(-d[0], -d[1]))); aimArrow.material.color.copy(previewMat.color);   // laid on the slope, so the depth test never buries its tail   // tip 1.7 m out, pointing down the aim (it used to point back at the player)
+  aimArrow.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]).normalize()).multiply(_q0.setFromAxisAngle(UP, Math.atan2(-d[0], -d[1]))); aimArrow.material.color.copy(aimLine.color);   // laid on the slope, so the depth test never buries its tail   // tip 1.7 m out, pointing down the aim (it used to point back at the player)
 }
 
 // ---------- camera ----------
@@ -1330,7 +1310,7 @@ function frame(dt, rawDt, background) {
   if (!G.flight && G.phase !== 'result') nearFocus.copy(focus);
   course.update(dt, time, focus, camera.position, nearFocus);
   puffs.update(dt, camera, renderer); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera, !G.flight && cam.mode === 'aim' && G.throwType === 'putt');   // held only over a putt: there the level lens puts a ribbon straight across the basket at flag height
-  if (G.throwType !== 'putt') previewMat.dashOffset -= dt * 1.6; previewEdge.dashOffset = previewMat.dashOffset;   // a putt's dashes hold still (its direction is the basket): flowing, the held frame's temporal resolve averaged them into one thin white arc, broken by the bushes ('floating white arcs that look like rendering glitches', r3 d-look)
+  if (G.throwType !== 'putt') aimLine.advance(dt);   // a putt's line holds still (its direction is the basket)
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   trail.update(camera, !!G.flight);
