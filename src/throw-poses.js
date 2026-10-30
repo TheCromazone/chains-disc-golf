@@ -195,9 +195,11 @@ export const STANCE = {
 // Cover-shot idle for the menu tee and bystanders: weight over the right leg, the left knee soft with its toe still on the
 // ground, the left hand on the hip, the disc carried at hip height on a soft elbow, head level. (r3 menu critics: "stiff,
 // near A-pose with arms hanging straight", "the pink disc dangles at the bottom edge", against the reference's hand-on-hip
-// athlete.) The hip hand's shoulder is abduct -.8, twist -1.4 inward, extend -.35, composed Z-Y-X and read back as XYZ.
+// athlete.) r4 athlete: that hip arm held the upper arm out level with the elbow ~44 cm off the spine and the forearm hanging
+// to a hand 10 cm clear of the waist, palm turned back ("a rubber noodle"). Solved on the m2 rig: the elbow out, down and
+// ~10 cm behind the shoulder, the wrist on the side of the waist above the hem, the forearm rolled (elL y) so the palm faces in.
 // Right-handed; callers mirror. Absolute joint values, breathing sway added per frame.
-const HERO = { root: [0, .08, -.02], spine: [.02, -.06, .03], head: [.02, .12, -.02], shR: [.12, -.10, .14], elR: [.75, 0, 0], shL: [-1.396, -.41, -1.441], elL: [1.75, 0, 0], hipR: [.02, 0, .04], knR: [-.03, 0, 0], hipL: [.02, 0, -.08], knL: [-.22, 0, 0] };
+const HERO = { root: [0, .08, -.02], spine: [.02, -.06, .03], head: [.02, .12, -.02], shR: [.12, -.10, .14], elR: [.75, 0, 0], shL: [-1.119, -.564, -.947], elL: [1.626, .686, 0], hipR: [.02, 0, .04], knR: [-.03, 0, 0], hipL: [.02, 0, -.08], knL: [-.22, 0, 0] };
 export function heroPose(time, rig = RIGS.lite) {
   const pose = { rootY: 0 }; for (const j of JOINTS) pose[j] = [...(HERO[j] || IDLE[j])];
   const breath = Math.sin(time * 1.2);
