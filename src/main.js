@@ -81,7 +81,7 @@ const G = {
   settings: { holes: '9', difficulty: 'medium', quality: isMobile ? 'low' : 'high', order: 'away' },
   net: null, lobby: [], gesture: { power: 0, lateral: 0 }, previewDirty: true, lastPreview: 0, inbox: [],
   avatar: { ...DEFAULT_AVATAR }, courseId: 'pine',
-  sessionId: '', shotSeq: 0, lastShotSeq: 0, syncing: false,
+  sessionId: '', shotSeq: 0, lastShotSeq: 0, syncing: false, thrownTurn: '',
 };
 try { const saved=JSON.parse(localStorage.getItem('chains.avatar') || '{}');Object.assign(G.avatar,saved);if(saved.glasses==null&&saved.shades)G.avatar.glasses='sport'; G.courseId = localStorage.getItem('chains.course') || 'pine'; } catch { /* private mode */ }
 const saveLocal = (k, v) => { try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch { /* ignore */ } };
@@ -1551,6 +1551,10 @@ function renderLobby() {
 const publishLobby = () => { renderLobby(); G.net?.broadcast({ t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code, room: G.room }); };
 function rejectGuest(id, reason) { G.net.send(id, { t: 'rejected', reason }); G.net.disconnect(id); }
 let turnCheck = null;
+// A request for a turn this guest has already thrown: the one the host took (its stroke still in flight), or an earlier one. The
+// relay sends frames queued while a phone was locked once it is back, and a request the host was slow to see arrives after the
+// guest, handed its turn back, threw again. A guest still waiting on such a turn resyncs on its own (watchConfirm, turn markers).
+const playedTurn = (m, from) => { if (m.turn === G.thrownTurn) return true; const [s, h, c, k] = String(m.turn).split(':'), p = G.players[+c]; return s === G.sessionId && p?.peerId === from && (+h < G.holeIdx || (+h === G.holeIdx && +k < p.strokes)); };
 function roomGone(title, sub) { if (!G.net || G.net.isHost) return; toMenu(); UI.toast(title, sub, 4000); }
 addEventListener('pagehide', () => { if (G.net?.isHost) try { G.net.broadcast({ t: 'closed' }); } catch { /* best effort */ } });
 function onNet(ev) {
@@ -1624,13 +1628,14 @@ function onNet(ev) {
       if (m.t === 'sync-request') { G.net.send(ev.from, G.net.locked ? { t: 'snapshot', state: snapshot() } : { t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code, room: G.room }); return; }
       // Guests send input only: never accept a client's trajectory, result, next-hole or lobby message.
       if (m.t === 'throw-request') {
+        if (playedTurn(m, ev.from)) return;   // a late copy of a throw that already counted: denying it sent the guest's phone through a resync mid-flight
         if (G.phase !== 'aim' || !validateThrowRequest(m, G, ev.from)) { G.net.send(ev.from, { t: 'throw-denied', reason: 'Waiting for your turn. Syncing the scorecard…' }); return; }
         const p = curP(), q = m.params, d = q.dir;
         const params = { throwType: q.throwType, discId: q.discId, power: q.power, hyzer: q.hyzer, yawOffset: q.yawOffset, launchOffset: q.launchOffset,
           dir: [...d], pos: releasePos(world, p.lie, d), lefty: p.appearance?.hand === 'left' };
         const sim = runSim(params), seq = ++G.shotSeq;
         const shot = { t: 'throw', sessionId: G.sessionId, turn: m.turn, seq, pi: G.cur, params, ...sim };
-        G.lastShotSeq = seq; G.net.broadcast(shot); applyRemoteThrow(shot);
+        G.lastShotSeq = seq; G.thrownTurn = m.turn; G.net.broadcast(shot); applyRemoteThrow(shot);
       }
       return;
     }
