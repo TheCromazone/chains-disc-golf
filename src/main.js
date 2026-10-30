@@ -668,8 +668,8 @@ function resolveThrow(pi, r, f = null) {
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
   // a landing shot's verdict stands over the disc, as DGM's distance callout does (QA: "NICE SHOT!" sat right on the landed disc)
-  if (cam.hold) { camera.updateMatrixWorld(); _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null);
-    _v.copy(p.char.group.position).y += 1; const near = _v.distanceTo(camera.position) < 9; _v.project(camera); UI.verdictSide(near && _v.z < 1 && Math.abs(_v.x) < 1 ? (_v.x + 1) / 2 : null); }   // a thrower standing in the held frame keeps the verdict off him
+  if (cam.hold) { camera.updateMatrixWorld(); _v.copy(p.char.group.position).y += 1; const near = _v.distanceTo(camera.position) < 9; _v.project(camera); UI.verdictSide(near && _v.z < 1 && Math.abs(_v.x) < 1 ? (_v.x + 1) / 2 : null);   // a thrower standing in the held frame keeps the verdict off him (first: its side sets its width)
+    _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null); }
   else UI.verdictAbove(null);
   // the verdict holds 2.4 s, or until a tap (skipBeat): DGM is aiming again within a second of most landings
   const advance = () => { if (G.skipResult !== advance) return; G.skipResult = null; UI.obChoice(null); if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') { nextTurn(); cam.snap = true; } UI.fade(false); }, 320); } };
@@ -923,6 +923,9 @@ function aimFrame(lie, d, putt, pos, look) {
   pos.lerpVectors(_runPos, pos, b); look.lerpVectors(_runLook, look, b);
   return (portrait ? C.fov : C.wide) * (1 - b) + fov * b;
 }
+const hudFloor = (() => { let k = '', y = 0; return () => {   // the swipe hint's top edge in CSS px, read once per viewport (#pad's padding sets it, safe area included)
+  const key = innerWidth + 'x' + innerHeight; if (k !== key) { const pad = $('pad'), r = pad.getBoundingClientRect(); y = r.height ? r.bottom - parseFloat(getComputedStyle(pad).paddingBottom) - 36 : innerHeight - 138; if (r.height) k = key; }
+  return y; }; })();
 function aimFrameBase(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P0 = portrait ? AIM.tall[putt ? 'putt' : 'drive'] : putt ? innerHeight > 520 ? AIM.putt : AIM.puttS : innerHeight > 520 ? AIM.drive : AIM.driveS;
   const P = P0;
@@ -945,6 +948,9 @@ function aimFrameBase(lie, d, putt, pos, look) {
   if (!putt) {   // a drive's lens turns as far as it must to keep the athlete whole (QA, a portrait phone in the woods: a wide-shoulder spot round a trunk left him cut in half at the edge of the ~15° half-width)
     const th = Math.atan2(side, back), lim = Math.atan(vt * camera.aspect) - Math.atan(.3 / Math.max(1, rho)) - .5 * DEG;   // the rig's own spots never reach it, so a run-up's dolly ends where it always did
     yaw = Math.max(th - lim, Math.min(th + lim, yaw));
+    // the swipe hint stands ~140 px off the bottom whatever the phone: on a short one (360 x 640) it reached his shins, so the
+    // lens slides up until his feet (.84 down) clear it again, as the putt's lens slides; not mid-flyover, which lands here
+    if (portrait && cam.mode !== 'intro') cam.tShift = Math.max(0, 2 * (.84 - hudFloor() / innerHeight));
   }
   const fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
@@ -963,6 +969,10 @@ function runCamSide(lie, d) {
     const crowd = G.players.some(q => q !== curP() && (Math.hypot(q.char.group.position.x - x, q.char.group.position.z - z) < 2.2 || seg(q.char.group.position.x, q.char.group.position.z) < .7));
     // and the built props themselves (tee signs, benches, banners): rays from the lens to the athlete's chest along his run-up
     let props = 0; for (const s of [0, .75, 1.5]) { _v.set(lie.x - d[0] * s, lie.y + 1.2, lie.z - d[1] * s); _v2.set(x, y, z); _ray.far = _v2.distanceTo(_v); _ray.set(_v2, _v.sub(_v2).normalize()); if (_ray.intersectObjects(course.props || [], false).length) props++; }
+    // and none standing in the frame's sides within 4 m of the lens (r4 QA, a phone on its side: Pine 1's tee sign filled the
+    // right fifth of every bot's run-up from the chest side, clear of the line to him)
+    const hw = Math.atan(Math.tan((camera.aspect < 1.2 ? C.fov : C.wide) * DEG / 2) * camera.aspect) * .7;
+    for (const sg of [-1, 1]) { _v2.set(x, y, z); _v.set(lie.x - x, 0, lie.z - z).normalize().applyAxisAngle(UP, sg * hw); _ray.far = 4; _ray.set(_v2, _v); if (_ray.intersectObjects(course.props || [], false).length) props += .5; }
     return clearFraction(world, lie.x, head, lie.z, x, y, z, .3, .15) + clearFraction(world, lie.x - d[0] * 1.5, head, lie.z - d[1] * 1.5, x, y, z, .3, .15) - (lens.some(m => m < 1.4) ? 1 : 0) - (crowd ? 1.5 : 0) - props * .8;
   };
   const chest = score(fore), arm = score(-fore); runCam.key = key; runCam.side = chest >= arm - .1 ? fore : -fore; return runCam.side;
@@ -1230,8 +1240,12 @@ function updateCamera(dt) {
         // metre off the lens filled half the reaction shot)
         const side = a => { const ux = d[0] * Math.cos(a) + rightOf(d)[0] * Math.sin(a), uz = d[1] * Math.cos(a) + rightOf(d)[1] * Math.sin(a), cx = lie.x + ux * 3.8, cz = lie.z + uz * 3.8;
           const crowd = G.players.some(q => { if (q === me) return false; const o = q.char.group.position, t = Math.max(0, Math.min(1, ((o.x - lie.x) * ux + (o.z - lie.z) * uz) / 3.8)); return Math.hypot(o.x - lie.x - ux * 3.8 * t, o.z - lie.z - uz * 3.8 * t) < .9 && t > .15; });
-          return clearFraction(world, lie.x, lie.y + 1.4, lie.z, cx, lie.y + 1.45, cz, .3, .15) - (crowd ? 1 : 0); };
-        const opts = bd < 6.5 ? [swing, -swing] : [0, .5, -.5];   // a long make keeps the straight-on view unless someone stands in it
+          // and no trunk or upright (a feather flag's sail reaches ~.5 m past its pole) between the lens and him inside the frame
+          // (QA on a small phone: a holed putt's celebration played behind a CHAINS OPEN flag that filled half the frame)
+          const lens = [...world.treesNear(cx, cz), ...uprights()].some(t => { const tx = t.x - cx, tz = t.z - cz, D = Math.hypot(tx, tz), ax = lie.x - cx, az = lie.z - cz, L = Math.hypot(ax, az);
+            return D < L - .3 && Math.acos(Math.max(-1, Math.min(1, (tx * ax + tz * az) / (D * L || 1)))) - Math.asin(Math.min(1, (t.r + .5) / Math.max(D, t.r + .5))) < .4; });
+          return clearFraction(world, lie.x, lie.y + 1.4, lie.z, cx, lie.y + 1.45, cz, .3, .15) - (crowd ? 1 : 0) - (lens ? .8 : 0); };
+        const opts = bd < 6.5 ? [swing, -swing, swing * 1.4, -swing * 1.4, swing * .6, -swing * .6] : [0, .5, -.5, 1, -1];   // a long make keeps the straight-on view unless someone or something stands in it
         let best = opts[0], top = -Infinity; for (const a of opts) { const sc = side(a) - Math.abs(a) * .05; if (sc > top + .01) { top = sc; best = a; } }
         cam.react = { key, a: best }; }
       const r=rightOf(d), ca = Math.cos(cam.react.a), sa = Math.sin(cam.react.a), fx = d[0] * ca + r[0] * sa, fz = d[1] * ca + r[1] * sa;
