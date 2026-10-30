@@ -1765,6 +1765,7 @@ canvas.addEventListener('webglcontextrestored', () => { contextLost = false; res
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => { clock.getDelta(); if (document.hidden) { hiddenAt = Date.now(); return; } resize(); if (G.mode === 'online' && !G.net?.isHost && Date.now() - hiddenAt > 8000) G.net?.toHost({ t: 'sync-request' }); });   // a glance away no longer rebuilds the whole round
 setInterval(() => { if (document.hidden && G.mode === 'online' && G.net?.isHost) loop(true); }, 100);
+window.chainsStarted = true;   // every module evaluated: index.html's watch for a module that threw while loading stands down
 setTimeout(async () => {
   try {
   await loadManifest();
@@ -1778,6 +1779,7 @@ setTimeout(async () => {
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage
   } catch (error) {
+    if (window.chainsBootFailed) { console.error('Game startup failed', error); chainsBootFailed(error?.message || error); return; }   // index.html: one reload by itself, then the reason and a button
     const loading = $('loading'); loading.replaceChildren();
     const message = document.createElement('p'); message.textContent = 'The course could not load. Check your connection, then try again.';
     const retry = document.createElement('button'); retry.textContent = 'Reload game'; retry.onclick = () => location.reload();

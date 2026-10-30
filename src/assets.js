@@ -5,6 +5,22 @@ import * as THREE from 'three';
 
 let manifest = null;
 const cache = {};
+// A phone's cold first load drops the odd request (cellular, a tab still waking), and an asset that failed once stayed broken for
+// the session: one lost body albedo drew the athlete's skin black, a lost grass map the turf blank, a lost clip fell back for good.
+// Image and file loads (textures, GLBs, the Draco and Basis decoders) try twice more, after .8 s and 2.4 s; a missing file (4xx)
+// does not. The loading manager keeps the item open over the wait, so the loading screen (main.js assetsIdle) still waits on it.
+for (const Loader of [THREE.ImageLoader, THREE.FileLoader]) {
+  const load = Loader.prototype.load;
+  Loader.prototype.load = function (url, onLoad, onProgress, onError) {
+    let tries = 0; const remote = typeof url === 'string' && !/^(data|blob):/.test(url), held = `${url}#retry`;
+    const attempt = () => load.call(this, url, onLoad, onProgress, e => {
+      const status = e?.response?.status;
+      if (!remote || tries >= 2 || (status >= 400 && status < 500)) { onError?.(e); return; }
+      this.manager.itemStart(held); setTimeout(() => { attempt(); this.manager.itemEnd(held); }, 800 * 3 ** tries++);
+    });
+    return attempt();
+  };
+}
 export async function loadManifest() {
   try { manifest = await fetch('assets/manifest.json').then(r => r.ok ? r.json() : null); } catch { manifest = null; }
   return manifest;
