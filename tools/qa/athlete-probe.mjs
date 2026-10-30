@@ -109,7 +109,7 @@ try {
   if (want.has('menu')) await record('menu', `[__chains.hero, null]`, 180);
   await js(`document.getElementById('btnSolo').click()`);
   for (let i = 0; i < 900 && await js(`__chains.G.phase !== 'intro'`); i++) await step(1000 / 60, 1);
-  await js(`(() => { const c = __chains; while (c.G.phase === 'intro') { c.G.introT = 10; c.nextTurn(); } })()`);
+  for (let i = 0; i < 900 && await js(`__chains.G.phase === 'intro'`); i++) await step(1000 / 60, 1);   // the flyover plays out: its end cuts to the tee (main.js nextTurn)
   if (want.has('tee')) await record('tee', P(0), 180);
   for (const T of ['backhand', 'forehand']) if (want.has(T)) {
     await js(release); await js(`__motion.reseed(${+o.seed * 1000 + 3})`); await js(forced(T)); await step(200);
@@ -162,7 +162,7 @@ function analyse(all) {
     const pops = [];
     for (const j of ['root', 'head', 'wristR', 'wristL', 'soleR', 'soleL']) {
       const m = rows.map((r, i) => i ? d(r[j], rows[i - 1][j]) : 0);
-      for (let i = 2; i < m.length - 1; i++) { if (cut(i)) continue; const around = med([...m.slice(Math.max(1, i - 3), i), ...m.slice(i + 1, i + 4)]); if (m[i] > .015 && m[i] > 3.5 * Math.max(around, .002)) pops.push({ j, f: i, cm: +(m[i] * 100).toFixed(1), around: +(around * 100).toFixed(2), gp: rows[i].gp, ph: rows[i].ph === null ? null : +rows[i].ph.toFixed(3), seen: rows[i].vis }); }
+      for (let i = 1; i < m.length - 1; i++) { if (cut(i)) continue; const around = med([...m.slice(Math.max(1, i - 3), i), ...m.slice(i + 1, i + 4)]); if (m[i] > .015 && m[i] > 3.5 * Math.max(around, .002)) pops.push({ j, f: i, cm: +(m[i] * 100).toFixed(1), around: +(around * 100).toFixed(2), gp: rows[i].gp, ph: rows[i].ph === null ? null : +rows[i].ph.toFixed(3), seen: rows[i].vis }); }
     }
     s.pops = pops.sort((a, b) => b.cm / Math.max(b.around, .2) - a.cm / Math.max(a.around, .2)).slice(0, 6);
     // foot sliding: while a sole stands loaded (its lowest point within 2.5 cm of the ground, moving < 1 cm a frame vertically),
@@ -170,7 +170,8 @@ function analyse(all) {
     const slides = [];
     for (const k of ['R', 'L']) { let start = null, worst = 0, at = 0;
       const end = i => { if (start !== null && i - start >= 6) slides.push({ foot: k, from: start, to: i - 1, cm: +(worst * 100).toFixed(1), at, seen: rows[at].vis }); start = null; worst = 0; };
-      rows.forEach((r, i) => { const loaded = r['low' + k] !== undefined && r['low' + k] < .02 && !cut(i);
+      rows.forEach((r, i) => { const jump = i > 0 && r['contact' + k] && Math.hypot(r['contact' + k][0] - rows[i - 1]['contact' + k][0], r['contact' + k][2] - rows[i - 1]['contact' + k][2]) > .08;   // a foot that jumps 8 cm in a frame was placed (a pop), not slid
+        const loaded = r['low' + k] !== undefined && r['low' + k] < .02 && !cut(i) && !jump;
         if (!loaded) return end(i); if (start === null) { start = i; return; } const p0 = rows[start]['contact' + k], p = r['contact' + k], dd = Math.hypot(p[0] - p0[0], p[2] - p0[2]); if (dd > worst) { worst = dd; at = i; } });
       end(rows.length); }
     s.slide = slides.sort((a, b) => b.cm - a.cm).slice(0, 4);

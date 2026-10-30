@@ -27,7 +27,7 @@ export function createAthleteMotion({ joints, actor, skin, group }) {
   return {
     setGround(fn) { ground = fn; },
     lookAt(value) { gaze = value ? target.copy(value) : null; },
-    snap() { snapN = 4; },   // just placed somewhere new: the poses of the next few frames show at once, no cross-fade from where he stood
+    snap() { snapN = 7; },   // just placed somewhere new: the poses of the next few frames show at once, no cross-fade from where he stood
     update(dt, nextMode, phase) {
       if (mode !== nextMode) {
         from.forEach((q, i) => q.copy(last[i])); fromY = lastY;
