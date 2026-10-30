@@ -20,6 +20,11 @@ const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0); 
 let idleN = 0;
 export const idlePhase = () => (++idleN * .6180339887) % 1;
 const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
+// Mobile: each athlete's shadow is drawn from a proxy, the low-detail body on the same skeleton (both GLBs share the rig and bind),
+// never from the full body the camera sees. Every athlete in a round wears the full body now (main.js upgradeBody), subdivided over
+// the arms on this tier, and both shadow maps drew it again: ~+60k triangles at the phone tee for detail a 2.3 cm shadow texel
+// cannot hold. The proxy's material is shown only inside renderer.shadowMap.render (main.js), so the main pass never draws it.
+export const SHADOW_ONLY = new THREE.MeshBasicMaterial({ visible: false });
 // ?liveclips: throws drawn straight from the shared keys (throw-poses.js) instead of the Blender-baked clips, so a key edit shows
 // on a reload without a bake (tools/author-throws.mjs authoring); the shipped game always plays the baked clips
 const LIVE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('liveclips');
@@ -437,14 +442,14 @@ export function createGLTFCharacter(avatar) {
   const joints = {}, owned = new Set();
   const colors = { hair: avatar.hairColor, headwear: avatar.headwearColor, trim: avatar.accent };
   const spec = actor.getObjectByName('ChainsRig')?.userData || {}, handOffset = new THREE.Vector3(...(spec.handOffset || [0, -.25, 0]));
-  let body = null, skin = null;
+  let body = null, skin = null, raw = null;
   actor.traverse(o => {
     if (o.isBone) joints[o.name] = o;
     if (o.name.startsWith('hair_') || o.name.startsWith('headwear_') || o.name.startsWith('glasses_')) o.visible = false;
     if (o.name.startsWith('accessory_wristband')) o.visible = false; // fitted cloth cuffs replace the scan's loose torus bands
     if (!o.isMesh) return;
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); if (!lod && document.body.classList.contains('gfx-mobile')) o.geometry = smoothArms(o.geometry, o); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const by = i => new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert().elements[13]; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); } }
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); raw = o.geometry; if (!lod && document.body.classList.contains('gfx-mobile')) o.geometry = smoothArms(o.geometry, o); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const by = i => new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert().elements[13]; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); } }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
     // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
@@ -452,6 +457,12 @@ export function createGLTFCharacter(avatar) {
     owned.add(o.material); o.castShadow = true; o.receiveShadow = true; if (o.isSkinnedMesh) o.boundingSphere = REACH;
   });
   if (!joints.elR || !joints.root || !body || !skin) return null;
+  if (raw !== skin.geometry) {   // the subdivided Mobile body: shadows from the low-detail one (SHADOW_ONLY above)
+    let low = null; model(key + '_lod')?.scene.traverse(o => { if (o.isSkinnedMesh && o.skeleton.bones.length === skin.skeleton.bones.length && [].concat(o.material)[0].name.startsWith('body')) low = o; });
+    const proxy = new THREE.SkinnedMesh(low ? (repairPlayerSkinning(low), low.geometry) : raw, SHADOW_ONLY); proxy.name = 'shadow_proxy';
+    proxy.position.copy(skin.position); proxy.quaternion.copy(skin.quaternion); proxy.scale.copy(skin.scale); skin.parent.add(proxy);
+    proxy.bind(skin.skeleton, skin.bindMatrix); proxy.boundingSphere = REACH; proxy.castShadow = true; skin.castShadow = false;
+  }
   // the modelled grip hands (handMorphs), children of the forearm bones, shown in the backhand set-up in place of the tucked
   // scan hand; their skin takes the palette tone the way the body shader turns the scan's (a quarter of the chroma gone)
   const gripMat = new THREE.MeshStandardMaterial({ roughness: .74, vertexColors: true }); owned.add(gripMat);
@@ -602,7 +613,7 @@ export function createGLTFCharacter(avatar) {
   const gripW = () => (phase === null ? aimType : throwType).startsWith('backhand') ? coilW() : 0;   // the seated grip belongs to the backhand set-up and hands over to the release frame through the windup
   const seat = () => skin.geometry.userData.grip.seats[forearm.name];
   const api = {
-    group, hand, elbow: forearm, joints, avatar, source: 'glb', releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},
+    group, hand, elbow: forearm, joints, avatar, source: 'glb', lod, releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},   // lod: wears the low-detail body (main.js swaps it once the full one lands)
     setFace(value) { body.setPalette(value); gripSkin(value); hairShow(value); headwear.setFace(value); },
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { if (p === null || phase === null) kept = false; finish = p === null && phase >= .95 && /^putt/.test(throwType) ? .7 : 0; phase = p; if (p !== null) mood = null; },
     // the end of a throw: move the athlete to where the follow-through left him (the travel becomes the group's position), so

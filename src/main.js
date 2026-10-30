@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { buildCourse, makeRng, COURSES, courseById, courseLayout } from './course.js';
 import { DISCS, THROWS, discById, launch, step, DT, isDone, resultOf, simulate, speedFor, releasePos } from './physics.js';
 import { createCharacter, DEFAULT_AVATAR, AVATAR_OPTIONS, randomAvatar } from './player.js';
+import { SHADOW_ONLY } from './gltf-player.js';
 import { loadManifest, asset } from './assets.js';
-import { loadModels, modelStatus, fullBodies } from './models.js';
+import { loadModels, modelStatus, fullBodies, hasFullBody } from './models.js';
 import { createDiscMesh, setDiscPose } from './disc.js';
 import { clearFraction } from './cam-collide.js';
 import { createPuffs } from './puffs.js';
@@ -111,6 +112,7 @@ THREE.ShaderChunk.alphatest_fragment = THREE.ShaderChunk.alphatest_fragment.repl
   'smoothstep( alphaTest - min( fwidth( diffuseColor.a ), alphaTest ), alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )');   // capped below so a fully transparent texel never gains coverage
 const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
+{ const sm = renderer.shadowMap, render = sm.render; sm.render = (...a) => { SHADOW_ONLY.visible = true; try { render.apply(sm, a); } finally { SHADOW_ONLY.visible = false; } }; }   // the athletes' shadow proxies (gltf-player.js) draw in the shadow passes only
 const scene = new THREE.Scene();
 const taa = createTemporal();   // temporal.js: jittered, accumulated edges on held frames, both tiers
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
@@ -180,20 +182,24 @@ function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerI
   // bots and unnamed humans get a deterministic random look (same on every online client) in their player colour
   color = safeColor(color, COLORS[i % COLORS.length]); avatar = avatar && sanitizeAvatar(avatar); name = safeName(name);   // a room's config comes off the network
   const appearance = avatar ? { ...avatar, jersey: color } : randomAvatar(makeRng(strHash(name) + i * 97), { jersey: color, name, ...(hand ? { hand } : {}) });
-  const char = createCharacter({ ...appearance, lod: i > 0 });
+  const char = createCharacter(appearance);
   char.setGround?.((x, z) => world.height(x, z));
   scene.add(char.group);
   const marker = new THREE.Mesh(new THREE.RingGeometry(0.27, 0.4, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false }));
   marker.visible = false; scene.add(marker);
-  return { name, color, isBot, difficulty, peerId, appearance, lod: i > 0, scores: [], strokes: 0, done: false, lie: [0, 0, 0], lieDist: 0, char, marker, discMesh: null, discId: null };
+  return { name, color, isBot, difficulty, peerId, appearance, scores: [], strokes: 0, done: false, lie: [0, 0, 0], lieDist: 0, char, marker, discMesh: null, discId: null };
 }
-function setPlayerDetail(p, lod) {
-  if (p.lod === lod) return;
-  if (warming) { warming.then(() => setPlayerDetail(p, lod)); return; }   // swap once the warm-up has let go of the old body's materials   // Mobile too: the player on the tee gets the full-detail body once it has loaded (models.js fullBodies)
-  const next = createCharacter({ ...p.appearance, lod });
+// Every athlete in a round wears the full-detail body. Only the one on the tee used to: the others stand beside the tee camera and
+// round the basket, where the low-detail body's coarse bake read as broken (r4 phone QA), and rebuilding both bodies at every
+// turn reset whoever had just thrown mid-reaction. Mobile's full bodies land after the round can start (models.js fullBodies):
+// one built before that is swapped once, at a turn change or while the player lines up his own shot.
+function upgradeBody(p) {
+  if (!p.char.lod || !hasFullBody(p.char.avatar.figure === 'female' ? 'golfer_f' : 'golfer')) return;
+  if (warming) { warming.then(() => upgradeBody(p)); return; }   // swap once the warm-up has let go of the old body's materials
+  const next = createCharacter(p.appearance);
   next.setGround?.((x, z) => world.height(x, z));
   next.group.position.copy(p.char.group.position); next.group.rotation.copy(p.char.group.rotation);
-  scene.remove(p.char.group); p.char.dispose(); p.char = next; p.lod = lod; scene.add(next.group);
+  scene.remove(p.char.group); p.char.dispose(); p.char = next; scene.add(next.group);
 }
 function ensureDisc(p, discId) {
   if (p.discId === discId && p.discMesh) return;
@@ -466,7 +472,7 @@ function parkOthers(idx) {
   });
 }
 function setupTurn(idx) {
-  G.players.forEach((p,i)=>setPlayerDetail(p,i!==idx));
+  G.players.forEach(upgradeBody);
   const p = G.players[idx]; G.cur = idx;
   const lie = p.lie, dist = distToBasket(lie[0], lie[2]);
   G.aim.yaw = Math.atan2(basketPos()[1] - lie[2], basketPos()[0] - lie[0]); G.aim.pitch = 0;
@@ -1400,8 +1406,9 @@ UI.seg('orderSeg', setOrder); UI.seg('setupOrderSeg', setOrder); setOrder(G.sett
 $('qualSeg').querySelector(`[data-v="${G.settings.quality}"]`)?.classList.add('on'); $('qualSeg').querySelector(`[data-v="${G.settings.quality === 'low' ? 'high' : 'low'}"]`)?.classList.remove('on');
 let gfxSwitch = Promise.resolve();   // a graphics switch in flight: Play waits for it, and taps in a row apply in order
 UI.seg('qualSeg', v => { G.settings.quality = v; resize(); gfxSwitch = gfxSwitch.catch(() => {}).then(async () => { await loadModels(renderer, v); await loadCourse(G.courseId); makeHero(); upgradeBodies(); }); });
-// Mobile's full-detail bodies land after the first frame: rebuild the clubhouse athlete on them, and the player on the tee
-function upgradeBodies() { fullBodies.then(async up => { while (warming) await warming; if (!up) return; if (hero?.group.visible) makeHero(); const p = curP(); if (p && !p.lod && G.phase === 'aim' && isMine(p) && !p.runUp) { p.lod = true; setPlayerDetail(p, false); } }); }
+// Mobile's full-detail bodies land after the first frame: rebuild the clubhouse athlete on them, and the round's athletes while the
+// player lines up his own shot (otherwise at the next turn change)
+function upgradeBodies() { fullBodies.then(async up => { while (warming) await warming; if (!up) return; if (hero?.group.visible) makeHero(); const p = curP(); if (p && G.phase === 'aim' && isMine(p) && !p.runUp) G.players.forEach(upgradeBody); }); }
 for (const type of ['touchend', 'pointerup', 'click']) document.addEventListener(type, unlock, { capture: true, passive: true });   // audio.js: which gestures can start sound
 
 const me = () => ({ name: G.avatar.name.trim() || 'You', avatar: G.avatar });

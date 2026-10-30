@@ -59,6 +59,7 @@ export async function loadModels(renderer, quality = 'full') {
   Promise.all([hats, fullBodies]).finally(() => { draco.dispose(); ktx.dispose(); });
 }
 export const model = name => models.get(name);
+export const hasFullBody = name => models.has(name) && models.get(name) !== models.get(name + '_lod');   // 'golfer' | 'golfer_f': the full-detail body has landed
 export function cloneModel(name) {
   const src = models.get(name); if (!src) return null;
   return { scene: clone(src.scene), animations: src.animations };
