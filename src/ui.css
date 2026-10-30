@@ -281,6 +281,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   background: linear-gradient(90deg, #06120ef0, #06120ea6 32%, #06120e1f 62%, transparent), url('../assets/keyart/keyart-wide.jpg') 70% center / cover, var(--ink); }
 #loading .load-brand { text-align: left; }
 #loading .load-brand::after { margin-left: 2px; }
+#loading .boot-error { font-size: 11px; opacity: .6; max-width: 34em; overflow-wrap: anywhere; }
 @media (orientation: portrait) {
   #loading { align-items: center; justify-content: flex-start; padding: calc(12vh + var(--sat)) 24px 0;
     background: linear-gradient(180deg, #06120ee0, #06120e8c 30%, #06120e14 55%, transparent), url('../assets/keyart/keyart-tall.jpg') center 70% / cover, var(--ink); }

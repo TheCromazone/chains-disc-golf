@@ -1776,6 +1776,7 @@ setTimeout(async () => {
     const loading = $('loading'); loading.replaceChildren();
     const message = document.createElement('p'); message.textContent = 'The course could not load. Check your connection, then try again.';
     const retry = document.createElement('button'); retry.textContent = 'Reload game'; retry.onclick = () => location.reload();
-    loading.append(message, retry); console.error('Game startup failed', error);
+    const detail = document.createElement('small'); detail.className = 'boot-error'; detail.textContent = String(error?.message || error).slice(0, 160);   // a phone has no console: the reason, small, for the bug report
+    loading.append(message, retry, detail); console.error('Game startup failed', error);
   }
 }, 60);
