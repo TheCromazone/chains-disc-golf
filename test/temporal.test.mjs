@@ -13,5 +13,13 @@ assert.equal(t.begin(renderer, cam), false); t.end(cam);
 assert.equal(t.begin(renderer, cam), true); assert(!cam.projectionMatrix.equals(p0)); t.end(cam); assert(cam.projectionMatrix.equals(p0));
 assert.equal(t.begin(renderer, cam), true); t.end(cam); assert.equal(t.frames, 2);
 cam.position.x += .01; assert.equal(t.begin(renderer, cam), false); t.end(cam); assert.equal(t.frames, 0); assert(cam.projectionMatrix.equals(p0));
-t.begin(renderer, cam); t.end(cam); assert.equal(t.begin(renderer, cam, false), false); t.end(cam); assert.equal(t.frames, 0);   // fast action in front of a held camera drops the history
+// Action in front of a held camera (hold false) hands the history over to the live frame in a few jittered frames (a one-frame
+// drop snapped the whole putt frame from resolved to raw as the swipe began), then keeps the resolve's filter with no jitter;
+// a camera that moves goes raw at once.
+t.begin(renderer, cam); t.end(cam); t.begin(renderer, cam); t.end(cam);
+let fading = 0; for (; fading < 30; fading++) { assert.equal(t.begin(renderer, cam, false), true); const j = !cam.projectionMatrix.equals(p0); t.end(cam); if (!j) break; }
+assert(fading >= 8 && fading <= 20, `hand-over frames: ${fading}`); assert(cam.projectionMatrix.equals(p0));
+assert.equal(t.begin(renderer, cam, false), true); assert(cam.projectionMatrix.equals(p0), 'live frames are not jittered'); t.end(cam);
+cam.position.x += .01; assert.equal(t.begin(renderer, cam, false), false); t.end(cam); assert.equal(t.frames, 0);
+assert.equal(t.begin(renderer, cam, false), false, 'live action needs a history to hand over from'); t.end(cam);
 console.log('Temporal resolve: Halton jitter in-pixel and centred, jitter only on held frames, projection restored.');
