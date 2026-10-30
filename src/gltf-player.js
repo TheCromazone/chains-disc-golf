@@ -20,10 +20,11 @@ const FLIP = new THREE.Quaternion(0, 1, 0, 0), UP = new THREE.Vector3(0, 1, 0); 
 let idleN = 0;
 export const idlePhase = () => (++idleN * .6180339887) % 1;
 const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
-// Mobile: each athlete's shadow is drawn from a proxy, the low-detail body on the same skeleton (both GLBs share the rig and bind),
-// never from the full body the camera sees. Every athlete in a round wears the full body now (main.js upgradeBody), subdivided over
-// the arms on this tier, and both shadow maps drew it again: ~+60k triangles at the phone tee for detail a 2.3 cm shadow texel
-// cannot hold. The proxy's material is shown only inside renderer.shadowMap.render (main.js), so the main pass never draws it.
+// Each athlete's shadow is drawn from a proxy, the low-detail body on the same skeleton (both GLBs share the rig and bind), never
+// from the full body the camera sees. Every athlete in a round wears the full body now (main.js upgradeBody), on Mobile subdivided
+// over the arms, and both shadow maps drew it again: ~+60k triangles at the phone tee (+20k at the desktop one) for detail a
+// 1-2 cm shadow texel cannot hold (the menu frame came out pixel-identical on Desktop). The proxy's material is shown only inside
+// renderer.shadowMap.render (main.js), so the main pass never draws it.
 export const SHADOW_ONLY = new THREE.MeshBasicMaterial({ visible: false });
 // ?liveclips: throws drawn straight from the shared keys (throw-poses.js) instead of the Blender-baked clips, so a key edit shows
 // on a reload without a bake (tools/author-throws.mjs authoring); the shipped game always plays the baked clips
@@ -457,7 +458,7 @@ export function createGLTFCharacter(avatar) {
     owned.add(o.material); o.castShadow = true; o.receiveShadow = true; if (o.isSkinnedMesh) o.boundingSphere = REACH;
   });
   if (!joints.elR || !joints.root || !body || !skin) return null;
-  if (raw !== skin.geometry) {   // the subdivided Mobile body: shadows from the low-detail one (SHADOW_ONLY above)
+  if (!lod) {   // the full body: its shadow from the low-detail one (SHADOW_ONLY above)
     let low = null; model(key + '_lod')?.scene.traverse(o => { if (o.isSkinnedMesh && o.skeleton.bones.length === skin.skeleton.bones.length && [].concat(o.material)[0].name.startsWith('body')) low = o; });
     const proxy = new THREE.SkinnedMesh(low ? (repairPlayerSkinning(low), low.geometry) : raw, SHADOW_ONLY); proxy.name = 'shadow_proxy';
     proxy.position.copy(skin.position); proxy.quaternion.copy(skin.quaternion); proxy.scale.copy(skin.scale); skin.parent.add(proxy);
