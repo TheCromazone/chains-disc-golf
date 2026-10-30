@@ -213,7 +213,7 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 #pad .hint { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 6px 12px 6px 9px; border-radius: 999px; background: #0c1114a6; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: opacity .5s var(--ease); }
 /* Aim zone: the view outside the pad. On touch screens a chip names it until the first throw; a wide screen splits for two
    thumbs (ui.css landscape block below): the left side drags the aim while the right swipes. */
-#aimZone { position: absolute; left: 14px; top: 47%; z-index: 1; display: none; pointer-events: none; transition: opacity .5s var(--ease); }
+#aimZone { position: absolute; left: 14px; top: 53%; z-index: 1; display: none; pointer-events: none; transition: opacity .5s var(--ease); }
 #aimZone > span { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 9px; border-radius: 999px; background: #0c1114a6; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 #aimZone .icon { width: 18px; height: 18px; color: var(--mint); stroke-width: 2.4; }
 @media (pointer: coarse) { body[data-phase='aim'] #aimZone, body[data-phase='windup'] #aimZone { display: block; } }

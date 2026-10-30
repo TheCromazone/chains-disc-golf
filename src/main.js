@@ -856,13 +856,20 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
 const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 3.1, side: 1.35, lo: .9, hi: 2.3, eye: .55, band: .16, base: -.72, x: .03, nudge: [-.05, .15], hfov: 42, vmin: 10 },
-  tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
+  tall: { drive: { back: 4, side: .75, up: 2.35, pitch: 10, yaw: 3, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
+// An upright phone's drive (QA on an iPhone 17, r4): from 2.9 m back at chest height he stood mid-frame, x .47-.85 and head to
+// toe .46-.87, the pin just over his shoulder and the fairway behind his reach-back. Mobile golf's lens instead: higher (over
+// his cap) and further back, tipped 10 degrees down, so he stands low on the right (x .55-.82, .55-.84, feet clear of the swipe
+// pill) and the line runs up the frame from his feet to the pin (x .42, .30-.42 down) with the fairway open round it.
 // w7-3 camera verdicts (won 4/4, narrow): "his head almost touches the top edge", "the basket sits a little low over empty dirt": eyes .6 -> .55 (head top ~12%) and band .1 -> .16 (the lid ~42% down, as in the reference), so the rig rises a little and the basket stands higher over less dirt.
 AIM.puttS = { ...AIM.putt, back: 2.3, side: 1.2, hi: 1.9, hfov: 50, eye: .6, band: -.02, base: -.64, x: .24 };
 // A phone on its side (playtest: "the player goes off the screen"): the broadcast drive lens cut the athlete at the hip and
 // pushed his arm out of the right edge. Further back on a taller lens he stands whole, feet to head, in the right third over
 // the swipe pad (ui.css landscape split), with the line and the pin left of centre.
-AIM.driveS = { back: 3.4, side: .95, up: 1.55, pitch: 5, yaw: 0, vfov: 38 };   // a short phone: the swipe pill and ring fill the lower third's middle, so the pin stands further left (38%) with its base plate beside them
+// r4 QA: from .95 m aside, looking straight down the line, his reach-back and hip stood under the swipe hint and the release
+// grade at 53-60%, and his feet ran off the bottom edge. 1.35 m aside, turned 4.3 degrees right and tipped 1.5 more, he
+// stands at x .63-.75 with his feet on the frame (.96) and the pin moves left of centre (.46), the labels hanging between.
+AIM.driveS = { back: 3.4, side: 1.35, up: 1.55, pitch: 6.5, yaw: 4.3, vfov: 38 };   // a short phone: the swipe pill and ring fill the lower third's middle
 // A lie beside a trunk, a tent or a banner: the rig's spot behind the shoulder could stand inside it or behind it (QA on an
 // iPhone: a birch trunk filled two thirds of a putt's frame; on a desktop the same lie looked at the back of a feather flag
 // over the athlete). Each lie scores the rig's spot and its alternatives (the mirror side, a wider or narrower shoulder, a step
@@ -889,7 +896,10 @@ function aimSpotFor(lie, P, side, putt, halfW) {
     // a trunk close in front of the lens fills the frame even when it blocks neither line (the QA birch: 1 m out, 11° off centre)
     const lens = [...world.treesNear(x, z), ...uprights()].reduce((m, t) => { const tx = t.x - x, tz = t.z - z, D = Math.hypot(tx, tz) || 1e-3, a = Math.abs(Math.atan2(vx * tz - vz * tx, vx * tx + vz * tz));
       return a - Math.asin(Math.min(1, (t.r + .2) / D)) < halfW + .2 ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);   // the trunk's own width counts (with its stubs): one 1 m off the lens filled a portrait frame from 33° off its centre line
-    const score = see + ahead * .6 + framed * .8 - lens - k * .02;   // the nearest alternative wins a tie
+    // a putt's lens holds the pin near its centre, so a spot that sees him past the frame's edge putts to an empty frame (r4 QA on a
+    // phone: a wide spot round a pine at 8-14 m framed the basket, a trunk and nobody; the rig's own puts him ~.8 of the way out)
+    const lost = putt && off > halfW ? 2 : 0;
+    const score = see + ahead * .6 + framed * .8 - lens - lost - k * .02;   // the nearest alternative wins a tie
     scores.push(+score.toFixed(3));
     if (k === 0) score0 = score;
     if (score > top + 1e-6) { top = score; best = k; }
