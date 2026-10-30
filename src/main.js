@@ -721,7 +721,7 @@ function applyRemoteThrow(m) {   // only called when this client is idle in 'aim
   // winding up again from the start showed every guest its own throw twice. (HIT_T into the release is the .62 launch point.)
   if (G.phase === 'awaitThrow' && isMine(p)) { doThrow(m.pi, {}, sim); G.releaseT = HIT_T + .001; return; }
   G.phase = 'windup'; cam.mode = 'aim';
-  windUp(p, G.throwType, .7, () => doThrow(m.pi, {}, sim));
+  windUp(p, G.throwType, .7, () => doThrow(m.pi, {}, sim), u => UI.setPower(m.params.power * u));   // the watcher's ring fills to their power, as it does for a bot (it sat on an empty POWER)
 }
 function toMenu() {
   if (G.net?.isHost) try { G.net.broadcast({ t: 'closed' }); } catch { /* best effort */ }
