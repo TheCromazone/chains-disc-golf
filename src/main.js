@@ -733,7 +733,7 @@ function toMenu() {
   clearPlayers(); preview.visible = false; for (const id of ['hud', 'score', 'online', 'setup', 'courses', 'locker']) UI.hide(id); UI.show('menu');
   hero.group.visible = true; course.setHole(0); placeHero();
   if (G.net) { G.net.close(); G.net = null; }
-  G.mode = 'solo'; G.matchId = null; matches.refreshBadge();
+  G.mode = 'solo'; G.matchId = null; matches.refreshBadge(); roomMark(null);
 }
 
 // ---------- gestures ----------
@@ -1648,7 +1648,7 @@ function onNet(ev) {
     else if (m.t === 'botify' && G.players[m.pi]) { const p = G.players[m.pi]; p.isBot = true; p.peerId = null; UI.toast(`${p.name} is away`, 'A bot keeps the round moving', 2000); }
     else if (m.t === 'rejoin' && G.players[m.pi]) { G.players[m.pi].isBot = false; G.players[m.pi].peerId = m.peerId; }
     else if (m.t === 'throw-denied') { UI.toast('Round synchronizing', m.reason, 2000); G.net.toHost({ t: 'sync-request' }); }
-    else if (m.t === 'rejected') { const reason = m.reason; G.net.close(); G.net = null; leaveRoomView(); UI.onlineError(reason); }
+    else if (m.t === 'rejected') { const reason = m.reason; G.net.close(); G.net = null; leaveRoomView(); UI.onlineError(reason); roomMark(null); }
     else if (m.t === 'closed') roomGone('The host left', 'The room has closed. Start a new room or an invite match.');
     else if (m.t === 'turn') {   // the host's turn marker: a guest still on an older turn (a lost shot) resyncs instead of waiting forever
       clearTimeout(turnCheck);
@@ -1668,6 +1668,14 @@ const openLive = (invite = '') => { UI.hide('menu'); UI.show('online'); leaveRoo
 function enterRoomView() { seenCards = new Set(); readyBefore = new Set(); roomShown = ''; startArmed = 0; $('online').classList.add('in-room'); $('onlineTitle').textContent = 'Waiting room'; UI.hide('onlineChoice'); UI.show('lobby'); renderLobby(); }
 function adoptName(name) { if (name && name !== G.avatar.name) { G.avatar.name = name; saveLocal('chains.avatar', G.avatar); updateHub(); } }
 function leaveRoomView() { $('online').classList.remove('in-room'); UI.hide('lobby'); UI.show('onlineChoice'); G.room = null; setInvited(''); }
+// A guest's room stays in the address bar (?room=CODE) and the tab remembers being in it: a reload, or iOS bringing back a tab it had
+// put away, reopened the clubhouse (or a Join to tap) while the host held the seat for 30 s. Now it joins again by itself.
+const inRoom = () => { try { return sessionStorage.getItem('chains.inRoom') || ''; } catch { return ''; } };
+function roomMark(code) {
+  try { if (code) sessionStorage.setItem('chains.inRoom', code); else sessionStorage.removeItem('chains.inRoom'); } catch { /* private mode: no rejoin */ }
+  const u = new URL(location.href); if (code) u.searchParams.set('room', code); else u.searchParams.delete('room');   // left: a reload is the clubhouse again
+  if (u.href !== location.href) history.replaceState(null, '', u.pathname + u.search + u.hash);
+}
 $('btnHostInstead').onclick = () => { setInvited(''); $('joinCode').value = ''; };
 $('onlineName').addEventListener('focus', e => { if (['You', 'Player'].includes(e.target.value)) e.target.select(); });   // the default name is a placeholder: typing replaces it
 // Invite matches (src/match.js): turn-based, over plain HTTPS, so phones on any network can play together.
@@ -1705,8 +1713,8 @@ $('btnJoin').onclick = async () => {
     G.net?.close(); G.net = createNet(); G.lobby = [];
     const room = G.net; room.onStatus = s => { if (s === 'relay') { note = 'Switching to the backup connection…'; if (late) UI.onlineNote(note); } };
     await room.join(code, name, onNet, { ...G.avatar, name }); room.onStatus = null; if (G.net !== room) return;
-    adoptName(name); $('roomCode').textContent = code; enterRoomView();
-  } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
+    adoptName(name); $('roomCode').textContent = code; enterRoomView(); roomMark(code);
+  } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; try { sessionStorage.removeItem('chains.inRoom'); } catch {} }   // the link stays for a manual retry; no rejoin by itself
   finally { clearTimeout(slow); UI.onlineNote(); UI.setConnecting('btnJoin', false); $('btnCreate').disabled = false; }
 };
 $('btnLobbyBot').onclick = () => { if (G.lobby.length < MAX_PLAYERS && !G.net.locked) { G.lobby.push({ name: uniqueName(BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], G.lobby.map(p => p.name)), isBot: true }); publishLobby(); sfx.click(); } };
@@ -1775,7 +1783,7 @@ setTimeout(async () => {
   await Promise.all([warmShaders(), assetsIdle()]);
   UI.hide('loading'); loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
   window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: draw, taa, performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, flightPlan, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
-  const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
+  const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) { const back = inRoom() === invite; openLive(invite); if (back) $('btnJoin').click(); }   // a reload mid-room: straight back in
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage
   } catch (error) {

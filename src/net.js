@@ -142,9 +142,15 @@ export function createNet() {
     const tokenKey = `chains.room.${net.code}`; net.token = crypto.randomUUID();
     try { net.token = sessionStorage.getItem(tokenKey) || net.token; sessionStorage.setItem(tokenKey, net.token); } catch {}
     net.relayId ||= `r-${crypto.randomUUID()}`;
+    let was = null; try { was = sessionStorage.getItem(`${tokenKey}.via`); } catch {}
     await loadIce(); net.peer = new window.Peer(options());
     let direct = true; try { await ready(); } catch { direct = false; }   // the room service is unreachable from here: the relay may not be
-    await (direct ? connectHost() : connectRelay()); startHeartbeat(); keepAwake(true);
+    // This tab played the room through the relay before a reload (iOS reloads a phone's tab it put away): straight back through
+    // it, not after another 10 s direct try, inside the 30 s the host holds the seat. Should it fail, the usual order follows.
+    if (direct && was === 'relay') { try { await connectRelay(); } catch { await connectHost(); } }
+    else await (direct ? connectHost() : connectRelay());
+    try { sessionStorage.setItem(`${tokenKey}.via`, net.via); } catch {}
+    startHeartbeat(); keepAwake(true);
   };
   net.send = (id, data) => { const c = net.conns.get(id); if (c && c.open) c.send(data); };
   net.broadcast = (data, except = null) => { for (const [id, c] of net.conns) if (id !== except && c.open) c.send(data); };
