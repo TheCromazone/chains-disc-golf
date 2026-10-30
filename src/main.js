@@ -674,11 +674,11 @@ function resolveThrow(pi, r, f = null) {
   if (choose) UI.obChoice(() => { if (G.skipResult !== advance) return; p.lie = obFrom; p.lieDist = distToBasket(obFrom[0], obFrom[2]); p.marker.position.set(obFrom[0], world.height(obFrom[0], obFrom[2]) + .04, obFrom[2]); UI.setHud({ dist: p.lieDist }); advance(); }, advance);
   G.skipResult = advance; G.resultAt = performance.now(); setTimeout(advance, choose ? 6000 : 2400);
 }
-// A tap on the course cuts the flyover to its flash, and a verdict short once it has been seen (.6 s). Not online: the host
+// A tap on the course cuts the flyover to the tee, and a verdict short once it has been seen (.6 s). Not online: the host
 // paces a room's turns. Taps on buttons and dialogs are theirs (the swipe pad is idle in both beats, and covers half the glass).
 function skipBeat(e) {
   if (G.mode === 'online' || e.target.closest?.('button,a,input,select,textarea,dialog,.overlay')) return;
-  if (G.phase === 'intro') G.introT = Math.max(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH);
+  if (G.phase === 'intro') G.introT = Math.max(G.introT, introDur(holes[G.holeIdx]));   // the white flash it skipped to is gone (a bare cut now): INTRO_FLASH threw here and "Tap to skip" did nothing
   else if (G.phase === 'result' && G.skipResult && performance.now() - G.resultAt > 600) G.skipResult();
 }
 function endHole() {
