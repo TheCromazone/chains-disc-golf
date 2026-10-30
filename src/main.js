@@ -21,7 +21,7 @@ import { createCoach } from './coach.js';
 import { planBotThrow } from './bot.js';
 import { createNet } from './net.js';
 import { icon } from './icons.js';
-import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, uniqueName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor, safeOrder, safeRoom, tokenTag } from './protocol.js';
+import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, roomName, uniqueName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor, safeOrder, safeRoom, tokenTag } from './protocol.js';
 import * as UI from './ui.js';
 import { createMatches } from './match.js';
 import { unlock, sfx, setMuted, isMuted, audioState } from './audio.js';
@@ -1421,7 +1421,7 @@ $('btnLockerDone').onclick = () => {
   const back = lockerFrom === 'online' && G.net && G.phase === 'menu' ? 'online' : 'menu'; lockerFrom = 'menu';
   UI.hide('locker'); UI.show(back); cam.mode = 'menu'; placeHero(); sfx.click();
   if (back === 'online' && !G.net.locked) {   // wear the new look in the waiting room (and in the round it starts)
-    if (G.net.isHost) { const host = G.lobby.find(p => p.host); if (host) { host.name = uniqueName(safeName(G.avatar.name), G.lobby.filter(p => p !== host).map(p => p.name)); host.avatar = { ...G.avatar, name: host.name }; } publishLobby(); }
+    if (G.net.isHost) { const host = G.lobby.find(p => p.host); if (host) { host.name = uniqueName(roomName(G.avatar.name, host.name), G.lobby.filter(p => p !== host).map(p => p.name)); host.avatar = { ...G.avatar, name: host.name }; } publishLobby(); }
     else G.net.toHost({ t: 'look', avatar: { ...G.avatar } });
   }
 };
@@ -1576,7 +1576,7 @@ function onNet(ev) {
     }
     if (G.net.locked) return rejectGuest(ev.id, 'This round has started, and the room stays closed to new players. Ask the host to make a new room for the next round.');
     if (G.lobby.length >= MAX_PLAYERS) return rejectGuest(ev.id, `This room is full (${MAX_PLAYERS} players).`);
-    G.lobby.push({ name: uniqueName(ev.name, G.lobby.map(p => p.name)), peerId: ev.id, avatar: sanitizeAvatar(ev.avatar), token: ev.token }); publishLobby(); sfx.click();
+    G.lobby.push({ name: uniqueName(roomName(ev.name, 'Guest'), G.lobby.map(p => p.name)), peerId: ev.id, avatar: sanitizeAvatar(ev.avatar), token: ev.token }); publishLobby(); sfx.click();
   } else if (ev.type === 'leave') {
     if (G.net.isHost) {
       const li = G.lobby.findIndex(p => p.peerId === ev.id); if (li < 0) return;
@@ -1616,7 +1616,7 @@ function onNet(ev) {
         if (m.t === 'ready') { const was = !!member.ready; member.ready = m.ready === true; if (member.ready && !was) sfx.click(); }
         else {
           const look = sanitizeAvatar(m.avatar); if (!look) return;
-          if (look.name && look.name !== member.name) member.name = uniqueName(look.name, G.lobby.filter(p => p !== member).map(p => p.name));   // renamed in the locker
+          if (look.name && look.name !== member.name) member.name = uniqueName(roomName(look.name, member.name), G.lobby.filter(p => p !== member).map(p => p.name));   // renamed in the locker
           member.avatar = { ...look, name: member.name };
         }
         publishLobby(); return;
@@ -1658,7 +1658,7 @@ const setInvited = code => {
   $('online').classList.toggle('invited', !!code); UI[code ? 'show' : 'hide']('inviteNote'); UI[code ? 'show' : 'hide']('btnHostInstead');
   $('onlineTitle').textContent = code ? `Join room ${code}` : 'Online room'; if (code) $('joinCode').value = code;
 };
-const openLive = (invite = '') => { UI.hide('menu'); UI.show('online'); leaveRoomView(); $('onlineName').value ||= G.avatar.name || 'Player'; setInvited(invite); };
+const openLive = (invite = '') => { UI.hide('menu'); UI.show('online'); leaveRoomView(); $('onlineName').value ||= roomName(G.avatar.name, ''); setInvited(invite); };
 // The online panel turns into the waiting room once a room exists, and back into the create/join choice when it is gone.
 function enterRoomView() { seenCards = new Set(); readyBefore = new Set(); roomShown = ''; startArmed = 0; $('online').classList.add('in-room'); $('onlineTitle').textContent = 'Waiting room'; UI.hide('onlineChoice'); UI.show('lobby'); renderLobby(); }
 function adoptName(name) { if (name && name !== G.avatar.name) { G.avatar.name = name; saveLocal('chains.avatar', G.avatar); updateHub(); } }
@@ -1678,18 +1678,18 @@ $('btnOnline').onclick = () => { sfx.click(); matches.open(); };
 $('btnOnlineBack').onclick = () => { G.net?.close(); G.net = null; UI.hide('online'); UI.show('menu'); };
 $('btnLeave').onclick = toMenu;
 $('btnCreate').onclick = async () => {
-  const name = safeName($('onlineName').value || 'Host'); UI.onlineError(); UI.setConnecting('btnCreate', true); $('btnJoin').disabled = true;
+  const typed = roomName($('onlineName').value, ''), name = typed || 'Host'; UI.onlineError(); UI.setConnecting('btnCreate', true); $('btnJoin').disabled = true;
   try {
     G.net?.close(); G.net = createNet();
     const room = G.net, code = await room.host(name, onNet); if (G.net !== room) return;
-    adoptName(name); G.lobby = [{ name, peerId: room.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code;
+    adoptName(typed); G.lobby = [{ name, peerId: room.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code;
     G.room = { courseId: COURSE_IDS.includes(G.courseId) ? G.courseId : COURSE_IDS[0], holes: +G.settings.holes === 3 ? 3 : 9, order: safeOrder(G.settings.order) };
     enterRoomView();
   } catch (e) { UI.onlineError('Could not create a room: ' + (e.message || e)); G.net?.close(); G.net = null; }
   finally { UI.setConnecting('btnCreate', false); $('btnJoin').disabled = false; }
 };
 $('btnJoin').onclick = async () => {
-  const name = safeName($('onlineName').value || 'Guest'), code = $('joinCode').value.trim().toUpperCase(); UI.onlineError();
+  const typed = roomName($('onlineName').value, ''), name = typed || 'Guest', code = $('joinCode').value.trim().toUpperCase(); UI.onlineError();
   if (!/^[A-Z2-9]{4}$/.test(code)) { UI.onlineError('Enter the four-character room code.'); $('joinCode').focus(); return; }
   UI.setConnecting('btnJoin', true); $('btnCreate').disabled = true;
   // A network that blocks a direct link (cellular, strict Wi-Fi) costs a 10 s try before the relay takes over. Past 4 s, say what is
@@ -1700,7 +1700,7 @@ $('btnJoin').onclick = async () => {
     G.net?.close(); G.net = createNet(); G.lobby = [];
     const room = G.net; room.onStatus = s => { if (s === 'relay') { note = 'Switching to the backup connection…'; if (late) UI.onlineNote(note); } };
     await room.join(code, name, onNet, { ...G.avatar, name }); room.onStatus = null; if (G.net !== room) return;
-    adoptName(name); $('roomCode').textContent = code; enterRoomView();
+    adoptName(typed); $('roomCode').textContent = code; enterRoomView();
   } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
   finally { clearTimeout(slow); UI.onlineNote(); UI.setConnecting('btnJoin', false); $('btnCreate').disabled = false; }
 };

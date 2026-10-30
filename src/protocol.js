@@ -3,6 +3,9 @@ import { THROWS, DISCS } from './physics.js';
 export const MAX_PLAYERS = 12;
 export const PROTOCOL_VERSION = 4;   // 3: binary serialization (PeerJS chunks big messages; JSON mode silently dropped any over 16 KB); 4: waiting room (ready, look, room settings, turn order)
 export const safeName = value => String(value || 'Player').replace(/[\u0000-\u001f]/g, '').slice(0, 14).trim() || 'Player';
+// "You" is the solo default: in a room every other screen showed it as a name of its own ("YOU" on the host's scorecard,
+// "You is throwing…"), so a room swaps it, and an empty field, for the fallback.
+export const roomName = (value, fallback) => { const n = safeName(value); return /^(you|player)$/i.test(n) ? fallback : n; };
 // Four friends who never changed the default name all arrive as "You": number the repeats ("You 2") so the lobby,
 // the scorecard and whose-turn toasts can tell them apart.
 export const uniqueName = (value, taken) => {
