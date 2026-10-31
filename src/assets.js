@@ -14,9 +14,12 @@ for (const Loader of [THREE.ImageLoader, THREE.FileLoader]) {
   Loader.prototype.load = function (url, onLoad, onProgress, onError) {
     let tries = 0; const remote = typeof url === 'string' && !/^(data|blob):/.test(url), held = `${url}#retry`;
     const attempt = () => load.call(this, url, onLoad, onProgress, e => {
-      const status = e?.response?.status;
-      if (!remote || tries >= 2 || (status >= 400 && status < 500)) { onError?.(e); return; }
-      this.manager.itemStart(held); setTimeout(() => { attempt(); this.manager.itemEnd(held); }, 800 * 3 ** tries++);
+      if (!remote || tries >= 2) { onError?.(e); return; }
+      this.manager.itemStart(held);
+      // A file load's error carries its status. An image's says nothing (a 404 and a dropped request look the same, and every missing
+      // image waited 3.2 s through two more tries), so one HEAD asks the server whether the file is there at all.
+      Promise.resolve(e?.response ? e.response.status : e instanceof Event ? fetch(this.manager.resolveURL((this.path || '') + url), { method: 'HEAD', cache: 'no-store' }).then(r => r.status, () => 0) : 0)
+        .then(s => { if (s >= 400 && s < 500) { onError?.(e); this.manager.itemEnd(held); } else setTimeout(() => { attempt(); this.manager.itemEnd(held); }, 800 * 3 ** tries++); });
     });
     return attempt();
   };
