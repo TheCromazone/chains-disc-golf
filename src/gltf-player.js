@@ -458,8 +458,9 @@ export function createGLTFCharacter(avatar) {
     owned.add(o.material); o.castShadow = true; o.receiveShadow = true; if (o.isSkinnedMesh) o.boundingSphere = REACH;
   });
   if (!joints.elR || !joints.root || !body || !skin) return null;
-  if (!lod) {   // the full body: its shadow from the low-detail one (SHADOW_ONLY above)
-    let low = null; model(key + '_lod')?.scene.traverse(o => { if (o.isSkinnedMesh && o.skeleton.bones.length === skin.skeleton.bones.length && [].concat(o.material)[0].name.startsWith('body')) low = o; });
+  if (!lod) {   // the full body: its shadow from the low-detail one (SHADOW_ONLY above), whose skin indices must name the same bones in the same order
+    const rig = skin.skeleton.bones.map(b => b.name).join();
+    let low = null; model(key + '_lod')?.scene.traverse(o => { if (o.isSkinnedMesh && o.skeleton.bones.map(b => b.name).join() === rig && [].concat(o.material)[0].name.startsWith('body')) low = o; });
     const proxy = new THREE.SkinnedMesh(low ? (repairPlayerSkinning(low), low.geometry) : raw, SHADOW_ONLY); proxy.name = 'shadow_proxy';
     proxy.position.copy(skin.position); proxy.quaternion.copy(skin.quaternion); proxy.scale.copy(skin.scale); skin.parent.add(proxy);
     proxy.bind(skin.skeleton, skin.bindMatrix); proxy.boundingSphere = REACH; proxy.castShadow = true; skin.castShadow = false;
