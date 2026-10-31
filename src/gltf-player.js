@@ -35,18 +35,27 @@ const LIVE = typeof location !== 'undefined' && new URLSearchParams(location.sea
 // duplicates, then relaxed over the neighbours (the head keeps its own detail).
 // ponytail: a flood-filled consistent winding looked the same here; the one remaining dark wedge on her upper back is a
 // real fold of the scan, which only a mesh fix removes.
-function relaxNormals(g, headBone, passes = 3) {
+// Her scan's source normals are themselves wrong: against the outward direction off her bones, 48 % of the relaxed vertex
+// normals pointed into the body (50 % on the torso, the male's scan a few ticks), and a face oriented to agree with them
+// faced inward too. Lit from inside, those patches of jersey and shorts went pale in the sun and dark in shade: the pale
+// scratches across her sash and shoulders. With `skel` (her body), faces are oriented by the mesh itself instead: a flood
+// fill makes each connected piece wind one way across its shared edges, and each piece (her scan is ~4,400 of them, joined
+// at folds) then faces the way most of its area points off the nearest bone. Inward-pointing normals, as the game draws her:
+// 48 % -> 30 % (his 14 %: that measure also counts the armpits, crotch and inner thighs, where the nearest bone misleads, and
+// the inner layer of her shirt, which the culling hides).
+function relaxNormals(g, headBone, passes = 3, skel = null) {
   if (g.userData.relaxed) return; g.userData.relaxed = true;
   const pos = g.attributes.position, nrm = g.attributes.normal, idx = g.index.array, n = pos.count, weld = new Int32Array(n), key = new Map();
   for (let i = 0; i < n; i++) { const k = Math.round(pos.getX(i) * 1e4) + ',' + Math.round(pos.getY(i) * 1e4) + ',' + Math.round(pos.getZ(i) * 1e4); let w = key.get(k); if (w === undefined) key.set(k, w = key.size); weld[i] = w; }
   const W = key.size, was = new Float32Array(W * 3), acc = new Float32Array(W * 3), head = new Uint8Array(W), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
   const si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
   for (let i = 0; i < n; i++) { const w = weld[i] * 3; was[w] += nrm.getX(i); was[w + 1] += nrm.getY(i); was[w + 2] += nrm.getZ(i); for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === headBone && sw.getComponent(i, k) > .5) head[weld[i]] = 1; }
+  const side = skel ? orientFaces(pos, idx, weld, W, skel) : null;   // per face: +1 keeps its winding's normal, -1 flips it
   const links = Array.from({ length: W }, () => new Set());
   for (let f = 0; f < idx.length; f += 3) {
     const p = [idx[f], idx[f + 1], idx[f + 2]], q = p.map(i => weld[i]);
     a.fromBufferAttribute(pos, p[0]); b.fromBufferAttribute(pos, p[1]).sub(a); c.fromBufferAttribute(pos, p[2]).sub(a); b.cross(c);   // area-weighted face normal
-    const s = q.reduce((d, w) => d + b.x * was[w * 3] + b.y * was[w * 3 + 1] + b.z * was[w * 3 + 2], 0) < 0 ? -1 : 1;
+    const s = side ? side[f / 3] : q.reduce((d, w) => d + b.x * was[w * 3] + b.y * was[w * 3 + 1] + b.z * was[w * 3 + 2], 0) < 0 ? -1 : 1;
     for (const w of q) { acc[w * 3] += s * b.x; acc[w * 3 + 1] += s * b.y; acc[w * 3 + 2] += s * b.z; }
     links[q[0]].add(q[1]).add(q[2]); links[q[1]].add(q[0]).add(q[2]); links[q[2]].add(q[0]).add(q[1]);
   }
@@ -59,6 +68,37 @@ function relaxNormals(g, headBone, passes = 3) {
   }
   for (let i = 0; i < n; i++) { const w = weld[i] * 3; nrm.setXYZ(i, cur[w], cur[w + 1], cur[w + 2]); }
   nrm.needsUpdate = true;
+}
+// relaxNormals' face orientation for a scan whose normals cannot be trusted: +1 / -1 per face (see there). The bones' bind
+// segments stand in for the body's axis: spine and neck, collar bones, upper arms and forearms (to the wrist), hips, thighs
+// and shins (to the ankle) and the skull.
+function orientFaces(pos, idx, weld, W, skel) {
+  const J = {}; skel.bones.forEach((b, i) => { J[b.name] = new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(skel.boneInverses[i]).invert()); });
+  const seg = [['root', 'spine'], ['spine', 'head'], ['spine', 'shL'], ['spine', 'shR'], ['shL', 'elL'], ['shR', 'elR'], ['root', 'hipL'], ['root', 'hipR'], ['hipL', 'knL'], ['hipR', 'knR']].filter(([p, q]) => J[p] && J[q]).map(([p, q]) => [J[p], J[q]]);
+  for (const s of 'LR') { const e = J['el' + s], h = J['sh' + s], k = J['kn' + s]; if (e && h) seg.push([e, e.clone().lerp(h, -.95)]); if (k) seg.push([k, new THREE.Vector3(k.x, .08, k.z)]); }
+  if (J.head) seg.push([J.head, J.head.clone().add(new THREE.Vector3(0, .12, 0))]);
+  const F = idx.length / 3, nf = new Float32Array(F * 3), out = new Float32Array(F), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), d = new THREE.Vector3(), q = new THREE.Vector3(), best = new THREE.Vector3();
+  const edges = new Map();
+  for (let f = 0; f < F; f++) {
+    const i0 = idx[f * 3], i1 = idx[f * 3 + 1], i2 = idx[f * 3 + 2];
+    a.fromBufferAttribute(pos, i0); b.fromBufferAttribute(pos, i1).sub(a); c.fromBufferAttribute(pos, i2).sub(a); b.cross(c); nf[f * 3] = b.x; nf[f * 3 + 1] = b.y; nf[f * 3 + 2] = b.z;
+    c.add(a).add(a).add(d.fromBufferAttribute(pos, i1)).divideScalar(3);   // centroid (c held the third corner less the first)
+    let near = Infinity; for (const [p0, p1] of seg) { d.subVectors(p1, p0); const t = Math.max(0, Math.min(1, q.subVectors(c, p0).dot(d) / d.lengthSq())); q.copy(p0).addScaledVector(d, t); const l = c.distanceToSquared(q); if (l < near) { near = l; best.subVectors(c, q); } }
+    out[f] = b.dot(best) / (best.length() || 1);   // area-weighted vote: this face's winding against the outward direction
+    const w = [weld[i0], weld[i1], weld[i2]];
+    for (let k = 0; k < 3; k++) { const u = w[k], v = w[(k + 1) % 3]; if (u === v) continue; const e = Math.min(u, v) * W + Math.max(u, v); let l = edges.get(e); if (!l) edges.set(e, l = []); l.push(f, u < v ? 1 : 0); }
+  }
+  const adj = Array.from({ length: F }, () => []);
+  for (const l of edges.values()) if (l.length === 4) { adj[l[0]].push(l[2], l[1] === l[3] ? 1 : 0); adj[l[2]].push(l[0], l[1] === l[3] ? 1 : 0); }   // a shared edge run the same way: the two faces wind opposite ways
+  const flip = new Int8Array(F), comp = new Int32Array(F).fill(-1), side = new Float32Array(F), stack = [], members = [];
+  for (let s = 0, nc = 0; s < F; s++) {
+    if (comp[s] >= 0) continue;
+    comp[s] = nc; stack.push(s); members.length = 0; let vote = 0;
+    while (stack.length) { const f = stack.pop(); members.push(f); vote += flip[f] ? -out[f] : out[f]; for (let k = 0; k < adj[f].length; k += 2) { const h = adj[f][k]; if (comp[h] < 0) { comp[h] = nc; flip[h] = flip[f] ^ adj[f][k + 1]; stack.push(h); } } }
+    for (const f of members) side[f] = (flip[f] ? -1 : 1) * (vote < 0 ? -1 : 1);
+    nc++;
+  }
+  return side;
 }
 
 // One level of curved subdivision over the shoulders and arms, once per loaded full body on the Mobile tier: every edge whose
@@ -450,7 +490,7 @@ export function createGLTFCharacter(avatar) {
     if (o.name.startsWith('accessory_wristband')) o.visible = false; // fitted cloth cuffs replace the scan's loose torus bands
     if (!o.isMesh) return;
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); raw = o.geometry; if (!lod && document.body.classList.contains('gfx-mobile')) o.geometry = smoothArms(o.geometry, o); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const by = i => new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert().elements[13]; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); } }
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head'), 3, female ? o.skeleton : null); raw = o.geometry; if (!lod && document.body.classList.contains('gfx-mobile')) o.geometry = smoothArms(o.geometry, o); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const by = i => new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert().elements[13]; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); } }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
     // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
