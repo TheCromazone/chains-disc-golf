@@ -26,7 +26,7 @@ export function createAthleteMotion({ joints, actor, skin, group }) {
     // touch first with the shoe tipped onto its toe or heel or rolled onto a side: a run-up's trailing foot, up on its toe, sank the
     // toe ~4 cm into the turf (the body with it), and the body popped up 3-4 cm in two frames when the other foot landed
     const centre = picked.length;
-    for (const a of [-40, -20, 20, 40, 60]) for (const b of [-25, 0, 25]) {   // pitch (+ toe down, the toe is -z) and roll, degrees: six more per shoe (heel and toe corners, the ball's sides)
+    for (const a of [-40, -20, 20, 40, 60]) for (const b of [-25, 0, 25]) {   // pitch (+ toe down, the toe is -z) and roll, degrees: ~6 more per shoe (heel and toe corners, the sides of the ball)
       const ca = Math.cos(a * Math.PI / 180), sa = Math.sin(a * Math.PI / 180), cb = Math.cos(b * Math.PI / 180), sb = Math.sin(b * Math.PI / 180);
       let low = Infinity, at = -1; for (const i of indices) { const h = (p.getY(i) * ca + p.getZ(i) * sa) * cb + p.getX(i) * sb; if (h < low) { low = h; at = i; } }
       if (at >= 0 && picked.every(j => Math.hypot(p.getX(j) - p.getX(at), p.getZ(j) - p.getZ(at)) > .025)) picked.push(at);
