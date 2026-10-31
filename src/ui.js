@@ -7,6 +7,7 @@ const pressed = (button, on) => { button.classList.toggle('on', on); button.setA
 export const escapeText = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const $ = id => document.getElementById(id);
+const signed = v => { const s = Math.abs(v).toFixed(1); return (v < 0 && s !== '0.0' ? '−' : '+') + s; };   // the sign follows the printed digits: a -.05 cut-off printed -0.05 as "+0.1", none printed -0.01 as "−0.0"
 // A double tap on a button that swaps screens lands its second tap on whatever the new screen has there (Leave round →
 // Graphics: Desktop on a phone on its side). Clicks inside a screen in its first 350 ms are dropped.
 let shownAt = 0;
@@ -90,13 +91,13 @@ export function react(kind) {
 let releaseTimer = null;
 export function releaseTag(power, wobble, pull) {
   const el = $('releaseTag'), grade = wobble < .15 ? 'perfect' : wobble < .4 ? 'good' : 'wobbly';
-  el.textContent = `${Math.round(power * 100)}% · ${pull < -.05 ? '−' : '+'}${Math.abs(pull).toFixed(1)}° · ${grade} release`;
+  el.textContent = `${Math.round(power * 100)}% · ${signed(pull)}° · ${grade} release`;
   el.className = 'show ' + grade; clearTimeout(releaseTimer); releaseTimer = setTimeout(() => { el.className = grade; }, 1700);
 }
 export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong way — ${THROWS[throwType].hint}`; }   // the swipe's own words (main.js onGesture); the throw chip names the throw, and "Wrong direction — Backhand IO: …" ran past an upright pad
 export function setHud({ hole, par, len, dist, holed, playerName, throwNo, toPar, windText, windDeg, circle, elev }) {
   if (toPar !== undefined) $('toPar').textContent = toPar === 0 ? 'E' : toPar > 0 ? `+${toPar}` : `−${-toPar}`;
-  if (elev !== undefined) $('elevText').textContent = `${elev < -0.05 ? '−' : '+'}${Math.abs(elev).toFixed(1)} m`;
+  if (elev !== undefined) $('elevText').textContent = `${signed(elev)} m`;
   if (hole !== undefined) $('holeLabel').textContent = `HOLE ${hole}`;
   if (par !== undefined) $('holePar').textContent = `Par ${par} · ${Math.round(len)} m`;
   if (dist !== undefined) { const label = holed ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`; if ($('dist').textContent !== label) { $('dist').textContent = label; $('dist').setAttribute('aria-label', holed ? label : `${label} to basket`); } const pin = `${Math.round(dist)} m`; if ($('pinDist').textContent !== pin) $('pinDist').textContent = pin; }
