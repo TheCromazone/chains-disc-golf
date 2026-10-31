@@ -1,5 +1,6 @@
 """Refill the colour under the transparent texels of the foliage atlases (leaves, impostors, impostors_n), cell by cell.
-Run: python3 tools/dilate-foliage.py   (after tools/build-foliage.py or tools/build-trees.py; Pillow + numpy)
+Run: python3 tools/dilate-foliage.py [leaves] [impostors]   (Pillow + numpy; both by default: `leaves` after tools/build-foliage.py,
+`impostors` after tools/build-trees.py, which leaves leaves.webp as it was: a refill of a refilled atlas re-encodes it for nothing)
 
 The builds bleed each leaf's colour 24 texels past its edge, but the lossy WebP encoder then rewrote every fully transparent
 8 x 8 block ("cleanup transparent area": it copies the block to its left), so the atlases carried horizontal streaks of
@@ -49,9 +50,11 @@ def save(name, arr):
   Image.fromarray(np.round(np.clip(arr, 0, 1) * 255).astype(np.uint8)).save(DIR / name, 'WEBP', quality=92, method=6, exact=True)
 
 if __name__ == '__main__':
-  leaves = load('leaves.webp'); leaves[..., :3] = refill(leaves[..., :3], leaves[..., 3], (512, 512)); save('leaves.webp', leaves)
-  imp = load('impostors.webp'), load('impostors_n.webp')
-  cov = imp[0][..., 3]; cell = (imp[0].shape[1] // 4, imp[0].shape[0] // 3)   # 4 across, IMPOSTOR_ROWS (3) up
-  imp[0][..., :3] = refill(imp[0][..., :3], cov, cell); save('impostors.webp', imp[0])
-  imp[1][..., :3] = refill(imp[1][..., :3], cov, cell, colour=False); save('impostors_n.webp', imp[1])
-  print('refilled leaves.webp, impostors.webp, impostors_n.webp')
+  import sys; which = set(sys.argv[1:]) or {'leaves', 'impostors'}
+  if 'leaves' in which:
+    leaves = load('leaves.webp'); leaves[..., :3] = refill(leaves[..., :3], leaves[..., 3], (512, 512)); save('leaves.webp', leaves); print('refilled leaves.webp')
+  if 'impostors' in which:
+    imp = load('impostors.webp'), load('impostors_n.webp')
+    cov = imp[0][..., 3]; cell = (imp[0].shape[1] // 4, imp[0].shape[0] // 3)   # 4 across, IMPOSTOR_ROWS (3) up
+    imp[0][..., :3] = refill(imp[0][..., :3], cov, cell); save('impostors.webp', imp[0])
+    imp[1][..., :3] = refill(imp[1][..., :3], cov, cell, colour=False); save('impostors_n.webp', imp[1]); print('refilled impostors.webp, impostors_n.webp')
