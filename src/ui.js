@@ -126,8 +126,13 @@ let pinAt = '', band = null;
 // plate (r4 QA, a phone on its side, a chase past the treeline), so it bows out over the ~20 px it would share with them.
 const topBand = () => { const k = innerWidth + 'x' + innerHeight; if (band?.k !== k) { const a = $('top').getBoundingClientRect(), b = $('utilities').getBoundingClientRect(), c = $('conditions').getBoundingClientRect(), up = c.width && c.top < innerHeight / 2, left = c.right < innerWidth / 2;
   band = a.width ? { k, l: a.right + 6, yl: Math.max(a.bottom, up && left ? c.bottom : 0) + 4, r: Math.min(b.left, up && !left ? c.left : 1e4) - 6, yr: Math.max(b.bottom, up && !left ? c.bottom : 0) + 4 } : null; } return band; };
+// The waiting line ("Ricky · Forehand, Midrange") is a plate too while a bot winds up: on a phone on its side it stands beside
+// the score plate, where a far pin's tag rose into its end (r4 playtest). Read once per text and viewport.
+let waitBox = null;
+const waitBand = () => { const el = $('waiting'), k = el.classList.contains('hidden') ? '' : innerWidth + 'x' + innerHeight + el.textContent; if (waitBox?.k !== k) { const r = k && el.getBoundingClientRect(); waitBox = { k, r: r?.width ? r : null }; } return waitBox.r; };
 export function placePin(x, y, alpha) {
-  const t = alpha > .01 && topBand(), under = (x - 45 < t?.l ? t.yl : 0) || (x + 45 > t?.r ? t.yr : 0);   // the tag stands ~52 px over its foot, ~90 wide
+  const t = alpha > .01 && topBand(), w = alpha > .01 && !/^(intro|release|flight)$/.test(document.body.dataset.phase) && waitBand();   // the HUD is out in the flyover, the line fades once the disc is away
+  const under = Math.max((x - 45 < t?.l ? t.yl : 0) || (x + 45 > t?.r ? t.yr : 0), w && x + 45 > w.left && x - 45 < w.right ? w.bottom + 4 : 0);   // the tag stands ~52 px over its foot, ~90 wide
   if (under) alpha *= Math.max(0, Math.min(1, (y - 52 - under) / 20));
   const key = alpha > .01 ? `${x.toFixed(1)} ${y.toFixed(1)} ${alpha.toFixed(2)}` : '';
   if (key === pinAt) return; pinAt = key;
