@@ -93,7 +93,7 @@ export function releaseTag(power, wobble, pull) {
   el.textContent = `${Math.round(power * 100)}% · ${pull < -.05 ? '−' : '+'}${Math.abs(pull).toFixed(1)}° · ${grade} release`;
   el.className = 'show ' + grade; clearTimeout(releaseTimer); releaseTimer = setTimeout(() => { el.className = grade; }, 1700);
 }
-export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
+export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong way — ${THROWS[throwType].hint}`; }   // the swipe's own words (main.js onGesture); the throw chip names the throw, and "Wrong direction — Backhand IO: …" ran past an upright pad
 export function setHud({ hole, par, len, dist, holed, playerName, throwNo, toPar, windText, windDeg, circle, elev }) {
   if (toPar !== undefined) $('toPar').textContent = toPar === 0 ? 'E' : toPar > 0 ? `+${toPar}` : `−${-toPar}`;
   if (elev !== undefined) $('elevText').textContent = `${elev < -0.05 ? '−' : '+'}${Math.abs(elev).toFixed(1)} m`;
