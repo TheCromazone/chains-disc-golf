@@ -262,7 +262,20 @@
     <button value="leave" class="quiet"><span data-icon="back"></span>Leave round</button>
   </form>
 </dialog>
-<script type="module" src="src/main.js"></script>
+<script>
+// Boot failures. A game file that never arrived (a request dropped on a phone's cold first load) or a throw while the game starts
+// stopped the module before main.js could say so, and the page sat on "Growing the course…" for good. A first-load failure has
+// loaded on a reload (iOS Safari): reload once by itself, then show the reason and a button. Once per failure streak, not per minute:
+// a stalled request fails after iOS's 60 s timeout, and a minute's window reloaded that for good. main.js clears the mark once booted.
+function chainsBootFailed(why) {
+  var l = document.getElementById('loading'); if (!l || l.classList.contains('hidden') || l.querySelector('.boot-error')) return;   // a throw once the game runs never reloads it
+  try { if (Date.now() - (+sessionStorage.getItem('chains.bootRetry') || 0) > 600000) { sessionStorage.setItem('chains.bootRetry', String(Date.now())); location.reload(); return; } } catch (e) { /* no storage: ask */ }
+  l.innerHTML = '<p>The course could not load. Check your connection, then try again.</p><button onclick="location.reload()">Reload game</button><small class="boot-error"></small>';
+  l.querySelector('small').textContent = String(why || '').slice(0, 160);   // a phone has no console: the reason, small, for the bug report
+}
+addEventListener('error', function (e) { if (!window.chainsStarted && e.error) chainsBootFailed(e.message); });   // a module that threw while it loaded
+</script>
+<script type="module" src="src/main.js" onerror="chainsBootFailed('A game file did not download.')"></script>
 <!-- hole intro title: shown while body[data-phase="intro"], text set by startHole() in src/main.js -->
 <div id="holeTitle" aria-hidden="true"><b>Hole 1</b><span>Par 3 · 85 m</span><small>Tap to skip</small></div>
 </body>

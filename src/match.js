@@ -167,7 +167,8 @@ export function createMatches(d) {
   }
   async function showJoin(id) {
     showPane('matchJoin'); error('matchJoinError'); $('matchJoin').dataset.id = id;
-    if (!$('matchName').value && d.me().name !== 'You') $('matchName').value = d.me().name;   // never prefill the default 'You' $('matchJoinApp').classList.toggle('hidden', !(isIOS && !standalone()));
+    if (!$('matchName').value && d.me().name !== 'You') $('matchName').value = d.me().name;   // never prefill the default 'You'
+    $('matchJoinApp').classList.toggle('hidden', !(isIOS && !standalone()));   // iPhone Safari: the Home Screen app keeps its own seats (this sat inside the comment above and never ran)
     $('matchJoinTitle').textContent = 'Join the match'; $('matchJoinSub').textContent = 'Loading the invite…'; $('btnMatchJoin').disabled = true;
     try {
       const m = await fetchMatch(id), host = m.players.find(p => p.id === m.hostId);

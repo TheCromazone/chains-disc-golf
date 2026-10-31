@@ -81,7 +81,7 @@ const G = {
   settings: { holes: '9', difficulty: 'medium', quality: isMobile ? 'low' : 'high', order: 'away' },
   net: null, lobby: [], gesture: { power: 0, lateral: 0 }, previewDirty: true, lastPreview: 0, inbox: [],
   avatar: { ...DEFAULT_AVATAR }, courseId: 'pine',
-  sessionId: '', shotSeq: 0, lastShotSeq: 0, syncing: false,
+  sessionId: '', shotSeq: 0, lastShotSeq: 0, syncing: false, thrownTurn: '',
 };
 try { const saved=JSON.parse(localStorage.getItem('chains.avatar') || '{}');Object.assign(G.avatar,saved);if(saved.glasses==null&&saved.shades)G.avatar.glasses='sport'; G.courseId = localStorage.getItem('chains.course') || 'pine'; } catch { /* private mode */ }
 const saveLocal = (k, v) => { try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch { /* ignore */ } };
@@ -374,7 +374,7 @@ async function applyCourse(id) {
   // Phones only: on Desktop the bloom, shafts and aerial pass blew a sunlit cloud in the tee's canopy gap into a warm smudge
   // (blind check: phone light 4/4, intro 4/4; desktop look 0/4), so Desktop keeps the gradient dome.
   const panoUrl = G.settings.quality === 'low' && asset('skies', def.id + '-mobile');
-  const pano = panoUrl && await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null);   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps
+  const pano = panoUrl ? await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null) : null;   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps; null, not false: course.dispose() calls pano?.dispose() (Desktop's false threw and left every later course change on a black screen)
   course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, pano });
   if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }   // no temporal resolve on Desktop (see draw())
   windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
@@ -721,7 +721,7 @@ function applyRemoteThrow(m) {   // only called when this client is idle in 'aim
   // winding up again from the start showed every guest its own throw twice. (HIT_T into the release is the .62 launch point.)
   if (G.phase === 'awaitThrow' && isMine(p)) { doThrow(m.pi, {}, sim); G.releaseT = HIT_T + .001; return; }
   G.phase = 'windup'; cam.mode = 'aim';
-  windUp(p, G.throwType, .7, () => doThrow(m.pi, {}, sim));
+  windUp(p, G.throwType, .7, () => doThrow(m.pi, {}, sim), u => UI.setPower(m.params.power * u));   // the watcher's ring fills to their power, as it does for a bot (it sat on an empty POWER)
 }
 function toMenu() {
   if (G.net?.isHost) try { G.net.broadcast({ t: 'closed' }); } catch { /* best effort */ }
@@ -733,7 +733,7 @@ function toMenu() {
   clearPlayers(); preview.visible = false; for (const id of ['hud', 'score', 'online', 'setup', 'courses', 'locker']) UI.hide(id); UI.show('menu');
   hero.group.visible = true; course.setHole(0); placeHero();
   if (G.net) { G.net.close(); G.net = null; }
-  G.mode = 'solo'; G.matchId = null; matches.refreshBadge();
+  G.mode = 'solo'; G.matchId = null; matches.refreshBadge(); roomMark(null);
 }
 
 // ---------- gestures ----------
@@ -1551,6 +1551,10 @@ function renderLobby() {
 const publishLobby = () => { renderLobby(); G.net?.broadcast({ t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code, room: G.room }); };
 function rejectGuest(id, reason) { G.net.send(id, { t: 'rejected', reason }); G.net.disconnect(id); }
 let turnCheck = null;
+// A request for a turn this guest has already thrown: the one the host took (its stroke still in flight), or an earlier one. The
+// relay sends frames queued while a phone was locked once it is back, and a request the host was slow to see arrives after the
+// guest, handed its turn back, threw again. A guest still waiting on such a turn resyncs on its own (watchConfirm, turn markers).
+const playedTurn = (m, from) => { if (m.turn === G.thrownTurn) return true; const [s, h, c, k] = String(m.turn).split(':'), p = G.players[+c]; return s === G.sessionId && p?.peerId === from && (+h < G.holeIdx || (+h === G.holeIdx && +k < p.strokes)); };
 function roomGone(title, sub) { if (!G.net || G.net.isHost) return; toMenu(); UI.toast(title, sub, 4000); }
 addEventListener('pagehide', () => { if (G.net?.isHost) try { G.net.broadcast({ t: 'closed' }); } catch { /* best effort */ } });
 function onNet(ev) {
@@ -1624,13 +1628,14 @@ function onNet(ev) {
       if (m.t === 'sync-request') { G.net.send(ev.from, G.net.locked ? { t: 'snapshot', state: snapshot() } : { t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code, room: G.room }); return; }
       // Guests send input only: never accept a client's trajectory, result, next-hole or lobby message.
       if (m.t === 'throw-request') {
+        if (playedTurn(m, ev.from)) return;   // a late copy of a throw that already counted: denying it sent the guest's phone through a resync mid-flight
         if (G.phase !== 'aim' || !validateThrowRequest(m, G, ev.from)) { G.net.send(ev.from, { t: 'throw-denied', reason: 'Waiting for your turn. Syncing the scorecard…' }); return; }
         const p = curP(), q = m.params, d = q.dir;
         const params = { throwType: q.throwType, discId: q.discId, power: q.power, hyzer: q.hyzer, yawOffset: q.yawOffset, launchOffset: q.launchOffset,
           dir: [...d], pos: releasePos(world, p.lie, d), lefty: p.appearance?.hand === 'left' };
         const sim = runSim(params), seq = ++G.shotSeq;
         const shot = { t: 'throw', sessionId: G.sessionId, turn: m.turn, seq, pi: G.cur, params, ...sim };
-        G.lastShotSeq = seq; G.net.broadcast(shot); applyRemoteThrow(shot);
+        G.lastShotSeq = seq; G.thrownTurn = m.turn; G.net.broadcast(shot); applyRemoteThrow(shot);
       }
       return;
     }
@@ -1643,7 +1648,7 @@ function onNet(ev) {
     else if (m.t === 'botify' && G.players[m.pi]) { const p = G.players[m.pi]; p.isBot = true; p.peerId = null; UI.toast(`${p.name} is away`, 'A bot keeps the round moving', 2000); }
     else if (m.t === 'rejoin' && G.players[m.pi]) { G.players[m.pi].isBot = false; G.players[m.pi].peerId = m.peerId; }
     else if (m.t === 'throw-denied') { UI.toast('Round synchronizing', m.reason, 2000); G.net.toHost({ t: 'sync-request' }); }
-    else if (m.t === 'rejected') { const reason = m.reason; G.net.close(); G.net = null; leaveRoomView(); UI.onlineError(reason); }
+    else if (m.t === 'rejected') { const reason = m.reason; G.net.close(); G.net = null; leaveRoomView(); UI.onlineError(reason); roomMark(null); }
     else if (m.t === 'closed') roomGone('The host left', 'The room has closed. Start a new room or an invite match.');
     else if (m.t === 'turn') {   // the host's turn marker: a guest still on an older turn (a lost shot) resyncs instead of waiting forever
       clearTimeout(turnCheck);
@@ -1663,6 +1668,14 @@ const openLive = (invite = '') => { UI.hide('menu'); UI.show('online'); leaveRoo
 function enterRoomView() { seenCards = new Set(); readyBefore = new Set(); roomShown = ''; startArmed = 0; $('online').classList.add('in-room'); $('onlineTitle').textContent = 'Waiting room'; UI.hide('onlineChoice'); UI.show('lobby'); renderLobby(); }
 function adoptName(name) { if (name && name !== G.avatar.name) { G.avatar.name = name; saveLocal('chains.avatar', G.avatar); updateHub(); } }
 function leaveRoomView() { $('online').classList.remove('in-room'); UI.hide('lobby'); UI.show('onlineChoice'); G.room = null; setInvited(''); }
+// A guest's room stays in the address bar (?room=CODE) and the tab remembers being in it: a reload, or iOS bringing back a tab it had
+// put away, reopened the clubhouse (or a Join to tap) while the host held the seat for 30 s. Now it joins again by itself.
+const inRoom = () => { try { return sessionStorage.getItem('chains.inRoom') || ''; } catch { return ''; } };
+function roomMark(code) {
+  try { if (code) sessionStorage.setItem('chains.inRoom', code); else sessionStorage.removeItem('chains.inRoom'); } catch { /* private mode: no rejoin */ }
+  const u = new URL(location.href); if (code) u.searchParams.set('room', code); else u.searchParams.delete('room');   // left: a reload is the clubhouse again
+  if (u.href !== location.href) history.replaceState(null, '', u.pathname + u.search + u.hash);
+}
 $('btnHostInstead').onclick = () => { setInvited(''); $('joinCode').value = ''; };
 $('onlineName').addEventListener('focus', e => { if (['You', 'Player'].includes(e.target.value)) e.target.select(); });   // the default name is a placeholder: typing replaces it
 // Invite matches (src/match.js): turn-based, over plain HTTPS, so phones on any network can play together.
@@ -1700,8 +1713,8 @@ $('btnJoin').onclick = async () => {
     G.net?.close(); G.net = createNet(); G.lobby = [];
     const room = G.net; room.onStatus = s => { if (s === 'relay') { note = 'Switching to the backup connection…'; if (late) UI.onlineNote(note); } };
     await room.join(code, name, onNet, { ...G.avatar, name }); room.onStatus = null; if (G.net !== room) return;
-    adoptName(typed); $('roomCode').textContent = code; enterRoomView();
-  } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
+    adoptName(typed); $('roomCode').textContent = code; enterRoomView(); roomMark(code);
+  } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; try { sessionStorage.removeItem('chains.inRoom'); } catch {} }   // the link stays for a manual retry; no rejoin by itself
   finally { clearTimeout(slow); UI.onlineNote(); UI.setConnecting('btnJoin', false); $('btnCreate').disabled = false; }
 };
 $('btnLobbyBot').onclick = () => { if (G.lobby.length < MAX_PLAYERS && !G.net.locked) { G.lobby.push({ name: uniqueName(BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], G.lobby.map(p => p.name)), isBot: true }); publishLobby(); sfx.click(); } };
@@ -1760,6 +1773,7 @@ canvas.addEventListener('webglcontextrestored', () => { contextLost = false; res
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => { clock.getDelta(); if (document.hidden) { hiddenAt = Date.now(); return; } resize(); if (G.mode === 'online' && !G.net?.isHost && Date.now() - hiddenAt > 8000) G.net?.toHost({ t: 'sync-request' }); });   // a glance away no longer rebuilds the whole round
 setInterval(() => { if (document.hidden && G.mode === 'online' && G.net?.isHost) loop(true); }, 100);
+window.chainsStarted = true;   // every module evaluated: index.html's watch for a module that threw while loading stands down
 setTimeout(async () => {
   try {
   await loadManifest();
@@ -1767,12 +1781,14 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await Promise.all([warmShaders(), assetsIdle()]);
-  UI.hide('loading'); loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
+  UI.hide('loading'); try { sessionStorage.removeItem('chains.bootRetry'); } catch { /* private mode */ }   // booted: the next failure gets its own automatic reload (index.html)
+  loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
   window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: draw, taa, performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, flightPlan, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
-  const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
+  const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) { const back = inRoom() === invite; openLive(invite); if (back) { $('onlineTitle').textContent = `Back to room ${invite}`; UI.hide('inviteNote'); $('btnJoin').click(); } }   // a reload mid-room: straight back in, not "type your name, then tap Join"
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage
   } catch (error) {
+    if (window.chainsBootFailed) { console.error('Game startup failed', error); chainsBootFailed(error?.message || error); return; }   // index.html: one reload by itself, then the reason and a button
     const loading = $('loading'); loading.replaceChildren();
     const message = document.createElement('p'); message.textContent = 'The course could not load. Check your connection, then try again.';
     const retry = document.createElement('button'); retry.textContent = 'Reload game'; retry.onclick = () => location.reload();

@@ -224,7 +224,7 @@ body.thrown #aimZone, #hud.equipment-open #aimZone, #hud.spectating #aimZone { o
 body[data-phase='windup'] #hintText, #pad.bad #hintText { display: none; }
 body[data-phase='windup'] #hintSub, #pad.bad #hintSub { display: inline; }
 body.thrown #pad .hint, #pad.idle .hint { opacity: 0; }
-body.thrown[data-phase='windup'] #pad .hint, body.thrown #pad.bad .hint { opacity: 1; }
+body.thrown[data-phase='windup'] #pad:not(.idle) .hint, body.thrown #pad.bad .hint { opacity: 1; }   /* not while someone else winds up: a room's watcher (and a bot's) was told "longer swipe = more power" */
 #pad.bad .hint { animation: shake .3s; background: #7a1d1dd6; }
 @keyframes shake { 0%,100% {transform:translateX(0)} 25% {transform:translateX(-8px)} 75% {transform:translateX(8px)} }
 #power { --p: 0; position: absolute; left: 50%; bottom: calc(14px + var(--sab)); width: 76px; height: 76px; margin-left: -38px; z-index: 2; pointer-events: none; }
