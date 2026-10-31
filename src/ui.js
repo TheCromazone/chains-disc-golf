@@ -50,6 +50,7 @@ export function verdictAbove(y) {
 // when he is on the left (a putt's mirrored rig), the left two thirds of an upright one when he is on the right (the rig's own
 // putt frame, where the wide centred verdict sat on his chest). x: his centre across the frame, 0-1, or null.
 export function verdictSide(x) { $('hud').classList.toggle('verdict-right', x != null && x < .5); $('hud').classList.toggle('verdict-left', x != null && x >= .5); }
+export function heroSide(x) { $('hud').classList.toggle('hero-left', x < .45); }   // an aim spot that stands the athlete left of centre (a trunk on his side): pass & play's call takes the right (ui.css)
 export function fade(on) { $('fade').classList.toggle('on', on); }
 // Out of bounds, your own throw: DGM's two pills under the verdict. onRethrow replays from the lie it left, onDrop plays from
 // where it went out (as does a tap anywhere else, main.js skipBeat); both +1. The verdict (and its womp) step up clear of them,

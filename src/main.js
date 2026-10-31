@@ -1249,7 +1249,9 @@ function updateCamera(dt) {
       cam.tPos.set(lie.x+fx*3.8+r[0]*.7*ca,lie.y+1.45,lie.z+fz*3.8+r[1]*.7*ca);
       cam.tLook.set(lie.x,lie.y+(camera.aspect<1.2?.92:1.08),lie.z); k=5; fov=camera.aspect<1.2?54:38;   // wide: a raised fist (2.2 m) left the top of a 38° frame
     }
-    else fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
+    else { fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
+      if (G.phase === 'aim') { const fx = cam.tLook.x - cam.tPos.x, fz = cam.tLook.z - cam.tPos.z, ax = lie.x - cam.tPos.x, az = lie.z - cam.tPos.z;   // where he stands in the frame the lens is heading for: pass & play's call never hops sides mid-ease
+        UI.heroSide(.5 + .5 * (az * fx - ax * fz) / Math.max(.1, ax * fx + az * fz) / (Math.tan(fov * DEG / 2) * camera.aspect)); } }
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
     if (G.flight?.pos) { fov = flightCam(G.flight, dt); k = 1e3; }
     else if (cam.hold) { cam.tPos.copy(cam.pos); cam.tLook.copy(cam.look); fov = cam.hold.fov; cam.tShift = cam.hold.shift; }

@@ -403,7 +403,12 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #powerLabel { bottom: calc(44px + var(--sab)); font-size: 13px; }
   #pad { padding-bottom: calc(84px + var(--sab)); }
   #toast { top: 18%; }
-  body[data-phase='aim'] #toast { top: 24%; left: 41%; max-width: 44%; } body[data-phase='aim'] #toast b { font-size: 40px; }   /* pass & play's "Ben's throw" on one line over the fairway: at 60 px it broke in two across the middle and onto the athlete */
+  /* pass & play's "Ben's throw" as a lower third over the aim pill, left-aligned like the hole's title: centred at 60 px it broke
+     in two across the athlete, and one 40 px line at 41% still sat on the basket on 81 of 96 probed lies (a drive's far pin, a
+     tap-in's chains, a 3 m putter's head). An aim spot that stands him left of centre (ui.js heroSide) puts it on the right. */
+  body[data-phase='aim'] #toast { top: auto; bottom: calc(114px + var(--sab)); left: 16px; max-width: 44%; text-align: left; transform: translateY(8px); transform-origin: 0 100%; }
+  body[data-phase='aim'] #toast.show { transform: rotate(-3deg); } body[data-phase='aim'] #toast b { font-size: 32px; }
+  body[data-phase='aim'] #hud.hero-left #toast { left: auto; right: 16px; text-align: right; transform-origin: 100% 100%; }
   .overlay.hub { align-items: flex-start; justify-content: flex-start; padding-left: 12px; padding-top: calc(72px + var(--sat)); }
   .overlay.hub .panel { width: min(360px, 52%); max-height: 100%; }
   /* a landscape phone has ~300px under the brand: the whole card fits without scrolling */
@@ -507,6 +512,7 @@ body[data-phase='result'] #releaseTag, body[data-phase='aim'] #releaseTag { disp
    and on his legs over a putt; mid-flight it steps aside for the call. */
 @media (orientation: portrait) {
   body[data-phase='flight'] #toast { top: calc(104px + var(--sat)); } #releaseTag { bottom: calc(102px + var(--sab)); font-size: 13px; }
+  body[data-phase='aim'] #toast { top: calc(136px + var(--sat)); width: max-content; max-width: calc(100% - 24px); } body[data-phase='aim'] #toast b { font-size: 32px; }   /* pass & play's "Ben's throw" on one line under the plates: from 50% it broke in two at 22%, on the basket over a short putt and on a putter's head */
   #conditions { top: calc(66px + var(--sat)); bottom: auto; }
   body[data-phase='flight'] #conditions, #hud:has(#btnUtilities[aria-expanded='true']) #conditions { visibility: hidden; }
   body[data-phase='result'] #hud.verdict-left #toast, body[data-phase='result'] #hud.verdict-left #react { left: 36%; width: 66%; }   /* the held putt frame stands him on the right (ui.js verdictSide), its mirrored rig on the left */
