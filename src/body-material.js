@@ -139,10 +139,16 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   u.uPrintF = { value: new THREE.Vector4(chestY + box.front[0], ...box.front.slice(1)) }; u.uPrintB = { value: new THREE.Vector4(chestY + box.back[0], ...box.back.slice(1)) };
   const knitAmp = u.uKnit.value ? .32 : 0, hemY = spec.shirtHem || chestY - .4;
   u.uFold = { value: new THREE.Vector4(hemY, chestY + .01, chestY + .17, .145) };   // FOLD_GLSL landmarks from the rig extras
+  // Her shirt's pattern and print are placed where the cloth is now, seen from her torso, not where it was in the bind pose
+  // (vPatPos). Her scan weights 40-70 % of the cloth round the shoulder blade to the arm, and with the arm drawn across in the
+  // stance that cloth folds over itself (6.6 % of her torso's area against his 3.4 %, 767 triangles): a sash or number carried
+  // with it showed its folds as torn shards and spurs. Undone by her torso bones alone, the layers of a fold land on one spot
+  // and take one colour; the sleeves (arm weight past .55-.95) keep their bind pose, so their trim rides the arm.
+  const pat = prefix === 'body_f_' ? 'vPatPos' : 'vJerseyPos';
   material.onBeforeCompile = s => {
     Object.assign(s.uniforms, u);
     // bind-pose normal and arm weight: which cloth faces sideways off the torso and which is the arm's underside
-    s.vertexShader = 'uniform vec4 uArm, uTuckC; uniform float uHeadBone; uniform sampler2D uTuck; varying vec3 vBindN; varying float vArmW, vElbow;\n' + s.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+    s.vertexShader = (pat === 'vPatPos' ? 'varying vec3 vPatPos;\n' : '') + 'uniform vec4 uArm, uTuckC; uniform float uHeadBone; uniform sampler2D uTuck; varying vec3 vBindN; varying float vArmW, vElbow;\n' + s.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
       vBindN = objectNormal; vArmW = 0.; vElbow = 0.;
       #ifdef USE_SKINNING
         vec4 armW = vec4(dot(skinWeight, vec4(equal(skinIndex, uArm.xxxx))), dot(skinWeight, vec4(equal(skinIndex, uArm.yyyy))), dot(skinWeight, vec4(equal(skinIndex, uArm.zzzz))), dot(skinWeight, vec4(equal(skinIndex, uArm.wwww))));
@@ -161,12 +167,19 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
           }
         }
       #endif
-      #include <skinning_vertex>`);
+      #include <skinning_vertex>` + (pat === 'vPatPos' ? `
+      vPatPos = position;
+      #ifdef USE_SKINNING
+        { vec4 arm = min(vec4(1.), vec4(equal(skinIndex, uArm.xxxx)) + vec4(equal(skinIndex, uArm.yyyy)) + vec4(equal(skinIndex, uArm.zzzz)) + vec4(equal(skinIndex, uArm.wwww)));
+          vec4 tw = skinWeight * (1. - arm); float ts = tw.x + tw.y + tw.z + tw.w;
+          if (ts > .02) { mat4 bt = (tw.x * boneMatX + tw.y * boneMatY + tw.z * boneMatZ + tw.w * boneMatW) / ts;
+            vPatPos = mix((inverse(bindMatrixInverse * bt * bindMatrix) * vec4(transformed, 1.)).xyz, position, smoothstep(.55, .95, vArmW)); } }   // the torso's own skinning, undone
+      #endif` : ''));
     // per-region roughness: skin keeps a soft sheen, hair and cloth stay matte (a glossy jersey or scalp reads as plastic).
     // Skin also scatters: direct light wraps a little past the terminator with a warm tint, the cheap stand-in for
     // subsurface that keeps a face from looking like painted vinyl.
-    s.fragmentShader = 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec2 uEye; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve, uArmCloth, uHeadTone, uAO; uniform vec4 uTuckC; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5, chainsCloth = 0.; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + FOLD_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-      { vec3 j = vJerseyPos; bool back = j.z > 0.; vec4 b = back ? uPrintB : uPrintF;   // after the jersey style, so the print sits on its panels; seen from its own side, the print reads left to right
+    s.fragmentShader = (pat === 'vPatPos' ? 'varying vec3 vPatPos;\n' : '') + 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec2 uEye; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve, uArmCloth, uHeadTone, uAO; uniform vec4 uTuckC; float chainsSkin = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5, chainsCloth = 0.; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + FOLD_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      { vec3 j = ${pat}; bool back = j.z > 0.; vec4 b = back ? uPrintB : uPrintF;   // after the jersey style, so the print sits on its panels; seen from its own side, the print reads left to right
         vec2 q = vec2((back ? j.x : -j.x) / b.y + .5, (j.y - b.x) / b.z + .5);
         // fetched outside the box test: a mipmapped read inside the branch picks a coarse mip along the box edge, which drew a faint outline round the print
         float ink = texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * step(0., q.x) * step(q.x, 1.) * step(0., q.y) * step(q.y, 1.);
@@ -259,7 +272,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         chainsPanel = uPanelN > .5 ? max(smoothstep(.5, .78, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.3, .45, -vBindN.x * sign(vJerseyPos.x))) : -1.; }`);   // the side panels follow the torso's turn (a hard cut flattened the back into one tone, a wide blend read as a shadow); her folded scan's normals scatter them into shards, so she takes the width-based panels
   };
   material.customProgramCacheKey = () => 'chains-body';
-  jerseyStyle(material, avatar.jerseyStyle, avatar.accent, 1, [0, 0, 0], 'chainsJersey');
+  jerseyStyle(material, avatar.jerseyStyle, avatar.accent, 1, [0, 0, 0], 'chainsJersey', pat);
   rimLight(material, { strength: .1 });   // a whisper of edge light: stronger, it outlined the jaw and the dark shorts in white
   const setPalette = a => {
     const p = u.uPal.value; p[0].set(a.skin); p[1].set(a.jersey); p[2].set(a.shorts); p[3].set(a.hair === 'none' ? a.skin : a.hairColor);
