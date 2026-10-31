@@ -3,10 +3,13 @@
 // a phone shows: pops (a joint's frame-to-frame move spiking far over its neighbours'), foot sliding (a loaded sole drifting along
 // the ground), the disc leaving the throwing hand before launch, a hand inside the torso or a thigh, and idle jitter.
 //   node tools/qa/athlete-probe.mjs [--port 8302] [--quality low|high] [--out dir] [--size 844x390] [--seed 4]
-//                                   [--scenes menu,tee,swipe-backhand,swipe-forehand,backhand,forehand,putt,runup,react,turn]
+//                                   [--scenes menu,tee,swipe-backhand,swipe-forehand,backhand,forehand,putt,tapin,runup,react,turn,lie]
 // swipe-*: the player's own drive from the aim stance; backhand/forehand: his tee drive thrown as a bot (from the run-up), as
-// tools/capture-motion.mjs --throw does; runup: the first bot's drive; react: celebrate, slump and clap; turn: a drive through
-// to the next player's turn.
+// tools/capture-motion.mjs --throw does; putt: a 6.5 m putt and the step out of its finish; tapin: a made 1.5 m putt into the
+// celebrate; runup: the first bot's drive; react: celebrate, slump and clap; turn: a drive through to the next player's turn;
+// lie: the turn cutting over to a player already standing at his lie on the fairway (no move, straight into his stance).
+// Each bot throw reseeds the random stream after setupTurn, where its plan starts (the 700 ms think): builds that construct a
+// different number of three.js objects before then (each draws UUID randoms) still see the same shot.
 // Writes <out>/probe.json (every frame of every scene) and prints one summary row per scene and flag. Deterministic like the
 // capture tools: the same build gives the same numbers.
 import { spawn } from 'node:child_process';
@@ -21,7 +24,7 @@ import { clock, settle } from '../vclock.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/athlete-probe' }, port: { type: 'string', default: '8302' }, size: { type: 'string', default: '844x390' },
-  quality: { type: 'string', default: 'low' }, seed: { type: 'string', default: '4' }, scenes: { type: 'string', default: 'menu,tee,swipe-backhand,swipe-forehand,backhand,forehand,putt,runup,react,turn' },
+  quality: { type: 'string', default: 'low' }, seed: { type: 'string', default: '4' }, scenes: { type: 'string', default: 'menu,tee,swipe-backhand,swipe-forehand,backhand,forehand,putt,tapin,runup,react,turn,lie' },
   chrome: { type: 'string', default: CHROME },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -72,7 +75,7 @@ const SAMPLER = `window.__probe = (() => {
       r['sole' + k] = q3(s); r['low' + k] = +lo.toFixed(4); r['contact' + k] = ct.map(x => +x.toFixed(4)); } }
     if (disc?.visible) { r.disc = q3(disc.getWorldPosition(new T.Vector3())); r.socket = q3(ch.hand.getWorldPosition(new T.Vector3())); }
     r.cam = q3(c.camera.position); r.vis = (() => { c.camera.updateMatrixWorld(); const f = new T.Frustum().setFromProjectionMatrix(new T.Matrix4().multiplyMatrices(c.camera.projectionMatrix, c.camera.matrixWorldInverse)); return f.containsPoint(spine); })();
-    r.launch = !!(c.G.flight && c.G.flight.t > 0);
+    r.launch = !!(c.G.flight && c.G.flight.t > 0); r.thrower = c.G.players[c.G.cur]?.char === ch; r.ay = +ch.group.children[0].position.y.toFixed(4);   // ay: the grounding's lift of the body
     return r; };
 })()`;
 
@@ -90,9 +93,9 @@ async function record(name, who, frames, { done = null, pre = null } = {}) {   /
 const step = (ms, frames = Math.max(1, Math.round(ms * .06))) => js(`__motion.step(${ms}, ${frames})`);
 const P = i => `[__chains.G.players[${i}].char, __chains.G.players[${i}].discMesh]`;
 // the hero throws his own tee shot as a bot with the type forced (tools/capture-motion.mjs --throw)
-const forced = (T, setup) => `(async () => { const c = __chains, G = c.G, p = G.players[0]; p.isBot = true; p.difficulty = 'hard';
+const forced = (T, seed) => `(async () => { const c = __chains, G = c.G, p = G.players[0]; p.isBot = true; p.difficulty = 'hard';
   Object.defineProperty(G, 'throwType', { configurable: true, enumerable: true, get: () => ${JSON.stringify(T)}, set() {} });
-  ${setup || ''} c.setupTurn(0); })()`;
+  c.setupTurn(0); __motion.reseed(${seed}); })()`;
 const release = `(() => { const G = __chains.G; delete G.throwType; G.throwType = 'backhand'; G.flight = G.pending = G.tween = null; })()`;
 
 try {
@@ -112,7 +115,7 @@ try {
   for (let i = 0; i < 900 && await js(`__chains.G.phase === 'intro'`); i++) await step(1000 / 60, 1);   // the flyover plays out: its end cuts to the tee (main.js nextTurn)
   if (want.has('tee')) await record('tee', P(0), 180);
   for (const T of ['backhand', 'forehand']) if (want.has(T)) {
-    await js(release); await js(`__motion.reseed(${+o.seed * 1000 + 3})`); await js(forced(T)); await step(200);
+    await js(release); await js(forced(T, +o.seed * 1000 + 3)); await step(200);
     await record(T, P(0), 600, { done: `(() => { const f = __chains.G.flight; return !!f && f.t > 2.5; })()` });
     await js(release); await js(`(() => { const c = __chains, p = c.G.players[0], h = c.holes[c.G.holeIdx]; p.isBot = false; p.lie = [h.tee[0], h.teeY, h.tee[1]]; p.strokes = 0; c.setupTurn(0); })()`); await step(1000);
   }
@@ -125,14 +128,22 @@ try {
   if (want.has('putt')) {
     await js(release);
     await js(`(() => { const c = __chains, G = c.G, p = G.players[0], h = c.holes[G.holeIdx], b = h.basket, dx = h.tee[0] - b[0], dz = h.tee[1] - b[1], L = Math.hypot(dx, dz); p.isBot = true; p.difficulty = 'hard';
-      const x = b[0] + dx / L * 6.5, z = b[1] + dz / L * 6.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 2; c.setupTurn(0); })()`);
+      const x = b[0] + dx / L * 6.5, z = b[1] + dz / L * 6.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 2; c.setupTurn(0); __motion.reseed(${+o.seed * 1000 + 2}); })()`);
     await step(300);
     await record('putt', P(0), 600, { done: `(() => { const f = __chains.G.flight; return !!f && f.t > 2.5; })()` });
     await js(`(() => { const c = __chains, p = c.G.players[0], h = c.holes[c.G.holeIdx]; p.isBot = false; p.lie = [h.tee[0], h.teeY, h.tee[1]]; p.strokes = 0; c.G.flight = c.G.pending = c.G.tween = null; c.setupTurn(0); })()`); await step(500);
   }
+  if (want.has('tapin')) {   // a made 1.5 m putt: the putt's finish steps out into the celebrate
+    await js(release);
+    await js(`(() => { const c = __chains, G = c.G, p = G.players[0], h = c.holes[G.holeIdx], b = h.basket, dx = h.tee[0] - b[0], dz = h.tee[1] - b[1], L = Math.hypot(dx, dz); p.isBot = true; p.difficulty = 'hard';
+      const x = b[0] + dx / L * 1.5, z = b[1] + dz / L * 1.5; p.lie = [x, c.world.height(x, z), z]; p.strokes = 1; c.setupTurn(0); __motion.reseed(${+o.seed * 1000 + 4}); })()`);
+    await step(300);
+    await record('tapin', P(0), 420);
+    await js(`(() => { const c = __chains, p = c.G.players[0], h = c.holes[c.G.holeIdx]; p.isBot = false; p.done = false; p.lie = [h.tee[0], h.teeY, h.tee[1]]; p.strokes = 0; c.G.flight = c.G.pending = c.G.tween = null; c.setupTurn(0); })()`); await step(500);
+  }
   if (want.has('runup')) {   // the first bot's drive from the tee: the x-step run-up the aim camera watches
-    await js(release); await js(`__motion.reseed(${+o.seed * 1000 + 5})`);
-    await js(`(() => { const c = __chains, G = c.G, h = c.holes[G.holeIdx], p = G.players[1]; p.lie = [h.tee[0], h.teeY, h.tee[1]]; p.strokes = 0; c.setupTurn(1); })()`);
+    await js(release);
+    await js(`(() => { const c = __chains, G = c.G, h = c.holes[G.holeIdx], p = G.players[1]; p.lie = [h.tee[0], h.teeY, h.tee[1]]; p.strokes = 0; c.setupTurn(1); __motion.reseed(${+o.seed * 1000 + 5}); })()`);
     await record('runup', P(1), 600, { done: `(() => { const f = __chains.G.flight; return !!f && f.t > 2.5; })()` });
     scenes.runup.runUp = await js(`!!__chains.G.players[1].runUp || __chains.G.players[1].char.getPhase() !== null`);
   }
@@ -141,9 +152,17 @@ try {
     for (const [k, i] of [['celebrate', 1], ['slump', 2], ['clap', 1]]) { await js(`__chains.G.players[${i}].char.react('${k}')`); await record('react-' + k, P(i), k === 'clap' ? 200 : 240); await step(800); }
   }
   if (want.has('turn')) {   // a turn change: the thrower's follow-through hands over to the idle (the .35 s hold, then keepTravel) and the others are parked
-    await js(release); await js(`__motion.reseed(${+o.seed * 1000 + 7})`); await js(forced('backhand')); await step(200);
+    await js(release); await js(forced('backhand', +o.seed * 1000 + 7)); await step(200);
     await record('turn', P(0), 900, { done: `(() => { const G = __chains.G; return G.cur !== 0 && G.phase === 'aim'; })()` });
     const after = await record('turn-after', P(0), 120);
+  }
+  if (want.has('lie')) {   // second shots: the players wait at their lies on the fairway, and the turn cuts over to one of them where he stands
+    await js(release);
+    await js(`(() => { const c = __chains, G = c.G, h = c.holes[G.holeIdx], b = h.basket, dx = b[0] - h.tee[0], dz = b[1] - h.tee[1], L = Math.hypot(dx, dz);
+      G.players.forEach((p, i) => { p.isBot = i > 0; p.done = false; const f = .45 + .06 * i, s = (i - 1.5) * 2.2, x = h.tee[0] + dx * f - dz / L * s, z = h.tee[1] + dz * f + dx / L * s; p.lie = [x, c.world.height(x, z), z]; p.strokes = 1; });
+      G.flight = G.pending = G.tween = null; c.setupTurn(0); })()`); await step(1000);
+    await js(`(() => { __chains.setupTurn(1); __chains.cam.snap = true; })()`);   // as nextTurn behind the result's fade: the camera cuts to him
+    await record('lie', P(1), 40);   // his stance, before the bot's plan (700 ms) starts the throw
   }
   const summary = analyse(scenes);
   writeFileSync(join(out, 'probe.json'), JSON.stringify({ quality: o.quality, size: o.size, summary, scenes }));
@@ -165,18 +184,19 @@ function analyse(all) {
       for (let i = 1; i < m.length - 1; i++) { if (cut(i)) continue; const around = med([...m.slice(Math.max(1, i - 3), i), ...m.slice(i + 1, i + 4)]); if (m[i] > .015 && m[i] > 3.5 * Math.max(around, .002)) pops.push({ j, f: i, cm: +(m[i] * 100).toFixed(1), around: +(around * 100).toFixed(2), gp: rows[i].gp, ph: rows[i].ph === null ? null : +rows[i].ph.toFixed(3), seen: rows[i].vis }); }
     }
     s.pops = pops.sort((a, b) => b.cm / Math.max(b.around, .2) - a.cm / Math.max(a.around, .2)).slice(0, 6);
-    // foot sliding: while a sole stands loaded (its lowest point within 2.5 cm of the ground, moving < 1 cm a frame vertically),
-    // how far its centre drifts along the ground from where it was planted
+    // foot sliding: while a sole stands loaded (its lowest point within 2 cm of the ground), how far it drifts along the ground from
+    // where it was planted: the lesser of its contact point's drift and its centre's (a shoe rolling from heel to toe moves its
+    // contact point, one pivoting on its heel its centre; a sliding shoe moves both)
     const slides = [];
     for (const k of ['R', 'L']) { let start = null, worst = 0, at = 0;
       const end = i => { if (start !== null && i - start >= 6) slides.push({ foot: k, from: start, to: i - 1, cm: +(worst * 100).toFixed(1), at, seen: rows[at].vis }); start = null; worst = 0; };
       rows.forEach((r, i) => { const jump = i > 0 && r['contact' + k] && Math.hypot(r['contact' + k][0] - rows[i - 1]['contact' + k][0], r['contact' + k][2] - rows[i - 1]['contact' + k][2]) > .08;   // a foot that jumps 8 cm in a frame was placed (a pop), not slid
         const loaded = r['low' + k] !== undefined && r['low' + k] < .02 && !cut(i) && !jump;
-        if (!loaded) return end(i); if (start === null) { start = i; return; } const p0 = rows[start]['contact' + k], p = r['contact' + k], dd = Math.hypot(p[0] - p0[0], p[2] - p0[2]); if (dd > worst) { worst = dd; at = i; } });
+        if (!loaded) return end(i); if (start === null) { start = i; return; } const h = q => Math.hypot(r[q + k][0] - rows[start][q + k][0], r[q + k][2] - rows[start][q + k][2]), dd = Math.min(h('contact'), h('sole')); if (dd > worst) { worst = dd; at = i; } });
       end(rows.length); }
     s.slide = slides.sort((a, b) => b.cm - a.cm).slice(0, 4);
     // the disc against the hand that throws it, until launch: its offset from the socket should hold steady (the grip), never jump
-    const held = rows.filter(r => r.disc && !r.launch && r.ph !== null), gap = held.map(r => d(r.disc, r.socket));
+    const held = rows.filter(r => r.disc && !r.launch && r.ph !== null && r.thrower !== false), gap = held.map(r => d(r.disc, r.socket));   // only on his own turn: a bystander's disc lies where it landed
     if (held.length > 4) { const g0 = med(gap); let jump = 0, jf = -1; for (let i = 1; i < held.length; i++) { const dj = Math.abs(gap[i] - gap[i - 1]); if (dj > jump) { jump = dj; jf = rows.indexOf(held[i]); } }
       s.disc = { medianCm: +(g0 * 100).toFixed(1), maxCm: +(Math.max(...gap) * 100).toFixed(1), maxStepCm: +(jump * 100).toFixed(1), atFrame: jf }; }
     // a hand inside the body
