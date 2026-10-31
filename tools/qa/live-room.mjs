@@ -42,12 +42,15 @@ const STATE = `JSON.stringify({hole:__chains.G.holeIdx,cur:__chains.G.cur,player
 const SWIPE = { backhand: [1, 0], backhand_io: [1, 0], backhand_oi: [1, 0], forehand: [-1, 0], forehand_io: [-1, 0], forehand_oi: [-1, 0], putt: [0, -1], tomahawk: [0, 1], blade: [-.7071, .7071], hammer: [.7071, .7071], scoober: [-.7071, -.7071] };
 
 // The watcher's view of a throw, sampled every frame-ish: phase, the thrower's run-up flag and swing phase, the camera mode,
-// and the flight's path (its length and last point, the same on every screen when the host's replay arrives intact).
-const TRACE_ON = `(()=>{window.__trace=[];window.__path=null;clearInterval(window.__traceT);window.__traceT=setInterval(()=>{const c=__chains,g=c.G,p=g.players[g.cur];if(!p)return;
+// and the flight's path (its length and last point, the same on every screen when the host's replay arrives intact). While the
+// disc is in the air: whether it is inside the frame and how far it is from the lens (__fly: [in frame, metres]).
+const TRACE_ON = `(()=>{window.__trace=[];window.__fly=[];window.__path=null;clearInterval(window.__traceT);window.__traceT=setInterval(()=>{const c=__chains,g=c.G,p=g.players[g.cur];if(!p)return;
   if(g.flight&&!window.__path)window.__path=g.flight.traj.length+':'+g.flight.traj.at(-1).join(',');
+  const f=g.flight;if(f?.pos&&!f.events.slice(0,f.ei).some(e=>/^(land|skip|roll|flop|splash|chains|drop)$/.test(e[1]))){const v=new c.THREE.Vector3(...f.pos),d=v.distanceTo(c.camera.position);c.camera.updateMatrixWorld();v.project(c.camera);__fly.push([v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95?1:0,Math.round(d*10)/10])}
   const s=[g.phase,p.runUp?1:0,Math.round((p.char.getPhase?.()??-1)*100)/100,c.cam.mode,document.getElementById('waiting').classList.contains('hidden')?'':document.getElementById('waiting').textContent];
   const k=JSON.stringify(s);if(window.__traceK!==k){window.__traceK=k;__trace.push([Math.round(performance.now()),...s])}},30)})()`;
-const TRACE_OFF = `(()=>{clearInterval(window.__traceT);return {trace:window.__trace,path:window.__path}})()`;
+const TRACE_OFF = `(()=>{clearInterval(window.__traceT);return {trace:window.__trace,path:window.__path,fly:window.__fly}})()`;
+const flyStat = tr => { const f = tr.fly || [], d = f.map(x => x[1]).sort((a, b) => a - b); return f.length ? `disc in frame ${Math.round(100 * f.filter(x => x[0]).length / f.length)}%, ${d[d.length >> 1]} m from the lens (median), ${d.filter(x => x > 12).length}/${f.length} samples over 12 m` : 'no flight samples'; };
 
 // Swipe the throw the way a thumb (or mouse) does: down in the pad, along the throw's direction, until the power meter reads
 // the shot guide's suggestion, then up.
@@ -109,7 +112,9 @@ try {
     const sw = await swipeThrow(owner), t0 = Date.now();
     const kind = `${owner === host ? 'host' : 'guest'}-${sw.type === 'putt' ? 'putt' : 'drive'}`;
     if (!shots.has(kind) && sw.type !== 'putt') { await watcher.wait(`__chains.G.phase==='windup'||__chains.G.phase==='release'`, 'watcher sees the windup', 15000).catch(() => {}); await pause(450); await watcher.shot(join(out, `${relay ? 'relay-' : ''}watch-${kind}-windup.jpg`)); }
-    if (!shots.has(kind)) { await watcher.wait('!!__chains.G.flight', 'watcher sees the flight', 20000).catch(() => {}); await pause(900); await watcher.shot(join(out, `${relay ? 'relay-' : ''}watch-${kind}-flight.jpg`)); shots.add(kind); }
+    if (!shots.has(kind)) { await watcher.wait('!!__chains.G.flight', 'watcher sees the flight', 20000).catch(() => {}); const tf = Date.now();   // and a strip through the flight: 0.3, 0.9, 1.5, 2.1 s in
+      for (const [k, ms] of [[1, 300], [0, 900], [2, 1500], [3, 2100]]) { await pause(Math.max(0, ms - (Date.now() - tf))); await watcher.shot(join(out, `${relay ? 'relay-' : ''}watch-${kind}-flight${k ? '-' + k : ''}.jpg`)); }
+      shots.add(kind); }
     for (const p of all) await p.wait(`__chains.G.players[${pi}].strokes>=${before + 1}`, 'the throw counts', 60000);
     await settle(); throws++;
     const [mine, theirs] = await Promise.all([owner, watcher].map(p => p.eval(TRACE_OFF)));
@@ -120,7 +125,7 @@ try {
     const issue = [!phases.includes('windup') && 'no windup', !phases.includes('release') && 'no release', !phases.includes('flight') && 'no flight', swing < .95 && `follow-through only to ${swing}`, mine.path !== theirs.path && 'paths differ'].filter(Boolean);
     if (issue.length) watchIssues.push(`${kind} #${throws}: ${issue.join(', ')}`);
     const same = await agree(`after throw ${throws}`); if (!same) disagreements++;
-    log(`throw ${throws}: ${owner.name} ${sw.type}/${sw.disc} ${sw.dist.toFixed(1)} m, swiped ${sw.px}px to ${sw.got} (guide ${sw.target}); landed on both in ${((Date.now() - t0) / 1000).toFixed(1)} s; watcher: ${phases.join('>')}${ran ? ' (run-up)' : ''}, follow-through to ${swing} (thrower's own ${ownSwing}); waiting text "${waitText}"; ${same ? 'agree' : 'DISAGREE'}`);
+    log(`throw ${throws}: ${owner.name} ${sw.type}/${sw.disc} ${sw.dist.toFixed(1)} m, swiped ${sw.px}px to ${sw.got} (guide ${sw.target}); landed on both in ${((Date.now() - t0) / 1000).toFixed(1)} s; watcher: ${phases.join('>')}${ran ? ' (run-up)' : ''}, follow-through to ${swing} (thrower's own ${ownSwing}); waiting text "${waitText}"; ${same ? 'agree' : 'DISAGREE'}; watcher's flight: ${flyStat(theirs)}; thrower's: ${flyStat(mine)}`);
     return { owner, sw };
   }
 
