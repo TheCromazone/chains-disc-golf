@@ -27,8 +27,9 @@ export function clearFraction(world, ax, ay, az, bx, by, bz, margin = .6, ground
 // carries the camera there lags, coasts and overshoots, and on its way it passed through crowns and beside the arch's legs
 // (r4 watcher frames: a second of leaf cards over the lens). Moves p (a Vector3) radially out of any trunk's berth, crown or
 // capsule, so the camera slides round a solid instead of through it. Returns whether it moved. A crown counts whole and a little
-// over (the leaf cards reach the physics' radius; at .8 of it, the share a sight line may cross, cards sat on the lens).
-export function pushOut(world, p, margin = .4, crown = 1.05) {
+// over (the leaf cards reach the physics' radius; at .8 of it, the share a sight line may cross, cards sat on the lens), and a
+// trunk by .8 m (a spruce's branches hang below its crown's sphere: at .4 m a chase into the woods filled a phone with needles).
+export function pushOut(world, p, margin = .8, crown = 1.05) {
   let moved = false;
   for (let pass = 0; pass < 2; pass++) {
     for (const t of world.treesNear(p.x, p.z)) {

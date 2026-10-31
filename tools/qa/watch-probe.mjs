@@ -1,8 +1,8 @@
 // What a player sees while someone else throws, and whether the athlete hides the target while he aims, measured in pixels on
 // the virtual clock (tools/vclock.mjs), so the same build gives the same numbers.
 //   node tools/qa/watch-probe.mjs [--port 8440] [--size 844x390] [--dpr 1] [--quality low] [--courses pine,meadow,lake,bluff]
-//        [--holes 1,2,3] [--mode watch|framing] [--lies tee,40] [--who bot,own] [--throws backhand,forehand] [--shots dir] [--every 6] [--out file.json] [--seed 4] [--root checkout]
-// watch: on each hole and lie a bot (players[1]) plans and throws while the human waits, as a desktop host watches a phone guest
+//        [--holes 1,2,3] [--mode watch|framing] [--lies tee,40] [--who bot,own] [--throws backhand,forehand] [--shots dir] [--every 6] [--out file.json] [--seed 4] [--root checkout] [--cost]
+// watch: on each hole and lie (tee, 40, 40w = from 40% with the others waiting at 75%) a bot (players[1]) plans and throws while the human waits, as a desktop host watches a phone guest
 // (the guest's replay takes the same path: windUp, run-up, doThrow with its flight); `own` is the human's own swipe from the
 // same lie, the view the watcher should match. Every 30 fps frame renders three extra passes into an offscreen target: the
 // scene without the disc (depth), then the disc alone depth-tested (its visible pixels) and untested (its pixels in frame), so a
@@ -13,7 +13,8 @@
 // a24 / putt12 = 24 / 12 m short of the pin on its approach), with each of --throws (a putt lie putts): his body rendered alone, then a basket proxy (cage and pole) and a 0.6 m by 1.2 m post at
 // the landing spot the aim line shows, each depth-tested against him: the share of the basket and of the landing spot he hides,
 // in the stance and over the swipe's reach-back (phase 0 -> .5) and the release.
-// --shots: every --every'th recorded frame as a jpg (named course-hole-lie-who-frame).
+// --shots: every --every'th recorded frame as a jpg (named course-hole-lie-who-frame). --cost: each chase frame's draw calls and
+// triangles (one full frame, shadow maps included, as tools/capture.mjs counts them).
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,7 +29,7 @@ const { values: o } = parseArgs({ options: {
   port: { type: 'string', default: '8440' }, size: { type: 'string', default: '844x390' }, dpr: { type: 'string', default: '1' }, quality: { type: 'string', default: 'low' },
   courses: { type: 'string', default: 'pine,meadow,lake,bluff' }, holes: { type: 'string', default: '1,2,3' }, mode: { type: 'string', default: 'watch' },
   lies: { type: 'string' }, throws: { type: 'string', default: 'backhand' }, who: { type: 'string', default: 'bot,own' }, shots: { type: 'string' }, every: { type: 'string', default: '6' }, out: { type: 'string' }, seed: { type: 'string', default: '4' },
-  root: { type: 'string' }, chrome: { type: 'string', default: CHROME },   // --root: serve another checkout's game (an A/B against an older tree)
+  root: { type: 'string' }, cost: { type: 'boolean', default: false }, chrome: { type: 'string', default: CHROME },   // --root: serve another checkout's game (an A/B against an older tree)
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const [w, h] = o.size.split('x').map(Number), port = +o.port, cdp = port + 1000, mobile = o.quality === 'low', every = +o.every;
@@ -84,9 +85,12 @@ const PAGE = `window.__wp = (() => {
     for (const k of c.world.camBlockers || []) { const e = [k.b[0] - k.a[0], k.b[1] - k.a[1], k.b[2] - k.a[2]], s = Math.max(0, Math.min(1, ((p.x - k.a[0]) * e[0] + (p.y - k.a[1]) * e[1] + (p.z - k.a[2]) * e[2]) / (e[0] ** 2 + e[1] ** 2 + e[2] ** 2 || 1)));
       m = Math.min(m, Math.hypot(p.x - k.a[0] - e[0] * s, p.y - k.a[1] - e[1] * s, p.z - k.a[2] - e[2] * s) - k.r); } return m; };
   return {
+    cost() {   // one full frame as drawn (shadow maps included): draw calls and triangles, as tools/capture.mjs counts them
+      const info = R.info; info.autoReset = false; info.reset(); c.renderFrame(); const r = [info.render.calls, info.render.triangles]; info.autoReset = true; return r; },
     watch() {   // one frame of someone's throw
       const G = c.G, p = G.players[G.cur], f = G.flight, cp = c.camera.position, r = { ph: G.phase, mode: c.cam.mode, cam: cp.toArray().map(q), fov: q(c.camera.fov) };
       r.clear = q(cp.y - c.world.height(cp.x, cp.z)); r.near = q(near(cp)); r.leafy = q(Math.min(9, ...c.world.treesNear(cp.x, cp.z).map(t => Math.hypot(t.x - cp.x, t.z - cp.z, cp.y - t.y - t.fy) - t.fr)));   // < 0: the lens inside a crown's leaf cards
+      r.mate = q(Math.min(9, ...G.players.map(o => o.char.group.position).filter(o => cp.y < o.y + 2.4).map(o => Math.hypot(o.x - cp.x, o.z - cp.z))));   // metres to the nearest athlete the lens is level with
       if (f?.pos && p?.discMesh) { const d = p.discMesh.position, a = cover(null, [p.discMesh]); r.disc = d.toArray().map(q); r.vis = a.vis; r.tot = a.tot; r.dist = q(cp.distanceTo(d));
         const n = new T.Vector3(0, 1, 0).applyQuaternion(p.discMesh.quaternion); r.elev = q(Math.asin(Math.abs(n.dot(new T.Vector3().subVectors(cp, d).normalize()))) * 180 / Math.PI);
         r.ev = f.events.slice(0, f.ei).map(e => e[1]); if (f.cam) { r.pull = q(f.cam.pull); r.leaf = !!f.cam.leaf; } }
@@ -110,7 +114,7 @@ const LIE = (hi, lie) => `(() => { const c = __chains, h = c.holes[${hi}], W = c
   const k = ${JSON.stringify(lie)}; let x, z;
   if (k === 'tee') return [h.tee[0], h.teeY, h.tee[1]];
   if (/^(putt12|a24)$/.test(k)) { const m = k === 'a24' ? 24 : 12, [bx, bz] = h.basket, a = way[way.length - 2], L = Math.hypot(bx - a[0], bz - a[1]); x = bx - (bx - a[0]) / L * m; z = bz - (bz - a[1]) / L * m; }
-  else { const f = k === 'rough' ? .7 : +k / 100, [px, pz, ux, uz] = at(len * f); x = px; z = pz;
+  else { const f = k === 'rough' ? .7 : parseInt(k) / 100, [px, pz, ux, uz] = at(len * f); x = px; z = pz;
     if (k === 'rough') for (const s of [9, -9, 12, -12, 6, -6]) { const rx = px - uz * s, rz = pz + ux * s; if (W.rough(rx, rz) > .5 && !W.inWater(rx, rz) && !W.treesNear(rx, rz).some(t => Math.hypot(t.x - rx, t.z - rz) < t.r + 1)) { x = rx; z = rz; break; } } }
   for (let i = 0; i < 12 && (W.inWater(x, z) || W.treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < t.r + .8)); i++) { x += (h.basket[0] - x) * .04; z += (h.basket[1] - z) * .04; }
   return [x, W.height(x, z), z]; })()`;
@@ -141,9 +145,9 @@ try {
           const sx = h.tee[0] - d[0] * (1.2 + i * 1.3) - r[0] * 2.8, sz = h.tee[1] - d[1] * (1.2 + i * 1.3) - r[1] * 2.8; p.char.group.position.set(sx, W.height(sx, sz), sz); p.char.faceDir(d[0], d[1]); p.char.setPhase(null); p.char.snap?.(); }); })()`);
       for (const lie of lies) for (const by of (o.mode === 'watch' ? who : lie === 'putt12' ? ['own'] : throws.map(t => 'own' + (t === 'backhand' ? '' : '-' + t)))) {
         const pi = by.startsWith('bot') ? 1 : 0, name = `${course}-${hole}-${lie}-${by}`;
-        const L = await js(LIE(hi, lie));
+        const L = await js(LIE(hi, lie)), W = lie.endsWith('w') ? await js(LIE(hi, '75')) : null;   // 40w: the others wait at 75%, on the line the disc flies
         await js(`(() => { const c = __chains, G = c.G, h = c.holes[${hi}]; G.flight = G.pending = G.tween = null; G.skipResult = null; c.cam.hold = null;
-          G.players.forEach((p, i) => { p.done = false; p.strokes = i === ${pi} && ${JSON.stringify(lie)} !== 'tee' ? 1 : 0; p.lie = i === ${pi} ? ${JSON.stringify(L)} : [h.tee[0], h.teeY, h.tee[1]]; p.lieDist = Math.hypot(h.basket[0] - p.lie[0], h.basket[1] - p.lie[2]); });
+          G.players.forEach((p, i) => { p.done = false; p.strokes = i === ${pi} && ${JSON.stringify(lie)} !== 'tee' ? 1 : 0; p.lie = i === ${pi} ? ${JSON.stringify(L)} : ${W ? JSON.stringify(W) : '[h.tee[0], h.teeY, h.tee[1]]'}; if (i !== ${pi} && ${!!W}) p.strokes = 1; p.lieDist = Math.hypot(h.basket[0] - p.lie[0], h.basket[1] - p.lie[2]); });
           G.players[0].isBot = false; c.setupTurn(${pi}); c.cam.snap = true; __motion.reseed(${+o.seed * 1000 + hole * 37 + lies.indexOf(lie) * 7}); })()`);
         const rows = [];
         if (o.mode === 'framing') {
@@ -161,7 +165,7 @@ try {
             await js(`__chains.doThrow(0, { power: __chains.G.previewPower ?? .8, hyzer: 0, yawOffset: 0, launchOffset: 0 })`); }
           let restAt = -1;
           for (let i = 0; i < 600; i++) {
-            await step(); const r = await js('__wp.watch()'); r.f = i; rows.push(r);
+            await step(); const r = await js('__wp.watch()'); r.f = i; rows.push(r); if (o.cost && r.mode === 'flight' && r.disc) r.cost = await js('__wp.cost()');
             if (o.shots && (i % every === 0)) await shot(`${name}-${String(i).padStart(3, '0')}`);
             if (restAt < 0 && r.ph === 'result') restAt = i; if (restAt >= 0 && i - restAt >= 24) break;
           }
@@ -191,14 +195,14 @@ function sumWatch(rows) {
   const rest = rows.filter(r => r.rest).slice(-1)[0];
   return { air: air.length, chase: chase.length, seen: r2(seen(air).length / (air.length || 1)), chaseSeen: r2(seen(chase).length / (chase.length || 1)),
     px: r2(med(air.map(r => Math.sqrt(r.vis)))), pxP10: r2(pct(air.map(r => Math.sqrt(r.vis)), .1)), dist: r2(med(chase.map(r => r.dist))), elev: r2(med(chase.map(r => r.elev))),
-    clearMin: r2(Math.min(...chase.map(r => r.clear))), low: chase.filter(r => r.clear < 1.6).length, leafy: chase.filter(r => r.leafy < 0).length, nearMin: r2(Math.min(...chase.map(r => r.near))), close: chase.filter(r => r.near < .6).length,
+    clearMin: r2(Math.min(...chase.map(r => r.clear))), low: chase.filter(r => r.clear < 1.6).length, leafy: chase.filter(r => r.leafy < 0).length, mate: chase.filter(r => r.mate < .8).length, nearMin: r2(Math.min(...chase.map(r => r.near))), close: chase.filter(r => r.near < .6).length,
     stepMax: r2(Math.max(...steps)), runFrames: run.length, runCut: run.filter(r => !r.manBox || r.manBox[0] <= 0 || r.manBox[2] >= 1 || r.manBox[1] <= 0).length,
-    restSeen: rest ? rest.rest[0] >= 6 : null };
+    restSeen: rest && !rows.some(r => r.ev?.includes('drop')) ? rest.rest[0] >= 6 : null };   // a holed disc lies in the tray, out of sight by design
 }
 function aggWatch(all) {
   const n = k => all.reduce((s, x) => s + (x[k] || 0), 0);
   return { throws: all.length, air: n('air'), seen: r2(all.reduce((s, x) => s + x.seen * x.air, 0) / (n('air') || 1)), chaseSeen: r2(all.reduce((s, x) => s + x.chaseSeen * x.chase, 0) / (n('chase') || 1)),
-    pxMed: r2(med(all.map(x => x.px))), elevMed: r2(med(all.map(x => x.elev).filter(v => v != null))), low: n('low'), leafy: n('leafy'), close: n('close'), nearMin: r2(Math.min(...all.map(x => x.nearMin))), clearMin: r2(Math.min(...all.map(x => x.clearMin))),
+    pxMed: r2(med(all.map(x => x.px))), elevMed: r2(med(all.map(x => x.elev).filter(v => v != null))), low: n('low'), leafy: n('leafy'), mate: n('mate'), close: n('close'), nearMin: r2(Math.min(...all.map(x => x.nearMin))), clearMin: r2(Math.min(...all.map(x => x.clearMin))),
     stepMax: r2(Math.max(...all.map(x => x.stepMax))), runCut: n('runCut'), restMissed: all.filter(x => x.restSeen === false).length };
 }
 function sumFraming(rows) {

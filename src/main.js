@@ -1178,7 +1178,8 @@ function flightCam(f, dt) {
       if (c.leaf) { c.pv.multiplyScalar(Math.exp(-1.5 * W * h)); c.p.addScaledVector(c.pv, h); continue; }   // ~2 m to a stop from a drive's pace, no spring back
       c.pv.addScaledVector(_v3.copy(_v).sub(c.p), W * W * h).addScaledVector(_v3.copy(_v2).sub(c.pv), 2 * W * h); c.p.addScaledVector(c.pv, h);
     }
-    if (ct > CHASE.hold) pushOut(world, c.p);   // and the lens round a crown, a trunk or a leg the tracker's path cuts through, never in it
+    if (ct > CHASE.hold) { pushOut(world, c.p);   // and the lens round a crown, a trunk or a leg the tracker's path cuts through, never in it
+      for (const q of G.players) { const o = q.char.group.position, dx = c.p.x - o.x, dz = c.p.z - o.z, d = Math.hypot(dx, dz); if (d < .8 && d > 1e-3 && c.p.y < o.y + 2.2) { c.p.x = o.x + dx / d * .8; c.p.z = o.z + dz / d * .8; } } }   // nor through a partner waiting at his lie on the line
   }
   cam.tPos.copy(c.p);
   // a little over the disc: the fairway ahead and the tree line, not a wall of hillside. Pulled in close behind it (a trunk on the
