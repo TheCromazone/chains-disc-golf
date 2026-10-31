@@ -40,8 +40,9 @@ const LIVE = typeof location !== 'undefined' && new URLSearchParams(location.sea
 // faced inward too. Lit from inside, those patches of jersey and shorts went pale in the sun and dark in shade: the pale
 // scratches across her sash and shoulders. With `skel` (her body), faces are oriented by the mesh itself instead: a flood
 // fill makes each connected piece wind one way across its shared edges, and each piece (her scan is ~4,400 of them, joined
-// at folds) then faces the way most of its area points off the nearest bone. Inward-pointing normals: 48 % -> 13 % (the
-// armpits, crotch and inner thighs, where the nearest bone misleads, and the inner layer of the shirt that the culling hides).
+// at folds) then faces the way most of its area points off the nearest bone. Inward-pointing normals, as the game draws her:
+// 48 % -> 30 % (his 14 %: that measure also counts the armpits, crotch and inner thighs, where the nearest bone misleads, and
+// the inner layer of her shirt, which the culling hides).
 function relaxNormals(g, headBone, passes = 3, skel = null) {
   if (g.userData.relaxed) return; g.userData.relaxed = true;
   const pos = g.attributes.position, nrm = g.attributes.normal, idx = g.index.array, n = pos.count, weld = new Int32Array(n), key = new Map();
