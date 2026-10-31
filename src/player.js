@@ -120,9 +120,9 @@ export function createCharacter(opts = {}) {
     keepTravel() { if (phase === null || kept) return; g.updateMatrixWorld(true); const a = root.getWorldPosition(new THREE.Vector3()); root.position.x = root.position.z = 0; g.updateMatrixWorld(true); const b = root.getWorldPosition(new THREE.Vector3()); g.position.x += a.x - b.x; g.position.z += a.z - b.z; kept = true; },
     react(name) { mood={name,t:0};phase=null; },
     play(name) { locomotion=name;phase=null;mood=null;time=0; },
-    getPhase() { return phase ?? (aimFrames >= (snapN > 0 ? 1 : 2) ? 0 : null); },
+    getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },
     carry() { carryHit = true; },
-    snap() { snapN = 6; },   // moved to a new spot: the pose there shows at once (gltf-player.js)
+    snap(aim = null) { snapN = 6; if (aim) { aimHit = gripHit = true; aimFrames = grips = 1; aimType = aim; } },   // moved to a new spot or cut to his turn: the pose there (the stance for aim) shows at once (gltf-player.js)
     update(dt) {
       time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false; carries = carryHit ? carries + 1 : 0; carryHit = false;
       let target;
@@ -130,7 +130,7 @@ export function createCharacter(opts = {}) {
         target = {}; for (const j of JOINTS) target[j] = [...IDLE[j]]; target.rootY = Math.sin(time * 1.8) * 0.004;
         target.spine[0] += Math.sin(time * 1.8) * 0.02; target.spine[2] += Math.sin(time * 0.6) * 0.015; target.shR[2] += Math.sin(time * 1.3) * 0.02; target.shL[2] -= Math.sin(time * 1.1) * 0.02;
         target.head[1] += Math.sin(time * 0.45) * 0.22; target.head[0] += Math.sin(time * 0.7) * 0.04;
-        if(!mood&&!locomotion) target=aimFrames>=(snapN>0?1:2)&&grips>=1?readyPose(aimType,time):carries>=1?heroPose(time):target;
+        if(!mood&&!locomotion) target=aimFrames>=2&&grips>=1?readyPose(aimType,time):carries>=1?heroPose(time):target;
         if(locomotion==='walk') { const step=Math.sin(time*Math.PI*2);target.hipR[0]=step*.45;target.hipL[0]=-step*.45;target.shR[0]=-step*.4;target.shL[0]=step*.4; }
         if(locomotion==='practice') { const swing=(Math.sin(time*Math.PI/1.2)+1)*.5;target.root[1]=-.35+swing*.55;target.shR[0]=.7+swing*.5;target.elR[0]=1.2-swing*.6; }
         if(mood?.name==='clap') { mood.t+=dt; if(mood.t<2.6) target=clapPose(time); else mood=null; }

@@ -474,10 +474,11 @@ function parkOthers(idx) {
 }
 function setupTurn(idx) {
   G.players.forEach(upgradeBody);
-  const p = G.players[idx]; G.cur = idx;
+  const p = G.players[idx], cut = G.cur !== idx; G.cur = idx;
   const lie = p.lie, dist = distToBasket(lie[0], lie[2]);
   G.aim.yaw = Math.atan2(basketPos()[1] - lie[2], basketPos()[0] - lie[0]); G.aim.pitch = 0;
-  if (Math.hypot(p.char.group.position.x - lie[0], p.char.group.position.z - lie[2]) > .3) p.char.snap?.();   // walked to the lie off camera: he arrives in his aim stance instead of skating into it
+  // walked to the lie off camera, or the turn cut over to him: he arrives in his aim stance (snap below) instead of skating into it
+  const fresh = cut || Math.hypot(p.char.group.position.x - lie[0], p.char.group.position.z - lie[2]) > .3;
   p.char.group.position.set(lie[0], world.height(lie[0], lie[2]), lie[2]);
   p.char.setPhase(null);
   parkOthers(idx);
@@ -492,6 +493,7 @@ function setupTurn(idx) {
   // a drive watched from the aim camera (a bot's, a guest's) starts at the back of the pad: the athlete waits there for the run-up
   for (const q of G.players) q.runUp = false;
   if (!isMine(p) && dist > RUNUP.min && runUpClear(lie, [Math.cos(G.aim.yaw), Math.sin(G.aim.yaw)])) { p.runUp = true; p.char.setThrow('xstep'); p.char.setPhase(0); }
+  if (fresh) p.char.snap?.(p.runUp ? null : G.throwType);   // already in the stance for the throw picked above (the run-up's standing start is a throw pose)
   if (p.isBot) { UI.setControlsEnabled(false); preview.visible = false; if (iControl(p)) botTurn(p); else UI.waiting(`${p.name} is throwing…`); }
   else if (isMine(p)) { UI.setControlsEnabled(true); UI.waiting(null); preview.visible = true; if (G.mode === 'local' && G.players.filter(q => !q.isBot).length > 1) UI.toast(`${p.name}'s throw`, `${Math.round(dist)} m to the basket`, 1600); }
   else { UI.setControlsEnabled(false); preview.visible = false; UI.waiting(`${p.name} is throwing…`); }

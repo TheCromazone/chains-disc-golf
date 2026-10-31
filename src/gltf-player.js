@@ -631,22 +631,22 @@ export function createGLTFCharacter(avatar) {
     // the end of a throw: move the athlete to where the follow-through left him (the travel becomes the group's position), so
     // the idle that follows starts there instead of sliding back to the lie
     keepTravel() { if (phase === null || kept) return; group.updateMatrixWorld(true); const a = joints.root.getWorldPosition(new THREE.Vector3()); joints.root.position.x = rootRestX; joints.root.position.z = rootRestZ; group.updateMatrixWorld(true); const b = joints.root.getWorldPosition(new THREE.Vector3()); group.position.x += a.x - b.x; group.position.z += a.z - b.z; kept = true; },
-    getPhase() { return phase ?? (aimFrames >= (snapN > 0 ? 1 : 2) ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
+    getPhase() { return phase ?? (aimFrames >= 2 ? 0 : null); },   // steered toward a target counts as windup start so the disc is gripped, not carried
     get heroWeight() { return heroW; },   // blend into the relaxed clubhouse stance
     gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c)); nrm.copy(s.n).transformDirection(forearm.matrixWorld); } return w; },   // holdDisc: the disc seated in the gripping hand, and how much of it to use
     carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
     setGround: fn => motion.setGround(fn),
-    // main.js moved him to a new spot (a turn's lie, a parked bystander): whatever he stands in there shows at once. The aim stance
-    // used to cross-fade in over ~.3 s after the jump, both feet skating 30-40 cm across the tee into it at every turn's start.
-    // Six frames: the stance is only known once faceDir has steered two frames running (aiming, above), and main.js may place him
-    // a frame before it starts steering (the intro's cut to the tee)
-    snap() { snapN = 6; motion.snap(); },
+    // main.js moved him to a new spot (a turn's lie, a parked bystander) or cut to his turn: whatever he stands in there shows at
+    // once. The aim stance used to cross-fade in over ~.3 s after the cut, both feet skating 30-40 cm across the tee into it at
+    // every turn's start. aim: the throw he lines up there; the stance shows on the very next frame instead of once faceDir and
+    // holdDisc have asked for it (aiming, below), which left one frame of idle after the cut and a 1 m snap of the wrist on the next
+    snap(aim = null) { snapN = 6; motion.snap(); if (aim) { aimHit = gripHit = true; aimFrames = grips = 1; aimType = aim; } },
     lookAt: value => motion.lookAt(value),
     react(kind) { if (kind === 'clap') { clapFor = 2.6; return; } mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
     update(dt) {
       frameDt = dt; time += dt; aimFrames = aimHit ? aimFrames + 1 : 0; aimHit = false; grips = gripHit ? grips + 1 : 0; gripHit = false; carries = carryHit ? carries + 1 : 0; carryHit = false;
-      const aiming = phase === null && !mood && !locomotion && aimFrames >= (snapN > 0 ? 1 : 2) && grips >= 1;   // just placed: the first steered frame already shows the stance
+      const aiming = phase === null && !mood && !locomotion && aimFrames >= 2 && grips >= 1;
       let name = null;
       if (phase !== null) { const a = actions.get(throwType); sample(throwType, phase * (a?.getClip().duration || 1)); }
       else if (mood) { mood.t += dt; sample(mood.name, mood.t); if (mood.t >= (actions.get(mood.name)?.getClip().duration || 2.4)) mood = null; }
