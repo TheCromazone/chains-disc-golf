@@ -445,10 +445,11 @@ function parkOthers(idx) {
     let x = q.lie[0], z = q.lie[2];
     // someone who has holed out waits a couple of metres off the basket, not inside its footprint where his tap-in left him
     if (q.done) { const ox = x - bx, oz = z - bz, od = Math.hypot(ox, oz); if (od < 2.6) { const ux = od > .05 ? ox / od : -d[0], uz = od > .05 ? oz / od : -d[1]; x = bx + ux * 2.6; z = bz + uz * 2.6; } }
-    // step out of the thrower's line: anyone standing within 1.6 m of the lie→basket segment moves to its side
+    // step out of the thrower's line: anyone standing within 1.6 m of the lie→basket segment, or of its run 4 m past the pole, moves
+    // to its side (a holed-out bot waiting 2.6 m behind the basket stood in a short putt's line, his head over the band: r4 iOS)
     const [ax, az] = taken[0], ex = bx - ax, ez = bz - az, EL = Math.hypot(ex, ez) || 1, rn = rightOf([ex / EL, ez / EL]);
     const along = ((x - ax) * ex + (z - az) * ez) / EL, across = (x - ax) * rn[0] + (z - az) * rn[1];
-    if (along > -1 && along < EL + 1.5 && Math.abs(across) < 1.6) { const push = (across < 0 ? -1.8 : 1.8) - across; x += rn[0] * push; z += rn[1] * push; }
+    if (along > -1 && along < EL + 4 && Math.abs(across) < 1.6) { const push = (across < 0 ? -1.8 : 1.8) - across; x += rn[0] * push; z += rn[1] * push; }
     const x0 = x, z0 = z;
     for (let k = 1; k < 8 && taken.some(([tx, tz]) => Math.hypot(tx - x, tz - z) < 1.1); k++) { x = x0 + r[0] * 1.3 * k; z = z0 + r[1] * 1.3 * k; }
     taken.push([x, z]);
