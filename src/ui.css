@@ -182,7 +182,7 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 .sound-toggle:not(.muted-sound) .sound-off, .sound-toggle.muted-sound .sound-on { opacity: 0; transform: scale(.25); filter: blur(4px); }
 .sound-toggle:not(.muted-sound) .sound-on, .sound-toggle.muted-sound .sound-off { opacity: 1; transform: scale(1); filter: blur(0); }
 /* Equipment: two compact chips in the bottom corners; their pickers pop up above them. */
-#hud > #controls { position: absolute; left: 12px; right: 12px; bottom: calc(12px + var(--sab)); z-index: 3; pointer-events: none; }
+#hud > #controls { position: absolute; left: 12px; right: 12px; bottom: calc(12px + var(--sab)); z-index: 3; pointer-events: none; transition: opacity .3s var(--ease); }   /* gone while someone else throws (ui.js setControlsEnabled): at 35% the chips still stood on a putter's feet, and the waiting line names the throw and disc */
 .equipment-summary { display: flex; justify-content: space-between; }
 .equipment-summary > button { pointer-events: auto; width: 110px; min-height: 40px; padding: 4px 6px 4px 8px; gap: 6px; justify-content: flex-start; border-radius: 8px; border-color: #ffffff2e; background: #0c1114c4; color: #fff; box-shadow: 0 2px 8px #0006; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .equipment-summary > button .icon { width: 18px; height: 18px; }
@@ -213,7 +213,7 @@ h2 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spac
 #pad .hint { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 6px 12px 6px 9px; border-radius: 999px; background: #0c1114a6; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: opacity .5s var(--ease); }
 /* Aim zone: the view outside the pad. On touch screens a chip names it until the first throw; a wide screen splits for two
    thumbs (ui.css landscape block below): the left side drags the aim while the right swipes. */
-#aimZone { position: absolute; left: 14px; top: 47%; z-index: 1; display: none; pointer-events: none; transition: opacity .5s var(--ease); }
+#aimZone { position: absolute; left: 14px; top: 53%; z-index: 1; display: none; pointer-events: none; transition: opacity .5s var(--ease); }
 #aimZone > span { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 9px; border-radius: 999px; background: #0c1114a6; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 #aimZone .icon { width: 18px; height: 18px; color: var(--mint); stroke-width: 2.4; }
 @media (pointer: coarse) { body[data-phase='aim'] #aimZone, body[data-phase='windup'] #aimZone { display: block; } }
@@ -225,6 +225,8 @@ body[data-phase='windup'] #hintText, #pad.bad #hintText { display: none; }
 body[data-phase='windup'] #hintSub, #pad.bad #hintSub { display: inline; }
 body.thrown #pad .hint, #pad.idle .hint { opacity: 0; }
 body.thrown[data-phase='windup'] #pad:not(.idle) .hint, body.thrown #pad.bad .hint { opacity: 1; }   /* not while someone else winds up: a room's watcher (and a bot's) was told "longer swipe = more power" */
+/* the release grade takes the hint's place the moment the disc goes (it overlapped the half-faded hint in portrait) */
+body[data-phase='release'] #pad .hint, body[data-phase='flight'] #pad .hint { opacity: 0; transition: none; }
 #pad.bad .hint { animation: shake .3s; background: #7a1d1dd6; }
 @keyframes shake { 0%,100% {transform:translateX(0)} 25% {transform:translateX(-8px)} 75% {transform:translateX(8px)} }
 #power { --p: 0; position: absolute; left: 50%; bottom: calc(14px + var(--sab)); width: 76px; height: 76px; margin-left: -38px; z-index: 2; pointer-events: none; }
@@ -234,9 +236,16 @@ body.thrown[data-phase='windup'] #pad:not(.idle) .hint, body.thrown #pad.bad .hi
 #powerFill::before { content: ''; position: absolute; top: -5px; left: 50%; width: 13px; height: 13px; margin-left: -6.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px var(--black), 0 1px 4px #0008; }
 #powerLabel { position: absolute; left: 50%; bottom: calc(52px + var(--sab)); transform: translate(-50%, 50%); z-index: 2; pointer-events: none; color: #fff; font-size: 15px; font-weight: 800; letter-spacing: .5px; text-shadow: 0 1px 3px #000c; font-variant-numeric: tabular-nums; }
 #power, #powerLabel { visibility: hidden; }
-body[data-phase='aim'] #power, body[data-phase='windup'] #power, body[data-phase='windup'] #powerLabel, body[data-phase='release'] #power, body[data-phase='release'] #powerLabel { visibility: visible; }
+body[data-phase='aim'] #power, body[data-phase='windup'] #power, body[data-phase='windup'] #powerLabel { visibility: visible; }   /* the ring stands down as the finger lifts: the grade says the power */
 #hud.equipment-open #power, #hud.equipment-open #powerLabel, #hud.equipment-open #pad .hint, #hud.equipment-open #conditions, #hud.equipment-open #waiting { visibility: hidden; }
-#waiting { position: absolute; left: 50%; bottom: calc(102px + var(--sab)); transform: translateX(-50%); max-width: calc(100% - 40px); padding: 7px 14px; border: 0; border-radius: 999px; background: #0c1114b8; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: none; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+/* Someone else's turn: the ring and its % stand down (they sat on the athlete's feet through a bot's whole throw) and the
+   line naming the throw moves up under the score plate (beside it on a wide screen), fading once the disc is away. */
+#hud.spectating #power, #hud.spectating #powerLabel { visibility: hidden; }
+#waiting { position: absolute; left: 12px; top: calc(96px + var(--sat)); max-width: calc(100% - 24px); transition: opacity .3s var(--ease); padding: 7px 14px; border: 0; border-radius: 999px; background: #0c1114b8; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: none; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+body[data-phase='release'] #waiting, body[data-phase='flight'] #waiting { opacity: 0; }
+@media (min-aspect-ratio: 6/5) { #waiting { left: 260px; top: calc(12px + var(--sat)); max-width: calc(100% - 380px); } }   /* the plate's right, short of the sound and tools buttons */
+@media (min-aspect-ratio: 6/5) and (max-height: 520px) { #waiting { left: 224px; max-width: calc(100% - 332px); } }
+@media (min-aspect-ratio: 6/5) and (min-width: 900px) { #waiting { left: 300px; top: calc(20px + var(--sat)); max-width: calc(100% - 432px); } }
 #toast { position: absolute; left: 50%; top: 22%; max-width: 80%; text-align: center; pointer-events: none; opacity: 0; transform: translate(-50%, 0); transition: opacity .2s, transform .2s; }
 #toast.show { opacity: 1; transform: translate(-50%, -8px); }
 #toast b { display: block; font-size: 34px; font-weight: 850; letter-spacing: -1px; text-shadow: 0 3px 16px #000c; }
@@ -354,7 +363,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   .brand { font-size: 40px; }
   .panel { padding: 16px; }
   .hub-main { padding: 12px; border-radius: 24px; }
-  #top { width: min(236px, calc(100% - 136px)); }   /* room for the sound and tools buttons beside it */
+  #top { width: min(236px, calc(100% - 152px)); }   /* room for the sound and tools buttons beside it, and under them the wind plate (upright) */
   #score .panel { --gutter: 18px; }
   #score th { font-size: 14px; } #score th .muted { font-size: 12px; } #score th.key { font-size: 10px; letter-spacing: .8px; }
   #score .mk, #score td.blank i { width: 20px; height: 20px; }
@@ -393,8 +402,13 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
   #power { width: 60px; height: 60px; margin-left: -30px; }
   #powerLabel { bottom: calc(44px + var(--sab)); font-size: 13px; }
   #pad { padding-bottom: calc(84px + var(--sab)); }
-  #waiting { bottom: calc(84px + var(--sab)); }
   #toast { top: 18%; }
+  /* pass & play's "Ben's throw" as a lower third over the aim pill, left-aligned like the hole's title: centred at 60 px it broke
+     in two across the athlete, and one 40 px line at 41% still sat on the basket on 81 of 96 probed lies (a drive's far pin, a
+     tap-in's chains, a 3 m putter's head). An aim spot that stands him left of centre (ui.js heroSide) puts it on the right. */
+  body[data-phase='aim'] #toast { top: auto; bottom: calc(114px + var(--sab)); left: 16px; max-width: 44%; text-align: left; transform: translateY(8px); transform-origin: 0 100%; }
+  body[data-phase='aim'] #toast.show { transform: rotate(-3deg); } body[data-phase='aim'] #toast b { font-size: 32px; }
+  body[data-phase='aim'] #hud.hero-left #toast { left: auto; right: 16px; text-align: right; transform-origin: 100% 100%; }
   .overlay.hub { align-items: flex-start; justify-content: flex-start; padding-left: 12px; padding-top: calc(72px + var(--sat)); }
   .overlay.hub .panel { width: min(360px, 52%); max-height: 100%; }
   /* a landscape phone has ~300px under the brand: the whole card fits without scrolling */
@@ -417,6 +431,7 @@ ul.list li { display: flex; justify-content: space-between; margin-bottom: 6px; 
      him mid-screen (QA on Gull Point Bluffs), and the controls it would meet there are hidden for the result */
   body[data-phase='result'] #toast, body.result-mode #toast { top: auto; bottom: calc(16% + var(--sab)); left: calc(25% + var(--sal) / 2); width: 46%; }
   body[data-phase='result'] #react, body.result-mode #react { left: calc(25% + var(--sal) / 2); bottom: calc(16% + 92px + var(--sab)); }
+  body[data-phase='result'] #hud.verdict-right #toast, body.result-mode #hud.verdict-right #toast, body[data-phase='result'] #hud.verdict-right #react, body.result-mode #hud.verdict-right #react { left: calc(75% - var(--sar) / 2); }   /* the held putt frame's mirrored rig stands him on the left (ui.js verdictSide) */
   body[data-phase='result'] #toast b, body.result-mode #toast b { font-size: 42px; }
   #score { --card: 620px; } #score .panel { --gutter: 20px; }
   #score .eyebrow { padding: 5px 12px 4px; }
@@ -491,8 +506,19 @@ body[data-phase='flight'] #toast b { font-size: clamp(26px, 5vw, 38px); }
 #releaseTag.wobbly { border-color: transparent; background: #ff9275eb; color: var(--black); }
 body[data-phase='result'] #releaseTag, body[data-phase='aim'] #releaseTag { display: none; }
 @media (max-height: 520px) and (min-aspect-ratio: 5/4) { #releaseTag { bottom: calc(80px + var(--sab)); font-size: 13px; } }
-/* upright: the score plate spans the top and the wind plate the bottom right, so the call drops under one and the grade clears the other */
-@media (orientation: portrait) { body[data-phase='flight'] #toast { top: calc(104px + var(--sat)); } #releaseTag { bottom: calc(126px + var(--sab)); font-size: 13px; } }
+/* upright: the score plate spans the top, so the call drops under it; the grade stands in the swipe hint's own slot (#pad's
+   padding), which hides as it lands: at 126 px it sat on the fading hint (QA on an iPhone 17). The wind plate moves up under
+   the sound and tools buttons: at the bottom right it stood on the athlete's feet, who stands on that side now (AIM.tall),
+   and on his legs over a putt; mid-flight it steps aside for the call. */
+@media (orientation: portrait) {
+  body[data-phase='flight'] #toast { top: calc(104px + var(--sat)); } #releaseTag { bottom: calc(102px + var(--sab)); font-size: 13px; }
+  body[data-phase='aim'] #toast { top: calc(136px + var(--sat)); width: max-content; max-width: calc(100% - 24px); } body[data-phase='aim'] #toast b { font-size: 32px; }   /* pass & play's "Ben's throw" on one line under the plates: from 50% it broke in two at 22%, on the basket over a short putt and on a putter's head */
+  #conditions { top: calc(66px + var(--sat)); bottom: auto; }
+  body[data-phase='flight'] #conditions, #hud:has(#btnUtilities[aria-expanded='true']) #conditions { visibility: hidden; }
+  body[data-phase='result'] #hud.verdict-left #toast, body[data-phase='result'] #hud.verdict-left #react { left: 36%; width: 66%; }   /* the held putt frame stands him on the right (ui.js verdictSide), its mirrored rig on the left */
+  body[data-phase='result'] #hud.verdict-right #toast, body[data-phase='result'] #hud.verdict-right #react { left: 64%; width: 66%; }
+}
+@media (orientation: portrait) and (min-width: 900px) { #conditions { top: calc(76px + var(--sat)); } }
 /* Out of bounds, your own throw (ui.js obChoice): DGM's Rethrow / Move to lie as two dark glass pills at the foot of the frame,
    under the verdict and in reach of either thumb; only in the result beat, so a round left mid-choice never carries them over */
 #obChoice { position: absolute; left: 50%; bottom: calc(16px + var(--sab)); z-index: 5; display: flex; gap: 10px; transform: translateX(-50%); pointer-events: auto; }
@@ -526,6 +552,7 @@ body[data-phase='intro'] #holeTitle { opacity: 1; transform: none; transition-du
 #pin svg { width: 13px; height: 13px; color: var(--mint); }
 #pin i { width: 1.5px; height: 24px; background: linear-gradient(#ffffffd9, #ffffff59); transition: height .8s var(--ease); }
 body[data-phase='intro'] #pin i { height: 46px; }   /* the establishing shot sees the pin past the hole's gantry: the tag flies clear of its banner */
+body[data-phase='aim']:has(#toast.show) #pin, body[data-phase='aim']:has(#toast.show) #landTag, body.coaching #pin, body.coaching #landTag { visibility: hidden; }   /* pass & play's "Ben's throw" call and the thumb coach's card land where the upright lens now holds the pin (22-30% down) */
 #pin::after { content: ''; width: 5px; height: 5px; margin-top: -1px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 1.5px #0c111466; }
 /* The landing tag (ui.js placeLandTag): the pin tag's glass pill on a shorter stem, the distance over what it leaves in mint. */
 #landTag { position: fixed; left: 0; top: 0; z-index: 9; display: flex; flex-direction: column-reverse; align-items: center; pointer-events: none; opacity: 0; font-family: var(--display); transition: opacity .2s; will-change: transform, opacity; }
@@ -610,15 +637,22 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
 @media (pointer: coarse) and (min-aspect-ratio: 6/5) {
   #pad { left: 40%; top: calc(70px + var(--sat)); height: auto; padding-left: 12px; padding-right: 12px; }
   #aimZone { top: auto; left: 16px; bottom: calc(76px + var(--sab)); }
-  #waiting { left: 63%; }
   #pad { padding-bottom: calc(108px + var(--sab)); }
   /* DGM's ring is ~100 px on a phone on its side; ours was 60-76 with its % in the middle, under the swiping thumb. The ring
-     grows, the % rides above it as a pill (the release grade takes its place from the release), and both stand at 53%: left of
-     the swipe hint (centred at 70% over the pad) and of the athlete in the right third, so neither is covered */
+     grows, the % rides above it as a pill (the release grade takes its place from the release), and both stand at 53%, left of
+     the athlete in the right third */
   #power, #powerLabel, #releaseTag { left: 53%; }
   #power { width: 100px; height: 100px; margin-left: -50px; }
   #powerLabel, #releaseTag { bottom: calc(120px + var(--sab)); }
-  #powerLabel { transform: translateX(-50%); padding: 3px 11px 2px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; font-size: 17px; text-shadow: none; -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3); }
+  /* r4 QA: the hint centred over the pad sat on his hips through the aim and the swipe, and the 260 px release grade centred
+     at 53% reached his trailing arm. The % and the grade hang from the ring's right edge leftwards, over the fairway: the %
+     above the ring while swiping, the grade in its place once it flies. The hint takes the foot of the frame between the throw
+     chip and the ring: hung over the fairway it covered the basket's tray on every putt ("Swipe up ↑ to throw", "Wrong way") */
+  #powerLabel, #releaseTag { left: calc(53% + 40px); }
+  #releaseTag { transform: translate(-100%, 6px); } #releaseTag.show { transform: translate(-100%, 0); }
+  #pad .hint { position: absolute; right: calc(78.33% + 60px); bottom: calc(18px + var(--sab)); width: max-content; max-width: calc(88.33% - 192px); white-space: normal; text-wrap: balance; line-height: 1.2; border-radius: 15px; pointer-events: none; }   /* in the pad's terms (it starts at 40%): 10 px left of the ring and 10 px right of the throw chip (12 + 110 px), long lines wrap; left of the pad a touch on it still aims */
+  #releaseTag { bottom: calc(51px + var(--sab)); }   /* the grade drops into the ring's own place as it stands down: a slot higher, over a putt, it covered the basket's band as the disc flew in */
+  #powerLabel { transform: translateX(-100%); padding: 3px 11px 2px; border: 1px solid #ffffff3d; border-radius: 999px; background: #0c11148f; font-size: 17px; text-shadow: none; -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3); }
   body[data-phase='release'] #powerLabel { visibility: hidden; }
   /* the wind plate under the score plate: at the bottom right it sat on the athlete's hip, who stands in the right third over
      the swipe pad (AIM.driveS), and the left column between the score and the aim pill is open sky and trees */
@@ -630,6 +664,7 @@ body[data-phase='aim'] #hud:not(.spectating) #shotPlan:not(.off) { display: bloc
   #conditions { left: 24px; top: calc(112px + var(--sat)); flex-direction: row; align-items: center; gap: 12px; }
   #shotPlan { top: calc(156px + var(--sat)); }
 }
+@media (pointer: coarse) and (min-aspect-ratio: 6/5) and (min-width: 900px) { #pad .hint { bottom: calc(26px + var(--sab)); max-width: calc(88.33% - 204px); } }   /* level with the chips, 24 px in and 20 px up there */
 /* A phone on its side: the notch or Dynamic Island takes ~50 px of one long edge (viewport-fit=cover), where the score plate
    and the menu button used to sit. */
 @media (pointer: coarse) and (orientation: landscape) {

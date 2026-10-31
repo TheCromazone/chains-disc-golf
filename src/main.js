@@ -655,17 +655,19 @@ function resolveThrow(pi, r, f = null) {
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
   // a landing shot's verdict stands over the disc, as DGM's distance callout does (QA: "NICE SHOT!" sat right on the landed disc)
-  if (cam.hold) { camera.updateMatrixWorld(); _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null); }
+  if (cam.hold) { camera.updateMatrixWorld(); _v.copy(p.char.group.position).y += 1; const near = _v.distanceTo(camera.position) < 9; _v.project(camera); UI.verdictSide(near && _v.z < 1 && Math.abs(_v.x) < 1 ? (_v.x + 1) / 2 : null);   // a thrower standing in the held frame keeps the verdict off him (first: its side sets its width)
+    _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null); }
+  else UI.verdictAbove(null);
   // the verdict holds 2.4 s, or until a tap (skipBeat): DGM is aiming again within a second of most landings
   const advance = () => { if (G.skipResult !== advance) return; G.skipResult = null; UI.obChoice(null); if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') { nextTurn(); cam.snap = true; } UI.fade(false); }, 320); } };
   if (choose) UI.obChoice(() => { if (G.skipResult !== advance) return; p.lie = obFrom; p.lieDist = distToBasket(obFrom[0], obFrom[2]); p.marker.position.set(obFrom[0], world.height(obFrom[0], obFrom[2]) + .04, obFrom[2]); UI.setHud({ dist: p.lieDist }); advance(); }, advance);
   G.skipResult = advance; G.resultAt = performance.now(); setTimeout(advance, choose ? 6000 : 2400);
 }
-// A tap on the course cuts the flyover to its flash, and a verdict short once it has been seen (.6 s). Not online: the host
+// A tap on the course cuts the flyover to the tee, and a verdict short once it has been seen (.6 s). Not online: the host
 // paces a room's turns. Taps on buttons and dialogs are theirs (the swipe pad is idle in both beats, and covers half the glass).
 function skipBeat(e) {
   if (G.mode === 'online' || e.target.closest?.('button,a,input,select,textarea,dialog,.overlay')) return;
-  if (G.phase === 'intro') G.introT = Math.max(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH);
+  if (G.phase === 'intro') G.introT = Math.max(G.introT, introDur(holes[G.holeIdx]));   // the white flash it skipped to is gone (a bare cut now): INTRO_FLASH threw here and "Tap to skip" did nothing
   else if (G.phase === 'result' && G.skipResult && performance.now() - G.resultAt > 600) G.skipResult();
 }
 function endHole() {
@@ -846,13 +848,21 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
 const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 3.1, side: 1.35, lo: .9, hi: 2.3, eye: .55, band: .16, base: -.72, x: .03, nudge: [-.05, .15], hfov: 42, vmin: 10 },
-  tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
+  tall: { drive: { back: 4, side: .75, up: 2.35, pitch: 10, yaw: 3, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
+// An upright phone's drive (QA on an iPhone 17, r4): from 2.9 m back at chest height he stood mid-frame, x .47-.85 and head to
+// toe .46-.87, the pin just over his shoulder and the fairway behind his reach-back. Mobile golf's lens instead: higher (over
+// his cap) and further back, tipped 10 degrees down, so he stands low on the right (x .55-.82, .55-.84, feet clear of the swipe
+// pill) and the line runs up the frame from his feet to the pin (x .42, .30-.42 down) with the fairway open round it.
 // w7-3 camera verdicts (won 4/4, narrow): "his head almost touches the top edge", "the basket sits a little low over empty dirt": eyes .6 -> .55 (head top ~12%) and band .1 -> .16 (the lid ~42% down, as in the reference), so the rig rises a little and the basket stands higher over less dirt.
 AIM.puttS = { ...AIM.putt, back: 2.3, side: 1.2, hi: 1.9, hfov: 50, eye: .6, band: -.02, base: -.64, x: .24 };
 // A phone on its side (playtest: "the player goes off the screen"): the broadcast drive lens cut the athlete at the hip and
 // pushed his arm out of the right edge. Further back on a taller lens he stands whole, feet to head, in the right third over
 // the swipe pad (ui.css landscape split), with the line and the pin left of centre.
-AIM.driveS = { back: 3.4, side: .95, up: 1.55, pitch: 5, yaw: 0, vfov: 38 };   // a short phone: the swipe pill and ring fill the lower third's middle, so the pin stands further left (38%) with its base plate beside them
+// r4 QA: from .95 m aside, looking straight down the line, his reach-back and hip stood under the swipe hint and the release
+// grade at 53-60%, and his feet ran off the bottom edge. 1.2 m aside, turned 3 degrees right and tipped 1 more, he stands at
+// x .62-.74 with his feet on the frame (.98) and the pin moves left of centre (.47), the labels hanging between. (1.35 m and 4.3
+// degrees put him at .63-.75 but brought Pine 1's cart and tent into view: 7 more draw calls on a phone.)
+AIM.driveS = { back: 3.4, side: 1.2, up: 1.55, pitch: 6, yaw: 3, vfov: 38 };   // a short phone: the swipe pill and ring fill the lower third's middle
 // A lie beside a trunk, a tent or a banner: the rig's spot behind the shoulder could stand inside it or behind it (QA on an
 // iPhone: a birch trunk filled two thirds of a putt's frame; on a desktop the same lie looked at the back of a feather flag
 // over the athlete). Each lie scores the rig's spot and its alternatives (the mirror side, a wider or narrower shoulder, a step
@@ -879,7 +889,10 @@ function aimSpotFor(lie, P, side, putt, halfW) {
     // a trunk close in front of the lens fills the frame even when it blocks neither line (the QA birch: 1 m out, 11° off centre)
     const lens = [...world.treesNear(x, z), ...uprights()].reduce((m, t) => { const tx = t.x - x, tz = t.z - z, D = Math.hypot(tx, tz) || 1e-3, a = Math.abs(Math.atan2(vx * tz - vz * tx, vx * tx + vz * tz));
       return a - Math.asin(Math.min(1, (t.r + .2) / D)) < halfW + .2 ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);   // the trunk's own width counts (with its stubs): one 1 m off the lens filled a portrait frame from 33° off its centre line
-    const score = see + ahead * .6 + framed * .8 - lens - k * .02;   // the nearest alternative wins a tie
+    // a putt's lens holds the pin near its centre, so a spot that sees him past the frame's edge putts to an empty frame (r4 QA on a
+    // phone: a wide spot round a pine at 8-14 m framed the basket, a trunk and nobody; the rig's own puts him ~.8 of the way out)
+    const lost = putt && off > halfW ? 2 : 0;
+    const score = see + ahead * .6 + framed * .8 - lens - lost - k * .02;   // the nearest alternative wins a tie
     scores.push(+score.toFixed(3));
     if (k === 0) score0 = score;
     if (score > top + 1e-6) { top = score; best = k; }
@@ -901,6 +914,9 @@ function aimFrame(lie, d, putt, pos, look) {
   pos.lerpVectors(_runPos, pos, b); look.lerpVectors(_runLook, look, b);
   return (portrait ? C.fov : C.wide) * (1 - b) + fov * b;
 }
+const hudFloor = (() => { let k = '', y = 0; return () => {   // the swipe hint's top edge in CSS px, read once per viewport (#pad's padding sets it, safe area included)
+  const key = innerWidth + 'x' + innerHeight; if (k !== key) { const pad = $('pad'), r = pad.getBoundingClientRect(); y = r.height ? r.bottom - parseFloat(getComputedStyle(pad).paddingBottom) - 36 : innerHeight - 138; if (r.height) k = key; }
+  return y; }; })();
 function aimFrameBase(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P0 = portrait ? AIM.tall[putt ? 'putt' : 'drive'] : putt ? innerHeight > 520 ? AIM.putt : AIM.puttS : innerHeight > 520 ? AIM.drive : AIM.driveS;
   const P = P0;
@@ -923,6 +939,9 @@ function aimFrameBase(lie, d, putt, pos, look) {
   if (!putt) {   // a drive's lens turns as far as it must to keep the athlete whole (QA, a portrait phone in the woods: a wide-shoulder spot round a trunk left him cut in half at the edge of the ~15° half-width)
     const th = Math.atan2(side, back), lim = Math.atan(vt * camera.aspect) - Math.atan(.3 / Math.max(1, rho)) - .5 * DEG;   // the rig's own spots never reach it, so a run-up's dolly ends where it always did
     yaw = Math.max(th - lim, Math.min(th + lim, yaw));
+    // the swipe hint stands ~140 px off the bottom whatever the phone: on a short one (360 x 640) it reached his shins, so the
+    // lens slides up until his feet (.84 down) clear it again, as the putt's lens slides; not mid-flyover, which lands here
+    if (portrait && cam.mode !== 'intro') cam.tShift = Math.max(0, 2 * (.84 - hudFloor() / innerHeight));
   }
   const fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
@@ -1208,15 +1227,21 @@ function updateCamera(dt) {
         // metre off the lens filled half the reaction shot)
         const side = a => { const ux = d[0] * Math.cos(a) + rightOf(d)[0] * Math.sin(a), uz = d[1] * Math.cos(a) + rightOf(d)[1] * Math.sin(a), cx = lie.x + ux * 3.8, cz = lie.z + uz * 3.8;
           const crowd = G.players.some(q => { if (q === me) return false; const o = q.char.group.position, t = Math.max(0, Math.min(1, ((o.x - lie.x) * ux + (o.z - lie.z) * uz) / 3.8)); return Math.hypot(o.x - lie.x - ux * 3.8 * t, o.z - lie.z - uz * 3.8 * t) < .9 && t > .15; });
-          return clearFraction(world, lie.x, lie.y + 1.4, lie.z, cx, lie.y + 1.45, cz, .3, .15) - (crowd ? 1 : 0); };
-        const opts = bd < 6.5 ? [swing, -swing] : [0, .5, -.5];   // a long make keeps the straight-on view unless someone stands in it
+          // and no trunk or upright (a feather flag's sail reaches ~.5 m past its pole) between the lens and him inside the frame
+          // (QA on a small phone: a holed putt's celebration played behind a CHAINS OPEN flag that filled half the frame)
+          const lens = [...world.treesNear(cx, cz), ...uprights()].some(t => { const tx = t.x - cx, tz = t.z - cz, D = Math.hypot(tx, tz), ax = lie.x - cx, az = lie.z - cz, L = Math.hypot(ax, az);
+            return D < L - .3 && Math.acos(Math.max(-1, Math.min(1, (tx * ax + tz * az) / (D * L || 1)))) - Math.asin(Math.min(1, (t.r + .5) / Math.max(D, t.r + .5))) < .4; });
+          return clearFraction(world, lie.x, lie.y + 1.4, lie.z, cx, lie.y + 1.45, cz, .3, .15) - (crowd ? 1 : 0) - (lens ? .8 : 0); };
+        const opts = bd < 6.5 ? [swing, -swing, swing * 1.4, -swing * 1.4, swing * .6, -swing * .6] : [0, .5, -.5, 1, -1];   // a long make keeps the straight-on view unless someone or something stands in it
         let best = opts[0], top = -Infinity; for (const a of opts) { const sc = side(a) - Math.abs(a) * .05; if (sc > top + .01) { top = sc; best = a; } }
         cam.react = { key, a: best }; }
       const r=rightOf(d), ca = Math.cos(cam.react.a), sa = Math.sin(cam.react.a), fx = d[0] * ca + r[0] * sa, fz = d[1] * ca + r[1] * sa;
       cam.tPos.set(lie.x+fx*3.8+r[0]*.7*ca,lie.y+1.45,lie.z+fz*3.8+r[1]*.7*ca);
       cam.tLook.set(lie.x,lie.y+(camera.aspect<1.2?.92:1.08),lie.z); k=5; fov=camera.aspect<1.2?54:38;   // wide: a raised fist (2.2 m) left the top of a 38° frame
     }
-    else fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
+    else { fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
+      if (G.phase === 'aim') { const fx = cam.tLook.x - cam.tPos.x, fz = cam.tLook.z - cam.tPos.z, ax = lie.x - cam.tPos.x, az = lie.z - cam.tPos.z;   // where he stands in the frame the lens is heading for: pass & play's call never hops sides mid-ease
+        UI.heroSide(.5 + .5 * (az * fx - ax * fz) / Math.max(.1, ax * fx + az * fz) / (Math.tan(fov * DEG / 2) * camera.aspect)); } }
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
     if (G.flight?.pos) { fov = flightCam(G.flight, dt); k = 1e3; }
     else if (cam.hold) { cam.tPos.copy(cam.pos); cam.tLook.copy(cam.look); fov = cam.hold.fov; cam.tShift = cam.hold.shift; }
