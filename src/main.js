@@ -14,7 +14,7 @@ import { createShotGuide } from './shot-guide.js';
 import { suggestPower, basketLine, puttPower } from './shot-planning.js';
 import { createFlightTrail } from './flight-trail.js';
 import { createTemporal } from './temporal.js';
-import { createAimLine } from './aim-line.js';
+import { createAimLine, createAimChevrons } from './aim-line.js';
 import { setupInput } from './input.js';
 import { createCoach } from './coach.js';
 import { planBotThrow } from './bot.js';
@@ -124,18 +124,14 @@ addEventListener('resize', resize); resize();
 let course, world, holes, effects = null;
 const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos: new THREE.Vector3(), tLook: new THREE.Vector3(), mode: 'menu', lastHv: new THREE.Vector3(0, 0, -1), fov: 58 };
 // Flight preview: a screen-space ribbon (aim-line.js: a white core in a soft dark halo, tapering with depth, readable at any
-// pixel ratio) and a ground arrow at the lie that turns with the aim. A drive's core swells slowly toward the basket so the
-// direction reads at a glance.
+// pixel ratio), the landing ring in the same hand (shot-guide.js), and on a short putt, where the line stands down, two
+// chevrons on the turf that turn with the aim. A drive's core swells slowly toward the basket so the direction reads at a glance.
 const preview = new THREE.Group(); preview.visible = false; scene.add(preview);
-const aimLine = createAimLine(preview), previewMat = aimLine.material; lineMats.push(previewMat); resize();
+const aimLine = createAimLine(preview), previewMat = aimLine.material;
 const shotGuide = createShotGuide(preview);
+const aimChevrons = createAimChevrons(preview);
+lineMats.push(previewMat, shotGuide.material, aimChevrons.material); resize();
 const trail = createFlightTrail(scene);
-const aimArrow = (() => {
-  const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(.34, -.42); shape.lineTo(.12, -.36); shape.lineTo(.12, -1.15); shape.lineTo(-.12, -1.15); shape.lineTo(-.12, -.36); shape.lineTo(-.34, -.42); shape.closePath();
-  // depth tested (the athlete's legs stand in front of it from the tee camera; drawn over everything it cut across his shorts), lifted off the turf by polygon offset
-  const m = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .82, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
-  m.renderOrder = 4; m.frustumCulled = false; preview.add(m); return m;
-})();
 // Soft projected contact shadow, only Full draws it.
 const shadowCanvas=document.createElement('canvas');shadowCanvas.width=shadowCanvas.height=64;
 const shadowInk=shadowCanvas.getContext('2d'), shadowGrad=shadowInk.createRadialGradient(32,32,2,32,32,32);
@@ -798,11 +794,18 @@ function updatePreview() {
   // drive's runs on into its landing ring at half strength, a swiped drive's 70% fades away (the flight goes on), a putt's dies
   // into the chains.
   aimLine.set(pts, guided ? { fadeIn: 1.5, fadeOut: 4, end: .5, swell: .3 } : assist ? { fadeIn: 1.5, fadeOut: 12, end: 0, swell: .3 } : { fadeIn: .8, fadeOut: 1.2, end: .15 });
-  if (G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4) aimLine.mesh.visible = false;   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the ground arrow aims it
+  if (G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4) aimLine.mesh.visible = false;   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the chevrons aim it
   aimLine.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
-  const p = curP(), d = aimDir(), ax = p.lie[0] + d[0] * 1.15, az = p.lie[2] + d[1] * 1.15, n = world.normal ? world.normal(ax, az) : [0, 1, 0];
-  aimArrow.position.set(p.lie[0] + d[0] * 1.7, world.height(p.lie[0] + d[0] * 1.7, p.lie[2] + d[1] * 1.7) + .04, p.lie[2] + d[1] * 1.7);
-  aimArrow.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]).normalize()).multiply(_q0.setFromAxisAngle(UP, Math.atan2(-d[0], -d[1]))); aimArrow.material.color.copy(aimLine.color);   // laid on the slope, so the depth test never buries its tail   // tip 1.7 m out, pointing down the aim (it used to point back at the player)
+  // The chevrons only where the line stands down: beside it (the old ground arrow showed on every throw) they were a second aim
+  // cue pulling the eye off the line. They lie at the basket's foot, the far apex .45 m short of the pole, where the putt lens
+  // looks and the aim's swing shows most: both lenses stand behind him, so the turf within ~2 m of him sits behind his legs
+  // (the old arrow's 1.7 m tip showed only as its two barbs upright and a sliver under the frame on its side).
+  aimChevrons.mesh.visible = !aimLine.mesh.visible;
+  if (aimChevrons.mesh.visible) {
+    const d = aimDir(), c = aimChevrons.centre(Math.max(.9, distToBasket(lie[0], lie[2]) - .45)), ax = lie[0] + d[0] * c, az = lie[2] + d[1] * c, n = world.normal ? world.normal(ax, az) : [0, 1, 0];
+    aimChevrons.mesh.position.set(ax, world.height(ax, az) + .02, az);
+    aimChevrons.mesh.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]).normalize()).multiply(_q0.setFromAxisAngle(UP, Math.atan2(-d[0], -d[1]))); aimChevrons.color.copy(aimLine.color);   // laid on the slope; local -z down the aim
+  }
 }
 
 // ---------- camera ----------
