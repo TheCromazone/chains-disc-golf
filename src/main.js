@@ -111,7 +111,7 @@ THREE.ShaderChunk.alphatest_fragment = THREE.ShaderChunk.alphatest_fragment.repl
   'smoothstep( alphaTest - min( fwidth( diffuseColor.a ), alphaTest ), alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )');   // capped below so a fully transparent texel never gains coverage
 const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
-{ const sm = renderer.shadowMap, render = sm.render; sm.render = (...a) => { SHADOW_ONLY.visible = true; try { render.apply(sm, a); } finally { SHADOW_ONLY.visible = false; } }; }   // the athletes' shadow proxies (gltf-player.js) draw in the shadow passes only
+{ const sm = renderer.shadowMap, render = sm.render, show = v => { SHADOW_ONLY.visible = v; if (course?.shadowOnly) course.shadowOnly.visible = v; }; sm.render = (...a) => { show(true); try { render.apply(sm, a); } finally { show(false); } }; }   // the athletes' shadow proxies (gltf-player.js) and the conifers' (course.js planted) draw in the shadow passes only
 const scene = new THREE.Scene();
 const taa = createTemporal();   // temporal.js: jittered, accumulated edges on held frames, both tiers
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
@@ -1359,7 +1359,7 @@ function frame(dt, rawDt, background) {
   // sharpness window and flecks slid across the turf ("the shadows move really fast"), and the far map alone holds still.
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : G.phase === 'result' && cam.hold ? cam.look : p ? p.char.group.position : cam.look;
   if (!G.flight && G.phase !== 'result') nearFocus.copy(focus);
-  course.update(dt, time, focus, camera.position, nearFocus);
+  course.update(dt, time, focus, camera.position, nearFocus, camera);
   puffs.update(dt, camera, renderer); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera, !G.flight && cam.mode === 'aim' && G.throwType === 'putt');   // held only over a putt: there the level lens puts a ribbon straight across the basket at flag height
   if (G.throwType !== 'putt') aimLine.advance(dt);   // a putt's line holds still (its direction is the basket)
   contactShadow.visible=!!G.flight?.pos;

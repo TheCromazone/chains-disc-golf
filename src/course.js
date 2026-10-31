@@ -519,14 +519,25 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // so that is a 40 deg margin for a quarter second of turning), and with the sun ahead its shadow falls further behind too;
   // with the sun behind, the margin grows by the shadow's reach. About a third of the near trees, drawn three times each.
   const lodSun = (v => new THREE.Vector2(v.x, v.z).normalize())(new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1]))), lodReach = 22 / Math.tan(THREE.MathUtils.degToRad(def.sun[0]));
-  const treeLod = (view, t, focus) => { if (t - lodT < .25) return; lodT = t; treeEye.value.copy(view);
+  // In the lens: a set that casts nothing (the conifers' sprays, whose old cards cast as their '-shadow' proxies: planted(); Full's
+  // woods shrubs) draws only for the camera, so past 8 m it leaves out a tree whose crown (9 m round its trunk) lies wholly outside
+  // the view's half-width (widened for the pitch) plus 25 deg, a quarter second of a brisk pan. A turn of 12 deg, a 4 m move or a
+  // lens change refreshes the sets at once, not on the tick, so no crown is missing when it comes into view. The phone's Pine putt
+  // drew 65 conifers' sprays within 44 m, most of them off to the sides (gauntlet r4 trees verify: +6.5% triangles).
+  const lodLook = new THREE.Vector3(), lodSeen = new THREE.Vector3(), lodAt = new THREE.Vector3(1e9, 0, 1e9); let lodFov = 0;
+  const treeLod = (view, t, focus, cam) => { if (cam) cam.getWorldDirection(lodLook);
+    if (t - lodT < .25 && !(cam && (lodLook.dot(lodSeen) < .978 || view.distanceToSquared(lodAt) > 16 || Math.abs(cam.fov - lodFov) > 2))) return; lodT = t; treeEye.value.copy(view);
     let fx = focus ? focus.x - view.x : 0, fz = focus ? focus.z - view.z : 0; const fl = Math.hypot(fx, fz); if (fl > 1) { fx /= fl; fz /= fl; } else fx = fz = 0;
     const back = 15 + Math.max(0, -(fx * lodSun.x + fz * lodSun.y)) * lodReach;
+    let lx = 0, lz = 0, cone = 9;   // the lens's heading in plan and the cone's half-angle (rad; 9: no cone)
+    if (cam) { lodSeen.copy(lodLook); lodAt.copy(view); lodFov = cam.fov; const pl = Math.hypot(lodLook.x, lodLook.z), tv = Math.tan(cam.fov * Math.PI / 360), tilt = Math.asin(Math.min(1, Math.abs(lodLook.y))) + Math.atan(tv);
+      if (pl > .2 && tilt < 1.4) { lx = lodLook.x / pl; lz = lodLook.z / pl; cone = Math.atan(tv * cam.aspect / Math.cos(tilt)) + .44; } }   // the frustum's far corners spread wider in plan the more it pitches
     const R = treeNear.value + 4, i0 = Math.floor((view.x - R) / LOD_CELL), i1 = Math.floor((view.x + R) / LOD_CELL), j0 = Math.floor((view.z - R) / LOD_CELL), j1 = Math.floor((view.z + R) / LOD_CELL);
-    for (const { im, mats, cols, pos, byCell } of nearSets) {
-      const dm = im.instanceMatrix, dc = im.instanceColor; let n = 0;
+    for (const { im, mats, cols, pos, byCell, lens } of nearSets) {
+      const dm = im.instanceMatrix, dc = im.instanceColor, c = lens ? cone : 9; let n = 0;
       for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (const k of byCell.get(lodKey(i, j)) || []) {
-        const dx = pos[k * 2] - view.x, dz = pos[k * 2 + 1] - view.z; if (dx * dx + dz * dz > R * R || dx * fx + dz * fz < -back) continue;
+        const dx = pos[k * 2] - view.x, dz = pos[k * 2 + 1] - view.z, d2 = dx * dx + dz * dz; if (d2 > R * R || dx * fx + dz * fz < -back) continue;
+        if (c < 3 && d2 > 64) { const d = Math.sqrt(d2); if (Math.acos(Math.max(-1, Math.min(1, (dx * lx + dz * lz) / d))) - Math.atan(9 / d) > c) continue; }
         dm.array.set(mats.subarray(k * 16, k * 16 + 16), n * 16); if (dc) dc.array.set(cols.subarray(k * 3, k * 3 + 3), n * 3); n++;
       }
       im.count = n; dm.clearUpdateRanges(); dm.addUpdateRange(0, n * 16); dm.needsUpdate = true;
@@ -584,7 +595,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: mat.alphaTest ? mat.map : null, alphaTest: mat.alphaTest || 0 });
       im.customDepthMaterial = canopyGaps(near3d(windMaterial(depth, windClock))); depth.dispose();   // leaf cards cut their shadows out too: the sun gets through a crown only where its cards leave gaps
-      im.castShadow = shadow; im.receiveShadow = true; group.add(im); nearSets.push({ im, mats, cols, pos, byCell });
+      im.castShadow = shadow; im.receiveShadow = true; group.add(im); nearSets.push({ im, mats, cols, pos, byCell, lens: !shadow });   // lens: only the camera sees it (treeLod)
       return;
     }
     const cells=new Map(), size=64;
@@ -833,13 +844,19 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // Bark differs tree to tree as well (a stem greyer or redder, lighter or darker by ~15%), so a stand is not one repeated pole.
   const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = (.85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3) * (s.kind === 'birch' ? .62 + noise(s.x * .29 + 9, s.z * .29 + 2) * .25 : 1); return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
   for (const b of [...bushes, ...shrubs]) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
+  // A conifer's '-shadow' mesh (tools/build-trees.py ghost()) is its crown as the few large cards it was built from before the
+  // sprays: it casts in their place, drawn only inside the shadow passes (its material is shown by main.js's shadowMap.render),
+  // so the sprays (1.6-3.1x the cards' triangles) cost the main pass alone and the ground keeps the shadows it had (gauntlet r4 trees).
+  const shadowLeaf = new THREE.MeshBasicMaterial({ visible: false, map: leafAtlas, alphaTest: .5, side: THREE.DoubleSide });   // the depth pass takes its map, cut and sides
   const planted = (name, spots, shadow = true, lod = true) => {
     const src = leafAtlas && model(name); if (!src) return false;
-    src.scene.updateMatrixWorld(true);
+    src.scene.updateMatrixWorld(true); const proxied = new Set();
+    src.scene.traverse(o => { if (o.isMesh && o.name.endsWith('-shadow')) proxied.add(o.name.slice(0, -7)); });
     src.scene.traverse(o => { if (!o.isMesh) return;
-      const variant = o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+      const proxy = o.name.endsWith('-shadow'), variant = proxy ? o.name.slice(0, -7) : o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+      if (proxy) { if (shadow && mine.length) inst(g, shadowLeaf, mine, null, true, lod); return; }
       const mat = key === 'leaves' ? leafFull(g) : (name === 'bush' ? bushWood : woodMats)[key] || trunkMat, tint = key === 'leaves' ? leafTint : barkTint;
-      if (mine.length) inst(g, mat, mine, tint, shadow, lod); });
+      if (mine.length) inst(g, mat, mine, tint, shadow && !(key === 'leaves' && proxied.has(variant)), lod); });
       // Every tree casts. The edge stand's open side and young trees, the clearing groves and the back woods used to skip the
       // shadow pass (it triples a tree's triangles), so from the tee they stood as trunks on evenly sunlit grass (tee-stands
       // round, 2026-10-07). Casting costs ~.5 ms a frame on Pine Hollow's tee and flyover (11-12 ms, Full, 1600x900).
@@ -849,7 +866,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // x and y, crown depth and a leaf mask) and writes the card extents to src/impostors.js. One instanced card per tree turns
   // about the vertical to face the camera (the sun, in the shadow pass), leans as its 3D instance leans, and lights through
   // the same canopy shading as the 3D leaves, so a far crown is dark into the sun with lit, glowing rims like the near ones.
-  const impMap = texture('impostors'), impNormal = texture('impostors_n', { srgb: false });
+  const impMap = texture('impostors'), impNormal = texture('impostors_n', { srgb: false }), impCast = texture('impostors_s', { srgb: false });   // impCast (grey): what a card casts, a conifer's old cards as its 3D crown casts them (tools/build-trees.py)
   const billboard = s => { s.uniforms.treeEye = treeEye; s.uniforms.treeNear = treeNear;
     s.vertexShader = 'attribute float impCell;attribute vec3 impBark;uniform vec3 treeEye;uniform float treeNear;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;\n' + s.vertexShader
       .replace('#include <begin_vertex>', `vec3 impO = instanceMatrix[3].xyz, impT = cameraPosition - impO; impT.y = 0.; impT = normalize(impT + vec3(1e-4, 0., 0.));
@@ -872,7 +889,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       sunOcc = mix(1., n.z * mix(n.z, 1., .5), smoothstep(-.2, .6, dot(-normalize(vViewPosition), directionalLights[0].direction)) * leafMask);
       #endif
       }`); }, customProgramCacheKey: () => 'chains-impostor' }));
-  const impDepth = impMat && canopyGaps(Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: billboard, customProgramCacheKey: () => 'chains-impostor-depth' }), .8);   // far crowns cut sun gaps too, a little fewer than near ones (a far crown stands in for its whole stand): solid impostor shadows left the woods floor past ~40 m one even shade, the near cut a sunlit sheet
+  const impDepth = impMat && canopyGaps(Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: s => { billboard(s); if (!impCast) return; s.uniforms.impCast = { value: impCast };   // its own uniform: three's shadow pass sets a depth material's map to the object material's
+    s.fragmentShader = 'uniform sampler2D impCast;\n' + s.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.a = texture2D(impCast, vMapUv).g;'); }, customProgramCacheKey: () => 'chains-impostor-depth' + !!impCast }), .8);   // far crowns cut sun gaps too, a little fewer than near ones (a far crown stands in for its whole stand): solid impostor shadows left the woods floor past ~40 m one even shade, the near cut a sunlit sheet
   const impostors = (spots, shadow = true) => {
     if (!impMat || !spots.length) return false;
     const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).translate(0, .5, 0), impMat, spots.length), cells = new Float32Array(spots.length), barks = new Float32Array(spots.length * 3);
@@ -1163,9 +1181,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough, capsules: dressing.capsules, camBlockers: [...dressing.capsules, ...(dressing.camCapsules || [])] };
   const setHole = i => { const h = holes[i]; tuftHoles.forEach((l, k) => l.forEach(t => { t.visible = k === i; })); world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; gapHole.value.set(h.basket[0], h.basket[1], gapHole.value.z, h.basketY); const L = Math.hypot(h.tee[0] - h.basket[0], h.tee[1] - h.basket[1]) || 1; gapAim.value.set((h.tee[0] - h.basket[0]) / L, (h.tee[1] - h.basket[1]) / L, gapAim.value.z, gapAim.value.w); };
-  const update = (dt, t, focus, view, nearFocus = focus) => {   // nearFocus: where the near cascade sits (main.js holds it still through a flight)
+  const update = (dt, t, focus, view, nearFocus = focus, cam) => {   // nearFocus: where the near cascade sits (main.js holds it still through a flight); cam: the lens, for the sets only it sees (treeLod)
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
-    if (view) treeLod(view, t, focus);   // trees: 3D near the eye, impostors beyond (the trees section)
+    if (view) treeLod(view, t, focus, cam);   // trees: 3D near the eye, impostors beyond (the trees section)
     if (view) FOG.shape.w = height(view.x, view.z);   // the haze thins with height above the ground, not above the eye: the flyover drone looks through thinner air
     // Near the pin the air thickens, as the broadcast's long putt lens compresses the woods behind the basket (w4-5 putt
     // verdicts: the stand 30-45 m out, 25-40 m past the pin, took no haze at all under the tee's 34 m clear zone and read as
@@ -1194,7 +1212,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
-  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs }, props: dressing.meshes };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one); props: the built dressing, for the run-up camera's line-of-sight rays
+  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs }, props: dressing.meshes, shadowOnly: shadowLeaf };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one); props: the built dressing, for the run-up camera's line-of-sight rays
 }
 
 // Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 8 m (not
