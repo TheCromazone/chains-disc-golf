@@ -263,8 +263,9 @@ export function jerseyStyle(material, style, accent, unit = 1, center = [0, 0, 0
     s.uniforms.jerseyAccent = material.userData.jerseyAccent;
     s.vertexShader = 'varying vec3 vJerseyPos;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       vJerseyPos = position * ${unit.toFixed(4)} + vec3(${center.map(v => v.toFixed(3)).join(',')});`);
-    s.fragmentShader = 'uniform vec3 jerseyAccent;varying vec3 vJerseyPos;float chainsPanel = -1.;\n' + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    s.fragmentShader = 'uniform vec3 jerseyAccent;varying vec3 vJerseyPos;float chainsPanel = -1., chainsStripe = 0.;\n' + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { vec3 j = vJerseyPos; float m = 0., side = 0.; ${JERSEY_MASKS[index]}
+        chainsStripe = m;   // the trim-coloured share here: a print over it takes the shirt colour (body-material.js)
         diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, m * (${gate})) * (1. - .64 * side * (${gate})); }`);
   };
   material.customProgramCacheKey = () => prevKey.call(material) + '|jersey-' + index;

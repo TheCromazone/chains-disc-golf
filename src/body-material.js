@@ -158,7 +158,9 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         vec2 q = vec2((back ? j.x : -j.x) / b.y + .5, (j.y - b.x) / b.z + .5);
         // fetched outside the box test: a mipmapped read inside the branch picks a coarse mip along the box edge, which drew a faint outline round the print
         float ink = texture2D(uPrint, vec2(q.x, 1. - b.w + b.w * q.y)).a * step(0., q.x) * step(q.x, 1.) * step(0., q.y) * step(q.y, 1.);
-        diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent, ink * chainsJersey); }
+        // printed in the trim colour, the number ran off a sash, hoop or stripe of the same colour as ragged spurs (r4: Ricky's
+        // 42 tore the edge of her sash across the back): over the trim the print knocks out to the shirt colour, as kits do
+        diffuseColor.rgb = mix(diffuseColor.rgb, mix(jerseyAccent, uPal[1], smoothstep(.3, .7, chainsStripe)), ink * chainsJersey); }
       diffuseColor.rgb *= 1. + chainsKnit;   // the knit runs under the print too`).replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Chains', 'chainsSkin')}
       // cloth sheen (Charlie distribution, fibre-tinted): the knit's loose fibres scatter light back toward grazing views, so
