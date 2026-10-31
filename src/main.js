@@ -1781,7 +1781,8 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await Promise.all([warmShaders(), assetsIdle()]);
-  UI.hide('loading'); loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
+  UI.hide('loading'); try { sessionStorage.removeItem('chains.bootRetry'); } catch { /* private mode */ }   // booted: the next failure gets its own automatic reload (index.html)
+  loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
   window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: draw, taa, performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, flightPlan, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
   const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) { const back = inRoom() === invite; openLive(invite); if (back) { $('onlineTitle').textContent = `Back to room ${invite}`; UI.hide('inviteNote'); $('btnJoin').click(); } }   // a reload mid-room: straight back in, not "type your name, then tap Join"
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
