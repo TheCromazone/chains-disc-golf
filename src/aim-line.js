@@ -8,14 +8,18 @@ import * as THREE from 'three';
 // turf and leaves), tapering with depth from WIDTH[0] css px at NEAR m to WIDTH[1] at FAR, faded in where it leaves the player
 // and out where it stops. Direction reads from a slow, low swell of the core along the line (`flow`, metres), faded out where its
 // wavelength drops under ~40 px so the far end never shimmers. One draw, ~2 vertices per flight point.
-const MAX = 200, NEAR = 3, FAR = 45, WIDTH = [4.2, 1.6], HALO = 1.5, WAVE = 3.2;
+const MAX = 200, NEAR = 3, FAR = 45, WIDTH = [4.2, 1.6], WAVE = 3.2;
+export const HALO = 1.5, HALO_COLOR = 0x06140c;   // the soft dark edge every guide wears (css px, colour): shot-guide.js's landing ring too
+// One pixel's core ramp and the halo's fall-off, x px from the centre of a stroke whose core is `core` px across its half
+// (buffer px; px = the pixel ratio). Shared by the line, the chevrons and the landing ring.
+export const STROKE = `vec2 stroke(float x, float core, float px) { return vec2(clamp(core - x + .5, 0., 1.), .42 * (1. - smoothstep(core - .5, core + ${HALO.toFixed(2)} * px, x))); }`;
 export function createAimLine(parent) {
   const pos = new Float32Array(MAX * 6), prev = new Float32Array(MAX * 6), next = new Float32Array(MAX * 6), along = new Float32Array(MAX * 2), side = new Float32Array(MAX * 2), geo = new THREE.BufferGeometry();
   for (let i = 0; i < MAX; i++) { side[i * 2] = 1; side[i * 2 + 1] = -1; }
   for (const [k, a, n] of [['position', pos, 3], ['prev', prev, 3], ['next', next, 3], ['along', along, 1]]) geo.setAttribute(k, new THREE.BufferAttribute(a, n).setUsage(THREE.DynamicDrawUsage));
   geo.setAttribute('side', new THREE.BufferAttribute(side, 1));
   const idx = []; for (let i = 0; i < MAX - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } geo.setIndex(idx);
-  const u = { color: { value: new THREE.Color(1, 1, 1) }, halo: { value: new THREE.Color(0x06140c) }, resolution: { value: new THREE.Vector2(1, 1) }, px: { value: 1 },
+  const u = { color: { value: new THREE.Color(1, 1, 1) }, halo: { value: new THREE.Color(HALO_COLOR) }, resolution: { value: new THREE.Vector2(1, 1) }, px: { value: 1 },
     total: { value: 1 }, fade: { value: new THREE.Vector3(1, 1, 1) }, flow: { value: 0 }, swell: { value: 0 } };
   const mat = new THREE.ShaderMaterial({ uniforms: u, transparent: true, depthWrite: false, depthTest: false,
     vertexShader: `uniform vec2 resolution;uniform float px;attribute vec3 prev, next;attribute float along, side;varying float vAcross, vAlong, vHalf;
@@ -54,5 +58,57 @@ export function createAimLine(parent) {
       return d;
     },
     advance(dt, speed = 1.6) { u.flow.value += dt * speed; },
+    dispose() { parent.remove(mesh); geo.dispose(); mat.dispose(); } };
+}
+
+// The short putt's ground guide. Where the putt line can't be seen leaving his hand (REACH below) main.js hides it, and two
+// chevrons on the turf point the aim, in the line's own hand: a white core CORE css px wide inside the same soft
+// dark halo, constant on screen, depth tested so his shoes and the tufts stand in front of them. They replace a flat white arrow
+// decal (0.7 x 1.15 m at .82 opacity, every throw) that read as a stray sticker pasted on the grass beside the new line (r4 iOS).
+// One quad on the ground's tangent plane: the fragment measures its distance to each chevron's two arms in metres and turns it
+// into pixels along the arm's normal (the plane's own screen derivatives), so the strokes keep their width at any slant.
+const ARM = [.24, .24], STEP = .32, CORE = 3.4;   // a chevron's half width and depth (m), the gap between the two (m), the core (css px)
+// The putt line stands down where the lens can't see it leave his hand (r4 QA, css px^2 of line on screen): on its side inside
+// 4 m (330 at 4 m, 470 at 5; under 4 its stub stood up from behind his shoulder like a white pole); upright, whose lens stands .6 m
+// aside (main.js AIM.tall.putt; 1.2-1.35 on its side), inside 7 m: the line runs on behind his back and only a 15-30 css px stub
+// reached the chains (100 at 5 m, 150 at 6, 200 at 7, 250 at 8). Upright inside ~5 m his shorts hid the chevrons' far arms (two
+// thin white sticks at 3 m), so there their line starts beside him on the lens's side, up to OFFSET m.
+const REACH = { wide: 4, tall: 7 }, OFFSET = .7;
+export function createAimChevrons(parent) {
+  const L = STEP + ARM[1] + .24, geo = new THREE.PlaneGeometry(2 * ARM[0] + .24, L).rotateX(-Math.PI / 2);   // local -z points down the aim
+  const u = { color: { value: new THREE.Color(1, 1, 1) }, halo: { value: new THREE.Color(HALO_COLOR) }, resolution: { value: new THREE.Vector2(1, 1) }, px: { value: 1 } };
+  const mat = new THREE.ShaderMaterial({ uniforms: u, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+    vertexShader: 'varying vec2 vP;void main(){vP=vec2(position.x,-position.z);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader: `uniform vec3 color, halo;uniform float px;varying vec2 vP;
+      ${STROKE}
+      void main() { vec2 dx = dFdx(vP), dy = dFdy(vP), best = vec2(0.);
+        for (int i = 0; i < 2; i++) { vec2 a = vec2(0., ${(STEP / 2 + ARM[1] / 2).toFixed(3)} - float(1 - i) * ${STEP.toFixed(3)});   // apexes: the near one, then the far
+          for (int s = -1; s <= 1; s += 2) { vec2 b = vec2(float(s) * ${ARM[0].toFixed(3)}, -${ARM[1].toFixed(3)}), q = vP - a, n = normalize(vec2(-b.y, b.x));
+            vec2 e = q - b * clamp(dot(q, b) / dot(b, b), 0., 1.);   // to the arm, metres
+            float x = length(e) / max(length(vec2(dot(dx, n), dot(dy, n))), 1e-6);   // ... in buffer pixels across the arm
+            vec2 k = stroke(x, ${(CORE / 2).toFixed(2)} * px, px) * (i == 0 ? .72 : 1.);   // the near chevron a step quieter: the eye runs to the far one
+            best = max(best, k); } }
+        float a = best.x + best.y * (1. - best.x);
+        if (a < .004) discard;
+        gl_FragColor = vec4((color * best.x + halo * best.y * (1. - best.x)) / max(a, 1e-4), a * .96);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }` });
+  const mesh = new THREE.Mesh(geo, mat); mesh.renderOrder = 4; mesh.frustumCulled = false; mesh.name = 'aim_chevrons'; mesh.visible = false; parent.add(mesh);
+  mat.resolution = u.resolution.value;   // main.js's resize() sets every line material's buffer size
+  const centre = far => far - STEP / 2 - ARM[1] / 2;
+  return { mesh, material: mat, color: u.color.value,
+    // far: metres from the lie to the far chevron's apex; centred there so the near one sits STEP behind it
+    span: [STEP, ARM[1]], centre,
+    // Where the line hands over to the chevrons: putts inside REACH.wide m on its side, REACH.tall m upright (main.js).
+    shows: (putt, dist, tall) => putt && dist < REACH[tall ? 'tall' : 'wide'],
+    // The pair's line on the ground: lie [x, y, z], d the aim and r its right (unit [x, z]), D metres to the pin, lens the side of
+    // him the camera stands on (+-1 along r). Upright inside ~5 m it starts up to OFFSET m toward the lens beside him and still
+    // meets the aim at the pin's distance; the far apex lies .45 m short of there. Returns the quad's centre and its direction.
+    lay(lie, d, r, D, lens, tall) {
+      const o = tall ? lens * OFFSET * Math.min(1, Math.max(0, (5 - D) / 2)) : 0, sx = lie[0] + r[0] * o, sz = lie[2] + r[1] * o;
+      const tx = lie[0] + d[0] * D - sx, tz = lie[2] + d[1] * D - sz, L = Math.hypot(tx, tz) || 1, ux = tx / L, uz = tz / L, c = centre(Math.max(.9, L - .45));
+      return [sx + ux * c, sz + uz * c, ux, uz];
+    },
     dispose() { parent.remove(mesh); geo.dispose(); mat.dispose(); } };
 }
