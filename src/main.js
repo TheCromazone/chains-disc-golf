@@ -1133,9 +1133,12 @@ function flightCam(f, dt) {
   if (cut) { c.t0 = f.t - CHASE.hold - CHASE.blend; c.F0 = chaseFov(); c.S0 = 0; if (Math.hypot(f.hv[0], f.hv[2]) > 1e-4) c.dir.set(f.hv[0], 0, f.hv[2]).normalize(); }   // the blends done: no shoulder arc, the chase lens
   _v3.set(f.hv[0], 0, f.hv[2]); if (_v3.lengthSq() > 1e-8) c.dir.lerp(_v3.normalize(), 1 - Math.exp(-4 * dt)).normalize();
   const hv = c.dir; let cx = D[0] - hv.x * CHASE.back, cy = D[1] + CHASE.up, cz = D[2] - hv.z * CHASE.back;
-  const fr = clearFraction(chaseWorld(), D[0], D[1], D[2], cx, cy, cz, 1.2);   // wide of trunks
+  // wide of trunks, but never nearer than ~1.8 m: with a 1.2 m berth any disc flying a metre past a trunk pulled the lens to 1.1 m
+  // behind it, a disc filling a sixth of a phone's frame (r4 probe: 51 chase frames inside 1.5 m on 8 drives, 13 now); pushOut
+  // keeps the lens itself off the bark
+  const fr = clearFraction(chaseWorld(), D[0], D[1], D[2], cx, cy, cz, .8);
   c.pull = cut ? fr : c.pull + (fr - c.pull) * (1 - Math.exp(-(fr < c.pull ? 7 : 2.5) * dt));   // in briskly past a trunk, out slowly; never a one-frame lurch
-  const q = Math.max(.25, c.pull); cx = D[0] + (cx - D[0]) * q; cy = D[1] + (cy - D[1]) * q; cz = D[2] + (cz - D[2]) * q;
+  const q = Math.max(.38, c.pull); cx = D[0] + (cx - D[0]) * q; cy = D[1] + (cy - D[1]) * q; cz = D[2] + (cz - D[2]) * q;
   // beside the line, not on it: an upright blocker (the arch's 2.5 m pillars, a tent, a feather flag) the lens passes near filled
   // a third of a portrait frame (QA: every Meadows tee shot past the BIRDIE BREW pillar). The chase spot steps sideways until the
   // blocker's near edge clears the frame's half-width (a portrait lens is only ~17° each side, so one 6 m ahead still needs ~3 m),

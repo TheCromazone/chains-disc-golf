@@ -1,7 +1,7 @@
 // What a player sees while someone else throws, and whether the athlete hides the target while he aims, measured in pixels on
 // the virtual clock (tools/vclock.mjs), so the same build gives the same numbers.
 //   node tools/qa/watch-probe.mjs [--port 8440] [--size 844x390] [--dpr 1] [--quality low] [--courses pine,meadow,lake,bluff]
-//        [--holes 1,2,3] [--mode watch|framing] [--lies tee,40] [--who bot,own] [--shots dir] [--every 6] [--out file.json] [--seed 4] [--root checkout]
+//        [--holes 1,2,3] [--mode watch|framing] [--lies tee,40] [--who bot,own] [--throws backhand,forehand] [--shots dir] [--every 6] [--out file.json] [--seed 4] [--root checkout]
 // watch: on each hole and lie a bot (players[1]) plans and throws while the human waits, as a desktop host watches a phone guest
 // (the guest's replay takes the same path: windUp, run-up, doThrow with its flight); `own` is the human's own swipe from the
 // same lie, the view the watcher should match. Every 30 fps frame renders three extra passes into an offscreen target: the
@@ -9,8 +9,8 @@
 // disc behind a trunk, a crown or the athlete counts as hidden. Per frame: camera, disc, visible/total disc px, the lens's height
 // over the disc's plane (edge-on = 0), its clearance over the turf and to the nearest trunk, crown or arch/flag/tent capsule,
 // and during the run-up the thrower's pixels and whether a frame edge cuts him.
-// framing: the human's own aim on each lie (tee, 40, 70 = metres-fraction along the hole's way; rough = 70% and 9 m off the line;
-// putt12 = 12 m short of the pin on its approach): his body rendered alone, then a basket proxy (cage and pole) and a 0.6 m pad at
+// framing: the human's own aim on each lie (tee, 40, 70 = per cent along the hole's way; rough = 70% and 9 m off the line;
+// a24 / putt12 = 24 / 12 m short of the pin on its approach), with each of --throws (a putt lie putts): his body rendered alone, then a basket proxy (cage and pole) and a 0.6 m by 1.2 m post at
 // the landing spot the aim line shows, each depth-tested against him: the share of the basket and of the landing spot he hides,
 // in the stance and over the swipe's reach-back (phase 0 -> .5) and the release.
 // --shots: every --every'th recorded frame as a jpg (named course-hole-lie-who-frame).
@@ -27,12 +27,12 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const { values: o } = parseArgs({ options: {
   port: { type: 'string', default: '8440' }, size: { type: 'string', default: '844x390' }, dpr: { type: 'string', default: '1' }, quality: { type: 'string', default: 'low' },
   courses: { type: 'string', default: 'pine,meadow,lake,bluff' }, holes: { type: 'string', default: '1,2,3' }, mode: { type: 'string', default: 'watch' },
-  lies: { type: 'string' }, who: { type: 'string', default: 'bot,own' }, shots: { type: 'string' }, every: { type: 'string', default: '6' }, out: { type: 'string' }, seed: { type: 'string', default: '4' },
+  lies: { type: 'string' }, throws: { type: 'string', default: 'backhand' }, who: { type: 'string', default: 'bot,own' }, shots: { type: 'string' }, every: { type: 'string', default: '6' }, out: { type: 'string' }, seed: { type: 'string', default: '4' },
   root: { type: 'string' }, chrome: { type: 'string', default: CHROME },   // --root: serve another checkout's game (an A/B against an older tree)
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const [w, h] = o.size.split('x').map(Number), port = +o.port, cdp = port + 1000, mobile = o.quality === 'low', every = +o.every;
-const lies = (o.lies || (o.mode === 'watch' ? 'tee,40' : 'tee,40,70,rough,putt12')).split(','), who = o.who.split(',');
+const lies = (o.lies || (o.mode === 'watch' ? 'tee,40' : 'tee,40,70,a24,rough,putt12')).split(','), who = o.who.split(','), throws = o.throws.split(',');
 if (o.shots) mkdirSync(o.shots, { recursive: true });
 const server = spawn(process.execPath, ['serve.mjs'], { cwd: resolve(o.root || ROOT), env: { ...process.env, PORT: String(port) }, stdio: 'ignore' });
 const profile = mkdtempSync(join(tmpdir(), 'chains-watch-'));
@@ -61,7 +61,7 @@ const PAGE = `window.__wp = (() => {
   const c = __chains, T = c.THREE, R = c.renderer, L = 31, W = innerWidth, H = innerHeight;
   const rt = new T.WebGLRenderTarget(W, H), buf = new Uint8Array(W * H * 4);
   const solid = new T.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), free = new T.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, depthTest: false });
-  const basket = new T.Group(), cage = new T.Mesh(new T.CylinderGeometry(.33, .3, 1.05, 16), solid), pole = new T.Mesh(new T.CylinderGeometry(.03, .03, 1.75, 6), solid), pad = new T.Mesh(new T.CircleGeometry(.6, 20).rotateX(-Math.PI / 2), solid);
+  const basket = new T.Group(), cage = new T.Mesh(new T.CylinderGeometry(.33, .3, 1.05, 16), solid), pole = new T.Mesh(new T.CylinderGeometry(.03, .03, 1.75, 6), solid), pad = new T.Mesh(new T.CylinderGeometry(.6, .6, 1.2, 12).translate(0, .6, 0), solid);   // the landing spot as a 1.2 m post: a flat pad 70 m out rasterised to nothing
   cage.position.y = .62 + .52; pole.position.y = .875; basket.add(cage, pole); for (const m of [basket, cage, pole, pad]) m.layers.set(L); basket.visible = pad.visible = false; c.scene.add(basket, pad);
   const on = (o, v) => o.traverse(x => v ? x.layers.enable(L) : x.layers.disable(L));
   const count = () => { R.readRenderTargetPixels(rt, 0, 0, W, H, buf); let n = 0, x0 = W, x1 = -1, y0 = H, y1 = -1; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (buf[(y * W + x) * 4] > 127) { n++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } return { n, box: n ? [x0 / W, 1 - (y1 + 1) / H, (x1 + 1) / W, 1 - y0 / H] : null }; };
@@ -97,7 +97,7 @@ const PAGE = `window.__wp = (() => {
     framing() {   // the human's own aim frame: his body against the basket proxy and the landing pad
       const G = c.G, p = G.players[G.cur], b = c.world.basket, sp = G.shotPreview, r = { ph: G.phase, setPhase: q(p.char.getPhase() ?? -1) };
       basket.position.set(b.x, b.y, b.z); const bk = cover([p.char.group, p.discMesh], [basket]); r.basket = [bk.vis, bk.tot]; r.basketBox = bk.box && bk.box.map(q);
-      if (sp?.rest && G.throwType !== 'putt') { pad.position.set(sp.rest[0], sp.rest[1] + .04, sp.rest[2]); const ld = cover([p.char.group, p.discMesh], [pad]); r.land = [ld.vis, ld.tot]; }
+      if (sp?.rest && G.throwType !== 'putt') { pad.position.set(sp.rest[0], sp.rest[1], sp.rest[2]); const ld = cover([p.char.group, p.discMesh], [pad]); r.land = [ld.vis, ld.tot]; }
       const man = cover([], [p.char.group]); r.manBox = man.box && man.box.map(q); r.cam = c.camera.position.toArray().map(q);
       return r;
     },
@@ -109,7 +109,7 @@ const LIE = (hi, lie) => `(() => { const c = __chains, h = c.holes[${hi}], W = c
   const at = a => { let i = 0; for (; i < way.length - 2; i++) { const L = Math.hypot(way[i + 1][0] - way[i][0], way[i + 1][1] - way[i][1]); if (a <= L) break; a -= L; } const p = way[i], q = way[i + 1], L = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1; return [p[0] + (q[0] - p[0]) / L * a, p[1] + (q[1] - p[1]) / L * a, (q[0] - p[0]) / L, (q[1] - p[1]) / L]; };
   const k = ${JSON.stringify(lie)}; let x, z;
   if (k === 'tee') return [h.tee[0], h.teeY, h.tee[1]];
-  if (k === 'putt12') { const [bx, bz] = h.basket, a = way[way.length - 2], L = Math.hypot(bx - a[0], bz - a[1]); x = bx - (bx - a[0]) / L * 12; z = bz - (bz - a[1]) / L * 12; }
+  if (/^(putt12|a24)$/.test(k)) { const m = k === 'a24' ? 24 : 12, [bx, bz] = h.basket, a = way[way.length - 2], L = Math.hypot(bx - a[0], bz - a[1]); x = bx - (bx - a[0]) / L * m; z = bz - (bz - a[1]) / L * m; }
   else { const f = k === 'rough' ? .7 : +k / 100, [px, pz, ux, uz] = at(len * f); x = px; z = pz;
     if (k === 'rough') for (const s of [9, -9, 12, -12, 6, -6]) { const rx = px - uz * s, rz = pz + ux * s; if (W.rough(rx, rz) > .5 && !W.inWater(rx, rz) && !W.treesNear(rx, rz).some(t => Math.hypot(t.x - rx, t.z - rz) < t.r + 1)) { x = rx; z = rz; break; } } }
   for (let i = 0; i < 12 && (W.inWater(x, z) || W.treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < t.r + .8)); i++) { x += (h.basket[0] - x) * .04; z += (h.basket[1] - z) * .04; }
@@ -124,8 +124,10 @@ try {
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `(${clock})(${+o.seed})` });
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { const m = location.search.match(/probeCourse=(\\w+)/); if (m) localStorage.setItem('chains.course', m[1]); } catch {}` });   // a fresh page per course
   for (const course of o.courses.split(',')) {
-    await send('Page.navigate', { url: `http://localhost:${port}/?mute=1&probeCourse=${course}` }); await sleep(800);
-    await until(`!!(window.__chains && __chains.course && __chains.hero) && __chains.course.def.id === '${course}'`, 40000);
+    for (let k = 0; ; k++) {   // a boot on a GPU shared with other captures can stall: one more navigation before giving up
+      await send('Page.navigate', { url: `http://localhost:${port}/?mute=1&probeCourse=${course}` }); await sleep(800);
+      try { await until(`!!(window.__chains && __chains.course && __chains.hero) && __chains.course.def.id === '${course}'`, 90000); break; } catch (e) { if (k) throw e; console.log(`${course}: boot stalled, navigating again`); }
+    }
     if (await js('__chains.G.settings.quality') !== o.quality) { await js(`document.querySelector('#qualSeg [data-v="${o.quality}"]').click()`); await until(`__chains.course.quality === '${o.quality}' && __chains.G.settings.quality === '${o.quality}'`); }
     await settle(js); await js(PAGE); await step(30);
     await js(`document.getElementById('btnSolo').click()`);
@@ -137,14 +139,15 @@ try {
         const L = Math.hypot(h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]), d = [(h.basket[0] - h.tee[0]) / L, (h.basket[1] - h.tee[1]) / L], r = [-d[1], d[0]];
         G.players.forEach((p, i) => { p.done = false; p.strokes = 0; p.scores = []; p.lie = [h.tee[0], h.teeY, h.tee[1]];   // beside the pad, as startHole stands them
           const sx = h.tee[0] - d[0] * (1.2 + i * 1.3) - r[0] * 2.8, sz = h.tee[1] - d[1] * (1.2 + i * 1.3) - r[1] * 2.8; p.char.group.position.set(sx, W.height(sx, sz), sz); p.char.faceDir(d[0], d[1]); p.char.setPhase(null); p.char.snap?.(); }); })()`);
-      for (const lie of lies) for (const by of (o.mode === 'watch' ? who : ['own'])) {
-        const pi = by === 'bot' ? 1 : 0, name = `${course}-${hole}-${lie}-${by}`;
+      for (const lie of lies) for (const by of (o.mode === 'watch' ? who : lie === 'putt12' ? ['own'] : throws.map(t => 'own' + (t === 'backhand' ? '' : '-' + t)))) {
+        const pi = by.startsWith('bot') ? 1 : 0, name = `${course}-${hole}-${lie}-${by}`;
         const L = await js(LIE(hi, lie));
         await js(`(() => { const c = __chains, G = c.G, h = c.holes[${hi}]; G.flight = G.pending = G.tween = null; G.skipResult = null; c.cam.hold = null;
           G.players.forEach((p, i) => { p.done = false; p.strokes = i === ${pi} && ${JSON.stringify(lie)} !== 'tee' ? 1 : 0; p.lie = i === ${pi} ? ${JSON.stringify(L)} : [h.tee[0], h.teeY, h.tee[1]]; p.lieDist = Math.hypot(h.basket[0] - p.lie[0], h.basket[1] - p.lie[2]); });
           G.players[0].isBot = false; c.setupTurn(${pi}); c.cam.snap = true; __motion.reseed(${+o.seed * 1000 + hole * 37 + lies.indexOf(lie) * 7}); })()`);
         const rows = [];
         if (o.mode === 'framing') {
+          if (by.includes('-')) await js(`(() => { const G = __chains.G; G.throwType = ${JSON.stringify(by.split('-')[1])}; G.previewDirty = true; G.previewPower = null; })()`);   // a forehand from the same lie
           await step(45);   // the rig eases in and the shot guide plans
           rows.push({ beat: 'aim', ...await js('__wp.framing()') }); await shot(`${name}-aim`);
           await js(`(() => { const c = __chains, G = c.G, p = G.players[0]; G.phase = 'windup'; p.char.setThrow(G.throwType); p.char.setPhase(0); })()`);
