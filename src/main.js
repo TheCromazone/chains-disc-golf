@@ -35,6 +35,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // crow hop, RUNUP.dur) hands over to the drive at its full coil (.35) and pulls into .5 in RUNUP.pull.
 const RELEASE = { dur: .75, pow: 1.8 }, releasePhase = t => .5 + .5 * (1 - (1 - Math.min(1, Math.max(0, t) / RELEASE.dur)) ** RELEASE.pow);
 const HIT_T = RELEASE.dur * (1 - .76 ** (1 / RELEASE.pow)), HIT_RATE = .5 * RELEASE.pow / RELEASE.dur;   // releasePhase(HIT_T) = .62; phase per second at .5
+const HIT_V = HIT_RATE * (1 - HIT_T / RELEASE.dur) ** (RELEASE.pow - 1);   // phase per second through the hit
 const hermite = (s, v0, v1) => 3 * s * s - 2 * s ** 3 + v0 * (s ** 3 - 2 * s * s + s) + v1 * (s ** 3 - s * s);   // 0 -> 1 with end slopes v0, v1
 const windupPhase = (s, dur) => .5 * hermite(s, 0, HIT_RATE * dur / .5);
 const RUNUP = { dur: .8, pull: .15, min: 40, cam: { back: 3.4, side: 2.0, up: 1.5, ahead: .2, lookY: 1.05, fov: 60, wide: 42 } };   // seconds; metres to the pin below which nobody runs up
@@ -520,7 +521,12 @@ function runUpClear(lie, d) {
 function doThrow(pi, o, sim = null) {
   const p = G.players[pi];
   const startPhase = THREE.MathUtils.clamp(p.char.getPhase() ?? .5, 0, .5);
-  G.phase = 'release'; G.releaseT = 0; G.pending = { pi, o, sim, fired: false, startPhase, leadIn: (.5 - startPhase) * .36 };
+  // A swipe let go before .5 runs on to the hit (.62) on one curve, from the swipe's own speed as the finger lifts to the release
+  // curve's at the hit, which lands on the same frame as before (HIT_T after the lead-in). It used to cover the lead-in to .5 in
+  // ~27 ms at 2.8 phase/s whatever the finger was doing: the first frame jumped .425 -> .478, the wrist 39 cm and the soles 2-3 cm.
+  const leadIn = (.5 - startPhase) * .36, T = leadIn + HIT_T, span = .62 - startPhase, v1 = HIT_V * T / span, w = G.gesture;
+  const rate = p === curP() && w?.t != null ? Math.max(0, w.rate) * Math.max(0, 1 - (performance.now() - w.t) / 100) : 0;   // the finger held still before lifting: no speed left
+  G.phase = 'release'; G.releaseT = 0; G.pending = { pi, o, sim, fired: false, startPhase, leadIn, v0: Math.min(Math.sqrt(9 - v1 * v1), rate * T / span), v1 };   // v0 capped: the curve stays monotone, never past .62 early
   p.char.setThrow(G.throwType); UI.setControlsEnabled(false); preview.visible = false;
 }
 function runSim(params) {
@@ -738,12 +744,14 @@ function onAim({ dx, dy, speed = 0, touch = false }) {
 }
 function onGesture(g) {
   const p = curP(); if (!p || p.isBot || !isMine(p)) return;
-  if (g.state === 'start') { if (G.phase !== 'aim') return; G.phase = 'windup'; p.char.setThrow(G.throwType); p.char.setPhase(0); UI.setHint(G.throwType, 'release to throw'); return; }
+  if (g.state === 'start') { if (G.phase !== 'aim') return; G.phase = 'windup'; G.gesture.t = null; G.gesture.rate = 0; p.char.setThrow(G.throwType); p.char.setPhase(0); UI.setHint(G.throwType, 'release to throw'); return; }
   if (G.phase !== 'windup') return;
   if (g.state === 'move') {
-    if (!g.valid) { p.char.setPhase(0); UI.setPower(0); G.gesture.power = 0; UI.setHint(G.throwType, `Wrong way — ${THROWS[G.throwType].hint}`); return; }
+    if (!g.valid) { p.char.setPhase(0); UI.setPower(0); G.gesture.power = 0; G.gesture.t = null; G.gesture.rate = 0; UI.setHint(G.throwType, `Wrong way — ${THROWS[G.throwType].hint}`); return; }
     G.gesture.power = g.progress; G.gesture.lateral = g.lateral; G.previewDirty = true;
-    p.char.setPhase(g.progress * 0.5); UI.setPower(g.progress);
+    const w = G.gesture, now = performance.now(), ph = g.progress * .5, dt = w.t == null ? 0 : (now - w.t) / 1000;   // the windup's speed under the finger (phase/s, ~50 ms smoothing): the release runs on from it
+    if (dt > 0) w.rate += ((ph - w.ph) / dt - w.rate) * Math.min(1, dt / .05); if (w.t == null || dt > 0) { w.t = now; w.ph = ph; }
+    p.char.setPhase(ph); UI.setPower(g.progress);
     const th = THROWS[G.throwType];
     UI.setHint(G.throwType, th.latMode === 'hyzer' ? (g.lateral > 0.08 ? 'hyzer' : g.lateral < -0.08 ? 'anhyzer' : 'flat') : (Math.abs(g.lateral) > 0.08 ? (g.lateral > 0 ? 'aim right' : 'aim left') : 'straight'));
     return;
@@ -1311,9 +1319,8 @@ function frame(dt, rawDt, background) {
   if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(tw.raw ? u : u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
   if (G.pending && (G.phase === 'release' || G.phase === 'flight' || G.phase === 'result')) {
     G.releaseT += dt; const p = G.players[G.pending.pi];
-    const leadIn = G.pending.leadIn || 0;
-    const u = leadIn ? Math.min(1, G.releaseT / leadIn) : 1;
-    const span = .5 - G.pending.startPhase, ph = G.releaseT < leadIn ? G.pending.startPhase + span * hermite(u, 1, HIT_RATE * leadIn / span) : releasePhase(G.releaseT - leadIn); p.char.setPhase(ph);   // the swipe's end eases into the hit at its speed
+    const P = G.pending, leadIn = P.leadIn || 0, T = leadIn + HIT_T;
+    const ph = leadIn && G.releaseT < T ? P.startPhase + (.62 - P.startPhase) * hermite(G.releaseT / T, P.v0, P.v1) : releasePhase(G.releaseT - leadIn); p.char.setPhase(ph);   // the swipe's end runs on into the hit at its speed (doThrow)
     if (!G.pending.fired && ph >= 0.62) { G.pending.fired = true; launchNow(); }
     if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && (p !== curP() || G.phase === 'flight')) { p.char.keepTravel?.(); p.char.setPhase(null); } }, 350); }   // the athlete stays where the follow-through carried him
   }
