@@ -394,11 +394,9 @@ function startHole() {
   const rng = makeRng(G.seed * 31 + G.holeIdx * 7 + 1);
   const ws = rng() * 3.5 * course.def.wind, wa = rng() * Math.PI * 2; world.wind = [Math.cos(wa) * ws, Math.sin(wa) * ws];
   const d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
-  const r = rightOf(d);
   G.players.forEach((p, i) => {
     p.strokes = 0; p.done = false; p.lie = [h.tee[0], h.teeY, h.tee[1]]; p.lieDist = h.len; p.marker.visible = false;
-    const row = Math.floor(i / 4), col = i % 4;
-    const sx = h.tee[0] - d[0] * (1.2 + col * 1.3) - r[0] * (2.8 + row * 1.5), sz = h.tee[1] - d[1] * (1.2 + col * 1.3) - r[1] * (2.8 + row * 1.5);
+    const [sx, sz] = teeSpot(i);
     p.char.group.position.set(sx, world.height(sx, sz), sz);
     p.char.faceDir(d[0], d[1]); p.char.setPhase(null); p.char.snap?.();
     ensureDisc(p, p.discId || 'driver'); p.discMesh.visible = false;
@@ -428,11 +426,22 @@ function nextTurn() {
   if (!next) next = alive.reduce((a, b) => (b.lieDist > a.lieDist ? b : a));
   setupTurn(G.players.indexOf(next));
 }
+// Players still to tee off wait in rows of four beside the pad, 2.8 m to the thrower's left and from 1.2 m behind the tee.
+function teeSpot(i) {
+  const h = holes[G.holeIdx], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]) || 1; d[0] /= L; d[1] /= L;
+  const r = rightOf(d), row = Math.floor(i / 4), col = i % 4, back = 1.2 + col * 1.3, left = 2.8 + row * 1.5;
+  return [h.tee[0] - d[0] * back - r[0] * left, h.tee[1] - d[1] * back - r[1] * left, d];   // d: he faces down the hole
+}
 // Everyone who has thrown stands at their own lie while they wait; nobody shares a spot with the thrower.
 function parkOthers(idx) {
   const [bx, bz] = basketPos(), taken = [[G.players[idx].lie[0], G.players[idx].lie[2]]];
   G.players.forEach((q, i) => {
-    if (i === idx || (q.strokes === 0 && !q.done)) return;   // players still to tee off keep their spot beside the pad
+    if (i === idx) return;
+    if (q.strokes === 0 && !q.done) {   // still to tee off: back to his spot beside the pad if a turn handed to him without a throw (a skip, a restore) left him on the tee
+      const [x, z, d] = teeSpot(i), g = q.char.group.position;
+      if (Math.hypot(g.x - x, g.z - z) > .3) { g.set(x, world.height(x, z), z); q.char.faceDir(d[0], d[1]); q.char.setPhase(null); q.char.snap?.(); }
+      return;
+    }
     const d = [bx - q.lie[0], bz - q.lie[2]], L = Math.hypot(d[0], d[1]) || 1; d[0] /= L; d[1] /= L;
     const r = rightOf(d);
     let x = q.lie[0], z = q.lie[2];
