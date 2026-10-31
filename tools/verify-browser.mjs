@@ -19,7 +19,9 @@ const signal = report.transport.startsWith('local') ? PeerServer({ port: peerPor
 const chrome = spawn(CHROME, ['--headless=new', '--mute-audio', `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', 'about:blank'], { stdio: 'ignore' });
 process.once('exit', () => { try { chrome.kill('SIGKILL'); } catch {} try { server?.kill(); } catch {} });   // a run that throws still takes its Chrome and server with it (crashed runs left them on the suite's fixed ports, and the next run, or another session's, talked to the orphans)
 const pause = ms => new Promise(r => setTimeout(r, ms));
-async function until(fn, label, ms = 30000) { for (const t = Date.now(); Date.now() - t < ms; await pause(100)) { if (await fn()) return; } throw new Error('Timed out: ' + label); }
+// A page busy past one evaluate's 20 s (four software-GL tabs on a loaded Mac: the next tab's boot queued behind their frames)
+// is polled again until the wait's own limit; any other error ends the wait at once.
+async function until(fn, label, ms = 30000) { for (const t = Date.now(); Date.now() - t < ms; await pause(100)) { try { if (await fn()) return; } catch (e) { if (!/^CDP timed out/.test(e.message)) throw e; } } throw new Error('Timed out: ' + label); }
 const sessions = [];
 let browserSocket, browserSend;
 function record(name, detail = true) { report.checks.push({ name, detail }); console.log('PASS', name); }
@@ -31,7 +33,7 @@ async function page({ mobile = false, thin = false } = {}) {
   ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); if (m.error) p.reject(Error(m.error.message)); else p.resolve(m.result); }
     if (m.method === 'Runtime.exceptionThrown') report.errors.push(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text);
     if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') report.errors.push(m.params.args.map(a => a.value || a.description).join(' ')); };
-  const send = (method, params = {}) => new Promise((resolve, reject) => { const id = ++seq; const timeout = setTimeout(() => { pending.delete(id); reject(Error('CDP timed out: ' + method)); }, 20000); pending.set(id, { resolve: v => { clearTimeout(timeout); resolve(v); }, reject: e => { clearTimeout(timeout); reject(e); } }); ws.send(JSON.stringify({ id, method, params })); });
+  const send = (method, params = {}) => new Promise((resolve, reject) => { const id = ++seq; const timeout = setTimeout(() => { pending.delete(id); reject(Error('CDP timed out: ' + method + (params.expression ? ` (${params.expression.slice(0, 160)})` : ''))); }, 20000); pending.set(id, { resolve: v => { clearTimeout(timeout); resolve(v); }, reject: e => { clearTimeout(timeout); reject(e); } }); ws.send(JSON.stringify({ id, method, params })); });
   const js = async expression => { const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text); return r.result.value; };
   const p = { send, js, ws, thin, id: target.id, async wait(expr, ms) { return until(() => js(expr), expr, ms); }, async screenshot(name) { const r = await send('Page.captureScreenshot', { format: 'jpeg', quality: 85 }); writeFileSync(join(out, name + '.jpg'), Buffer.from(r.data, 'base64')); } };
   sessions.push(p); await send('Runtime.enable'); await send('Page.enable');
