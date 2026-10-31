@@ -6,7 +6,7 @@ import { SHADOW_ONLY } from './gltf-player.js';
 import { loadManifest, asset } from './assets.js';
 import { loadModels, modelStatus, fullBodies, hasFullBody } from './models.js';
 import { createDiscMesh, setDiscPose } from './disc.js';
-import { clearFraction } from './cam-collide.js';
+import { clearFraction, pushOut } from './cam-collide.js';
 import { createPuffs } from './puffs.js';
 import { createCelebration } from './celebration.js';
 import { createWindFx } from './wind.js';
@@ -590,13 +590,13 @@ function updateFlight(dt) {
   dt*=f.playbackRate; f.t += dt;
   const fi = f.t * 60, i = Math.min(Math.floor(fi), n - 1), a = f.traj[i], b = f.traj[Math.min(i + 1, n - 1)], u = Math.min(1, fi - i);
   const pos = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
-  if (f.camAt != null && f.t >= f.camAt) { f.camAt = null; if (cam.mode === 'aim') cam.mode = 'flight'; }
+  if (f.camAt != null && f.t >= f.camAt) { f.camAt = null; if (cam.mode === 'aim') { cam.mode = 'flight'; f.cut = true; } }   // flightCam cuts straight to the running chase
   if (f.from) { const w = Math.max(0, 1 - f.t / .16) ** 2; if (w > 0) for (let k = 0; k < 3; k++) pos[k] += f.from[k] * w; else f.from = null; }
   const nn = [a[3] + (b[3] - a[3]) * u, a[4] + (b[4] - a[4]) * u, a[5] + (b[5] - a[5]) * u];
   if (a.length > 6) f.spinRate = a[6] + (b[6] - a[6]) * u; else f.spinRate *= (1 - 0.12 * dt);   // older peers send six-wide records
   f.spin += f.spinRate * dt;
   setDiscPose(p.discMesh, pos, nn, f.spin * THROWS[f.params.throwType].spin * (f.params.lefty ? -1 : 1));
-  f.pos = pos; f.hv = [b[0] - a[0], 0, b[2] - a[2]]; trail.push(pos, f.t);
+  f.pos = pos; f.hv = [b[0] - a[0], 0, b[2] - a[2]]; f.vy = b[1] - a[1]; trail.push(pos, f.t);
   while (f.ei < f.events.length && f.events[f.ei][0] <= f.t) { onFlightEvent(f.events[f.ei][1]); f.ei++; }
   UI.setHud({ dist: Math.hypot(basketPos()[0] - pos[0], basketPos()[1] - pos[2]) });
   if (i >= n - 1 && f.t > n / 60 + 0.6) { G.flight = null; resolveThrow(f.pi, f.result, f); }
@@ -1066,6 +1066,11 @@ function beamCeiling(x, z, floor) {
 }
 const chaseFov = () => camera.aspect < .8 ? 66 : camera.aspect < 1.2 ? 58 : CHASE.fov;   // an upright phone's 50° (vertical) lens was only ~24° wide: discs left the frame
 const CHASE = { fov: 50, hold: .1, blend: .6, back: 4.5, up: 1.5, lead: 3, lift: .3, land: .45, rate: .75, track: 6 };   // rate: a drive plays at 3/4 speed, a 60 m drive hangs ~2.5 s as a real one does (the physics' 1.9 s read as a dolly shot)
+// The chase's pull-in sees trunks and crowns only: the built blockers have their own rules (the lens ducks under the arch's beam,
+// beamCeiling, and steps beside its legs, the tents and the flags, the nudge below). A drive skimming the arch's leg 0.4 m off its
+// cover put the segment behind the disc inside the leg's 1.2 m berth, so the pull dragged the lens in to 0.6 m behind the disc and
+// against the BIRDIE BREW post for half a second (r4: the desktop host's view of a phone guest's drive, reproduced with a bot's).
+const chaseWorld = (() => { let w0 = null, cw = null; return () => { if (w0 !== world) { w0 = world; cw = Object.create(world); cw.camBlockers = []; } return cw; }; })();
 function flightPlan(f) {
   const n = f.traj.length, R = f.traj[n - 1], S = f.traj[0], h = holes[G.holeIdx];
   // the landing shot takes over once the disc is nearly home: a roller runs on for seconds after it touches down (one ran 30 m
@@ -1118,28 +1123,35 @@ function flightPlan(f) {
     LL.copy(LP).addScaledVector(_v.multiplyScalar(1 - pin).addScaledVector(_v2, pin).normalize(), 10); }
   return { H: cam.pos.clone(), HL: cam.look.clone(), F0: cam.fov, S0: cam.shift, t0: f.t, dir: new THREE.Vector3(f.params.dir[0], 0, f.params.dir[1]).normalize(), pull: 1, tLand, LP, LL };   // t0: when the chase took over (a watched run-up hands over at camAt, not at the release)
 }
+// A watched run-up hands over late (camAt): by the end of the follow-through the disc is ~20 m down the fairway. The chase used
+// to set off from the tee at rest and needed a second and a half to catch it, the disc a 2 px speck all the way (r4: a desktop
+// host lost a phone guest's drive), and its swoop down the line passed a lens-width from the arch's leg (the host's frame parked
+// on the BIRDIE BREW post) before overshooting into the crown the disc had slowed in. Now it cuts, at the end of the
+// follow-through, to the chase already running where the thrower's own camera is by then: 4.5 m behind the disc, at its speed.
 function flightCam(f, dt) {
-  const D = f.pos, c = f.cam || (f.cam = flightPlan(f)), S = THREE.MathUtils.smoothstep;
+  const D = f.pos, cut = !f.cam && f.cut, c = f.cam || (f.cam = flightPlan(f)), S = THREE.MathUtils.smoothstep;
+  if (cut) { c.t0 = f.t - CHASE.hold - CHASE.blend; c.F0 = chaseFov(); c.S0 = 0; if (Math.hypot(f.hv[0], f.hv[2]) > 1e-4) c.dir.set(f.hv[0], 0, f.hv[2]).normalize(); }   // the blends done: no shoulder arc, the chase lens
   _v3.set(f.hv[0], 0, f.hv[2]); if (_v3.lengthSq() > 1e-8) c.dir.lerp(_v3.normalize(), 1 - Math.exp(-4 * dt)).normalize();
   const hv = c.dir; let cx = D[0] - hv.x * CHASE.back, cy = D[1] + CHASE.up, cz = D[2] - hv.z * CHASE.back;
-  const fr = clearFraction(world, D[0], D[1], D[2], cx, cy, cz, 1.2);   // wide of trunks and well under the arch's banner
-  c.pull += (fr - c.pull) * (1 - Math.exp(-(fr < c.pull ? 7 : 2.5) * dt));   // in briskly past a trunk, out slowly; never a one-frame lurch
+  const fr = clearFraction(chaseWorld(), D[0], D[1], D[2], cx, cy, cz, 1.2);   // wide of trunks
+  c.pull = cut ? fr : c.pull + (fr - c.pull) * (1 - Math.exp(-(fr < c.pull ? 7 : 2.5) * dt));   // in briskly past a trunk, out slowly; never a one-frame lurch
   const q = Math.max(.25, c.pull); cx = D[0] + (cx - D[0]) * q; cy = D[1] + (cy - D[1]) * q; cz = D[2] + (cz - D[2]) * q;
   // beside the line, not on it: an upright blocker (the arch's 2.5 m pillars, a tent, a feather flag) the lens passes near filled
   // a third of a portrait frame (QA: every Meadows tee shot past the BIRDIE BREW pillar). The chase spot steps sideways until the
   // blocker's near edge clears the frame's half-width (a portrait lens is only ~17° each side, so one 6 m ahead still needs ~3 m),
   // weighted smoothly in and out of the window and eased in time, with the side fixed per blocker so the lens never swaps across
-  // one: the tracker is fed the target's velocity, and any step in the push would show as a lurch.
+  // one: the tracker is fed the target's velocity, and any step in the push would show as a lurch. Up to 4.5 m off the leg's axis
+  // (3.2 m left a drive skimming the arch's leg passing 1.9 m from its cover, the banner half a landscape frame: r4 watcher frames).
   { const rn = rightOf([hv.x, hv.z]), tw = Math.tan(Math.atan(Math.tan(chaseFov() * DEG / 2) * camera.aspect)); let want = 0; c.side ||= new Map();
     (world.camBlockers || []).forEach((bk, k) => { if (Math.abs(bk.b[1] - bk.a[1]) < .5) return;
       const ox = cx - bk.a[0], oz = cz - bk.a[2], ahead = -(ox * hv.x + oz * hv.z), side = ox * rn[0] + oz * rn[1];
-      const wA = S(ahead, -1.5, 0) * (1 - S(ahead, 5.5, 8)) * (1 - S(cy, Math.max(bk.a[1], bk.b[1]) + .5, Math.max(bk.a[1], bk.b[1]) + 2));
+      const wA = S(ahead, -1.5, 0) * (1 - S(ahead, 5.5 + 2 * bk.r, 8 + 2 * bk.r)) * (1 - S(cy, Math.max(bk.a[1], bk.b[1]) + .5, Math.max(bk.a[1], bk.b[1]) + 2));   // a wide one sooner: the step must be made by the time the lens is level with it
       if (wA <= 0) { c.side.delete(k); return; }
       if (!c.side.has(k)) c.side.set(k, side < 0 ? -1 : 1);
-      const sg = c.side.get(k), need = Math.min(3.2, bk.r + .5 + Math.max(0, ahead) * tw) - side * sg;
+      const sg = c.side.get(k), need = Math.min(4.5, bk.r + .5 + Math.max(0, ahead) * tw) - side * sg;
       if (need > 0) want += sg * need * wA; });
-    want = Math.max(-3.2, Math.min(3.2, want));
-    c.nudge = (c.nudge || 0) + (want - (c.nudge || 0)) * (1 - Math.exp(-4 * dt)); cx += rn[0] * c.nudge; cz += rn[1] * c.nudge; }
+    want = Math.max(-4.5, Math.min(4.5, want));
+    c.nudge = cut ? want : (c.nudge || 0) + (want - (c.nudge || 0)) * (1 - Math.exp(-5 * dt)); cx += rn[0] * c.nudge; cz += rn[1] * c.nudge; }
   const ceil = beamCeiling(cx, cz, D[1] + .2), lift = CHASE.lift * Math.max(0, Math.min(1, (ceil - D[1] - 1) / 2));   // under the arch: level with the disc, the banner out of the top of frame
   cy = Math.min(Math.max(cy, D[1] + 1), ceil); cy = Math.max(cy, world.height(cx, cz) + 1.5);
   // the hand-off's blends run from the moment the chase took over: timed from the release, a run-up's late hand-off (camAt .55)
@@ -1149,16 +1161,28 @@ function flightCam(f, dt) {
   // A critically damped tracker on the chase spot, fed its velocity: the camera leaves the follow-through at rest and eases up
   // to the disc's speed. (Lerping from the fixed aim spot to a target running away at 25 m/s made it sit still, then race the
   // disc at twice its speed to catch a 14 m gap.) Zero lag once caught, no overshoot.
-  if (!c.p) { c.p = c.H.clone(); c.pv = new THREE.Vector3(); c.T = _v.clone(); }
+  if (!c.p) { c.p = cut ? _v.clone() : c.H.clone(); c.pv = cut ? new THREE.Vector3(f.hv[0], f.vy || 0, f.hv[2]).multiplyScalar(60 * f.playbackRate) : new THREE.Vector3(); c.T = _v.clone(); if (cut) cam.snap = true; }
+  // Into the leaves: the disc slows in a crown (physics drags it there) and the chase, fed its slowing spot, overshot into the
+  // foliage, so the lens sat inside the leaf cards with the disc lost behind them for a second (r4 watcher frames). The chase
+  // spot stays where it stood as the disc went in and the camera coasts to a stop outside, still looking at the disc; it sets off
+  // again only once the disc is out and the way to its spot is clear (the spot behind a disc leaving a crown is in that crown).
+  const leaves = world.treesNear(D[0], D[2]).some(t => Math.hypot(D[0] - t.x, D[2] - t.z, D[1] - t.y - t.fy) < t.fr);
+  if (leaves || (c.leaf && clearFraction(world, c.p.x, c.p.y, c.p.z, _v.x, _v.y, _v.z, .3, 0) < 1)) _v.copy(c.leaf ||= _v.clone());
+  else if (c.leaf) { c.leaf = null; c.T.copy(_v); }   // the spring takes up the live spot again, without a one-frame velocity spike
   if (dt > 0) {
     _v2.copy(_v).sub(c.T).divideScalar(dt); c.T.copy(_v);
     if (ct > CHASE.hold) for (let i = 0, n = Math.ceil(dt / .008), h = dt / n, W = CHASE.track; i < n; i++) {
+      if (c.leaf) { c.pv.multiplyScalar(Math.exp(-1.5 * W * h)); c.p.addScaledVector(c.pv, h); continue; }   // ~2 m to a stop from a drive's pace, no spring back
       c.pv.addScaledVector(_v3.copy(_v).sub(c.p), W * W * h).addScaledVector(_v3.copy(_v2).sub(c.pv), 2 * W * h); c.p.addScaledVector(c.pv, h);
     }
+    if (ct > CHASE.hold) pushOut(world, c.p);   // and the lens round a crown, a trunk or a leg the tracker's path cuts through, never in it
   }
   cam.tPos.copy(c.p);
-  cam.tLook.lerpVectors(c.HL, _v2.set(D[0] + hv.x * CHASE.lead, D[1] + lift, D[2] + hv.z * CHASE.lead), wl);   // a little over the disc: the fairway ahead and the tree line, not a wall of hillside
-  if (wg > 0) { cam.tPos.lerp(c.LP, wg); cam.tLook.lerp(c.LL, wg); }
+  // a little over the disc: the fairway ahead and the tree line, not a wall of hillside. Pulled in close behind it (a trunk on the
+  // line) the lens looks nearer: 3 m ahead from 1.2 m back put the disc under the frame's bottom edge for a second (r4 probe)
+  const ld = Math.min(1, c.p.distanceTo(_v3.set(D[0], D[1], D[2])) / CHASE.back);
+  cam.tLook.lerpVectors(c.HL, _v2.set(D[0] + hv.x * CHASE.lead * ld, D[1] + lift * ld, D[2] + hv.z * CHASE.lead * ld), wl);
+  if (wg > 0) { cam.tPos.lerp(c.LP, wg); cam.tLook.lerp(c.LL, wg); pushOut(world, cam.tPos); }
   cam.tShift = (c.S0 || 0) * (1 - w);   // a long putt leaving its locked frame lets the lens shift go with the move, not in one frame
   return c.F0 + (chaseFov() - c.F0) * w;   // the aim lens eases out with the move: no zoom-out snap at release
 }

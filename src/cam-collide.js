@@ -23,3 +23,25 @@ export function clearFraction(world, ax, ay, az, bx, by, bz, margin = .6, ground
   }
   return 1;
 }
+// The lens itself, out of the solids: clearFraction keeps the line from the disc to the wanted spot clear, but the tracker that
+// carries the camera there lags, coasts and overshoots, and on its way it passed through crowns and beside the arch's legs
+// (r4 watcher frames: a second of leaf cards over the lens). Moves p (a Vector3) radially out of any trunk's berth, crown or
+// capsule, so the camera slides round a solid instead of through it. Returns whether it moved. A crown counts whole and a little
+// over (the leaf cards reach the physics' radius; at .8 of it, the share a sight line may cross, cards sat on the lens).
+export function pushOut(world, p, margin = .4, crown = 1.05) {
+  let moved = false;
+  for (let pass = 0; pass < 2; pass++) {
+    for (const t of world.treesNear(p.x, p.z)) {
+      let dx = p.x - t.x, dz = p.z - t.z, d = Math.hypot(dx, dz), r = t.r + margin;
+      if (d < r && p.y > t.y - .5 && p.y < t.y + t.h) { if (d < 1e-4) { dx = 1; d = 1; } p.x = t.x + dx / d * r; p.z = t.z + dz / d * r; moved = true; dx = p.x - t.x; dz = p.z - t.z; d = r; }
+      const fy = p.y - t.y - t.fy, fr = t.fr * crown, D = Math.hypot(d, fy);
+      if (D < fr) { const k = fr / Math.max(D, 1e-4); p.x = t.x + dx * k; p.y = t.y + t.fy + fy * k; p.z = t.z + dz * k; moved = true; }
+    }
+    for (const c of world.camBlockers || world.capsules || []) {
+      const ex = c.b[0] - c.a[0], ey = c.b[1] - c.a[1], ez = c.b[2] - c.a[2], px = p.x - c.a[0], py = p.y - c.a[1], pz = p.z - c.a[2];
+      const s = Math.max(0, Math.min(1, (px * ex + py * ey + pz * ez) / (ex * ex + ey * ey + ez * ez || 1))), qx = px - ex * s, qy = py - ey * s, qz = pz - ez * s, D = Math.hypot(qx, qy, qz), r = c.r + margin;
+      if (D < r && D > 1e-4) { const k = r / D; p.x = c.a[0] + ex * s + qx * k; p.y = c.a[1] + ey * s + qy * k; p.z = c.a[2] + ez * s + qz * k; moved = true; }
+    }
+  }
+  return moved;
+}
