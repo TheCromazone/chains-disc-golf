@@ -6,7 +6,7 @@ Scots pines carry needle pads (flattened clouds of small needle-tuft sprays) on 
 girth, taper, lean and bow. Mature proportions: birches ~17-19 m with the crown in the top 64%, broadleaves ~14-15 m, spruces
 ~18-20 m, pines ~19-21 m bare to ~40%.
 Leaves get the triangles: limbs are 4 segments, no twig under 1.3 m (the card's own drawn twig covers it); each variant draws
-< 2.6k tris, and each conifer also carries a 0.5-1k shadow proxy (its crown as the large cards it was built from: ghost()).
+< 2.6k tris, and each conifer also carries a 0.45-1k shadow proxy (its crown as the large cards it was built from: ghost()).
 Run: blender -b -P tools/build-trees.py [-- --preview art/qa/trees-preview] [--models-only] (needs tools/build-foliage.py's atlas first),
 then python3 tools/dilate-foliage.py impostors. --models-only writes the GLBs alone (for iterating on the 3D trees in the game).
 
@@ -64,6 +64,12 @@ def grow(rng, start, d, length, segs, rise=0., droop=0., jitter=.08, flatten=0.)
     if flatten: d.z *= 1 - flatten * f
     d.normalize(); pts.append(pts[-1] + d * length / segs)
   return pts
+
+def fit(p, up, size, lim, keep=1.):
+  """The largest size (up to `size`) a card reaching `keep` of its size from p along `up` can take before its far end passes
+  `lim` metres from the stem (the z axis): a spruce branch's sprays stay round it instead of floating clear of the crown."""
+  u = up.normalized(); bd = p.x * u.x + p.y * u.y; dd = u.x * u.x + u.y * u.y; c = p.x * p.x + p.y * p.y - lim * lim
+  return size if dd < 1e-6 else min(size, max(0., -bd + math.sqrt(max(0., bd * bd - dd * c))) / dd / keep)
 
 def along(pts, s):
   L = [(pts[i + 1] - pts[i]).length for i in range(len(pts) - 1)]; x = s * sum(L)
@@ -349,13 +355,15 @@ def broadleaf(rng, name, H=15., W=5., lo=.38, girth=.34):
 
 def spruce(rng, name, H=20., R0=3.4, zb=.1):
   """Whorls of 4-5 branches that dip and turn up at the tip, each clothed in short needle sprays: small frond cards (0.4-1.3 m)
-  leaving it every ~0.4 m on alternate sides, about half lying open and drooping, more on the long low branches (seen from above
-  and below), half on edge, hanging or turned up (seen from the side), a dense heart by the stem on the long ones, one turned up
-  at the tip and one to three hanging under it (the branchlet comb seen from the ground). So a whorl reads as layered sprays with sky between
-  them: one 1-2.6 m frond card per branch (and its crossing card and curtain) had merged its needle tufts into one lobed paper
-  cut-out (gauntlet r4). The sprays keep the old cards' places and tilts, so the cone and its collider stay where they were, and
-  the old cards themselves are the shadow proxy (ghost()). The layout draws from `rng` in the old order (the pines and bushes
-  built after a spruce keep their shapes); each spray's own jitter comes from `t.fine`."""
+  leaving it every ~0.4 m on alternate sides from the stem out, about half lying open and drooping, more on the long low branches
+  (seen from above and below), half on edge, hanging or turned up (seen from the side), a heart by the stem, a leading shoot
+  along the tip and one to three branchlets hanging under it, turned half across the branch (the comb seen from the ground and
+  from the side). No spray reaches past 1.1 L from the stem and the short upper branches' sprays hug them, with two more hugging
+  the stem above each whorl of the top: a spire, not sprays floating round a bare leader. So a whorl reads as layered sprays with
+  sky between them, joined to their branch: one 1-2.6 m frond card per branch (and its crossing card and curtain) had merged its
+  needle tufts into one lobed paper cut-out (gauntlet r4). The sprays keep the old cards' places and tilts, so the cone and its
+  collider stay where they were, and the old cards themselves are the shadow proxy (ghost()). The layout draws from `rng` in
+  the old order (the pines and bushes built after a spruce keep their shapes); each spray's own jitter comes from `t.fine`."""
   t = Tree(rng, name, 'bark', vscale=BARK_V); fn = t.fine
   tp = trunk_pts(rng, H, .98, 0, .015, 10); rads = radius_along(tp, .44, .03, .3, 1.)
   ring_tube(t, tp, rads, 7); t.axis = lambda z: Vector((0, 0, z - 1.)); t.trunk_h, t.r_base = H * .85, base_r(tp, rads)
@@ -368,7 +376,7 @@ def spruce(rng, name, H=20., R0=3.4, zb=.1):
       a = az + i * TAU / n + rng.uniform(-.4, .4); L = R * rng.uniform(.8, 1.12); out = Vector((math.cos(a), math.sin(a), 0))
       d = out + Z * (-.28 + .18 * f)
       br = grow(rng, Vector((0, 0, z)), d, L, 2, rise=.2, jitter=.04)
-      t.tube([br[0], along(br, .55)[0]], .012 + .03 * L / R0, .006, 3)   # the wood stops inside the sprays: from outside a spruce shows needles, not sticks
+      t.tube([br[0], along(br, .55 if L > 1.4 else .75)[0]], .012 + .03 * L / R0, .006, 3)   # the wood stops inside the sprays: from outside a spruce shows needles, not sticks (on the short upper branches it carries them most of the way)
       size = min(2.6, max(1.1, L * 1.05)); ctr = Vector((0, 0, z - .8)); g = (rng.uniform(.88, 1.05),) * 3
       dip = rng.uniform(.05, .3); lie = Z * .75 + out * .55 + unit(rng) * .35   # the old frond's dip and facing (open, from above)
       tilt = rng.uniform(-.25, .15); edge = out.cross(Z) + Z * rng.uniform(-.2, .5) + unit(rng) * .35   # the crossing card's (on edge, from the side)
@@ -376,23 +384,32 @@ def spruce(rng, name, H=20., R0=3.4, zb=.1):
       t.ghost(br[0] + out * .15, br[-1] - br[0] - Z * dip, lie, size, P); t.ghost(br[0] + out * .25, br[-1] - br[0] + Z * tilt, edge, size * .9, P)
       if hang: p, dd = along(br, hang[0]); t.ghost(p, -Z + dd * .6 + hang[1] * .2, out + hang[2] * .35, min(1.9, L * .7), P)
       k = max(2, round(L / .42)); side = fn.choice((-1, 1)); reach = min(1., .7 + L / 3.5)   # short upper branches carry fewer, smaller sprays
+      # and none reaches past `lim` from the stem, fanning out less on the short ones (`wide`), so each hugs its branch: ~1 m sprays
+      # on the 0.6-1.2 m branches of the top third had stood up to 2 m out at up to 48 deg, flecks floating beside the leader (r4 verify)
+      lim, wide, sag = 1.1 * L + .1, min(1., L / 2.), .15 + .45 * (1 - f) + dip * .4 + tilt * .3   # sag: the sprays' mean droop
       if L > 1.4: t.card(br[0] + out * .1, along(br, .5)[0] - br[0] - Z * dip, jit(lie, .2), min(1.5, .4 + L * .4), P, ctr, g)   # a dense heart by the stem, under the sprays
+      else: t.card(br[0], br[-1] - br[0] - Z * dip, jit(lie.normalized() + edge.normalized(), .2), .7 * L, P, ctr, g)   # a short branch's: from the stem along it, half on edge, so its sprays never stand off the stem
       for j in range(k):   # a feather of sprays on alternate sides from the stem out, every other one on edge (seen from the side)
-        s = .08 + .88 * (j + fn.uniform(.2, .8)) / k; p, dd = along(br, s); side = -side
+        s = .03 + .9 * (j + fn.uniform(.1, .6)) / k; p, dd = along(br, s); side = -side   # from the stem out, so a short branch's two or three sprays join it to the stem (started a third of the way out, they stood off it)
         lat = dd.cross(Z); lat = lat.normalized() * side if lat.length > 1e-3 else unit(fn)
-        sz = (1.12 - .35 * s) * reach * fn.uniform(.8, 1.15); droop = (.15 + .45 * (1 - f)) * fn.uniform(.6, 1.4) + dip * .4 + tilt * .3
-        if (j + (fn.random() < .2)) % 2: up = dd + lat * fn.uniform(.5, 1.1) - Z * droop; face = jit(lie - Z * .3, .3)   # open, drooping
-        else: up = dd * .7 + lat * fn.uniform(.3, .8) + Z * (fn.uniform(-.9, .35) - droop * .5); face = jit(up.cross(Z) * side + Z * edge.z, .3)   # on edge, some hanging, some turned up: the branch's foliage a layer deep, as the crossing card stood
-        t.card(p - up.normalized() * sz * .1, up, face, sz, P, ctr, g)
-      tip, td = along(br, 1.); t.card(tip - td * .45 * reach, td + Z * .3, jit(lie, .25), .75 * reach * fn.uniform(.9, 1.1), P, ctr, g)   # the leading shoot, turned up
+        sz = min((1.12 - .35 * s) * reach * fn.uniform(.8, 1.15), .65 * L); droop = (.15 + .45 * (1 - f)) * fn.uniform(.6, 1.4) + dip * .4 + tilt * .3
+        if (j + (fn.random() < .2)) % 2: up = dd + lat * fn.uniform(.5, 1.1) * wide - Z * droop; face = jit(lie - Z * .3, .3)   # open, drooping
+        else: up = dd * .7 + lat * fn.uniform(.3, .8) * wide + Z * (fn.uniform(-.9, .35) - droop * .5); face = jit(up.cross(Z) * side + Z * edge.z, .3)   # on edge, some hanging, some turned up: the branch's foliage a layer deep, as the crossing card stood
+        sz = fit(p, up, sz, lim, .9); t.card(p - up.normalized() * sz * .1, up, face, sz, P, ctr, g)
+      # the leading shoot, along the sprays (turned up off them, it stood clear of the drooping feather as a separate fleck) and half
+      # on edge (lying open, it was a sliver from the side)
+      tip, td = along(br, 1.); b = tip - td * min(.6 * reach, .45 * L); up = td - Z * sag * .6; t.card(b, up, jit(lie.normalized() + edge.normalized(), .25), fit(b, up, min(.75 * reach, .55 * L) * fn.uniform(.9, 1.1), lim), P, ctr, g)
       if hang:
         s0, u0, u1 = hang
         for q in range(1 + (L > 1.6) + (L > 2.8)):
-          p, dd = along(br, min(.9, s0 - .15 + q * .22)); t.card(p, -Z + dd * .7 + u0 * .2 + unit(fn) * .15, out + u1 * .35, min(.95, .35 + L * .2) * fn.uniform(.85, 1.1), P, Vector((0, 0, p.z - .6)), g)
+          p, dd = along(br, min(.9, s0 - .15 + q * .22)); up = -Z + dd * .7 + u0 * .2 + unit(fn) * .15   # turned ~40 deg across the branch, one way then the other: facing straight out they were slivers seen from the side
+          t.card(p, up, out + out.cross(Z) * (q % 2 * 2 - 1) * .8 + u1 * .35, fit(p, up, min(.95, .35 + L * .2) * fn.uniform(.85, 1.1), lim), P, Vector((0, 0, p.z - .6)), g)
     if f < .8:   # a short shoot between whorls, so the layers do not stack as shelves
       a = rng.uniform(0, TAU); out = Vector((math.cos(a), math.sin(a), 0)); zz = z + rng.uniform(.25, .45); face = Z + unit(rng) * .5; sz = min(1., R * .4 + .3)
       t.ghost(Vector((0, 0, zz)) + out * .1, out - Z * .15, face, min(2., R * .8 + .5), P)
       for q in range(2): t.card(Vector((0, 0, zz)) + out * (.1 + q * sz * .7), jit(out - Z * (.15 + .2 * q), .2), jit(face, .2), sz * (1 - .2 * q), P, Vector((0, 0, zz - .8)))
+    if f > .7:   # the top: two sprays hugging the stem above each whorl, so it reads as one narrow spire rather than sprays round a bare pole
+      for q in range(2): o = Vector((math.cos(az + q * 3.1), math.sin(az + q * 3.1), 0)); t.card(Vector((0, 0, z + q * .25)) + o * .05, Z + o * fn.uniform(.25, .45) + unit(fn) * .1, o + unit(fn) * .3, (.55 + .4 * (1 - f)) * fn.uniform(.9, 1.15), P, Vector((0, 0, z - .8)))
     z += rng.uniform(.6, .85)
   for k in range(3):   # the leader: a spire of small sprays
     up = Z + unit(rng) * .15; face = unit(rng); t.ghost(Vector((0, 0, H * .9)), up, face, 1.6, P)
@@ -417,14 +434,17 @@ def pad(t, c, r, n, ax=None):
     size = r * rng.uniform(.8, 1.35) * (1 + .4 * abs(out.dot(ax)))
     face = (out.cross(Z) * rng.choice((-1, 1)) + Z * rng.uniform(-.3, .3) + unit(rng) * .3) if k % 2 else (Z + unit(rng) * .55)
     b = s - out * size * rng.uniform(.3, .5) + Z * r * rng.uniform(-.2, .15); t.ghost(b, out, face, size, CELL['tuft'])
-    # the tuft's place drawn as a spray of tufts 0.9-1.3 m long scattered over the old card's plane with sky between, so the pad
-    # keeps its outline from every side: one 2-5 m tuft card read as a lobed paper cut-out (gauntlet r4). The layout draws above
-    # stay in their old order; the spray's come from t.fine
-    sz = min(size, .75 + .2 * r); m = 1 if size < sz * 1.2 else min(5, round(1 + (size / sz - 1) * 1.2))
+    # the tuft's place drawn as a spray of tufts 1-1.6 m long over the old card's plane with sky between, so the pad keeps its
+    # outline from every side: one 2-5 m tuft card read as a lobed paper cut-out (gauntlet r4). Each tuft's needles land inside
+    # the old card's own (its cell's opaque part: .15-.73 along, -.17..+.34 across, narrow at the stem): scattered over the
+    # whole card, the 2-5 m cards' clear corners included, and 0.9-1.3 m long, they had stood off the pads as separate flecks
+    # (side on, 74-77 pieces apart from the crown; now 20-38, the old cards 9-13). The layout draws above stay in their old
+    # order; the spray's come from t.fine
+    sz = min(size, .9 + .25 * r); m = 1 if size < sz * 1.2 else min(5, round(1 + (size / sz - 1) * 1.2)); room = size - sz
     lat = out.cross(face - out * face.dot(out)); lat = lat.normalized() if lat.length > 1e-3 else unit(fn)   # across the old card, in its plane
     for q in range(m):
-      o = b + out * (size - sz) * (q + fn.uniform(.15, .85)) / m + lat * size * fn.uniform(-.3, .3) * (m > 1)
-      t.card(o, out + lat * fn.uniform(-.4, .4), face + unit(fn) * .3, sz * fn.uniform(.85, 1.1), CELL['tuft'], c, tint)
+      w = (q + fn.uniform(.15, .85)) / m; o = b + out * room * (.15 + .58 * w) + lat * room * (.085 + fn.uniform(-.15, .15) * (.4 + .6 * w)) * (m > 1)
+      t.card(o, out + lat * fn.uniform(-.25, .25), face + unit(fn) * .3, sz * fn.uniform(.85, 1.1), CELL['tuft'], c, tint)
   t.cur_lobe = None
 
 def scots(rng, name, H=21., lo=.5, girth=.34, lean=.05, sweep=0., top=.08):
@@ -487,7 +507,10 @@ def impostors(objs):
   frame (x right, y up; z is rebuilt) with each leaf card's own facing mixed in, crown depth (sky visibility times how thin the
   crown is along the view ray, from a pass that counts leaf layers) and a leaf mask. So a billboard lights like the 3D tree:
   dark into the sun at its heart, glowing where the crown is thin, broken up card by card. Each cell frames the tree's own
-  extent at 1:2 with the trunk at the centre; the extents land in the build report and src/impostors.js."""
+  extent at 1:2 with the trunk at the centre; the extents land in the build report and src/impostors.js. impostors_s.webp
+  (grey, half size: the shadow maps' texels are 6-12 cm, its 8) is what the card casts: the coverage of a conifer's wood and its
+  '-shadow' proxy (the old cards its 3D crown casts within the swap, ghost()), the crown's own coverage for the rest, so a far
+  tree's shadow keeps the near one's shape and the open ground the dapples it had."""
   sc = bpy.context.scene; sc.render.engine = 'CYCLES'
   prefs = bpy.context.preferences.addons['cycles'].preferences
   try:
@@ -538,9 +561,10 @@ def impostors(objs):
   imgs = {n: bpy.data.images.load(str(TEX / f if (TEX / f).exists() else ROOT / 'assets/textures' / f)) for n, f in (('bark', 'bark.jpg'), ('bark_birch', 'bark_birch.webp'), ('leaves', 'leaves.webp'))}
   MODES = ('albedo', 'normal', 'mask', 'ao', 'thick')
   mats = {(mode, n): emit(f'imp_{mode}_{n}', mode, imgs[n], n == 'leaves', 3. if n == 'bark' else 1.) for mode in MODES for n in imgs}
+  hide = bpy.data.materials.new('imp_hide'); nt = node_tree(hide); nt.nodes.clear(); nt.links.new(nt.nodes.new('ShaderNodeBsdfTransparent').outputs['BSDF'], nt.nodes.new('ShaderNodeOutputMaterial').inputs['Surface'])   # a conifer's own cards, out of its cast render
   cd = bpy.data.cameras.new('impcam'); cd.type = 'ORTHO'; cam = bpy.data.objects.new('impcam', cd); bpy.context.collection.objects.link(cam); sc.camera = cam
   cam.rotation_euler = (math.pi / 2, 0, 0); cd.clip_end = 200
-  rows = (len(objs) + 3) // 4; atlas = np.zeros((512 * rows, 1024, 4)); atlas_n = np.zeros((512 * rows, 1024, 4)); dims = {}
+  rows = (len(objs) + 3) // 4; atlas = np.zeros((512 * rows, 1024, 4)); atlas_n = np.zeros((512 * rows, 1024, 4)); atlas_s = np.zeros((512 * rows, 1024)); dims = {}
   lin = lambda x: np.where(x <= .04045, x / 12.92, ((x + .055) / 1.055) ** 2.4)
   srgb = lambda x: np.where(x <= .0031308, x * 12.92, 1.055 * np.power(np.clip(x, 0, 1), 1 / 2.4) - .055)
   box = lambda x: x.reshape(512, 2, 256, 2, x.shape[2]).mean(axis=(1, 3))
@@ -567,10 +591,16 @@ def impostors(objs):
     ao = np.where(msk > .6, ao * (.28 + .72 * thin), ao)
     nrm = nrm / np.maximum(np.linalg.norm(nrm, axis=2, keepdims=True), 1e-5); A = A[..., 0]
     alb = bleed(alb, A); nrm = bleed(nrm, A); msk = bleed(msk, A); ao = bleed(ao, A); nrm[A < .02] = (0, 0, 1)
+    cast = A
+    if o.name in SHADOWS:   # the far card casts the old cards too: cast from the sprays, the far conifers' shadows had thinned (the phone Pine tee's ground +3.4 luma) and changed shape at the swap
+      gp = SHADOWS[o.name]; gp.data.materials[0] = mats[('mask', 'leaves')]; o.data.materials[0], o.data.materials[1] = mats[('mask', names[0])], hide; gp.hide_render = False   # its wood and the proxy's cards
+      sc.view_settings.view_transform = 'Raw'; sc.render.film_transparent = True; path = ROOT / 'art/qa/foliage-build' / f'imp_{o.name}_cast.png'; sc.render.filepath = str(path)
+      bpy.ops.render.render(write_still=True); cast = sq(read_rgba(path)[..., 3:4])[..., 0]; gp.hide_render = True
     col, row = i % 4, i // 4; ys, xs_ = row * 512, col * 256   # normal atlas: x, y (z rebuilt: the crown faces the camera), crown depth, leaf mask
+    atlas_s[ys:ys + 512, xs_:xs_ + 256] = cast
     atlas[ys:ys + 512, xs_:xs_ + 256] = np.concatenate([srgb(alb), A[..., None]], 2); atlas_n[ys:ys + 512, xs_:xs_ + 256] = np.concatenate([nrm[..., :2] * .5 + .5, ao, np.clip(msk, .2, 1)], 2)
     log('IMPOSTOR', o.name, dims[o.name], 'depth p10/p50/p90 %.2f %.2f %.2f' % tuple(np.percentile(ao[(A > .5) & (msk[..., 0] > .6)], [10, 50, 90])))
-  write(TEX / 'impostors.webp', atlas); write(TEX / 'impostors_n.webp', atlas_n)   # normal xyz + leaf mask in alpha
+  write(TEX / 'impostors.webp', atlas); write(TEX / 'impostors_n.webp', atlas_n); write(TEX / 'impostors_s.webp', np.repeat(atlas_s.reshape(256 * rows, 2, 512, 2).mean(axis=(1, 3))[..., None], 3, 2))   # normal xyz + leaf mask in alpha; what the card casts, in grey (lossy alpha would cost 4x)
   write(ROOT / 'art/qa/foliage-build/impostors_preview.png', np.concatenate([atlas[..., :3] * atlas[..., 3:] + np.array((.55, .7, .9)) * (1 - atlas[..., 3:]), np.ones_like(atlas[..., :1])], 2))
   REPORT['impostors'] = dims
   kinds = {}

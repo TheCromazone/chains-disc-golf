@@ -1343,7 +1343,7 @@ function frame(dt, rawDt, background) {
   // sharpness window and flecks slid across the turf ("the shadows move really fast"), and the far map alone holds still.
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : G.phase === 'result' && cam.hold ? cam.look : p ? p.char.group.position : cam.look;
   if (!G.flight && G.phase !== 'result') nearFocus.copy(focus);
-  course.update(dt, time, focus, camera.position, nearFocus);
+  course.update(dt, time, focus, camera.position, nearFocus, camera);
   puffs.update(dt, camera, renderer); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera, !G.flight && cam.mode === 'aim' && G.throwType === 'putt');   // held only over a putt: there the level lens puts a ribbon straight across the basket at flag height
   if (G.throwType !== 'putt') aimLine.advance(dt);   // a putt's line holds still (its direction is the basket)
   contactShadow.visible=!!G.flight?.pos;
