@@ -833,13 +833,19 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // Bark differs tree to tree as well (a stem greyer or redder, lighter or darker by ~15%), so a stand is not one repeated pole.
   const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = (.85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3) * (s.kind === 'birch' ? .62 + noise(s.x * .29 + 9, s.z * .29 + 2) * .25 : 1); return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
   for (const b of [...bushes, ...shrubs]) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
+  // A conifer's '-shadow' mesh (tools/build-trees.py ghost()) is its crown as the few large cards it was built from before the
+  // sprays: it casts in their place, drawn only inside the shadow passes (its material is shown by main.js's shadowMap.render),
+  // so the sprays (1.6-2.7x the cards) cost the main pass alone and the ground keeps the shadows it had (gauntlet r4 trees).
+  const shadowLeaf = new THREE.MeshBasicMaterial({ visible: false, map: leafAtlas, alphaTest: .5, side: THREE.DoubleSide });   // the depth pass takes its map, cut and sides
   const planted = (name, spots, shadow = true, lod = true) => {
     const src = leafAtlas && model(name); if (!src) return false;
-    src.scene.updateMatrixWorld(true);
+    src.scene.updateMatrixWorld(true); const proxied = new Set();
+    src.scene.traverse(o => { if (o.isMesh && o.name.endsWith('-shadow')) proxied.add(o.name.slice(0, -7)); });
     src.scene.traverse(o => { if (!o.isMesh) return;
-      const variant = o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+      const proxy = o.name.endsWith('-shadow'), variant = proxy ? o.name.slice(0, -7) : o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+      if (proxy) { if (shadow && mine.length) inst(g, shadowLeaf, mine, null, true, lod); return; }
       const mat = key === 'leaves' ? leafFull(g) : (name === 'bush' ? bushWood : woodMats)[key] || trunkMat, tint = key === 'leaves' ? leafTint : barkTint;
-      if (mine.length) inst(g, mat, mine, tint, shadow, lod); });
+      if (mine.length) inst(g, mat, mine, tint, shadow && !(key === 'leaves' && proxied.has(variant)), lod); });
       // Every tree casts. The edge stand's open side and young trees, the clearing groves and the back woods used to skip the
       // shadow pass (it triples a tree's triangles), so from the tee they stood as trunks on evenly sunlit grass (tee-stands
       // round, 2026-10-07). Casting costs ~.5 ms a frame on Pine Hollow's tee and flyover (11-12 ms, Full, 1600x900).
@@ -1194,7 +1200,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
-  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs }, props: dressing.meshes };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one); props: the built dressing, for the run-up camera's line-of-sight rays
+  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs }, props: dressing.meshes, shadowOnly: shadowLeaf };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one); props: the built dressing, for the run-up camera's line-of-sight rays
 }
 
 // Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 8 m (not
