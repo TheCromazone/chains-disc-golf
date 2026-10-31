@@ -131,6 +131,7 @@ const aimLine = createAimLine(preview), previewMat = aimLine.material;
 const shotGuide = createShotGuide(preview);
 const aimChevrons = createAimChevrons(preview);
 lineMats.push(previewMat, shotGuide.material, aimChevrons.material); resize();
+addEventListener('resize', () => { G.previewDirty = true; });   // turning the phone swaps the putt lens, and with it where the line hands over to the chevrons
 const trail = createFlightTrail(scene);
 // Soft projected contact shadow, only Full draws it.
 const shadowCanvas=document.createElement('canvas');shadowCanvas.width=shadowCanvas.height=64;
@@ -794,17 +795,22 @@ function updatePreview() {
   // drive's runs on into its landing ring at half strength, a swiped drive's 70% fades away (the flight goes on), a putt's dies
   // into the chains.
   aimLine.set(pts, guided ? { fadeIn: 1.5, fadeOut: 4, end: .5, swell: .3 } : assist ? { fadeIn: 1.5, fadeOut: 12, end: 0, swell: .3 } : { fadeIn: .8, fadeOut: 1.2, end: .15 });
-  if (G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4) aimLine.mesh.visible = false;   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the chevrons aim it
+  // A putt's line stands down where the lens can't see it leave his hand (aim-line.js REACH: inside 4 m on its side, 7 m upright),
+  // and two chevrons on the turf aim it instead. Gated on the putt itself, not on the line: set() also hides it when under two
+  // points survive, and a drive's chevrons would have lain at the basket's foot 100 m away.
+  const D = distToBasket(lie[0], lie[2]), tall = camera.aspect < 1.2, short = aimChevrons.shows(G.throwType === 'putt', D, tall);   // tall: the aim lens's own portrait test (aimFrameBase)
+  if (short) aimLine.mesh.visible = false;
   aimLine.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
   // The chevrons only where the line stands down: beside it (the old ground arrow showed on every throw) they were a second aim
   // cue pulling the eye off the line. They lie at the basket's foot, the far apex .45 m short of the pole, where the putt lens
   // looks and the aim's swing shows most: both lenses stand behind him, so the turf within ~2 m of him sits behind his legs
   // (the old arrow's 1.7 m tip showed only as its two barbs upright and a sliver under the frame on its side).
-  aimChevrons.mesh.visible = !aimLine.mesh.visible;
-  if (aimChevrons.mesh.visible) {
-    const d = aimDir(), c = aimChevrons.centre(Math.max(.9, distToBasket(lie[0], lie[2]) - .45)), ax = lie[0] + d[0] * c, az = lie[2] + d[1] * c, n = world.normal ? world.normal(ax, az) : [0, 1, 0];
-    aimChevrons.mesh.position.set(ax, world.height(ax, az) + .02, az);
-    aimChevrons.mesh.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]).normalize()).multiply(_q0.setFromAxisAngle(UP, Math.atan2(-d[0], -d[1]))); aimChevrons.color.copy(aimLine.color);   // laid on the slope; local -z down the aim
+  aimChevrons.mesh.visible = short;
+  if (short) {   // upright inside ~5 m their line starts beside him on the lens's side, so his shorts don't hide the far arms (aim-line.js lay)
+    const d = aimDir(), r = rightOf(d), cs = Math.sign((cam.tPos.x - lie[0]) * r[0] + (cam.tPos.z - lie[2]) * r[1]) || -1;
+    const [ax, az, ux, uz] = aimChevrons.lay(lie, d, r, D, cs, tall), n = world.normal ? world.normal(ax, az) : [0, 1, 0];
+    aimChevrons.mesh.position.set(ax, world.height(ax, az) + .02, az); aimChevrons.side = cs;
+    aimChevrons.mesh.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]).normalize()).multiply(_q0.setFromAxisAngle(UP, Math.atan2(-ux, -uz))); aimChevrons.color.copy(aimLine.color);   // laid on the slope; local -z down their line
   }
 }
 
@@ -1340,6 +1346,7 @@ function frame(dt, rawDt, background) {
     updatePreview();
   }
   updateCamera(dt);
+  if (preview.visible && aimChevrons.mesh.visible && G.phase === 'aim' && camera.aspect < 1.2) { const l = curP().lie, r = rightOf(aimDir()); if ((Math.sign((cam.tPos.x - l[0]) * r[0] + (cam.tPos.z - l[2]) * r[1]) || -1) !== aimChevrons.side) G.previewDirty = true; }   // the lens settled on the other side of him (a new lie's spot, a mirrored one by a trunk): the chevrons follow
   // Shadows follow what the camera shows: the disc in flight, the landing spot a miss holds on (the box used to snap back to
   // the thrower and a 70 m drive's landing lost its tree shadows), else the player. The near cascade (Desktop's crisp
   // shadows and sun flecks) stays where the throw began until the next turn: carried along at the disc's 25 m/s its

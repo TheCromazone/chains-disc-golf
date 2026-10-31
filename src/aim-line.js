@@ -61,13 +61,19 @@ export function createAimLine(parent) {
     dispose() { parent.remove(mesh); geo.dispose(); mat.dispose(); } };
 }
 
-// The short putt's ground guide. Inside 4 m main.js hides the putt line (its stub stood up from behind his shoulder like a white
-// pole), so two chevrons on the turf point the aim, in the line's own hand: a white core CORE css px wide inside the same soft
+// The short putt's ground guide. Where the putt line can't be seen leaving his hand (REACH below) main.js hides it, and two
+// chevrons on the turf point the aim, in the line's own hand: a white core CORE css px wide inside the same soft
 // dark halo, constant on screen, depth tested so his shoes and the tufts stand in front of them. They replace a flat white arrow
 // decal (0.7 x 1.15 m at .82 opacity, every throw) that read as a stray sticker pasted on the grass beside the new line (r4 iOS).
 // One quad on the ground's tangent plane: the fragment measures its distance to each chevron's two arms in metres and turns it
 // into pixels along the arm's normal (the plane's own screen derivatives), so the strokes keep their width at any slant.
 const ARM = [.24, .24], STEP = .32, CORE = 3.4;   // a chevron's half width and depth (m), the gap between the two (m), the core (css px)
+// The putt line stands down where the lens can't see it leave his hand (r4 QA, css px^2 of line on screen): on its side inside
+// 4 m (330 at 4 m, 470 at 5; under 4 its stub stood up from behind his shoulder like a white pole); upright, whose lens stands .6 m
+// aside (main.js AIM.tall.putt; 1.2-1.35 on its side), inside 7 m: the line runs on behind his back and only a 15-30 css px stub
+// reached the chains (100 at 5 m, 150 at 6, 200 at 7, 250 at 8). Upright inside ~5 m his shorts hid the chevrons' far arms (two
+// thin white sticks at 3 m), so there their line starts beside him on the lens's side, up to OFFSET m.
+const REACH = { wide: 4, tall: 7 }, OFFSET = .7;
 export function createAimChevrons(parent) {
   const L = STEP + ARM[1] + .24, geo = new THREE.PlaneGeometry(2 * ARM[0] + .24, L).rotateX(-Math.PI / 2);   // local -z points down the aim
   const u = { color: { value: new THREE.Color(1, 1, 1) }, halo: { value: new THREE.Color(HALO_COLOR) }, resolution: { value: new THREE.Vector2(1, 1) }, px: { value: 1 } };
@@ -90,8 +96,19 @@ export function createAimChevrons(parent) {
       }` });
   const mesh = new THREE.Mesh(geo, mat); mesh.renderOrder = 4; mesh.frustumCulled = false; mesh.name = 'aim_chevrons'; mesh.visible = false; parent.add(mesh);
   mat.resolution = u.resolution.value;   // main.js's resize() sets every line material's buffer size
+  const centre = far => far - STEP / 2 - ARM[1] / 2;
   return { mesh, material: mat, color: u.color.value,
     // far: metres from the lie to the far chevron's apex; centred there so the near one sits STEP behind it
-    span: [STEP, ARM[1]], centre: far => far - STEP / 2 - ARM[1] / 2,
+    span: [STEP, ARM[1]], centre,
+    // Where the line hands over to the chevrons: putts inside REACH.wide m on its side, REACH.tall m upright (main.js).
+    shows: (putt, dist, tall) => putt && dist < REACH[tall ? 'tall' : 'wide'],
+    // The pair's line on the ground: lie [x, y, z], d the aim and r its right (unit [x, z]), D metres to the pin, lens the side of
+    // him the camera stands on (+-1 along r). Upright inside ~5 m it starts up to OFFSET m toward the lens beside him and still
+    // meets the aim at the pin's distance; the far apex lies .45 m short of there. Returns the quad's centre and its direction.
+    lay(lie, d, r, D, lens, tall) {
+      const o = tall ? lens * OFFSET * Math.min(1, Math.max(0, (5 - D) / 2)) : 0, sx = lie[0] + r[0] * o, sz = lie[2] + r[1] * o;
+      const tx = lie[0] + d[0] * D - sx, tz = lie[2] + d[1] * D - sz, L = Math.hypot(tx, tz) || 1, ux = tx / L, uz = tz / L, c = centre(Math.max(.9, L - .45));
+      return [sx + ux * c, sz + uz * c, ux, uz];
+    },
     dispose() { parent.remove(mesh); geo.dispose(); mat.dispose(); } };
 }

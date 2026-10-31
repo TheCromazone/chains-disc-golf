@@ -31,5 +31,19 @@ const [step, depth] = chev.span;
 assert.ok(Math.abs(chev.centre(1.75) + step / 2 + depth / 2 - 1.75) < 1e-9, 'centred so the far apex lands where asked');
 chev.mesh.geometry.computeBoundingBox(); const bb = chev.mesh.geometry.boundingBox;
 assert.ok(bb.max.z - bb.min.z > step + depth && Math.abs(bb.max.y - bb.min.y) < 1e-9, 'flat, long enough for both chevrons and their halo');
+// The hand-over: only putts; on its side inside 4 m, upright (the line hides behind his back) inside 7 m.
+assert.equal(chev.shows(false, 2, true), false, 'never on a drive, however near the pin');
+assert.deepEqual([3.9, 4, 6.9, 7].map(D => chev.shows(true, D, false)), [true, false, false, false], 'on its side: inside 4 m');
+assert.deepEqual([3.9, 4, 6.9, 7].map(D => chev.shows(true, D, true)), [true, true, true, false], 'upright: inside 7 m');
+// Their line: down the aim on its side and from 5 m upright; upright inside 5 m it starts beside him toward the lens and still
+// meets the aim at the pin's distance.
+const lie = [10, 0, 20], d = [0, -1], r = [1, 0], farApex = (D, lens, tall) => { const [x, z, ux, uz] = chev.lay(lie, d, r, D, lens, tall); return [x + ux * (step / 2 + depth / 2), z + uz * (step / 2 + depth / 2), ux, uz]; };
+let [x, z, ux, uz] = farApex(3, -1, false);
+assert.ok(Math.abs(x - 10) < 1e-9 && Math.abs(z - (20 - 2.55)) < 1e-9 && ux === 0 && uz === -1, 'on its side: on the aim, far apex .45 m short of the pin');
+[x, z] = farApex(6, -1, true); assert.ok(Math.abs(x - 10) < 1e-9 && Math.abs(z - (20 - 5.55)) < 1e-9, 'upright from 5 m: on the aim');
+[x, z, ux, uz] = farApex(3, -1, true);
+assert.ok(x < 10 && x > 9.8, 'upright at 3 m: toward the lens, a few tenths off the aim'); assert.ok(ux > 0, '... turned back in toward the aim');
+assert.ok(Math.hypot(x + ux * .45 - 10, z + uz * .45 - 17) < 1e-9, 'their line meets the aim at the pin');
+[x] = farApex(3, 1, true); assert.ok(x > 10, 'the lens on his other side: the other way');
 chev.dispose(); assert.equal(parent.children.length, 0);
-console.log('Shot guide OK: a closed ring strip on the ground, the chevrons placed by their far apex.');
+console.log('Shot guide OK: a closed ring strip on the ground, the chevrons placed by their far apex, handed over by lens.');
