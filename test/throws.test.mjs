@@ -42,3 +42,19 @@ for (const keys of [K.backhand, K.forehand, K.putt, RUNUPS.xstep, RUNUPS.fxstep]
   for (let i = 1; i <= 100; i++) { const p = poseAt(keys, i / 100); assert(Math.hypot(p.rootX - prev.rootX, p.rootZ - prev.rootZ) < .04, 'smooth travel'); prev = p; }
 }
 console.log('Pelvis travel is continuous.');
+
+// 5. Run-ups: a foot carrying weight (within 2 cm of the ground once the lower sole stands on it) stays where it landed, and the
+// throwing hand reaches the coil without a hitch. Each step was eased straight between footfalls (a sole skimmed in and dragged
+// out, 13 cm on the x-step, 41 cm on the crow hop's last stride), and the x-step's arm was solved on another branch than the drive's
+// coil it hands over to: the wrist swung 5.8 cm in its last frame against ~2 around it.
+const FRAME = 1 / 48;   // one 60 Hz frame of the .8 s run-up
+for (const run of ['xstep', 'fxstep']) {
+  const at = t => { const p = poseAt(RUNUPS[run], t), f = fk(p); return { f, h: soleHeights(p, false, GROUND).map(x => x + f.rootY) }; };
+  for (const [k, side] of [[0, 'R'], [1, 'L']]) { let from = null;
+    for (let t = 0; t <= 1 + 1e-9; t += FRAME / 2) { const { f, h } = at(t), s = f['sole' + side];
+      if (h[k] > .02) { from = null; continue; } if (!from) from = s;
+      assert(Math.hypot(s[0] - from[0], s[2] - from[2]) < .02, `${run} ${side} foot holds its spot while loaded (${t.toFixed(3)}: ${Math.hypot(s[0] - from[0], s[2] - from[2]).toFixed(3)} m)`); } }
+  let prev = at(.9 - FRAME).f.handR;
+  for (let t = .9; t <= 1 + 1e-9; t += FRAME) { const h = at(Math.min(1, t)).f.handR, d = Math.hypot(h[0] - prev[0], h[1] - prev[1], h[2] - prev[2]); assert(d < .03, `${run} hand into the coil (${t.toFixed(3)}: ${d.toFixed(3)} m/frame)`); prev = h; }
+}
+console.log('Run-up feet stay planted; the hand reaches the coil smoothly.');
