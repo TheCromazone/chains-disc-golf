@@ -21,15 +21,18 @@ try {
   for (const [width,height] of [[360,740],[430,932],[812,375],[568,320],[768,1024],[1366,768]]) {
     await page.device({ width,height,mobile:width<1000,touch:width<1000 });
     await pause(500);
+    // Phones fold the card into the landing tag while the landing is on screen (ui.css #hud.land-tag): then the tag is the guide.
+    // The suite used to pass only because no frame had placed the tag yet when it looked; one that had failed on a hidden card.
     const result = await page.eval(`(()=>{
       const rect=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};
-      const guide=document.getElementById('shotPlan'),r=rect(guide);
+      const card=document.getElementById('shotPlan'),folded=getComputedStyle(card).display==='none'&&document.getElementById('hud').classList.contains('land-tag');
+      const guide=folded?document.getElementById('landTag'):card,r=rect(guide);
       const overlap=[];
       for(const id of ['top','conditions','power','controls','utilities']){
         const b=rect(document.getElementById(id));
         if(Math.min(r.right,b.right)-Math.max(r.x,b.x)>2 && Math.min(r.bottom,b.bottom)-Math.max(r.y,b.y)>2)overlap.push(id);
       }
-      return {width:innerWidth,height:innerHeight,rect:r,overlap,visible:getComputedStyle(guide).display!=='none',text:guide.textContent,estimate:__chains.G.shotPreview};
+      return {width:innerWidth,height:innerHeight,rect:r,overlap,folded,visible:getComputedStyle(guide).display!=='none'&&+getComputedStyle(guide).opacity>0,text:guide.textContent,estimate:__chains.G.shotPreview};
     })()`);
     assert(result.visible && result.rect.x>=0 && result.rect.y>=0 && result.rect.right<=width && result.rect.bottom<=height,'visible guide fits viewport');
     assert.deepEqual(result.overlap,[],'guide clears existing HUD plates');
@@ -42,7 +45,7 @@ try {
     assert.match(hazard.text,/after drop/,'OB distance describes the legal next lie');
     result.hazard=hazard;
     report.layouts.push(result);
-    console.log(`PASS landing guide ${width}x${height}`);
+    console.log(`PASS landing guide ${width}x${height}${result.folded ? " (the landing tag)" : ""}`);
   }
   await page.device({width:430,height:932,mobile:true,touch:true});await pause(500);
   const yaw=await page.eval('__chains.G.aim.yaw');
