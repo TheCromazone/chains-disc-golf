@@ -14,6 +14,9 @@ records every HUD label's rect and the current athlete's projected box (his bone
 | release-portrait.jpg | playtest 120 ms after a swipe | same beat |
 | putt-spot.jpg | Pine 8 at 14 m, Lake 4 at 14 m | same lies |
 | small-phone.jpg | 360x640 aim with the coach, and the release | same |
+| putt-hint-landscape.jpg | 844x390, Pine 1: first-throw hint at 6 m, wrong-way swipe at 1.5 m (section 5) | same lies |
+| pnp-call-portrait.jpg | pass & play call, Pine 1 at 1.5 m and 10 m (pairs: before, after) | same lies |
+| pnp-call-landscape.jpg | pass & play call at 844x340: tee, 3 m putt, a lie that stands him left | same lies |
 
 ## 1. Upright aim: the athlete covered the fairway
 - **Problem:** the athlete stood mid-frame and blocked the line to the basket (ios-3-aim).
@@ -38,7 +41,8 @@ records every HUD label's rect and the current athlete's projected box (his bone
   - While spectating, the ring and % stand down and the throw and disc chips fade out.
   - #waiting moves under the score plate (beside it on a wide screen) and fades in release and flight.
   - The ring hides as the finger lifts.
-  - On its side, every label hangs left from the ring's right edge, and the grade drops into the ring's place.
+  - On its side, the % and the grade hang left from the ring's right edge, and the grade drops into the ring's place. The
+    hint first hung there too, over the basket on putts; it now stands at the foot of the frame (section 5).
   - The landscape lens moved from 0.95 m aside to 1.2 m, turned 3 degrees: he stands at x .62-.74 with his feet in frame
     (.98, was 1.01), and the pin moves to .47.
 - **Measured:** label area over the athlete's box, in px²:
@@ -66,12 +70,57 @@ records every HUD label's rect and the current athlete's projected box (his bone
 - **Pin tag under the score plate during a chase.** It now fades under the top plates.
 - **Tags hidden by a call or the coach.** Pin and landing tags hide under pass & play's turn call and the coach card. The
   coach now reads the wind plate as a top plate.
-- **Turn call on the athlete.** On its side, pass & play's "Player 2's throw" broke into two 60 px lines across him. It is
-  now one 40 px line over the fairway.
+- **Turn call on the athlete.** On its side, pass & play's "Player 2's throw" broke into two 60 px lines across him. It
+  became one 40 px line over the fairway, and then a lower third (section 5).
 - **Reaction shot behind a flag.** The holed-out reaction framed the celebration behind a CHAINS OPEN flag. It now weighs
   trunks and uprights in front of the lens and tries more swings. The code runs clean in the playtests; the exact random lie
   was not reproduced.
 - **Narrow plates collided.** At 360 px the score plate and wind plate overlapped by 120 px². #top now leaves 152 px.
+
+## 5. Verifier follow-up
+The verifier kept all six changes and flagged one regression and three follow-ups. Each was measured with a staged-lie probe:
+holes 1-3 of all four courses, with real CDP touches for each beat. It compares every label's rect with the basket's
+projected catch zone (tray to band), the whole basket and the athlete's box. The before runs used a copy of d6b8776.
+
+- **The landscape hint covered the basket (regression).** Hung leftward from the ring's right edge, the first-throw "Swipe
+  up ↑ to throw" and the wrong-way line sat on the catch tray of every putt (the capture's putt moment on all four
+  courses). The hint now stands at the foot of the frame, between the throw chip and the ring, and level with the chips.
+  Long lines wrap in balanced rows, two lines on a 640-667 px phone and three at 568 px. It takes no touches, so a thumb on
+  it left of the pad still aims.
+  - 844x390, 48 putt lies (1.5, 3, 6 and 10 m) x 4 beats (aim, wrong way mid-swipe, wrong way after, swipe): hint over
+    the catch zone in 48/48 lies in every beat (up to 101k px² a beat) before, 0/48 after. Over the athlete: 12/48 before,
+    0/48 after. The whole basket: 1/48 lies after, 244 px² on the pole's foot at 1.5 m.
+  - 844x340 and 667x375 (Pine and Lake, 12 lies): catch zone 12/12 before, 0/12 after.
+- **"Wrong direction — Putt: swipe up ↑".** The line after a wrong-way swipe is now "Wrong way — swipe up ↑", the same as
+  the line shown mid-swipe. The throw chip already names the throw. The long form also ran past an upright pad and was
+  cut with an ellipsis ("Wrong direction — Backhand IO: swipe right → · inside-out").
+- **The grade's sign.** At exactly -0.05 the grade printed "+0.1°". The grade and the elevation readout now take the sign
+  from the printed digits, so −0.1 shows its minus and −0.0 never appears.
+- **Upright pass & play call (optional).** The call's box started at 50%, so "Player 2's throw" broke into two 34 px lines at
+  22% and sat on the basket of short putts. It is now one 32 px line under the plates (136 px). 84 lies, upright 390x844
+  (tee, 40%, 1.5-13 m): over the catch zone in 36/84 lies (73k px²) before, 0/84 after. No overlap with the score or wind
+  plate.
+- **The landscape call, found in the 844x340 pass & play playtest.** The 40 px line at 41% sat on the basket on most lies:
+  a drive's far pin, a tap-in's chains and a 3 m putter's head. On 4 of 23 aims the athlete stood left of centre, because
+  the aim spot had moved the lens round him, and the line covered him. The call is now a lower third over the aim pill, left-aligned like the
+  hole title. When the frame the lens is heading for stands him left of centre (main.js, `UI.heroSide`), it moves to the
+  right. Measured over 96 lies (tee, 40%, two lies 4-5 m off the line, 1.5-10 m putts):
+  - 844x340: over the basket in 81/96 lies before, 0/96 after; over the athlete 25/96 before, 0/96 after; over the
+    score plate 96/96 before (box corner), 0 after.
+  - 844x390: basket 70/96 to 0/96; athlete 14/96 to 0/96.
+- **Pin tag inside the waiting line, found in the landscape solo playtest.** On its side, the bot's line ("Ricky ·
+  Forehand, Midrange") stands beside the score plate since this branch, and a far pin's tag rose into its end (frame 077).
+  The tag now fades under the waiting line too, as it does under the plates, and the line's rect is read once per text.
+  A grid test placed the tag's foot every 8x3 px around the line, using ui.js's own placePin in the live page. Positions
+  with the tag drawn on the line: 844x390, 294 before and 0 after; 390x844, 300 before and 0 after.
+
+Playtests after these changes, with real touch swipes, each through hole 3's final scorecard with 0 page errors:
+- Solo, Pine, 844x390: no hint overlaps. The tag-on-line case was seen only once, with the line at 16% mid-fade in flight.
+- Pass & play, Lake, 844x340: the call never covered the athlete (35k px² over 23 aims in the run before this change).
+- Pass & play, Bluff, 360x640: the call is one line under the plates and overlaps no plate.
+
+verify-layout (port 8344) finds 0 HUD issues at all six sizes. The only findings are the locker ones that were already
+there.
 
 ## Mobile cost
 Draw calls and triangles per moment, with each capture run once on this branch:
@@ -85,10 +134,16 @@ Frame time, back to back in one page and alternating the old and new rig (median
 - Upright: 15.53 to 15.39 ms.
 - On its side: 16.97 to 17.11 ms.
 
+The follow-up changes only labels (CSS, and one projection per aim frame for `heroSide`). Every capture.mjs set the verifier
+ran on d6b8776 has identical calls and triangles after them: upright and landscape on all four courses, 360x640, 844x340
+and desktop 1440x900. The motion timelines (drive windup@44, release@72, land@160; putt chains@86) are also identical.
+
 ## Not fixed
 - **Pine 1's tee sign fills the right fifth of a bot's run-up on its side.** The other side holds the group waiting by the
   pad. A frame-edge prop check could not flip it, and was dropped.
-- **Close landscape putts (under about 5 m).** The swipe ring overlaps the athlete's hip.
+- **Close landscape putts (under about 5 m).** The swipe ring overlaps the athlete's hip. The "POWER"/% pill above the ring
+  sits on the basket's pole on a 1.5 m putt during the swipe (12/48 lies, up to 2100 px²), as on 7e1e53a.
+- **Flight calls and the pin tag.** "Tree!" at the top of a chase can sit just over the pin tag (one frame in a round).
 - **Upright putt frame.** The throw and disc chips overlap his shoes, at the over-the-shoulder crop.
 - **Pass & play setup on its side.** "Start round" sits below the fold and needs a scroll.
 - **verify-layout's locker findings** at 812x375 and 568x320: the sticky Ready button sits over the tabs. Untouched here.
