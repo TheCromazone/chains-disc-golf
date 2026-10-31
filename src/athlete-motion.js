@@ -12,23 +12,31 @@ export function createAthleteMotion({ joints, actor, skin, group }) {
   // Heel, toe and both sides of each sole, sampled from each figure's own mesh.
   // This follows the actual skinned shoes, including the phone LOD and body scale.
   const p = skin.geometry.attributes.position;
-  const soles = [];
-  for (const side of [-1, 1]) {
-    const indices = [];
+  const soles = [-1, 1].map(side => {   // [left, right]
+    const indices = [], picked = [];
     for (let i = 0; i < p.count; i++) if (p.getX(i) * side > 0 && p.getY(i) < .10) indices.push(i);
     indices.sort((a, b) => p.getY(a) - p.getY(b));
     const cells = new Set();
     for (const i of indices) {
       const key = `${Math.round(p.getX(i) * 60)},${Math.round(p.getZ(i) * 60)}`;
-      if (!cells.has(key)) { cells.add(key); soles.push(i); }
+      if (!cells.has(key)) { cells.add(key); picked.push(i); }
       if (cells.size >= 12) break;
     }
+    return picked;
+  });
+  // the actor height that stands shoe k (0 left, 1 right) on the ground, and that sole's centre (world) into `at`; no ground: the centre only
+  function sole(k, at = null, onGround = true) {
+    let need = -Infinity; at?.set(0, 0, 0);
+    for (const i of soles[k]) { skin.getVertexPosition(i, point); skin.localToWorld(point); if (onGround) need = Math.max(need, ground(point.x, point.z) + .012 - point.y + actor.position.y); at?.add(point); }
+    at?.divideScalar(soles[k].length || 1); return need;
   }
   return {
     setGround(fn) { ground = fn; },
     lookAt(value) { gaze = value ? target.copy(value) : null; },
     snap() { snapN = 7; },   // just placed somewhere new: the poses of the next few frames show at once, no cross-fade from where he stood
-    update(dt, nextMode, phase) {
+    sole: (k, at) => ground ? sole(k, at) : NaN, centre: (k, at) => (sole(k, at, false), at),
+    // legs(): gltf-player's re-plant out of a throw sets the legs after the cross-fade and before the body stands on them
+    update(dt, nextMode, phase, legs = null) {
       if (mode !== nextMode) {
         from.forEach((q, i) => q.copy(last[i])); fromY = lastY;
         transition = mode === null || phase !== null ? 1 : 0;
@@ -50,13 +58,10 @@ export function createAthleteMotion({ joints, actor, skin, group }) {
         gazeYaw += (yaw - gazeYaw) * a; gazePitch += (pitch - gazePitch) * a;
         head.quaternion.slerp(q.setFromEuler(euler.set(gazePitch, gazeYaw, 0, 'YXZ')), phase !== null ? .25 : .65);
       }
-      if (ground && soles.length) {
+      if (legs) { group.updateMatrixWorld(true); legs(); }
+      if (ground && soles[0].length + soles[1].length) {
         group.updateMatrixWorld(true); skin.skeleton.update();
-        let offset = -Infinity;
-        for (const i of soles) {
-          skin.getVertexPosition(i, point); skin.localToWorld(point);
-          offset = Math.max(offset, ground(point.x, point.z) + .012 - point.y + actor.position.y);
-        }
+        const offset = Math.max(sole(0), sole(1));
         if (Number.isFinite(offset)) actor.position.y = THREE.MathUtils.clamp(offset, -.20, .20);
       }
       bones.forEach((b, i) => last[i].copy(b.quaternion)); lastY = root.position.y;

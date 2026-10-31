@@ -583,16 +583,66 @@ export function createGLTFCharacter(avatar) {
   }
   // Out of a throw the legs re-plant one at a time instead of gliding: the clip's finish (the putt's staggered stance, a drive's
   // follow-through) cross-faded to the idle's feet in .22 s, and both soles skated ~15 cm across the green in the putt's locked
-  // frame. The foot standing higher (the rear one up on its toe) steps first, then the other, each lifted through its move while
-  // the grounding (athlete-motion.js) keeps the lower one planted.
-  const LEGS = ['hipR', 'knR', 'hipL', 'knL'], planted = LEGS.map(() => new THREE.Quaternion()), STEP = .5, _ql = new THREE.Quaternion(), XA = new THREE.Vector3(1, 0, 0);
-  const pos = skin.geometry.attributes.position, heels = [1, -1].map(side => Array.from({ length: pos.count }, (_, i) => i).filter(i => pos.getX(i) * side > .02 && pos.getY(i) < .03).sort((a, b) => pos.getY(a) - pos.getY(b)).slice(0, 24));
-  const soleY = k => { let y = Infinity; for (const i of heels[k]) y = Math.min(y, skin.localToWorld(skin.getVertexPosition(i, _v)).y); return y; };
-  let replant = STEP, lead = 'R';
+  // frame. The foot standing higher (the rear one up on its toe) steps first while the other carries him, then the other steps
+  // while the first carries him and he rises from the crouch he finished in to the idle's height, then his weight settles the
+  // way the idle stands. Each leg reaches its foot's spot (reach() below), so the foot carrying him holds still while he rises:
+  // left to the grounding, the first foot down stood him on the longer leg at once (the pelvis jumped 3.4 cm in a frame, 7 cm in
+  // four) and the planted foot swung ~6 cm with the pelvis's turn.
+  const LEGS = ['hipR', 'knR', 'hipL', 'knL'], planted = LEGS.map(() => new THREE.Quaternion()), clip = LEGS.map(() => new THREE.Quaternion()), STEP = .6, LIFT = .07, XA = new THREE.Vector3(1, 0, 0);
+  const DOWN1 = .4, DOWN2 = .74;   // where in the step the first foot lands, and the second
+  const SOLE = { L: 0, R: 1 }, foot = () => ({ c: new THREE.Vector3(), n: 0, s: 0, f: 0 }), start = { R: foot(), L: foot() }, end = { R: foot(), L: foot() };   // athlete-motion's shoe index; each shoe where the step starts and ends
+  // a shoe as it stands now: its sole's centre (c) and the body height that would put it down (n); then, with the body at height
+  // y, that centre's height over the shoe's lowest point (s) and how far that point is off the ground (f)
+  const measure = (k, o) => { o.n = motion.sole(SOLE[k], o.c); return o; };
+  const stand = (o, y) => { o.c.y += y - actor.position.y; o.f = Math.max(0, y - o.n); o.s = o.c.y - groundAt(o.c.x, o.c.z) - .012 - o.f; };
+  let replant = STEP, lead = 'R', startY = 0, groundAt = null;
+  function step() {   // the re-plant's legs: athlete-motion calls it after its cross-fades, before it stands the body on them
+    replant += frameDt; const u = Math.min(1, replant / STEP);
+    LEGS.forEach((n, i) => joints[n].quaternion.copy(clip[i])); joints.hipR.updateMatrixWorld(true); joints.hipL.updateMatrixWorld(true);
+    const top = Math.max(measure('R', end.R).n, measure('L', end.L).n); stand(end.R, top); stand(end.L, top);   // the idle's own legs, stood on the ground: where the step ends
+    // he rises while the second foot steps, as high as the first foot's leg holds him (the idle may rest that one, shorter), and
+    // the rest as his weight settles onto the second, the way the idle stands
+    const held = top - end[lead].f; actor.position.y = startY + (held - startY) * smooth(.25, .82, u) + (top - held) * smooth(.7, 1, u); actor.updateMatrixWorld(true);
+    for (const k of ['R', 'L']) {
+      const first = k === lead, w = first ? smooth(0, DOWN1, u) : smooth(DOWN1, DOWN2, u), i = LEGS.indexOf('hip' + k), a = start[k], b = end[k];
+      joints['hip' + k].quaternion.copy(planted[i]).slerp(clip[i], w); joints['kn' + k].quaternion.copy(planted[i + 1]).slerp(clip[i + 1], w);
+      // where the shoe goes: from where it stood to where the idle puts it, down on the ground while it carries him (the first
+      // one lands on it, the second steps off it), lifted LIFT mid-step, then off the ground as far as the idle rests it
+      const off = (first ? a.f * (1 - w) + b.f * smooth(DOWN2, 1, u) : b.f * w) + LIFT * Math.sin(Math.PI * w);
+      _tg.lerpVectors(a.c, b.c, w); _tg.y = groundAt(_tg.x, _tg.z) + .012 + a.s + (b.s - a.s) * w + off;
+      // the sole's centre stands a little higher or lower over its lowest point once the leg bends (the rig has no ankle, so the
+      // shoe pitches with the shin): twice more, raised or lowered by however far the lowest point missed
+      for (let n = 0; n < 3; n++) { reach(k, _st.copy(_tg)); if (n < 2) _tg.y += off - (actor.position.y - motion.sole(SOLE[k])); }
+    }
+  }
+  // Two-bone IK in the actor's frame (a slim or broad build scales the actor unevenly; the rig under it is rigid): the knee turns
+  // about its own x, the axis it bends on, until the sole's centre (rigid on the shin) is as far from the hip as the target,
+  // staying bent the way it was; then the hip swings it onto the target.
+  const _st = new THREE.Vector3(), _tg = new THREE.Vector3(), _h = new THREE.Vector3(), _k = new THREE.Vector3(), _s = new THREE.Vector3(), _n = new THREE.Vector3(), _w = new THREE.Vector3(), _vp = new THREE.Vector3(), _vx = new THREE.Vector3();
+  const _mi = new THREE.Matrix4(), _mb = new THREE.Matrix4(), _qp = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qs = new THREE.Quaternion(), _sc = new THREE.Vector3();
+  function reach(k, target) {
+    const hip = joints['hip' + k], kn = joints['kn' + k]; hip.updateMatrixWorld(true);
+    const inv = _mi.copy(actor.matrixWorld).invert(), H = _h.setFromMatrixPosition(hip.matrixWorld).applyMatrix4(inv), K = _k.setFromMatrixPosition(kn.matrixWorld).applyMatrix4(inv);
+    motion.centre(SOLE[k], _s).applyMatrix4(inv); const T = _st.copy(target).applyMatrix4(inv);
+    const n = _n.setFromMatrixColumn(_mb.multiplyMatrices(inv, kn.matrixWorld), 0).normalize(), w = _w.subVectors(K, H), v = _vp.subVectors(_s, K), vn = v.dot(n);
+    const vv = v.lengthSq(); v.addScaledVector(n, -vn); _vx.crossVectors(n, v);   // the shin's sole offset: along the axis (vn) and turning about it (v, and v turned a quarter)
+    const A = w.dot(v), B = w.dot(_vx), R = Math.hypot(A, B); if (R < 1e-6) return;
+    const D = (T.distanceToSquared(H) - w.lengthSq() - vv) / 2 - vn * w.dot(n), phi = Math.atan2(B, A), al = Math.acos(THREE.MathUtils.clamp(D / R, -.3, 1));
+    // phi: the reach's longest; of the two knees that reach the target, the one nearer the knee now, never one bent backwards
+    // (the rigs bend on -x; the sole's centre lies ahead of the shin, so the longest reach is a knee a little bent)
+    const near = Math.abs(phi - al) < Math.abs(phi + al) ? phi - al : phi + al, psi = 2 * Math.atan2(kn.quaternion.x, kn.quaternion.w) + near <= .02 ? near : phi - al;
+    kn.quaternion.multiply(_qs.setFromAxisAngle(XA, psi));
+    _s.copy(K).addScaledVector(n, vn).addScaledVector(v, Math.cos(psi)).addScaledVector(_vx, Math.sin(psi)).sub(H).normalize();   // hip to the sole, after the knee's turn
+    _mb.multiplyMatrices(inv, hip.parent.matrixWorld).decompose(_sc, _qp, _sc);
+    hip.quaternion.premultiply(_qs.setFromUnitVectors(_s, T.sub(H).normalize()).premultiply(_qi.copy(_qp).invert()).multiply(_qp)); hip.updateMatrixWorld(true);
+  }
   function sample(name, at) {
     const action = actions.get(name); if (!action) return;
     if (active !== action) {
-      if (phase === null && active && !/^(idle|celebrate|slump|walk|practice)/.test(active.getClip().name)) { LEGS.forEach((n, i) => planted[i].copy(joints[n].quaternion)); replant = 0; skin.skeleton.update(); lead = soleY(0) > soleY(1) ? 'R' : 'L'; }   // still the pose shown last frame
+      if (phase === null && active && groundAt && !/^(idle|celebrate|slump|walk|practice)/.test(active.getClip().name)) {   // still the pose shown last frame
+        LEGS.forEach((n, i) => planted[i].copy(joints[n].quaternion)); replant = 0; group.updateMatrixWorld(true); startY = actor.position.y;
+        for (const k of ['R', 'L']) stand(measure(k, start[k]), startY);
+        lead = start.R.n < start.L.n ? 'R' : 'L'; }   // the higher foot: it would stand on the ground with the body lower
       previous?.stop(); previous = active; active = action; blend = phase === null ? 0 : 1; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
     blend = Math.min(1, blend + frameDt / .22); active.setEffectiveWeight(blend); previous?.setEffectiveWeight(1 - blend); if (blend === 1) { previous?.stop(); previous = null; }
     action.paused = true; action.time = THREE.MathUtils.clamp(at, 0, action.getClip().duration - .00001); mixer.update(0);
@@ -635,7 +685,7 @@ export function createGLTFCharacter(avatar) {
     get heroWeight() { return heroW; },   // blend into the relaxed clubhouse stance
     gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c)); nrm.copy(s.n).transformDirection(forearm.matrixWorld); } return w; },   // holdDisc: the disc seated in the gripping hand, and how much of it to use
     carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
-    setGround: fn => motion.setGround(fn),
+    setGround: fn => { groundAt = fn; motion.setGround(fn); },
     // main.js moved him to a new spot (a turn's lie, a parked bystander) or cut to his turn: whatever he stands in there shows at
     // once. The aim stance used to cross-fade in over ~.3 s after the cut, both feet skating 30-40 cm across the tee into it at
     // every turn's start. aim: the throw he lines up there; the stance shows on the very next frame instead of once faceDir and
@@ -680,17 +730,12 @@ export function createGLTFCharacter(avatar) {
       }
       overlay();
       if (phase !== null || aiming || snapN > 0) replant = STEP;   // a new throw, the aim stance or a jump to a new spot take over
-      if (replant < STEP) {
-        replant += dt; const u = replant / STEP;
-        LEGS.forEach((n, i) => { const b = joints[n], w = n.endsWith(lead) ? smooth(0, .55, u) : smooth(.45, 1, u), lift = Math.sin(Math.PI * w);
-          _q.copy(b.quaternion); b.quaternion.copy(planted[i]).slerp(_q, w).multiply(_ql.setFromAxisAngle(XA, n.startsWith('kn') ? -.7 * lift : .35 * lift)); });
-        group.updateMatrixWorld(true);
-      }
+      if (replant < STEP) LEGS.forEach((n, i) => clip[i].copy(joints[n].quaternion));   // the idle's own legs: where the step ends
       // the pelvis's travel through the throw (rootX/rootZ of the keys), faded in as the clip takes over from the aim stance
       let tx = 0, tz = 0;
       if (phase !== null && !kept) { const t = poseAt(keysFor(throwType.replace(/_left$/, '')), phase), w = 1 - coilW(); tx = (lefty ? -t.rootX : t.rootX) * w; tz = t.rootZ * w; }
       joints.root.position.x = rootRestX + tx; joints.root.position.z = rootRestZ + tz;
-      motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase);
+      motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase, replant < STEP ? step : null);
       placeSocket(); remember();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
