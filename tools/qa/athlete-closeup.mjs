@@ -6,6 +6,7 @@
 //   node tools/qa/athlete-closeup.mjs --out dir [--port 8480] [--size 390x844] [--dpr 3] [--quality low|high] [--mobile]
 //                                     [--who 0,1,2] [--views 0,90,180,270] [--runup] [--seed 4] [--avatar '{"figure":"female"}']
 // --avatar: the hero's locker overrides (players[0]), so either body can be shot in the other's palette.
+// --iso: the athlete alone on black with everything but his skin painted green, so skin tone and form can be measured.
 // Writes <who>-<view>-<full|torso>-<sun|shade>.png per shot, runup-NN.jpg, and closeup.json (who wears which body, errors).
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -19,7 +20,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/closeup' }, port: { type: 'string', default: '8480' }, size: { type: 'string', default: '390x844' }, dpr: { type: 'string', default: '1' },
   quality: { type: 'string', default: 'low' }, mobile: { type: 'boolean', default: false }, who: { type: 'string', default: '0,1,2' }, views: { type: 'string', default: '0,90,180,270' },
-  runup: { type: 'boolean', default: false }, seed: { type: 'string', default: '4' }, avatar: { type: 'string' },
+  runup: { type: 'boolean', default: false }, seed: { type: 'string', default: '4' }, avatar: { type: 'string' }, iso: { type: 'boolean', default: false },
 } });
 const [w, h] = o.size.split('x').map(Number), port = +o.port, out = resolve(ROOT, o.out);
 mkdirSync(out, { recursive: true });
@@ -61,8 +62,13 @@ try {
       g.getWorldPosition(v); const t = v.clone(); t.y += y; cam.position.copy(t).addScaledVector(dir, d); cam.position.y += frame === 'full' ? .25 : .15;
       cam.fov = 30; cam.updateProjectionMatrix(); cam.lookAt(t); cam.updateMatrixWorld(true);
       for (const [l, k] of sun) l.intensity = shade ? 0 : k;
+      const hid = [], pal = []; if (${o.iso}) { c.scene.traverse(o => { let q = o, mine = false; for (; q; q = q.parent) if (q === g) mine = true; if (o.isMesh && o.visible && !mine) { o.visible = false; hid.push(o); }
+        if (mine && o.isMesh) for (const m of [].concat(o.material)) { const u = c.renderer.properties.get(m).uniforms, a = m.userData.jerseyAccent?.value;
+          if (u?.uPal) { pal.push([u.uPal.value, u.uPal.value.map(x => x.clone()), a, a?.clone()]); u.uPal.value.forEach((x, k) => k && x.setRGB(0, .5, 0)); a?.setRGB(0, .5, 0); }
+          else if (m.color && !u?.uPal) { pal.push([null, m.color.clone(), m]); m.color.setRGB(0, .5, 0); } } }); }
       let url; for (let k = 0; k < 12; k++) { c.renderFrame(); if (k === 11) url = c.renderer.domElement.toDataURL('image/png'); }   // the held-frame resolve converges, as on a still lens
       for (const [l, k] of sun) l.intensity = k;
+      hid.forEach(o => { o.visible = true; }); for (const [now, was, a, acc] of pal) { if (now) { now.forEach((x, k) => x.copy(was[k])); a?.copy(acc); } else a.color.copy(was); }
       return url; } }; })()`);
   const who = o.who.split(',').map(Number), views = o.views.split(',');
   for (const i of who) {
