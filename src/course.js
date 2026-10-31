@@ -682,6 +682,15 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         // sunlight scattered leaf to leaf through the crown: a soft yellow-green fill that follows the sun, not the shadow map,
         // so the shaded side of a back-lit crown reads green instead of black (a fifth of it at the heart of the crown)
         reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * mix(.2, 1., sunThin) * leafMask * vec3(1., 1., .6);
+        ${full ? '' : `#ifdef CROWN
+        // Mobile's shaded side (gauntlet r4: "flat, dark paper cut-outs", 9% of the foliage under value .15 looking into a
+        // stand): with no bloom or aerial pass to lift it, a card turned from the sun fell straight to the fills, so each crown
+        // split into lit cards and black ones. A thin blade wraps the light past its terminator (Lambert wrapped by .8) and
+        // passes it through its back face, most looking into the sun and least through a thick crown (sunThin), warm as the
+        // transmitted light is; both carry the shadow (lit) and the crown's core dimming below, so the heart stays dark.
+        { float ndl = dot(normal, L), wrap = saturate((ndl + .8) / 1.8) - saturate(ndl);
+          reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * (1.5 * wrap * vec3(1., 1., .8) + saturate(-ndl) * (.3 + into) * mix(.3, 1., sunThin) * vec3(.95, .95, .5)); }
+        #endif`}
         #ifdef CROWN
         // Clump light (a crown past 30 m read as one flat dark-green mass under the haze): the crown's sun-side shell, lit by
         // the crown-sphere normal with wrap, breaks into warm yellow-green clumps, clump by clump bright or dim, and its heart
@@ -710,7 +719,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         // w6 verdicts ("no dark interior hollows", "no cooler, darker leaves inside the crown"): measured, the leaves we see sit
         // at .5-1.1 of the envelope, where depth squared barely dimmed them. Now the half-depth leaves go to a quarter, greyed
         // and cooled (the shade inside a crown is lit by the sky, not the sun), grading to full colour only at the outer shell.
-        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .45) * vec3(.24, .28, .33), diffuseColor.rgb, smoothstep(.5, 1., crownDepth));
+        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .45) * ${full ? 'vec3(.24, .28, .33)' : 'vec3(.43, .46, .5)'}, diffuseColor.rgb, smoothstep(.5, 1., crownDepth));   // Mobile's core a step lighter (r4): without Desktop's aerial veil a quarter read near-black
         #else
         diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .4, diffuseColor.rgb, crownDepth * crownDepth);
         #endif
