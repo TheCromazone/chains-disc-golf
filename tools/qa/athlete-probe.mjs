@@ -2,7 +2,7 @@
 // seen in, records the world positions of the pelvis, head, both wrists and hands, both soles and the disc, and flags the glitches
 // a phone shows: pops (a joint's frame-to-frame move spiking far over its neighbours'), foot sliding (a loaded sole drifting along
 // the ground), the disc leaving the throwing hand before launch, a hand inside the torso or a thigh, and idle jitter.
-//   node tools/qa/athlete-probe.mjs [--port 8302] [--quality low|high] [--out dir] [--size 844x390] [--seed 4]
+//   node tools/qa/athlete-probe.mjs [--port 8302] [--quality low|high] [--out dir] [--size 844x390] [--seed 4] [--query liveclips]
 //                                   [--scenes menu,tee,swipe-backhand,swipe-forehand,backhand,forehand,putt,tapin,runup,react,turn,lie]
 // swipe-*: the player's own drive from the aim stance; backhand/forehand: his tee drive thrown as a bot (from the run-up), as
 // tools/capture-motion.mjs --throw does; putt: a 6.5 m putt and the step out of its finish; tapin: a made 1.5 m putt into the
@@ -25,7 +25,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/athlete-probe' }, port: { type: 'string', default: '8302' }, size: { type: 'string', default: '844x390' },
   quality: { type: 'string', default: 'low' }, seed: { type: 'string', default: '4' }, scenes: { type: 'string', default: 'menu,tee,swipe-backhand,swipe-forehand,backhand,forehand,putt,tapin,runup,react,turn,lie' },
-  chrome: { type: 'string', default: CHROME },
+  chrome: { type: 'string', default: CHROME }, query: { type: 'string', default: '' },   // query: e.g. liveclips (throws from src/throw-keys.js, no bake)
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const [w, h] = o.size.split('x').map(Number), port = +o.port, cdp = port + 1000, out = resolve(ROOT, o.out), want = new Set(o.scenes.split(',')), mobile = o.quality === 'low';
@@ -104,7 +104,7 @@ try {
   if (mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('chains.coach', '["aim","throw","both"]'); } catch {}` });
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `(${clock})(${+o.seed})` });
-  await send('Page.navigate', { url: `http://localhost:${port}/` });
+  await send('Page.navigate', { url: `http://localhost:${port}/${o.query ? '?' + o.query : ''}` });
   await until(`!!(window.__chains && __chains.course && __chains.hero)`, 120000);
   if (await js('__chains.G.settings.quality') !== o.quality) { await js(`document.querySelector('#qualSeg [data-v="${o.quality}"]').click()`); await until(`__chains.course.quality === '${o.quality}' && __chains.G.settings.quality === '${o.quality}'`); }
   await settle(js); await js(SAMPLER);
