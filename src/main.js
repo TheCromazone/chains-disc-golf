@@ -1169,7 +1169,10 @@ function flightCam(f, dt) {
   // foliage, so the lens sat inside the leaf cards with the disc lost behind them for a second (r4 watcher frames). The chase
   // spot stays where it stood as the disc went in and the camera coasts to a stop outside, still looking at the disc; it sets off
   // again only once the disc is out and the way to its spot is clear (the spot behind a disc leaving a crown is in that crown).
+  // A disc that ends its flight within 12 m of where it went into the leaves (dropped by the branches) sends the camera on to the
+  // landing shot at once: held at the crown's edge, a phone stared at a wall of leaf cards for a second and a half (r4 probe).
   const leaves = world.treesNear(D[0], D[2]).some(t => Math.hypot(D[0] - t.x, D[2] - t.z, D[1] - t.y - t.fy) < t.fr);
+  if (leaves && c.leafAt == null) { const R = f.traj[f.traj.length - 1]; if (Math.hypot(R[0] - D[0], R[2] - D[2]) < 12) c.leafAt = f.t; }
   if (leaves || (c.leaf && clearFraction(world, c.p.x, c.p.y, c.p.z, _v.x, _v.y, _v.z, .3, 0) < 1)) _v.copy(c.leaf ||= _v.clone());
   else if (c.leaf) { c.leaf = null; c.T.copy(_v); }   // the spring takes up the live spot again, without a one-frame velocity spike
   if (dt > 0) {
@@ -1186,7 +1189,9 @@ function flightCam(f, dt) {
   // line) the lens looks nearer: 3 m ahead from 1.2 m back put the disc under the frame's bottom edge for a second (r4 probe)
   const ld = Math.min(1, c.p.distanceTo(_v3.set(D[0], D[1], D[2])) / CHASE.back);
   cam.tLook.lerpVectors(c.HL, _v2.set(D[0] + hv.x * CHASE.lead * ld, D[1] + lift * ld, D[2] + hv.z * CHASE.lead * ld), wl);
-  if (wg > 0) { cam.tPos.lerp(c.LP, wg); cam.tLook.lerp(c.LL, wg); pushOut(world, cam.tPos); }
+  const wf = c.leafAt != null && f.t > c.leafAt + .35 ? 1 : wg;   // a cut, a beat after it went in: blended there, the lens threaded the trunks between
+  if (wf === 1 && wg < 1 && !c.landCut) { c.landCut = true; cam.snap = true; }
+  if (wf > 0) { cam.tPos.lerp(c.LP, wf); cam.tLook.lerp(c.LL, wf); pushOut(world, cam.tPos); }
   cam.tShift = (c.S0 || 0) * (1 - w);   // a long putt leaving its locked frame lets the lens shift go with the move, not in one frame
   return c.F0 + (chaseFov() - c.F0) * w;   // the aim lens eases out with the move: no zoom-out snap at release
 }
