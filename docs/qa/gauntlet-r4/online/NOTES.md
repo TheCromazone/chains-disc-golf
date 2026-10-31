@@ -61,11 +61,14 @@ CDP's Fetch domain did reproduce the general kind of failure, in two worse forms
 
 **Fix:**
 - `index.html` catches a module that failed to download (the module script's `error` event) or threw while loading, and
-  reloads once by itself. A second failure within a minute shows the reason and a Reload button. main.js's own startup
-  failure takes the same path, so a one-off iOS first-load failure now gets that reload without a tap.
+  reloads once by itself. The next failure shows the reason and a Reload button. main.js's own startup failure takes the
+  same path, so a one-off iOS first-load failure now gets that reload without a tap. The automatic reload is once per
+  failure streak: the mark (`chains.bootRetry`, sessionStorage) clears once the game has booted, and a throw after the
+  loading screen has gone never reloads a running game (see 5b).
 - `src/assets.js`: `ImageLoader` and `FileLoader` loads retry after 0.8 s and 2.4 s. That covers textures, GLBs and the
-  Draco and Basis decoders. A 4xx is not retried. The loading manager keeps the item open, so the loading screen still
-  waits for the retry.
+  Draco and Basis decoders. A file load that answered 4xx is not retried. An image's error carries no status (a 404 and
+  a dropped request look the same), so one `HEAD` asks the server first: a 4xx gives up at once, anything else retries.
+  The loading manager keeps the item open, so the loading screen still waits for the retry.
 
 **Measured** (`3-boot-dropped-request-before-after.jpg`; the "before" tree is 296b14b):
 
@@ -77,6 +80,29 @@ CDP's Fetch domain did reproduce the general kind of failure, in two worse forms
 | body albedo and grass fail once | boots, athlete's skin black | boots, athlete correct |
 | 5% of all requests fail (dev server, ~100 files) | stuck | auto reload, then the reason and Reload |
 | 8% of asset requests fail, 6 boots | 6 boots OK, with 3-9 assets missing per boot | not rerun (the fail-once rows show the retry) |
+
+### 5b. Boot follow-ups from the independent check
+The verifier found three gaps in 5, all fixed:
+- **A slow failure reloaded for good.** The handler allowed one automatic reload per 60 s window. A request that stalls
+  and fails after 62 s (iOS gives up on a stalled request after 60 s) therefore reloaded every time and never showed the
+  reason. It is now one reload per failure streak, and main.js clears the mark right after the loading screen hides.
+- **A throw after boot could reload a running game.** main.js's catch routes every throw in its `try` to the handler,
+  including the few after `UI.hide('loading')` (loop, upgradeBodies, openLive, matches.boot). The handler now returns
+  when the loading screen is already hidden. Before this branch, such a throw only wrote into the hidden div.
+- **Missing images were retried.** The "a 4xx is not retried" rule only worked for `FileLoader`, so every missing
+  image waited 3.2 s through two more requests. Images now ask with one `HEAD` first.
+
+**Measured** (`5-boot-retry-streak-before-after.jpg`; emulated iPhone 390x844, dev server, failures injected with CDP's
+Fetch domain; "before" is b1385b4, the branch tip before these fixes):
+
+| scenario | before | after |
+|---|---|---|
+| `src/course.js` stalls 62 s, then fails, on every load | 4 loads in 200 s, still "Growing the course…", no message | 2 loads, then the reason and Reload at 125 s |
+| a throw after the loading screen hid (injected into `history.replaceState`, `?home=1`) | the running game reloaded (2 loads, 2 errors) | 1 load, the game keeps running, the error is in the console |
+| a second failure in the same tab after a good boot | straight to the error screen | its own automatic reload, boots in 3.6 s |
+| every `/assets/` file but the manifest answers 404 | boots in 9.1 s, 3 requests per missing image | boots in 2.4 s, one GET and one HEAD per missing image |
+| body albedo and grass dropped once | retried, athlete correct | still retried (GET fails, HEAD 200, GET): the athlete's skin is correct |
+| `src/course.js` fails once / always; manifest 404 | as after | one reload then boots / the reason and Reload / the empty-assets fallback boots |
 
 ### 6. A guest whose tab reloads mid-round now rejoins by itself
 - **Problem:** after a reload, the guest landed on the clubhouse, or on a Join button if they had come in by link. Over
@@ -117,6 +143,8 @@ CDP's Fetch domain did reproduce the general kind of failure, in two worse forms
   - Polling audit, two phones, 70 s: the open match asks only `?action=seq` (the CDN-cached one), every 5 s. The full
     match is fetched only on open, on join and once when `seq` moved. No uncached polling.
 - **Verify suite:** `verify-matches` PASS, `verify-relay` 12/12, `verify-rounds` 4 courses PASS, `npm test` 13/13.
+  All rerun after the 5b follow-ups with the same results (verify-matches 8/8), plus a one-hole live-room run: 12/12,
+  5 throws, 0 disagreements, the reloaded guest back in the round 4.2 s after the reload.
 - **Mobile cost:** the render path is untouched. Draw calls and triangles at 844x390 @3x, Mobile tier, are identical to
   the lead's baseline at every moment:
 
