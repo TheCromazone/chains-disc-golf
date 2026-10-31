@@ -5,10 +5,13 @@
 # sRGB-encoded, so the dome multiplies by HEADROOM and the frame's own tone mapping (ACES at .74 on Desktop, Mobile's
 # CustomToneMapping grade) treats the clouds exactly like the rest of the scene; the grade below is set against what those
 # produce. Alpha is the cloud mask (from the <id>-clear.hdr pass) the dome hides its sun disc behind.
-#   python tools/sky-webp.py [pine meadow lake bluff]   -> assets/skies/<id>.webp (4096x1024), <id>-mobile.webp (2048x512),
-#                                                          previews in art/qa/sky-pano/ (game tone map, for eyeballing)
-#   python tools/sky-webp.py --from-webp [ids]          -> the same, re-graded from the shipped 4096 WebPs (the HDRs live on the
-#                                                          Windows box): only the cumulus step and the shoulder run, once (EXIF tag)
+#   python tools/sky-webp.py [pine meadow lake bluff]   -> assets/skies/<id>.webp (4096x1024, as graded), <id>-mobile.webp
+#                                                          (2048x512, with the cumulus step), previews in art/qa/sky-pano/
+#                                                          (game tone map, for eyeballing)
+#   python tools/sky-webp.py --from-webp [ids]          -> <id>-mobile.webp only, from the shipped 4096 WebP (the HDRs live on the
+#                                                          Windows box): the render as graded before the cumulus step, kept as
+#                                                          the source (nothing loads it: Desktop draws the gradient dome), so a
+#                                                          re-run starts from the same pixels; a 4096 that carries the step is refused
 import io, math, os, sys
 import numpy as np
 from PIL import Image
@@ -35,8 +38,10 @@ YAW = {"pine": 8.}
 # it and the rim read as a dark pink outline), and its shade takes COOL of the sky's own blue, SAT more saturated (sky light
 # fills a cloud's shade, so it reads blue-grey, not brown, through the warm grade); the rims keep their gold. Applied as the
 # change the cloud's core takes, times the cloud mask, so a soft edge composites between the new body and the sky.
-CUMULUS = dict(A=1.6, G=.6, COOL=.3, SAT=1.1, BASE=10.)
-TAG = "chains sky: cumulus 1"   # EXIF ImageDescription on graded files: --from-webp refuses to grade a file twice
+# Heaps also get darker bases under brighter domes (BASES) and, near the horizon, only part of the change (HORIZON: from FLOOR at
+# e0 deg to all of it at e1), both below.
+CUMULUS = dict(A=1.6, G=.6, COOL=.3, SAT=1.1, BASE=10., BASES=(36, 18., .45, .15), HORIZON=(5., 18., .3))
+TAG = "chains sky: cumulus 2"   # EXIF ImageDescription on files the cumulus step graded: --from-webp refuses one as its source
 LUM = np.array([.2126, .7152, .0722], np.float32)
 
 
@@ -105,10 +110,10 @@ def srgb(c):
     return np.where(c <= .0031308, c * 12.92, 1.055 * np.power(np.maximum(c, 0), 1 / 2.4) - .055)
 
 
-def webp(rgb8, budget):
-    """Highest quality (<= 92) that fits the byte budget, tagged as graded (TAG)."""
+def webp(rgb8, budget, tag=True):
+    """Highest quality (<= 92) that fits the byte budget, tagged as carrying the cumulus step (TAG) when it does."""
     im, best, exif = Image.fromarray(rgb8, "RGBA"), None, Image.Exif()
-    exif[0x010e] = TAG
+    if tag: exif[0x010e] = TAG
     for q in range(92, 30, -4):
         b = io.BytesIO(); im.save(b, "WEBP", quality=q, method=6, alpha_quality=60, exif=exif.tobytes())
         best = (b.getvalue(), q)
@@ -175,13 +180,23 @@ def cumulus(lin, alpha):
     # never reaches a solid core keeps its own colour instead of a heap's from a distance.
     core = pushpull(lin, np.clip((t - .2) / .7, 0, 1).astype(np.float32))
     y = np.maximum(core @ LUM, 1e-5); r = y / np.maximum(med, 1e-4)[:, None]
-    lift = CUMULUS["A"] * np.exp((CUMULUS["G"] - 1) * blur(np.log(r), CUMULUS["BASE"]))   # Y'/Y over the neighbourhood
-    lit = np.clip((r - .9) / 1.7, 0, 1); lit = (lit * lit * (3 - 2 * lit))[..., None]   # 0 in the shade, 1 on the bright faces and rims
+    C, el = CUMULUS, np.degrees(np.arcsin(1 - (v + .5) / lin.shape[0]))
+    near = blur(np.log(r), C["BASE"]); lift = C["A"] * np.exp((C["G"] - 1) * near)   # Y'/Y over the neighbourhood
+    lit = np.clip((np.exp(near) - .9) / 1.7, 0, 1); lit = (lit * lit * (3 - 2 * lit))[..., None]   # 0 in the shade, 1 on the bright faces and rims (over the neighbourhood: texel by texel the hue flipped in blotches across a big heap's shade)
     hue = core / y[..., None]
-    hue = hue + (clear / np.maximum(clear @ LUM, 1e-4)[..., None] - hue) * CUMULUS["COOL"] * (1 - lit)
-    hy = (hue @ LUM)[..., None]; hue = hy + (hue - hy) * (1 + (CUMULUS["SAT"] - 1) * (1 - lit)); hue /= np.maximum(hue @ LUM, 1e-5)[..., None]
+    hue = hue + (clear / np.maximum(clear @ LUM, 1e-4)[..., None] - hue) * C["COOL"] * (1 - lit)
+    hy = (hue @ LUM)[..., None]; hue = hy + (hue - hy) * (1 + (C["SAT"] - 1) * (1 - lit)); hue /= np.maximum(hue @ LUM, 1e-5)[..., None]
+    # Lifted evenly, a big heap's flat body read as a pale cut-out (r4 verifier): its base gives back up to `dark` of the lift and
+    # its dome gains up to `light`, by how much more cloud lies K px above a texel than below it (the mask blurred by S px).
+    K, S, dark, light = C["BASES"]; tb = blur(t, S); pad = np.concatenate([np.repeat(tb[:1], K, 0), tb, np.repeat(tb[-1:], K, 0)], 0)
+    g = pad[:-2 * K] - pad[2 * K:]   # cloud above minus cloud below: > 0 toward a heap's base, < 0 toward its dome
+    lift = lift * np.where(g > 0, 1 - dark * np.clip(g, 0, 1), 1 + light * np.clip(-g, 0, 1))
     new = np.maximum(hue * (y * lift)[..., None], 0)
-    w = t * t * (3 - 2 * t)   # the change by how much cloud: a heap's body takes all of it, its soft edge composites into the sky
+    # The change by how much cloud: a heap's body takes all of it, its soft edge composites into the sky. Toward the horizon only
+    # FLOOR of it: lifted whole, the low heaps (seen through the haze, already near the bright horizon sky) went to a milky wash
+    # with grey holes where the mask missed them; there they keep the render's gold tops over darker bases.
+    e0, e1, floor = C["HORIZON"]; k = np.clip((el - e0) / (e1 - e0), 0, 1)
+    w = t * t * (3 - 2 * t) * (floor + (1 - floor) * k * k * (3 - 2 * k))[:, None]
     return np.maximum(lin + (new - core) * w[..., None], 0)
 
 
@@ -224,10 +239,10 @@ def grade(cid):
 
 
 def from_webp(cid):
-    """The shipped 4096 WebP back to the graded linear sky (shoulder undone) and its alpha."""
+    """The shipped 4096 WebP (the render as graded) back to the graded linear sky (shoulder undone) and its alpha."""
     im = Image.open(os.path.join(ROOT, "assets", "skies", cid + ".webp"))
-    if im.getexif().get(0x010e) == TAG:
-        sys.exit(f"{cid}.webp already carries the cumulus step ({TAG}): re-render, or check out the file from before it")
+    if str(im.getexif().get(0x010e, "")).startswith(TAG[:-2]):
+        sys.exit(f"{cid}.webp already carries the cumulus step: re-render, or check out the file from before it (git show 593eb2a:assets/skies/{cid}.webp)")
     a = np.asarray(im.convert("RGBA")).astype(np.float32) / 255
     s = a[..., :3]
     lin = np.where(s <= .04045, s / 12.92, ((s + .055) / 1.055) ** 2.4).astype(np.float32) * HEADROOM
@@ -238,15 +253,19 @@ def main(ids, from_shipped=False):
     prev = os.path.join(ROOT, "art", "qa", "sky-pano"); os.makedirs(prev, exist_ok=True)
     for cid in ids:
         lin, alpha = from_webp(cid) if from_shipped else grade(cid)
-        lin = shoulder(cumulus(lin, alpha))
-        enc = np.clip(np.dstack([srgb(np.clip(lin / HEADROOM, 0, 1)), alpha]) * 255 + .5, 0, 255).astype(np.uint8)
+        # The 4096 file is the render as graded, before the cumulus step: nothing loads it (Desktop draws the gradient dome), it is
+        # the source --from-webp regrades, so a re-run starts from the same pixels and the phones' file is compressed once more, not
+        # twice. Only the phones' 2048 file carries the step.
         for suf, (W, budget) in SIZES.items():
+            if W == 4096 and from_shipped: continue   # the source stays as it is
+            out = shoulder(lin if W == 4096 else cumulus(lin, alpha))
+            enc = np.clip(np.dstack([srgb(np.clip(out / HEADROOM, 0, 1)), alpha]) * 255 + .5, 0, 255).astype(np.uint8)
             img = enc if W == 4096 else np.asarray(Image.fromarray(enc, "RGBA").resize((W, W // 4), Image.LANCZOS))
-            data, q = webp(img, budget)
+            data, q = webp(img, budget, W != 4096)
             with open(os.path.join(ROOT, "assets", "skies", f"{cid}{suf}.webp"), "wb") as f:
                 f.write(data)
             print(f"  assets/skies/{cid}{suf}.webp {W}x{W // 4} q{q} {len(data) / 1000:.0f} KB")
-        Image.fromarray((srgb(aces(lin)) * 255 + .5).astype(np.uint8)).save(os.path.join(prev, f"{cid}-aces.jpg"), quality=90)
+        Image.fromarray((srgb(aces(out)) * 255 + .5).astype(np.uint8)).save(os.path.join(prev, f"{cid}-aces.jpg"), quality=90)
 
 
 if __name__ == "__main__":
