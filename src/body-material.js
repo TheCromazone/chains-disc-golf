@@ -9,8 +9,10 @@ import { rimLight, jerseyStyle } from './materials.js';
 export const REGIONS = ['skin', 'jersey', 'shorts', 'hair', 'socks', 'shoes', 'iris'];
 const DETAIL = [.95, .9, .35, .7, .75, .55, .85];   // how much of the baked shading each region keeps (near-black shorts are mostly sensor noise)
 // her bake's jersey is a patchwork of small islands whose baked shading disagrees from one to the next (dark and pale patches across
-// the back at the phone tee): it keeps half of it, the procedural rumples below carry the cloth
-const DETAIL_F = [.95, .5, .35, .7, .75, .55, .85];
+// the back at the phone tee): it keeps half of it, the procedural rumples below carry the cloth. Her hair region also caught
+// stray skin and near-black scan texels (8.5 % past 1.8x its mean, 4.7 % under .25x): kept at .7 like his, light hair took dark
+// smudges at the nape and pale streaks; it keeps .45, its mean (MEAN_FIX) raised so the bulk of it sits where it did
+const DETAIL_F = [.95, .5, .35, .45, .75, .55, .85];
 const BEARD = { none: [0, 0, 0], stubble: [.5, .5, .5], mustache: [1, 0, 0], goatee: [1, 1, 0], beard: [1, 1, 1] };   // mustache, chin, jaw
 const opts = { clamp: true, flipY: false };
 // Region means of the cleaned bakes where the rig extras predate the clean-up (tools/pack-body-textures.py --clean): the
@@ -24,7 +26,7 @@ const opts = { clamp: true, flipY: false };
 // rgb .876/.728/.614), of her bake with its AO folded in (AO_F: x.853 on average) as his has his. Her face and neck are
 // also baked 1.43x her limbs' brightness (his 1.15x, both with AO), so the head keeps .80 of it (HEAD_TONE): together they
 // had lit her face ~30 % paler than his in one palette tone.
-const MEAN_FIX = { body_: { 0: .39, 2: .0109, 3: .05, 5: .11 }, body_f_: { 0: .229, 2: .0053, 3: .0062, 5: .011 } }, SKIN_FIX = { body_: [.612, .339, .257], body_f_: [.332, .209, .157] }, HEAD_TONE = { body_f_: .8 };
+const MEAN_FIX = { body_: { 0: .39, 2: .0109, 3: .05, 5: .11 }, body_f_: { 0: .229, 2: .0053, 3: .0092, 5: .011 } }, SKIN_FIX = { body_: [.612, .339, .257], body_f_: [.332, .209, .157] }, HEAD_TONE = { body_f_: .8 };
 // her skin AO's strength (tools/patch-female-ao.py; her Lite set shares the map at half size): .6 lifts her forearms' form contrast
 // (the bake's spread over 2.5 cm) from .255 to his .33, her legs' from .40 to .44 (his .54) and her face's from .45 to .58
 const AO_F = { body_f_: .6 };
