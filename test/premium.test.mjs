@@ -44,11 +44,11 @@ const world={height:(x,z)=>.1*x+.03*z,inWater:()=>true,waterLevel:()=>.8,rough:(
 const result={rest:[3,.8,5],lie:[0,0,0],thrown:18,dist:12,ob:true,holed:false};
 const wet=guide.set(result,world,false);
 assert.equal(wet.surface,'Water · penalty');assert.equal(wet.danger,true);
-const ring=guide.group.children[0];
-assert(Math.abs(ring.geometry.attributes.position.getY(0)-.85)<1e-6,'water reticle rests on the actual water surface');
-assert(ring.geometry.attributes.position.getX(0)>3,'reticle surrounds the actual landing rather than the drop lie');
+const ring=guide.group.children[0],centre=ring.material.uniforms.centre.value;   // shot-guide.js draws the ring round this centre in screen space
+assert(Math.abs(centre.y-.8)<1e-6,'water reticle rests on the actual water surface');
+assert(centre.x===3&&centre.z===5,'reticle surrounds the actual landing rather than the drop lie');
 const dry=guide.set({...result,ob:false},{...world,inWater:()=>false,rough:()=>1},true);
 assert.equal(dry.surface,'Rough');assert.equal(dry.danger,false);
-assert.notEqual(ring.material.color.getHex(),0xff9275,'safe estimate clears the hazard color');
+assert.notEqual(ring.material.uniforms.color.value.getHex(),0xff9275,'safe estimate clears the hazard color');
 guide.dispose();assert.equal(parent.children.length,0,'guide resources detach when disposed');
 console.log('Premium motion OK: exact release, smooth recovery, terrain contact, bounded gaze, physics-backed power suggestions, and terrain/water landing guidance.');

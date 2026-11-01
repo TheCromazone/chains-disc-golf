@@ -7,6 +7,7 @@ const pressed = (button, on) => { button.classList.toggle('on', on); button.setA
 export const escapeText = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const $ = id => document.getElementById(id);
+const signed = v => { const s = Math.abs(v).toFixed(1); return (v < 0 && s !== '0.0' ? '−' : '+') + s; };   // the sign follows the printed digits: a -.05 cut-off printed -0.05 as "+0.1", none printed -0.01 as "−0.0"
 // A double tap on a button that swaps screens lands its second tap on whatever the new screen has there (Leave round →
 // Graphics: Desktop on a phone on its side). Clicks inside a screen in its first 350 ms are dropped.
 let shownAt = 0;
@@ -28,17 +29,28 @@ export function setConnecting(id, busy) {
 
 let toastTimer = null;
 export function toast(title, sub = '', ms = 1800) {
-  $('toast').style.bottom = $('react').style.bottom = '';   // verdictAbove's lift is for its own verdict only
+  $('toast').style.bottom = $('react').style.bottom = ''; $('hud').classList.remove('verdict-right', 'verdict-left');   // verdictAbove's lift and verdictSide's side are for their own verdict only
   $('toastTitle').textContent = title; $('toastSub').textContent = sub;
   $('toast').classList.add('show'); clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $('toast').classList.remove('show'), ms);
 }
 // The landing verdict sits low (bottom 12-16%), where the landing shot usually holds the disc. y: the disc's height in the frame
-// (0 top, 1 bottom; null: out of view). Below the middle, the verdict's foot stands 28 px over it instead, the clap over that.
+// (0 top, 1 bottom; null: out of view). Below the middle, the verdict's foot stands 28 px over it instead, the clap over that,
+// but never so high the clap meets the score plate (r4 QA on a phone on its side: a disc 45% down lifted "NICE SHOT!" and
+// its clapping hands into the plate).
+// The clap always stands on the verdict's own height (a fixed 92 px under a two-line verdict overlapped it); upright, with the
+// verdict unlifted, under it instead, in the swipe controls' empty place: over it, it sat on the feet of the athlete the reaction
+// shot centres (QA on a 360 x 640 phone).
 export function verdictAbove(y) {
-  if (y == null || y < .5) return;
-  const b = innerHeight * (1 - y) + 28; $('toast').style.bottom = `${b}px`; $('react').style.bottom = `${b + $('toast').offsetHeight + 4}px`;
+  const t = $('toast'), r = $('react'), room = innerHeight - $('top').getBoundingClientRect().bottom - 8 - t.offsetHeight - 8 - r.offsetHeight;
+  let b = parseFloat(getComputedStyle(t).bottom); const lift = y != null && y >= .5; if (lift) b = Math.max(b, Math.min(innerHeight * (1 - y) + 28, room));
+  const under = b - r.offsetHeight - 6; t.style.bottom = `${b}px`; r.style.bottom = `${!lift && innerWidth < innerHeight && under >= 4 ? under : b + t.offsetHeight + 8}px`;
 }
+// A held landing shot with the athlete in it stands the verdict on the other side (ui.css): the right third of a wide frame
+// when he is on the left (a putt's mirrored rig), the left two thirds of an upright one when he is on the right (the rig's own
+// putt frame, where the wide centred verdict sat on his chest). x: his centre across the frame, 0-1, or null.
+export function verdictSide(x) { $('hud').classList.toggle('verdict-right', x != null && x < .5); $('hud').classList.toggle('verdict-left', x != null && x >= .5); }
+export function heroSide(x) { $('hud').classList.toggle('hero-left', x < .45); }   // an aim spot that stands the athlete left of centre (a trunk on his side): pass & play's call takes the right (ui.css)
 export function fade(on) { $('fade').classList.toggle('on', on); }
 // Out of bounds, your own throw: DGM's two pills under the verdict. onRethrow replays from the lie it left, onDrop plays from
 // where it went out (as does a tap anywhere else, main.js skipBeat); both +1. The verdict (and its womp) step up clear of them,
@@ -47,7 +59,8 @@ export function fade(on) { $('fade').classList.toggle('on', on); }
 export function obChoice(onRethrow, onDrop = null) {
   const el = $('obChoice'), was = !el.classList.contains('hidden');
   el.classList.toggle('hidden', !onRethrow); $('btnRethrow').onclick = onRethrow; $('btnObDrop').onclick = onDrop;
-  if (onRethrow) { const lift = $('toast').getBoundingClientRect().bottom - el.getBoundingClientRect().top + 16; if (lift > 0) for (const id of ['toast', 'react']) $(id).style.bottom = `${parseFloat(getComputedStyle($(id)).bottom) + lift}px`; }
+  if (onRethrow) { const lift = $('toast').getBoundingClientRect().bottom - el.getBoundingClientRect().top + 16; if (lift > 0) for (const id of ['toast', 'react']) $(id).style.bottom = `${parseFloat(getComputedStyle($(id)).bottom) + lift}px`;
+    $('react').style.bottom = `${parseFloat(getComputedStyle($('toast')).bottom) + $('toast').offsetHeight + 8}px`; }   // the womp over the verdict: the pills hold the place under it
   else if (was) { clearTimeout(toastTimer); $('toast').classList.remove('show'); }
 }
 
@@ -79,13 +92,13 @@ export function react(kind) {
 let releaseTimer = null;
 export function releaseTag(power, wobble, pull) {
   const el = $('releaseTag'), grade = wobble < .15 ? 'perfect' : wobble < .4 ? 'good' : 'wobbly';
-  el.textContent = `${Math.round(power * 100)}% · ${pull < 0 ? '−' : '+'}${Math.abs(pull).toFixed(1)}° · ${grade} release`;
+  el.textContent = `${Math.round(power * 100)}% · ${signed(pull)}° · ${grade} release`;
   el.className = 'show ' + grade; clearTimeout(releaseTimer); releaseTimer = setTimeout(() => { el.className = grade; }, 1700);
 }
-export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong direction — ${THROWS[throwType].name}: ${THROWS[throwType].hint}`; }
+export function badSwipe(throwType) { const p = $('pad'); p.classList.remove('bad'); void p.offsetWidth; p.classList.add('bad'); $('hintSub').textContent = `Wrong way — ${THROWS[throwType].hint}`; }   // the swipe's own words (main.js onGesture); the throw chip names the throw, and "Wrong direction — Backhand IO: …" ran past an upright pad
 export function setHud({ hole, par, len, dist, holed, playerName, throwNo, toPar, windText, windDeg, circle, elev }) {
   if (toPar !== undefined) $('toPar').textContent = toPar === 0 ? 'E' : toPar > 0 ? `+${toPar}` : `−${-toPar}`;
-  if (elev !== undefined) $('elevText').textContent = `${elev < -0.05 ? '−' : '+'}${Math.abs(elev).toFixed(1)} m`;
+  if (elev !== undefined) $('elevText').textContent = `${signed(elev)} m`;
   if (hole !== undefined) $('holeLabel').textContent = `HOLE ${hole}`;
   if (par !== undefined) $('holePar').textContent = `Par ${par} · ${Math.round(len)} m`;
   if (dist !== undefined) { const label = holed ? 'In the basket' : `${dist.toFixed(dist < 20 ? 1 : 0)} m${circle ? ' · C1' : ''}`; if ($('dist').textContent !== label) { $('dist').textContent = label; $('dist').setAttribute('aria-label', holed ? label : `${label} to basket`); } const pin = `${Math.round(dist)} m`; if ($('pinDist').textContent !== pin) $('pinDist').textContent = pin; }
@@ -108,8 +121,19 @@ export function setShotPlan(plan, suggested = null) {
   $('shotPlan').title = 'Estimated flight with current wind and terrain. Tree collisions can change the landing.';
 }
 
-let pinAt = '';
+let pinAt = '', band = null;
+// The top corners' plates (score and wind, sound and tools), read once per viewport: an uphill pin's tag rose under the score
+// plate (r4 QA, a phone on its side, a chase past the treeline), so it bows out over the ~20 px it would share with them.
+const topBand = () => { const k = innerWidth + 'x' + innerHeight; if (band?.k !== k) { const a = $('top').getBoundingClientRect(), b = $('utilities').getBoundingClientRect(), c = $('conditions').getBoundingClientRect(), up = c.width && c.top < innerHeight / 2, left = c.right < innerWidth / 2;
+  band = a.width ? { k, l: a.right + 6, yl: Math.max(a.bottom, up && left ? c.bottom : 0) + 4, r: Math.min(b.left, up && !left ? c.left : 1e4) - 6, yr: Math.max(b.bottom, up && !left ? c.bottom : 0) + 4 } : null; } return band; };
+// The waiting line ("Ricky · Forehand, Midrange") is a plate too while a bot winds up: on a phone on its side it stands beside
+// the score plate, where a far pin's tag rose into its end (r4 playtest). Read once per text and viewport.
+let waitBox = null;
+const waitBand = () => { const el = $('waiting'), k = el.classList.contains('hidden') ? '' : innerWidth + 'x' + innerHeight + el.textContent; if (waitBox?.k !== k) { const r = k && el.getBoundingClientRect(); waitBox = { k, r: r?.width ? r : null }; } return waitBox.r; };
 export function placePin(x, y, alpha) {
+  const t = alpha > .01 && topBand(), w = alpha > .01 && !/^(intro|release|flight)$/.test(document.body.dataset.phase) && waitBand();   // the HUD is out in the flyover, the line fades once the disc is away
+  const under = Math.max((x - 45 < t?.l ? t.yl : 0) || (x + 45 > t?.r ? t.yr : 0), w && x + 45 > w.left && x - 45 < w.right ? w.bottom + 4 : 0);   // the tag stands ~52 px over its foot, ~90 wide
+  if (under) alpha *= Math.max(0, Math.min(1, (y - 52 - under) / 20));
   const key = alpha > .01 ? `${x.toFixed(1)} ${y.toFixed(1)} ${alpha.toFixed(2)}` : '';
   if (key === pinAt) return; pinAt = key;
   const el = $('pin'); el.style.opacity = key ? alpha.toFixed(2) : '0';
@@ -183,7 +207,7 @@ export function buildDiscChips(onPick) {
 }
 export function selectThrow(id) { for (const b of $('throwRow').children) pressed(b, b.dataset.id === id); setHint(id); $('currentThrow').textContent = THROWS[id].name; $('currentThrowIcon').innerHTML = icon(id); $('btnThrowPicker').setAttribute('aria-label', `Choose throw, current: ${THROWS[id].name}`); }
 export function selectDisc(id) { for (const b of $('discRow').children) pressed(b, b.dataset.id === id); const d = DISCS.find(d => d.id === id); const name = id === 'mid' ? 'Midrange' : id[0].toUpperCase() + id.slice(1); $('currentDisc').textContent = name; $('currentDiscDot').style.background = d?.color || '#fff'; $('btnDiscPicker').setAttribute('aria-label', `Choose disc, current: ${name}`); }
-export function setControlsEnabled(on) { if (!on) closeEquipment(); $('hud').classList.toggle('spectating', !on); $('controls').style.opacity = on ? 1 : 0.35; $('controls').style.pointerEvents = on ? 'auto' : 'none'; for (const b of $('controls').querySelectorAll('button')) b.disabled = !on; $('pad').classList.toggle('idle', !on); }
+export function setControlsEnabled(on) { if (!on) closeEquipment(); $('hud').classList.toggle('spectating', !on); $('controls').style.opacity = on ? 1 : 0; $('controls').style.pointerEvents = on ? 'auto' : 'none'; for (const b of $('controls').querySelectorAll('button')) b.disabled = !on; $('pad').classList.toggle('idle', !on); }
 export function setSoundMuted(muted) { for (const b of document.querySelectorAll('.sound-toggle')) { b.classList.toggle('muted-sound', muted); b.setAttribute('aria-pressed', String(muted)); b.title = muted ? 'Unmute sound' : 'Mute sound'; b.setAttribute('aria-label', b.title); } }
 export function waiting(text) { if (text) { $('waiting').textContent = text; show('waiting'); } else hide('waiting'); }
 export function setSeg(id, v) { for (const b of $(id).children) pressed(b, b.dataset.v === String(v)); }

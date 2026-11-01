@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { buildCourse, makeRng, COURSES, courseById, courseLayout } from './course.js';
 import { DISCS, THROWS, discById, launch, step, DT, isDone, resultOf, simulate, speedFor, releasePos } from './physics.js';
 import { createCharacter, DEFAULT_AVATAR, AVATAR_OPTIONS, randomAvatar } from './player.js';
+import { SHADOW_ONLY } from './gltf-player.js';
 import { loadManifest, asset } from './assets.js';
-import { loadModels, modelStatus, fullBodies } from './models.js';
+import { loadModels, modelStatus, fullBodies, hasFullBody } from './models.js';
 import { createDiscMesh, setDiscPose } from './disc.js';
-import { clearFraction } from './cam-collide.js';
+import { clearFraction, pushOut } from './cam-collide.js';
 import { createPuffs } from './puffs.js';
 import { createCelebration } from './celebration.js';
 import { createWindFx } from './wind.js';
@@ -13,15 +14,13 @@ import { createShotGuide } from './shot-guide.js';
 import { suggestPower, basketLine, puttPower } from './shot-planning.js';
 import { createFlightTrail } from './flight-trail.js';
 import { createTemporal, ATHLETE_STENCIL, HAND_STENCIL } from './temporal.js';
-import { Line2 } from 'three/addons/lines/Line2.js';
-import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { createAimLine, createAimChevrons } from './aim-line.js';
 import { setupInput } from './input.js';
 import { createCoach } from './coach.js';
 import { planBotThrow } from './bot.js';
 import { createNet } from './net.js';
 import { icon } from './icons.js';
-import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, uniqueName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor, safeOrder, safeRoom, tokenTag } from './protocol.js';
+import { MAX_PLAYERS, PROTOCOL_VERSION, safeName, roomName, uniqueName, turnKey, lobbyPublic, validateThrowRequest, sanitizeAvatar, safeColor, safeOrder, safeRoom, tokenTag } from './protocol.js';
 import * as UI from './ui.js';
 import { createMatches } from './match.js';
 import { unlock, sfx, setMuted, isMuted, audioState } from './audio.js';
@@ -36,9 +35,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // crow hop, RUNUP.dur) hands over to the drive at its full coil (.35) and pulls into .5 in RUNUP.pull.
 const RELEASE = { dur: .75, pow: 1.8 }, releasePhase = t => .5 + .5 * (1 - (1 - Math.min(1, Math.max(0, t) / RELEASE.dur)) ** RELEASE.pow);
 const HIT_T = RELEASE.dur * (1 - .76 ** (1 / RELEASE.pow)), HIT_RATE = .5 * RELEASE.pow / RELEASE.dur;   // releasePhase(HIT_T) = .62; phase per second at .5
+const HIT_V = HIT_RATE * (1 - HIT_T / RELEASE.dur) ** (RELEASE.pow - 1);   // phase per second through the hit
 const hermite = (s, v0, v1) => 3 * s * s - 2 * s ** 3 + v0 * (s ** 3 - 2 * s * s + s) + v1 * (s ** 3 - s * s);   // 0 -> 1 with end slopes v0, v1
 const windupPhase = (s, dur) => .5 * hermite(s, 0, HIT_RATE * dur / .5);
-const RUNUP = { dur: .8, pull: .15, min: 40, cam: { back: 3.4, side: 2.0, up: 1.5, ahead: .2, lookY: 1.05, fov: 60, wide: 42 } };   // seconds; metres to the pin below which nobody runs up
+const RUNUP = { dur: .8, pull: .15, v0: .45, min: 40, cam: { back: 3.4, side: 2.0, up: 1.5, ahead: .2, lookY: 1.05, fov: 60, wide: 42 } };   // seconds; drive phase/s as the pull starts; metres to the pin below which nobody runs up
 // RUNUP.cam frames a watched run-up on its own: from straight behind, the reach-back pointed into the lens and the strides ran
 // along the line of sight, so the x-step read as "jogging in place under an unrelated upper body" (a ChatGPT critique,
 // 3.5/10), and even 13 degrees off the line the arm reaching back into the lens foreshortened to "a disc held at the chest".
@@ -81,7 +81,7 @@ const G = {
   settings: { holes: '9', difficulty: 'medium', quality: isMobile ? 'low' : 'high', order: 'away' },
   net: null, lobby: [], gesture: { power: 0, lateral: 0 }, previewDirty: true, lastPreview: 0, inbox: [],
   avatar: { ...DEFAULT_AVATAR }, courseId: 'pine',
-  sessionId: '', shotSeq: 0, lastShotSeq: 0, syncing: false,
+  sessionId: '', shotSeq: 0, lastShotSeq: 0, syncing: false, thrownTurn: '',
 };
 try { const saved=JSON.parse(localStorage.getItem('chains.avatar') || '{}');Object.assign(G.avatar,saved);if(saved.glasses==null&&saved.shades)G.avatar.glasses='sport'; G.courseId = localStorage.getItem('chains.course') || 'pine'; } catch { /* private mode */ }
 const saveLocal = (k, v) => { try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch { /* ignore */ } };
@@ -111,6 +111,7 @@ THREE.ShaderChunk.alphatest_fragment = THREE.ShaderChunk.alphatest_fragment.repl
   'smoothstep( alphaTest - min( fwidth( diffuseColor.a ), alphaTest ), alphaTest + fwidth( diffuseColor.a ), diffuseColor.a )');   // capped below so a fully transparent texel never gains coverage
 const toneFor = q => q === 'low' ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // 17-tap PCF honours shadow.radius: a visible penumbra under the canopies (PCFSoft ignores it)
+{ const sm = renderer.shadowMap, render = sm.render, show = v => { SHADOW_ONLY.visible = v; if (course?.shadowOnly) course.shadowOnly.visible = v; }; sm.render = (...a) => { show(true); try { render.apply(sm, a); } finally { show(false); } }; }   // the athletes' shadow proxies (gltf-player.js) and the conifers' (course.js planted) draw in the shadow passes only
 const scene = new THREE.Scene();
 const taa = createTemporal();   // temporal.js: jittered, accumulated edges on held frames, both tiers
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.2, 1600);
@@ -118,45 +119,21 @@ let post = null, postEnabled = true, resolutionScale = 1, frameAverage = 1/60, f
 const forcedDpr = +new URLSearchParams(location.search).get('dpr') || 0;   // QA: a fixed pixel ratio (e.g. a supersampled ground truth for the aliasing metric)
 const lineMats = [];   // screen-space line materials that need the framebuffer size
 const resize = () => { if (!innerWidth || !innerHeight) return;   // a page opened in a background tab (or a hidden pane) reports 0x0: an aspect of 0/0 poisoned the camera with NaN for good
-  renderer.setPixelRatio(forcedDpr || Math.min(devicePixelRatio, 2, Math.sqrt((isMobile ? 2100000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); /* phones render at 2x (1.5x on a 3x screen read as soft stair-steps; the 2.1 M pixel cap keeps a 960 x 540 view at exactly 2x, 1.8 M gave 1.86x resampled up to the screen); the frame-budget scaler sheds pixels on slow ones */ renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) { m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); if (m.userData.css) m.linewidth = m.userData.css * renderer.getPixelRatio(); } };   // widths in CSS px: a phone's 2x buffer had halved them
+  renderer.setPixelRatio(forcedDpr || Math.min(devicePixelRatio, 2, Math.sqrt((isMobile ? 2100000 : 4500000) / (innerWidth * innerHeight))) * resolutionScale); /* phones render at 2x (1.5x on a 3x screen read as soft stair-steps; the 2.1 M pixel cap keeps a 960 x 540 view at exactly 2x, 1.8 M gave 1.86x resampled up to the screen); the frame-budget scaler sheds pixels on slow ones */ renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 74 : camera.aspect < 1.2 ? 66 : 58; camera.updateProjectionMatrix(); post?.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio())); for (const m of lineMats) { m.resolution.set(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio()); m.uniforms.px.value = renderer.getPixelRatio(); } };   // widths in CSS px: a phone's 2x buffer had halved them
 addEventListener('resize', resize); resize();
 
 let course, world, holes, effects = null;
 const cam = { pos: new THREE.Vector3(0, 10, 30), look: new THREE.Vector3(), tPos: new THREE.Vector3(), tLook: new THREE.Vector3(), mode: 'menu', lastHv: new THREE.Vector3(0, 0, -1), fov: 58 };
-// Flight preview: a screen-space dashed ribbon (readable at any pixel ratio) over a dark outline, and a ground
-// arrow at the lie that turns with the aim. The dashes flow toward the basket so the direction reads at a glance.
-// Widths are CSS px (userData.css, scaled by the pixel ratio in resize()): set in buffer px, the line on a phone's 2x buffer was
-// half the desktop's, a 1.6 pt thread that vanished over busy foliage (a blind critique, 2026-10-17).
-const previewMat = new LineMaterial({ color: 0xffffff, linewidth: 3.2, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .96, depthTest: false, depthWrite: false }); previewMat.userData.css = isMobile ? 3.3 : 3.7;
-const previewEdge = new LineMaterial({ color: 0x06140c, linewidth: 6.4, dashed: true, dashSize: .7, gapSize: .38, transparent: true, opacity: .5, depthTest: false, depthWrite: false }); previewEdge.userData.css = isMobile ? 6.3 : 6.9;
-// Dash ends as one-pixel coverage ramps instead of LineMaterial's per-pixel discard: MSAA never smooths a discard and the
-// flowing dashes defeat the temporal resolve, so every dash ended in a stair step (gauntlet r2 crisp: "stepped ends on the dashed arc")
-// Each dash is a rounded box measured in screen px from the line's coordinates, every side fading over its last pixel inside
-// the quad (widths are .5 css px up to keep the weight). The flowing dashes never settle in the temporal resolve, so their
-// sides were MSAA-only and their square corners sat along a curve like a staircase (gauntlet r3 crisp, all four critics: "the
-// dashed flight line steps along its diagonal edges"). DASH_R: the corner radius over the line's half-width, .6 of the white's
-// for both lines (rounded, never pills, which read as a line broken into dots), so the dark edge's corners ring the white's.
-previewMat.defines.DASH_R = '.6'; previewEdge.defines.DASH_R = (.6 * previewMat.userData.css / previewEdge.userData.css).toFixed(3);
-for (const m of [previewMat, previewEdge]) m.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader
-  .replace('if ( mod( vLineDistance + dashOffset, dashSize + gapSize ) > dashSize ) discard;', '')
-  .replace('float alpha = opacity;', `float alpha = opacity;
-    #ifdef USE_DASH
-    { float dp = mod( vLineDistance + dashOffset, dashSize + gapSize ), fl = max( fwidth( vLineDistance ), 1e-5 ), hw = 1. / max( fwidth( vUv.x ), 1e-5 );   // hw: half the line's width, px
-      float e = ( dp < dashSize ? min( dp, dashSize - dp ) : - min( dp - dashSize, dashSize + gapSize - dp ) ) / fl, r = min( hw * DASH_R, .5 * dashSize / fl );   // e: px inside the dash
-      vec2 q = vec2( r - e, abs( vUv.x ) * hw - hw + r );
-      alpha *= clamp( r - length( max( q, 0. ) ) - min( max( q.x, q.y ), 0. ), 0., 1. );
-      if ( alpha <= 0. ) discard; }
-    #endif`); };
-const preview = new THREE.Group(); preview.visible = false; scene.add(preview); lineMats.push(previewMat, previewEdge); resize();
+// Flight preview: a screen-space ribbon (aim-line.js: a white core in a soft dark halo, tapering with depth, readable at any
+// pixel ratio), the landing ring in the same hand (shot-guide.js), and on a short putt, where the line stands down, two
+// chevrons on the turf that turn with the aim. A drive's core swells slowly toward the basket so the direction reads at a glance.
+const preview = new THREE.Group(); preview.visible = false; scene.add(preview);
+const aimLine = createAimLine(preview), previewMat = aimLine.material;
 const shotGuide = createShotGuide(preview);
+const aimChevrons = createAimChevrons(preview);
+lineMats.push(previewMat, shotGuide.material, aimChevrons.material); resize();
+addEventListener('resize', () => { G.previewDirty = true; });   // turning the phone swaps the putt lens, and with it where the line hands over to the chevrons
 const trail = createFlightTrail(scene);
-const previewLines = [previewEdge, previewMat].map((m, i) => { const l = new Line2(new LineGeometry(), m); l.frustumCulled = false; l.renderOrder = 5 + i; preview.add(l); return l; });
-const aimArrow = (() => {
-  const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(.34, -.42); shape.lineTo(.12, -.36); shape.lineTo(.12, -1.15); shape.lineTo(-.12, -1.15); shape.lineTo(-.12, -.36); shape.lineTo(-.34, -.42); shape.closePath();
-  // depth tested (the athlete's legs stand in front of it from the tee camera; drawn over everything it cut across his shorts), lifted off the turf by polygon offset
-  const m = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .82, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
-  m.renderOrder = 4; m.frustumCulled = false; preview.add(m); return m;
-})();
 // Soft projected contact shadow, only Full draws it.
 const shadowCanvas=document.createElement('canvas');shadowCanvas.width=shadowCanvas.height=64;
 const shadowInk=shadowCanvas.getContext('2d'), shadowGrad=shadowInk.createRadialGradient(32,32,2,32,32,32);
@@ -186,20 +163,24 @@ function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerI
   // bots and unnamed humans get a deterministic random look (same on every online client) in their player colour
   color = safeColor(color, COLORS[i % COLORS.length]); avatar = avatar && sanitizeAvatar(avatar); name = safeName(name);   // a room's config comes off the network
   const appearance = avatar ? { ...avatar, jersey: color } : randomAvatar(makeRng(strHash(name) + i * 97), { jersey: color, name, ...(hand ? { hand } : {}) });
-  const char = athlete(createCharacter({ ...appearance, lod: i > 0 }));
+  const char = athlete(createCharacter(appearance));
   char.setGround?.((x, z) => world.height(x, z));
   scene.add(char.group);
   const marker = new THREE.Mesh(new THREE.RingGeometry(0.27, 0.4, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false }));
   marker.visible = false; scene.add(marker);
-  return { name, color, isBot, difficulty, peerId, appearance, lod: i > 0, scores: [], strokes: 0, done: false, lie: [0, 0, 0], lieDist: 0, char, marker, discMesh: null, discId: null };
+  return { name, color, isBot, difficulty, peerId, appearance, scores: [], strokes: 0, done: false, lie: [0, 0, 0], lieDist: 0, char, marker, discMesh: null, discId: null };
 }
-function setPlayerDetail(p, lod) {
-  if (p.lod === lod) return;
-  if (warming) { warming.then(() => setPlayerDetail(p, lod)); return; }   // swap once the warm-up has let go of the old body's materials   // Mobile too: the player on the tee gets the full-detail body once it has loaded (models.js fullBodies)
-  const next = athlete(createCharacter({ ...p.appearance, lod }));
+// Every athlete in a round wears the full-detail body. Only the one on the tee used to: the others stand beside the tee camera and
+// round the basket, where the low-detail body's coarse bake read as broken (r4 phone QA), and rebuilding both bodies at every
+// turn reset whoever had just thrown mid-reaction. Mobile's full bodies land after the round can start (models.js fullBodies):
+// one built before that is swapped once, at a turn change or while the player lines up his own shot.
+function upgradeBody(p) {
+  if (!p.char.lod || !hasFullBody(p.char.avatar.figure === 'female' ? 'golfer_f' : 'golfer')) return;
+  if (warming) { warming.then(() => upgradeBody(p)); return; }   // swap once the warm-up has let go of the old body's materials
+  const next = athlete(createCharacter(p.appearance));
   next.setGround?.((x, z) => world.height(x, z));
   next.group.position.copy(p.char.group.position); next.group.rotation.copy(p.char.group.rotation);
-  scene.remove(p.char.group); p.char.dispose(); p.char = next; p.lod = lod; scene.add(next.group);
+  scene.remove(p.char.group); p.char.dispose(); p.char = next; scene.add(next.group);
 }
 function ensureDisc(p, discId) {
   if (p.discId === discId && p.discMesh) return;
@@ -380,7 +361,7 @@ async function applyCourse(id) {
   // Phones only: on Desktop the bloom, shafts and aerial pass blew a sunlit cloud in the tee's canopy gap into a warm smudge
   // (blind check: phone light 4/4, intro 4/4; desktop look 0/4), so Desktop keeps the gradient dome.
   const panoUrl = G.settings.quality === 'low' && asset('skies', def.id + '-mobile');
-  const pano = panoUrl && await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null);   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps
+  const pano = panoUrl ? await new THREE.TextureLoader().loadAsync(panoUrl).then(t => Object.assign(t, { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, minFilter: THREE.LinearFilter, generateMipmaps: false })).catch(() => null) : null;   // magnified almost everywhere, and no mip chain means no seam where the azimuth wraps; null, not false: course.dispose() calls pano?.dispose() (Desktop's false threw and left every later course change on a black screen)
   course = buildCourse(scene, renderer, { course: def, quality: G.settings.quality, effects, pano });
   if (effects) { post = effects.postprocessing(renderer, scene, camera, { photographic: true }); resize(); }   // no temporal resolve on Desktop (see draw())
   windFx?.dispose(); windFx = createWindFx(scene, course.holes, course.world.height);
@@ -417,13 +398,11 @@ function startHole() {
   const rng = makeRng(G.seed * 31 + G.holeIdx * 7 + 1);
   const ws = rng() * 3.5 * course.def.wind, wa = rng() * Math.PI * 2; world.wind = [Math.cos(wa) * ws, Math.sin(wa) * ws];
   const d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]); d[0] /= L; d[1] /= L;
-  const r = rightOf(d);
   G.players.forEach((p, i) => {
     p.strokes = 0; p.done = false; p.lie = [h.tee[0], h.teeY, h.tee[1]]; p.lieDist = h.len; p.marker.visible = false;
-    const row = Math.floor(i / 4), col = i % 4;
-    const sx = h.tee[0] - d[0] * (1.2 + col * 1.3) - r[0] * (2.8 + row * 1.5), sz = h.tee[1] - d[1] * (1.2 + col * 1.3) - r[1] * (2.8 + row * 1.5);
+    const [sx, sz] = teeSpot(i);
     p.char.group.position.set(sx, world.height(sx, sz), sz);
-    p.char.faceDir(d[0], d[1]); p.char.setPhase(null);
+    p.char.faceDir(d[0], d[1]); p.char.setPhase(null); p.char.snap?.();
     ensureDisc(p, p.discId || 'driver'); p.discMesh.visible = false;
   });
   UI.setHud({ hole: G.holeIdx + 1, par: h.par, len: h.len, dist: h.len, throwNo: 'Tee', playerName: '' });
@@ -451,31 +430,46 @@ function nextTurn() {
   if (!next) next = alive.reduce((a, b) => (b.lieDist > a.lieDist ? b : a));
   setupTurn(G.players.indexOf(next));
 }
+// Players still to tee off wait in rows of four beside the pad, 2.8 m to the thrower's left and from 1.2 m behind the tee.
+function teeSpot(i) {
+  const h = holes[G.holeIdx], d = [h.basket[0] - h.tee[0], h.basket[1] - h.tee[1]], L = Math.hypot(d[0], d[1]) || 1; d[0] /= L; d[1] /= L;
+  const r = rightOf(d), row = Math.floor(i / 4), col = i % 4, back = 1.2 + col * 1.3, left = 2.8 + row * 1.5;
+  return [h.tee[0] - d[0] * back - r[0] * left, h.tee[1] - d[1] * back - r[1] * left, d];   // d: he faces down the hole
+}
 // Everyone who has thrown stands at their own lie while they wait; nobody shares a spot with the thrower.
 function parkOthers(idx) {
   const [bx, bz] = basketPos(), taken = [[G.players[idx].lie[0], G.players[idx].lie[2]]];
   G.players.forEach((q, i) => {
-    if (i === idx || (q.strokes === 0 && !q.done)) return;   // players still to tee off keep their spot beside the pad
+    if (i === idx) return;
+    if (q.strokes === 0 && !q.done) {   // still to tee off: back to his spot beside the pad if a turn handed to him without a throw (a skip, a restore) left him on the tee
+      const [x, z, d] = teeSpot(i), g = q.char.group.position;
+      if (Math.hypot(g.x - x, g.z - z) > .3) { g.set(x, world.height(x, z), z); q.char.faceDir(d[0], d[1]); q.char.setPhase(null); q.char.snap?.(); }
+      return;
+    }
     const d = [bx - q.lie[0], bz - q.lie[2]], L = Math.hypot(d[0], d[1]) || 1; d[0] /= L; d[1] /= L;
     const r = rightOf(d);
     let x = q.lie[0], z = q.lie[2];
     // someone who has holed out waits a couple of metres off the basket, not inside its footprint where his tap-in left him
     if (q.done) { const ox = x - bx, oz = z - bz, od = Math.hypot(ox, oz); if (od < 2.6) { const ux = od > .05 ? ox / od : -d[0], uz = od > .05 ? oz / od : -d[1]; x = bx + ux * 2.6; z = bz + uz * 2.6; } }
-    // step out of the thrower's line: anyone standing within 1.6 m of the lie→basket segment moves to its side
+    // step out of the thrower's line: anyone standing within 1.6 m of the lie→basket segment, or of its run 4 m past the pole, moves
+    // to its side (a holed-out bot waiting 2.6 m behind the basket stood in a short putt's line, his head over the band: r4 iOS)
     const [ax, az] = taken[0], ex = bx - ax, ez = bz - az, EL = Math.hypot(ex, ez) || 1, rn = rightOf([ex / EL, ez / EL]);
     const along = ((x - ax) * ex + (z - az) * ez) / EL, across = (x - ax) * rn[0] + (z - az) * rn[1];
-    if (along > -1 && along < EL + 1.5 && Math.abs(across) < 1.6) { const push = (across < 0 ? -1.8 : 1.8) - across; x += rn[0] * push; z += rn[1] * push; }
+    if (along > -1 && along < EL + 4 && Math.abs(across) < 1.6) { const push = (across < 0 ? -1.8 : 1.8) - across; x += rn[0] * push; z += rn[1] * push; }
     const x0 = x, z0 = z;
     for (let k = 1; k < 8 && taken.some(([tx, tz]) => Math.hypot(tx - x, tz - z) < 1.1); k++) { x = x0 + r[0] * 1.3 * k; z = z0 + r[1] * 1.3 * k; }
     taken.push([x, z]);
-    q.char.group.position.set(x, world.height(x, z), z); q.char.faceDir(d[0], d[1]); q.char.setPhase(null);
+    const moved = Math.hypot(q.char.group.position.x - x, q.char.group.position.z - z) > .3;
+    q.char.group.position.set(x, world.height(x, z), z); q.char.faceDir(d[0], d[1]); q.char.setPhase(null); if (moved) q.char.snap?.();   // a jump to a new spot: no cross-fade sliding his feet into the stance there
   });
 }
 function setupTurn(idx) {
-  G.players.forEach((p,i)=>setPlayerDetail(p,i!==idx));
-  const p = G.players[idx]; G.cur = idx;
+  G.players.forEach(upgradeBody);
+  const p = G.players[idx], cut = G.cur !== idx; G.cur = idx;
   const lie = p.lie, dist = distToBasket(lie[0], lie[2]);
   G.aim.yaw = Math.atan2(basketPos()[1] - lie[2], basketPos()[0] - lie[0]); G.aim.pitch = 0;
+  // walked to the lie off camera, or the turn cut over to him: he arrives in his aim stance (snap below) instead of skating into it
+  const fresh = cut || Math.hypot(p.char.group.position.x - lie[0], p.char.group.position.z - lie[2]) > .3;
   p.char.group.position.set(lie[0], world.height(lie[0], lie[2]), lie[2]);
   p.char.setPhase(null);
   parkOthers(idx);
@@ -490,6 +484,7 @@ function setupTurn(idx) {
   // a drive watched from the aim camera (a bot's, a guest's) starts at the back of the pad: the athlete waits there for the run-up
   for (const q of G.players) q.runUp = false;
   if (!isMine(p) && dist > RUNUP.min && runUpClear(lie, [Math.cos(G.aim.yaw), Math.sin(G.aim.yaw)])) { p.runUp = true; p.char.setThrow('xstep'); p.char.setPhase(0); }
+  if (fresh) p.char.snap?.(p.runUp ? null : G.throwType);   // already in the stance for the throw picked above (the run-up's standing start is a throw pose)
   if (p.isBot) { UI.setControlsEnabled(false); preview.visible = false; if (iControl(p)) botTurn(p); else UI.waiting(`${p.name} is throwing…`); }
   else if (isMine(p)) { UI.setControlsEnabled(true); UI.waiting(null); preview.visible = true; if (G.mode === 'local' && G.players.filter(q => !q.isBot).length > 1) UI.toast(`${p.name}'s throw`, `${Math.round(dist)} m to the basket`, 1600); }
   else { UI.setControlsEnabled(false); preview.visible = false; UI.waiting(`${p.name} is throwing…`); }
@@ -519,7 +514,7 @@ function windUp(p, type, dur, done, progress = null) {
     G.tween = { t: 0, dur: T, raw: true, done, fn: u => {
       const t = u * T; progress?.(u);
       if (t < RUNUP.dur) { p.char.setThrow(run); p.char.setPhase(t / RUNUP.dur); }
-      else { p.char.setThrow(type); p.char.setPhase(.35 + .15 * hermite((t - RUNUP.dur) / RUNUP.pull, 0, HIT_RATE * RUNUP.pull / .15)); }
+      else { p.char.setThrow(type); p.char.setPhase(.35 + .15 * hermite((t - RUNUP.dur) / RUNUP.pull, RUNUP.v0 * RUNUP.pull / .15, HIT_RATE * RUNUP.pull / .15)); }   // at RUNUP.v0, the speed the run-up's last keys hand over with (tools/author-throws.mjs PAST)
     } };
     return;
   }
@@ -539,7 +534,12 @@ function runUpClear(lie, d) {
 function doThrow(pi, o, sim = null) {
   const p = G.players[pi];
   const startPhase = THREE.MathUtils.clamp(p.char.getPhase() ?? .5, 0, .5);
-  G.phase = 'release'; G.releaseT = 0; G.pending = { pi, o, sim, fired: false, startPhase, leadIn: (.5 - startPhase) * .36 };
+  // A swipe let go before .5 runs on to the hit (.62) on one curve, from the swipe's own speed as the finger lifts to the release
+  // curve's at the hit, which lands on the same frame as before (HIT_T after the lead-in). It used to cover the lead-in to .5 in
+  // ~27 ms at 2.8 phase/s whatever the finger was doing: the first frame jumped .425 -> .478, the wrist 39 cm and the soles 2-3 cm.
+  const leadIn = (.5 - startPhase) * .36, T = leadIn + HIT_T, span = .62 - startPhase, v1 = HIT_V * T / span, w = G.gesture;
+  const rate = p === curP() && w?.t != null ? Math.max(0, w.rate) * Math.max(0, 1 - (performance.now() - w.t) / 100) : 0;   // the finger held still before lifting: no speed left
+  G.phase = 'release'; G.releaseT = 0; G.pending = { pi, o, sim, fired: false, startPhase, leadIn, v0: Math.min(Math.sqrt(9 - v1 * v1), rate * T / span), v1 };   // v0 capped: the curve stays monotone, never past .62 early
   p.char.setThrow(G.throwType); UI.setControlsEnabled(false); preview.visible = false;
 }
 function runSim(params) {
@@ -609,7 +609,7 @@ function updateFlight(dt) {
   dt*=f.playbackRate; f.t += dt;
   const fi = f.t * 60, i = Math.min(Math.floor(fi), n - 1), a = f.traj[i], b = f.traj[Math.min(i + 1, n - 1)], u = Math.min(1, fi - i);
   const pos = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
-  if (f.camAt != null && f.t >= f.camAt) { f.camAt = null; if (cam.mode === 'aim') cam.mode = 'flight'; }
+  if (f.camAt != null && f.t >= f.camAt) { f.camAt = null; if (cam.mode === 'aim') { cam.mode = 'flight'; f.cut = true; } }   // flightCam cuts straight to the running chase
   if (f.from) { const w = Math.max(0, 1 - f.t / .16) ** 2; if (w > 0) for (let k = 0; k < 3; k++) pos[k] += f.from[k] * w; else f.from = null; }
   const nn = [a[3] + (b[3] - a[3]) * u, a[4] + (b[4] - a[4]) * u, a[5] + (b[5] - a[5]) * u];
   if (a.length > 6) f.spinRate = a[6] + (b[6] - a[6]) * u; else f.spinRate *= (1 - 0.12 * dt);   // older peers send six-wide records
@@ -622,7 +622,7 @@ function updateFlight(dt) {
   if (hw > 0) { _v.set(camera.position.x - pos[0], camera.position.y - pos[1], camera.position.z - pos[2]).normalize(); nn[0] += _v.x * PUTT_TIP * hw; nn[1] += _v.y * PUTT_TIP * hw; nn[2] += _v.z * PUTT_TIP * hw; }
   const hs = 1 + (PUTT_HERO - 1) * hw; p.discMesh.scale.set(hs, .6 * hs, hs);   // createDiscMesh's .6 thickness
   setDiscPose(p.discMesh, pos, nn, f.spin * THROWS[f.params.throwType].spin * (f.params.lefty ? -1 : 1));
-  f.pos = pos; f.hv = [b[0] - a[0], 0, b[2] - a[2]]; trail.push(pos, f.t);
+  f.pos = pos; f.hv = [b[0] - a[0], 0, b[2] - a[2]]; f.vy = b[1] - a[1]; trail.push(pos, f.t);
   while (f.ei < f.events.length && f.events[f.ei][0] <= f.t) { onFlightEvent(f.events[f.ei][1]); f.ei++; }
   UI.setHud({ dist: Math.hypot(basketPos()[0] - pos[0], basketPos()[1] - pos[2]) });
   if (i >= n - 1 && f.t > n / 60 + 0.6) { G.flight = null; resolveThrow(f.pi, f.result, f); }
@@ -682,17 +682,19 @@ function resolveThrow(pi, r, f = null) {
   G.phase = 'result'; cam.mode = 'result';
   updateCamera(10); // Cut to the reaction so a short celebration never starts offscreen.
   // a landing shot's verdict stands over the disc, as DGM's distance callout does (QA: "NICE SHOT!" sat right on the landed disc)
-  if (cam.hold) { camera.updateMatrixWorld(); _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null); }
+  if (cam.hold) { camera.updateMatrixWorld(); _v.copy(p.char.group.position).y += 1; const near = _v.distanceTo(camera.position) < 9; _v.project(camera); UI.verdictSide(near && _v.z < 1 && Math.abs(_v.x) < 1 ? (_v.x + 1) / 2 : null);   // a thrower standing in the held frame keeps the verdict off him (first: its side sets its width)
+    _v.set(r.rest[0], r.rest[1], r.rest[2]).project(camera); UI.verdictAbove(_v.z < 1 && Math.abs(_v.x) < 1 ? (1 - _v.y) / 2 : null); }
+  else UI.verdictAbove(null);
   // the verdict holds 2.4 s, or until a tap (skipBeat): DGM is aiming again within a second of most landings
   const advance = () => { if (G.skipResult !== advance) return; G.skipResult = null; UI.obChoice(null); if (G.sessionId === session && G.holeIdx === hole && curP() === p && G.phase === 'result') { UI.fade(true); setTimeout(() => { if (G.sessionId === session && G.holeIdx === hole && G.phase === 'result') { nextTurn(); cam.snap = true; } UI.fade(false); }, 320); } };
   if (choose) UI.obChoice(() => { if (G.skipResult !== advance) return; p.lie = obFrom; p.lieDist = distToBasket(obFrom[0], obFrom[2]); p.marker.position.set(obFrom[0], world.height(obFrom[0], obFrom[2]) + .04, obFrom[2]); UI.setHud({ dist: p.lieDist }); advance(); }, advance);
   G.skipResult = advance; G.resultAt = performance.now(); setTimeout(advance, choose ? 6000 : 2400);
 }
-// A tap on the course cuts the flyover to its flash, and a verdict short once it has been seen (.6 s). Not online: the host
+// A tap on the course cuts the flyover to the tee, and a verdict short once it has been seen (.6 s). Not online: the host
 // paces a room's turns. Taps on buttons and dialogs are theirs (the swipe pad is idle in both beats, and covers half the glass).
 function skipBeat(e) {
   if (G.mode === 'online' || e.target.closest?.('button,a,input,select,textarea,dialog,.overlay')) return;
-  if (G.phase === 'intro') G.introT = Math.max(G.introT, introDur(holes[G.holeIdx]) - INTRO_FLASH);
+  if (G.phase === 'intro') G.introT = Math.max(G.introT, introDur(holes[G.holeIdx]));   // the white flash it skipped to is gone (a bare cut now): INTRO_FLASH threw here and "Tap to skip" did nothing
   else if (G.phase === 'result' && G.skipResult && performance.now() - G.resultAt > 600) G.skipResult();
 }
 function endHole() {
@@ -735,7 +737,7 @@ function applyRemoteThrow(m) {   // only called when this client is idle in 'aim
   // winding up again from the start showed every guest its own throw twice. (HIT_T into the release is the .62 launch point.)
   if (G.phase === 'awaitThrow' && isMine(p)) { doThrow(m.pi, {}, sim); G.releaseT = HIT_T + .001; return; }
   G.phase = 'windup'; cam.mode = 'aim';
-  windUp(p, G.throwType, .7, () => doThrow(m.pi, {}, sim));
+  windUp(p, G.throwType, .7, () => doThrow(m.pi, {}, sim), u => UI.setPower(m.params.power * u));   // the watcher's ring fills to their power, as it does for a bot (it sat on an empty POWER)
 }
 function toMenu() {
   if (G.net?.isHost) try { G.net.broadcast({ t: 'closed' }); } catch { /* best effort */ }
@@ -747,7 +749,7 @@ function toMenu() {
   clearPlayers(); preview.visible = false; for (const id of ['hud', 'score', 'online', 'setup', 'courses', 'locker']) UI.hide(id); UI.show('menu');
   hero.group.visible = true; course.setHole(0); placeHero();
   if (G.net) { G.net.close(); G.net = null; }
-  G.mode = 'solo'; G.matchId = null; matches.refreshBadge();
+  G.mode = 'solo'; G.matchId = null; matches.refreshBadge(); roomMark(null);
 }
 
 // ---------- gestures ----------
@@ -763,12 +765,14 @@ function onAim({ dx, dy, speed = 0, touch = false }) {
 }
 function onGesture(g) {
   const p = curP(); if (!p || p.isBot || !isMine(p)) return;
-  if (g.state === 'start') { if (G.phase !== 'aim') return; G.phase = 'windup'; p.char.setThrow(G.throwType); p.char.setPhase(0); UI.setHint(G.throwType, 'release to throw'); return; }
+  if (g.state === 'start') { if (G.phase !== 'aim') return; G.phase = 'windup'; G.gesture.t = null; G.gesture.rate = 0; p.char.setThrow(G.throwType); p.char.setPhase(0); UI.setHint(G.throwType, 'release to throw'); return; }
   if (G.phase !== 'windup') return;
   if (g.state === 'move') {
-    if (!g.valid) { p.char.setPhase(0); UI.setPower(0); G.gesture.power = 0; UI.setHint(G.throwType, `Wrong way — ${THROWS[G.throwType].hint}`); return; }
+    if (!g.valid) { p.char.setPhase(0); UI.setPower(0); G.gesture.power = 0; G.gesture.t = null; G.gesture.rate = 0; UI.setHint(G.throwType, `Wrong way — ${THROWS[G.throwType].hint}`); return; }
     G.gesture.power = g.progress; G.gesture.lateral = g.lateral; G.previewDirty = true;
-    p.char.setPhase(g.progress * 0.5); UI.setPower(g.progress);
+    const w = G.gesture, now = performance.now(), ph = g.progress * .5, dt = w.t == null ? 0 : (now - w.t) / 1000;   // the windup's speed under the finger (phase/s, ~50 ms smoothing): the release runs on from it
+    if (dt > 0) w.rate += ((ph - w.ph) / dt - w.rate) * Math.min(1, dt / .05); if (w.t == null || dt > 0) { w.t = now; w.ph = ph; }
+    p.char.setPhase(ph); UI.setPower(g.progress);
     const th = THROWS[G.throwType];
     UI.setHint(G.throwType, th.latMode === 'hyzer' ? (g.lateral > 0.08 ? 'hyzer' : g.lateral < -0.08 ? 'anhyzer' : 'flat') : (Math.abs(g.lateral) > 0.08 ? (g.lateral > 0 ? 'aim right' : 'aim left') : 'straight'));
     return;
@@ -813,18 +817,33 @@ function updatePreview() {
   // A drive's ribbon starts 1.5 m out, at his shoulder, instead of slashing across his back. A putt's leaves his hand, depth tested:
   // from behind his shoulder its first metre runs behind his body, so it emerges from him instead of dropping in from the upper
   // right (its first 1.5 m, rising, sat over his head in the putt lens) or painting over him.
-  for (const m of [previewMat, previewEdge]) m.depthTest = !assist;
+  previewMat.depthTest = !assist;
   // A putt's line stops ~1.7 m short of the pole, pointing into the chains: run on into the cage its last dashes crossed the
   // band and chains, 'a row of white dashes cutting through the top of the basket' (r3 camera), and the basket is the target.
   // 1.2 m still left a stub over the chains' near edge: the line closes on the cage from the lens's side, so its last metres
   // project onto it.
   const lie = curP().lie, pts = (guided ? r.traj : assist ? r.traj.slice(0, Math.max(2, Math.floor(r.traj.length * 0.7))) : basketLine(o, world).traj.filter((q, i) => i < 2 || distToBasket(q[0], q[2]) > 1.7)).filter((q, i, a) => i >= a.length - 2 || !assist || Math.hypot(q[0] - lie[0], q[2] - lie[2]) > 1.5);
-  const arr = new Float32Array(pts.length * 3); pts.forEach((q, i) => { arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; });
-  for (const l of previewLines) { const old = l.geometry; l.geometry = new LineGeometry(); l.geometry.setPositions(arr); l.computeLineDistances(); old.dispose(); l.visible = !(G.throwType === 'putt' && distToBasket(lie[0], lie[2]) < 4); }   // inside 4 m the stub left past the shoulder stood up from behind like a white pole in his hand; the ground arrow aims it
-  previewMat.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
-  const p = curP(), d = aimDir(), ax = p.lie[0] + d[0] * 1.15, az = p.lie[2] + d[1] * 1.15, n = world.normal ? world.normal(ax, az) : [0, 1, 0];
-  aimArrow.position.set(p.lie[0] + d[0] * 1.7, world.height(p.lie[0] + d[0] * 1.7, p.lie[2] + d[1] * 1.7) + .04, p.lie[2] + d[1] * 1.7);
-  aimArrow.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]).normalize()).multiply(_q0.setFromAxisAngle(UP, Math.atan2(-d[0], -d[1]))); aimArrow.material.color.copy(previewMat.color);   // laid on the slope, so the depth test never buries its tail   // tip 1.7 m out, pointing down the aim (it used to point back at the player)
+  // Faded in where it leaves him (a drive's 1.5 m out at the shoulder, a putt's at the hand) and out where it stops: a guided
+  // drive's runs on into its landing ring at half strength, a swiped drive's 70% fades away (the flight goes on), a putt's dies
+  // into the chains.
+  aimLine.set(pts, guided ? { fadeIn: 1.5, fadeOut: 4, end: .5, swell: .3 } : assist ? { fadeIn: 1.5, fadeOut: 12, end: 0, swell: .3 } : { fadeIn: .8, fadeOut: 1.2, end: .15 });
+  // A putt's line stands down where the lens can't see it leave his hand (aim-line.js REACH: inside 4 m on its side, 7 m upright),
+  // and two chevrons on the turf aim it instead. Gated on the putt itself, not on the line: set() also hides it when under two
+  // points survive, and a drive's chevrons would have lain at the basket's foot 100 m away.
+  const D = distToBasket(lie[0], lie[2]), tall = camera.aspect < 1.2, short = aimChevrons.shows(G.throwType === 'putt', D, tall);   // tall: the aim lens's own portrait test (aimFrameBase)
+  if (short) aimLine.mesh.visible = false;
+  aimLine.color.set(guided && estimate.danger ? '#ff9275' : charging ? '#5cf0a8' : '#ffffff');
+  // The chevrons only where the line stands down: beside it (the old ground arrow showed on every throw) they were a second aim
+  // cue pulling the eye off the line. They lie at the basket's foot, the far apex .45 m short of the pole, where the putt lens
+  // looks and the aim's swing shows most: both lenses stand behind him, so the turf within ~2 m of him sits behind his legs
+  // (the old arrow's 1.7 m tip showed only as its two barbs upright and a sliver under the frame on its side).
+  aimChevrons.mesh.visible = short;
+  if (short) {   // upright inside ~5 m their line starts beside him on the lens's side, so his shorts don't hide the far arms (aim-line.js lay)
+    const d = aimDir(), r = rightOf(d), cs = Math.sign((cam.tPos.x - lie[0]) * r[0] + (cam.tPos.z - lie[2]) * r[1]) || -1;
+    const [ax, az, ux, uz] = aimChevrons.lay(lie, d, r, D, cs, tall), n = world.normal ? world.normal(ax, az) : [0, 1, 0];
+    aimChevrons.mesh.position.set(ax, world.height(ax, az) + .02, az); aimChevrons.side = cs;
+    aimChevrons.mesh.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]).normalize()).multiply(_q0.setFromAxisAngle(UP, Math.atan2(-ux, -uz))); aimChevrons.color.copy(aimLine.color);   // laid on the slope; local -z down their line
+  }
 }
 
 // ---------- camera ----------
@@ -870,13 +889,21 @@ cam.shift = cam.tShift = 0;   // vertical lens shift in half-frames (a putt's le
 // third); portrait holds the vertical one. Shared by the aim camera and the hole intro's landing. Writes pos/look, returns the
 // vertical fov.
 const AIM = { drive: { back: 2.3, side: .75, up: 1.42, pitch: 2, yaw: 4.8, hfov: 55 }, putt: { back: 3.1, side: 1.35, lo: .9, hi: 2.3, eye: .55, band: .16, base: -.72, x: .03, nudge: [-.05, .15], hfov: 42, vmin: 10 },
-  tall: { drive: { back: 2.9, side: .5, up: 1.5, pitch: 5, yaw: 2.6, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
+  tall: { drive: { back: 4, side: .75, up: 2.35, pitch: 10, yaw: 3, fov: 60 }, putt: { back: 2.3, side: .6, up: 1.4, lift: .3, eye: .58, band: .1, fov: 56 } } };
+// An upright phone's drive (QA on an iPhone 17, r4): from 2.9 m back at chest height he stood mid-frame, x .47-.85 and head to
+// toe .46-.87, the pin just over his shoulder and the fairway behind his reach-back. Mobile golf's lens instead: higher (over
+// his cap) and further back, tipped 10 degrees down, so he stands low on the right (x .55-.82, .55-.84, feet clear of the swipe
+// pill) and the line runs up the frame from his feet to the pin (x .42, .30-.42 down) with the fairway open round it.
 // w7-3 camera verdicts (won 4/4, narrow): "his head almost touches the top edge", "the basket sits a little low over empty dirt": eyes .6 -> .55 (head top ~12%) and band .1 -> .16 (the lid ~42% down, as in the reference), so the rig rises a little and the basket stands higher over less dirt.
 AIM.puttS = { ...AIM.putt, back: 2.3, side: 1.2, hi: 1.9, hfov: 50, eye: .6, band: -.02, base: -.64, x: .24 };
 // A phone on its side (playtest: "the player goes off the screen"): the broadcast drive lens cut the athlete at the hip and
 // pushed his arm out of the right edge. Further back on a taller lens he stands whole, feet to head, in the right third over
 // the swipe pad (ui.css landscape split), with the line and the pin left of centre.
-AIM.driveS = { back: 3.4, side: .95, up: 1.55, pitch: 5, yaw: 0, vfov: 38 };   // a short phone: the swipe pill and ring fill the lower third's middle, so the pin stands further left (38%) with its base plate beside them
+// r4 QA: from .95 m aside, looking straight down the line, his reach-back and hip stood under the swipe hint and the release
+// grade at 53-60%, and his feet ran off the bottom edge. 1.2 m aside, turned 3 degrees right and tipped 1 more, he stands at
+// x .62-.74 with his feet on the frame (.98) and the pin moves left of centre (.47), the labels hanging between. (1.35 m and 4.3
+// degrees put him at .63-.75 but brought Pine 1's cart and tent into view: 7 more draw calls on a phone.)
+AIM.driveS = { back: 3.4, side: 1.2, up: 1.55, pitch: 6, yaw: 3, vfov: 38 };   // a short phone: the swipe pill and ring fill the lower third's middle
 // A lie beside a trunk, a tent or a banner: the rig's spot behind the shoulder could stand inside it or behind it (QA on an
 // iPhone: a birch trunk filled two thirds of a putt's frame; on a desktop the same lie looked at the back of a feather flag
 // over the athlete). Each lie scores the rig's spot and its alternatives (the mirror side, a wider or narrower shoulder, a step
@@ -903,7 +930,10 @@ function aimSpotFor(lie, P, side, putt, halfW) {
     // a trunk close in front of the lens fills the frame even when it blocks neither line (the QA birch: 1 m out, 11° off centre)
     const lens = [...world.treesNear(x, z), ...uprights()].reduce((m, t) => { const tx = t.x - x, tz = t.z - z, D = Math.hypot(tx, tz) || 1e-3, a = Math.abs(Math.atan2(vx * tz - vz * tx, vx * tx + vz * tz));
       return a - Math.asin(Math.min(1, (t.r + .2) / D)) < halfW + .2 ? Math.max(m, Math.min(1, (3 - (D - t.r)) / 2.4)) : m; }, 0);   // the trunk's own width counts (with its stubs): one 1 m off the lens filled a portrait frame from 33° off its centre line
-    const score = see + ahead * .6 + framed * .8 - lens - k * .02;   // the nearest alternative wins a tie
+    // a putt's lens holds the pin near its centre, so a spot that sees him past the frame's edge putts to an empty frame (r4 QA on a
+    // phone: a wide spot round a pine at 8-14 m framed the basket, a trunk and nobody; the rig's own puts him ~.8 of the way out)
+    const lost = putt && off > halfW ? 2 : 0;
+    const score = see + ahead * .6 + framed * .8 - lens - lost - k * .02;   // the nearest alternative wins a tie
     scores.push(+score.toFixed(3));
     if (k === 0) score0 = score;
     if (score > top + 1e-6) { top = score; best = k; }
@@ -925,6 +955,9 @@ function aimFrame(lie, d, putt, pos, look) {
   pos.lerpVectors(_runPos, pos, b); look.lerpVectors(_runLook, look, b);
   return (portrait ? C.fov : C.wide) * (1 - b) + fov * b;
 }
+const hudFloor = (() => { let k = '', y = 0; return () => {   // the swipe hint's top edge in CSS px, read once per viewport (#pad's padding sets it, safe area included)
+  const key = innerWidth + 'x' + innerHeight; if (k !== key) { const pad = $('pad'), r = pad.getBoundingClientRect(); y = r.height ? r.bottom - parseFloat(getComputedStyle(pad).paddingBottom) - 36 : innerHeight - 138; if (r.height) k = key; }
+  return y; }; })();
 function aimFrameBase(lie, d, putt, pos, look) {
   const h = holes[G.holeIdx], r = rightOf(d), portrait = camera.aspect < 1.2, P0 = portrait ? AIM.tall[putt ? 'putt' : 'drive'] : putt ? innerHeight > 520 ? AIM.putt : AIM.puttS : innerHeight > 520 ? AIM.drive : AIM.driveS;
   const P = P0;
@@ -947,6 +980,9 @@ function aimFrameBase(lie, d, putt, pos, look) {
   if (!putt) {   // a drive's lens turns as far as it must to keep the athlete whole (QA, a portrait phone in the woods: a wide-shoulder spot round a trunk left him cut in half at the edge of the ~15° half-width)
     const th = Math.atan2(side, back), lim = Math.atan(vt * camera.aspect) - Math.atan(.3 / Math.max(1, rho)) - .5 * DEG;   // the rig's own spots never reach it, so a run-up's dolly ends where it always did
     yaw = Math.max(th - lim, Math.min(th + lim, yaw));
+    // the swipe hint stands ~140 px off the bottom whatever the phone: on a short one (360 x 640) it reached his shins, so the
+    // lens slides up until his feet (.84 down) clear it again, as the putt's lens slides; not mid-flyover, which lands here
+    if (portrait && cam.mode !== 'intro') cam.tShift = Math.max(0, 2 * (.84 - hudFloor() / innerHeight));
   }
   const fx = d[0] * Math.cos(yaw) + r[0] * Math.sin(yaw), fz = d[1] * Math.cos(yaw) + r[1] * Math.sin(yaw);
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
@@ -1071,6 +1107,11 @@ function beamCeiling(x, z, floor) {
 }
 const chaseFov = () => camera.aspect < .8 ? 66 : camera.aspect < 1.2 ? 58 : CHASE.fov;   // an upright phone's 50° (vertical) lens was only ~24° wide: discs left the frame
 const CHASE = { fov: 50, hold: .1, blend: .6, back: 4.5, up: 1.5, lead: 3, lift: .3, land: .45, rate: .75, track: 6 };   // rate: a drive plays at 3/4 speed, a 60 m drive hangs ~2.5 s as a real one does (the physics' 1.9 s read as a dolly shot)
+// The chase's pull-in sees trunks and crowns only: the built blockers have their own rules (the lens ducks under the arch's beam,
+// beamCeiling, and steps beside its legs, the tents and the flags, the nudge below). A drive skimming the arch's leg 0.4 m off its
+// cover put the segment behind the disc inside the leg's 1.2 m berth, so the pull dragged the lens in to 0.6 m behind the disc and
+// against the BIRDIE BREW post for half a second (r4: the desktop host's view of a phone guest's drive, reproduced with a bot's).
+const chaseWorld = (() => { let w0 = null, cw = null; return () => { if (w0 !== world) { w0 = world; cw = Object.create(world); cw.camBlockers = []; } return cw; }; })();
 function flightPlan(f) {
   const n = f.traj.length, R = f.traj[n - 1], S = f.traj[0], h = holes[G.holeIdx];
   // the landing shot takes over once the disc is nearly home: a roller runs on for seconds after it touches down (one ran 30 m
@@ -1123,28 +1164,38 @@ function flightPlan(f) {
     LL.copy(LP).addScaledVector(_v.multiplyScalar(1 - pin).addScaledVector(_v2, pin).normalize(), 10); }
   return { H: cam.pos.clone(), HL: cam.look.clone(), F0: cam.fov, S0: cam.shift, t0: f.t, dir: new THREE.Vector3(f.params.dir[0], 0, f.params.dir[1]).normalize(), pull: 1, tLand, LP, LL };   // t0: when the chase took over (a watched run-up hands over at camAt, not at the release)
 }
+// A watched run-up hands over late (camAt): by the end of the follow-through the disc is ~20 m down the fairway. The chase used
+// to set off from the tee at rest and needed a second and a half to catch it, the disc a 2 px speck all the way (r4: a desktop
+// host lost a phone guest's drive), and its swoop down the line passed a lens-width from the arch's leg (the host's frame parked
+// on the BIRDIE BREW post) before overshooting into the crown the disc had slowed in. Now it cuts, at the end of the
+// follow-through, to the chase already running where the thrower's own camera is by then: 4.5 m behind the disc, at its speed.
 function flightCam(f, dt) {
-  const D = f.pos, c = f.cam || (f.cam = flightPlan(f)), S = THREE.MathUtils.smoothstep;
+  const D = f.pos, cut = !f.cam && f.cut, c = f.cam || (f.cam = flightPlan(f)), S = THREE.MathUtils.smoothstep;
+  if (cut) { c.t0 = f.t - CHASE.hold - CHASE.blend; c.F0 = chaseFov(); c.S0 = 0; if (Math.hypot(f.hv[0], f.hv[2]) > 1e-4) c.dir.set(f.hv[0], 0, f.hv[2]).normalize(); }   // the blends done: no shoulder arc, the chase lens
   _v3.set(f.hv[0], 0, f.hv[2]); if (_v3.lengthSq() > 1e-8) c.dir.lerp(_v3.normalize(), 1 - Math.exp(-4 * dt)).normalize();
   const hv = c.dir; let cx = D[0] - hv.x * CHASE.back, cy = D[1] + CHASE.up, cz = D[2] - hv.z * CHASE.back;
-  const fr = clearFraction(world, D[0], D[1], D[2], cx, cy, cz, 1.2);   // wide of trunks and well under the arch's banner
-  c.pull += (fr - c.pull) * (1 - Math.exp(-(fr < c.pull ? 7 : 2.5) * dt));   // in briskly past a trunk, out slowly; never a one-frame lurch
-  const q = Math.max(.25, c.pull); cx = D[0] + (cx - D[0]) * q; cy = D[1] + (cy - D[1]) * q; cz = D[2] + (cz - D[2]) * q;
+  // wide of trunks, but never nearer than ~1.8 m: with a 1.2 m berth any disc flying a metre past a trunk pulled the lens to 1.1 m
+  // behind it, a disc filling a sixth of a phone's frame (r4 probe: 51 chase frames inside 1.5 m on 8 drives, 13 now); pushOut
+  // keeps the lens itself off the bark
+  const fr = clearFraction(chaseWorld(), D[0], D[1], D[2], cx, cy, cz, .8);
+  c.pull = cut ? fr : c.pull + (fr - c.pull) * (1 - Math.exp(-(fr < c.pull ? 7 : 2.5) * dt));   // in briskly past a trunk, out slowly; never a one-frame lurch
+  const q = Math.max(.38, c.pull); cx = D[0] + (cx - D[0]) * q; cy = D[1] + (cy - D[1]) * q; cz = D[2] + (cz - D[2]) * q;
   // beside the line, not on it: an upright blocker (the arch's 2.5 m pillars, a tent, a feather flag) the lens passes near filled
   // a third of a portrait frame (QA: every Meadows tee shot past the BIRDIE BREW pillar). The chase spot steps sideways until the
   // blocker's near edge clears the frame's half-width (a portrait lens is only ~17° each side, so one 6 m ahead still needs ~3 m),
   // weighted smoothly in and out of the window and eased in time, with the side fixed per blocker so the lens never swaps across
-  // one: the tracker is fed the target's velocity, and any step in the push would show as a lurch.
+  // one: the tracker is fed the target's velocity, and any step in the push would show as a lurch. Up to 4.5 m off the leg's axis
+  // (3.2 m left a drive skimming the arch's leg passing 1.9 m from its cover, the banner half a landscape frame: r4 watcher frames).
   { const rn = rightOf([hv.x, hv.z]), tw = Math.tan(Math.atan(Math.tan(chaseFov() * DEG / 2) * camera.aspect)); let want = 0; c.side ||= new Map();
     (world.camBlockers || []).forEach((bk, k) => { if (Math.abs(bk.b[1] - bk.a[1]) < .5) return;
       const ox = cx - bk.a[0], oz = cz - bk.a[2], ahead = -(ox * hv.x + oz * hv.z), side = ox * rn[0] + oz * rn[1];
-      const wA = S(ahead, -1.5, 0) * (1 - S(ahead, 5.5, 8)) * (1 - S(cy, Math.max(bk.a[1], bk.b[1]) + .5, Math.max(bk.a[1], bk.b[1]) + 2));
+      const wA = S(ahead, -1.5, 0) * (1 - S(ahead, 5.5 + 2 * bk.r, 8 + 2 * bk.r)) * (1 - S(cy, Math.max(bk.a[1], bk.b[1]) + .5, Math.max(bk.a[1], bk.b[1]) + 2));   // a wide one sooner: the step must be made by the time the lens is level with it
       if (wA <= 0) { c.side.delete(k); return; }
       if (!c.side.has(k)) c.side.set(k, side < 0 ? -1 : 1);
-      const sg = c.side.get(k), need = Math.min(3.2, bk.r + .5 + Math.max(0, ahead) * tw) - side * sg;
+      const sg = c.side.get(k), need = Math.min(4.5, bk.r + .5 + Math.max(0, ahead) * tw) - side * sg;
       if (need > 0) want += sg * need * wA; });
-    want = Math.max(-3.2, Math.min(3.2, want));
-    c.nudge = (c.nudge || 0) + (want - (c.nudge || 0)) * (1 - Math.exp(-4 * dt)); cx += rn[0] * c.nudge; cz += rn[1] * c.nudge; }
+    want = Math.max(-4.5, Math.min(4.5, want));
+    c.nudge = cut ? want : (c.nudge || 0) + (want - (c.nudge || 0)) * (1 - Math.exp(-5 * dt)); cx += rn[0] * c.nudge; cz += rn[1] * c.nudge; }
   const ceil = beamCeiling(cx, cz, D[1] + .2), lift = CHASE.lift * Math.max(0, Math.min(1, (ceil - D[1] - 1) / 2));   // under the arch: level with the disc, the banner out of the top of frame
   cy = Math.min(Math.max(cy, D[1] + 1), ceil); cy = Math.max(cy, world.height(cx, cz) + 1.5);
   // the hand-off's blends run from the moment the chase took over: timed from the release, a run-up's late hand-off (camAt .55)
@@ -1154,16 +1205,41 @@ function flightCam(f, dt) {
   // A critically damped tracker on the chase spot, fed its velocity: the camera leaves the follow-through at rest and eases up
   // to the disc's speed. (Lerping from the fixed aim spot to a target running away at 25 m/s made it sit still, then race the
   // disc at twice its speed to catch a 14 m gap.) Zero lag once caught, no overshoot.
-  if (!c.p) { c.p = c.H.clone(); c.pv = new THREE.Vector3(); c.T = _v.clone(); }
+  if (!c.p) { c.p = cut ? _v.clone() : c.H.clone(); c.pv = cut ? new THREE.Vector3(f.hv[0], f.vy || 0, f.hv[2]).multiplyScalar(60 * f.playbackRate) : new THREE.Vector3(); c.T = _v.clone(); if (cut) cam.snap = true; }
+  // Into the leaves: the disc slows in a crown (physics drags it there) and the chase, fed its slowing spot, overshot into the
+  // foliage, so the lens sat inside the leaf cards with the disc lost behind them for a second (r4 watcher frames). The chase
+  // spot stays where it stood as the disc went in and the camera coasts to a stop outside, still looking at the disc; it sets off
+  // again once the disc is out and the way to its spot is clear (the spot behind a disc leaving a crown is in that crown).
+  // A disc that ends its flight within 12 m of where it went into the leaves (dropped by the branches) sends the camera on to the
+  // landing shot at once: held at the crown's edge, a phone stared at a wall of leaf cards for a second and a half (r4 probe).
+  const leaves = world.treesNear(D[0], D[2]).some(t => Math.hypot(D[0] - t.x, D[2] - t.z, D[1] - t.y - t.fy) < t.fr);
+  if (leaves && c.leafAt == null) { const R = f.traj[f.traj.length - 1]; if (Math.hypot(R[0] - D[0], R[2] - D[2]) < 12) c.leafAt = f.t; }
+  if (leaves) c.leafT = f.t;   // the last moment it was in there
+  const held = c.leaf && !leaves && clearFraction(world, c.p.x, c.p.y, c.p.z, _v.x, _v.y, _v.z, .3, 0) < 1;
+  // Through a crown's edge and flying on, the held lens's way to the live spot ran back through that crown, so it never cleared:
+  // the camera stood behind the leaves while the disc flew 18 m off (r4 verifier: Pine 2 and 5 tee lines). It cuts to the running
+  // chase instead, once the spot behind the disc sees it clear of the leaves, .25 s after it came out (or 7 m off) at the latest.
+  if (held && c.leafAt == null && (clearFraction(world, D[0], D[1], D[2], _v.x, _v.y, _v.z, .3, 0) === 1 || f.t - c.leafT > .25 || c.p.distanceTo(_v3.set(D[0], D[1], D[2])) > 1.6 * CHASE.back)) {
+    c.leaf = null; c.p.copy(_v); pushOut(world, c.p); c.pv.set(f.hv[0], f.vy || 0, f.hv[2]).multiplyScalar(60 * f.playbackRate); c.T.copy(_v).addScaledVector(c.pv, -dt); cam.snap = true; }   // c.T a frame back: the tracker reads the disc's pace, not a stop
+  else if (leaves || held) _v.copy(c.leaf ||= _v.clone());
+  else if (c.leaf) { c.leaf = null; c.T.copy(_v); }   // the spring takes up the live spot again, without a one-frame velocity spike
   if (dt > 0) {
     _v2.copy(_v).sub(c.T).divideScalar(dt); c.T.copy(_v);
     if (ct > CHASE.hold) for (let i = 0, n = Math.ceil(dt / .008), h = dt / n, W = CHASE.track; i < n; i++) {
+      if (c.leaf) { c.pv.multiplyScalar(Math.exp(-1.5 * W * h)); c.p.addScaledVector(c.pv, h); continue; }   // ~2 m to a stop from a drive's pace, no spring back
       c.pv.addScaledVector(_v3.copy(_v).sub(c.p), W * W * h).addScaledVector(_v3.copy(_v2).sub(c.pv), 2 * W * h); c.p.addScaledVector(c.pv, h);
     }
+    if (ct > CHASE.hold) { pushOut(world, c.p);   // and the lens round a crown, a trunk or a leg the tracker's path cuts through, never in it
+      for (const q of G.players) { const o = q.char.group.position, dx = c.p.x - o.x, dz = c.p.z - o.z, d = Math.hypot(dx, dz); if (d < .8 && d > 1e-3 && c.p.y < o.y + 2.2) { c.p.x = o.x + dx / d * .8; c.p.z = o.z + dz / d * .8; } } }   // nor through a partner waiting at his lie on the line
   }
   cam.tPos.copy(c.p);
-  cam.tLook.lerpVectors(c.HL, _v2.set(D[0] + hv.x * CHASE.lead, D[1] + lift, D[2] + hv.z * CHASE.lead), wl);   // a little over the disc: the fairway ahead and the tree line, not a wall of hillside
-  if (wg > 0) { cam.tPos.lerp(c.LP, wg); cam.tLook.lerp(c.LL, wg); }
+  // a little over the disc: the fairway ahead and the tree line, not a wall of hillside. Pulled in close behind it (a trunk on the
+  // line) the lens looks nearer: 3 m ahead from 1.2 m back put the disc under the frame's bottom edge for a second (r4 probe)
+  const ld = Math.min(1, c.p.distanceTo(_v3.set(D[0], D[1], D[2])) / CHASE.back);
+  cam.tLook.lerpVectors(c.HL, _v2.set(D[0] + hv.x * CHASE.lead * ld, D[1] + lift * ld, D[2] + hv.z * CHASE.lead * ld), wl);
+  const wf = c.leafAt != null && (f.t > c.leafAt + .35 || c.p.distanceTo(_v3.set(D[0], D[1], D[2])) > 1.6 * CHASE.back) ? 1 : wg;   // a cut, a beat after it went in (sooner if it drifts 7 m off through the crown): blended there, the lens threaded the trunks between
+  if (wf === 1 && wg < 1 && !c.landCut) { c.landCut = true; cam.snap = true; }
+  if (wf > 0) { cam.tPos.lerp(c.LP, wf); cam.tLook.lerp(c.LL, wf); pushOut(world, cam.tPos); }
   cam.tShift = (c.S0 || 0) * (1 - w);   // a long putt leaving its locked frame lets the lens shift go with the move, not in one frame
   return c.F0 + (chaseFov() - c.F0) * w;   // the aim lens eases out with the move: no zoom-out snap at release
 }
@@ -1232,15 +1308,21 @@ function updateCamera(dt) {
         // metre off the lens filled half the reaction shot)
         const side = a => { const ux = d[0] * Math.cos(a) + rightOf(d)[0] * Math.sin(a), uz = d[1] * Math.cos(a) + rightOf(d)[1] * Math.sin(a), cx = lie.x + ux * 3.8, cz = lie.z + uz * 3.8;
           const crowd = G.players.some(q => { if (q === me) return false; const o = q.char.group.position, t = Math.max(0, Math.min(1, ((o.x - lie.x) * ux + (o.z - lie.z) * uz) / 3.8)); return Math.hypot(o.x - lie.x - ux * 3.8 * t, o.z - lie.z - uz * 3.8 * t) < .9 && t > .15; });
-          return clearFraction(world, lie.x, lie.y + 1.4, lie.z, cx, lie.y + 1.45, cz, .3, .15) - (crowd ? 1 : 0); };
-        const opts = bd < 6.5 ? [swing, -swing] : [0, .5, -.5];   // a long make keeps the straight-on view unless someone stands in it
+          // and no trunk or upright (a feather flag's sail reaches ~.5 m past its pole) between the lens and him inside the frame
+          // (QA on a small phone: a holed putt's celebration played behind a CHAINS OPEN flag that filled half the frame)
+          const lens = [...world.treesNear(cx, cz), ...uprights()].some(t => { const tx = t.x - cx, tz = t.z - cz, D = Math.hypot(tx, tz), ax = lie.x - cx, az = lie.z - cz, L = Math.hypot(ax, az);
+            return D < L - .3 && Math.acos(Math.max(-1, Math.min(1, (tx * ax + tz * az) / (D * L || 1)))) - Math.asin(Math.min(1, (t.r + .5) / Math.max(D, t.r + .5))) < .4; });
+          return clearFraction(world, lie.x, lie.y + 1.4, lie.z, cx, lie.y + 1.45, cz, .3, .15) - (crowd ? 1 : 0) - (lens ? .8 : 0); };
+        const opts = bd < 6.5 ? [swing, -swing, swing * 1.4, -swing * 1.4, swing * .6, -swing * .6] : [0, .5, -.5, 1, -1];   // a long make keeps the straight-on view unless someone or something stands in it
         let best = opts[0], top = -Infinity; for (const a of opts) { const sc = side(a) - Math.abs(a) * .05; if (sc > top + .01) { top = sc; best = a; } }
         cam.react = { key, a: best }; }
       const r=rightOf(d), ca = Math.cos(cam.react.a), sa = Math.sin(cam.react.a), fx = d[0] * ca + r[0] * sa, fz = d[1] * ca + r[1] * sa;
       cam.tPos.set(lie.x+fx*3.8+r[0]*.7*ca,lie.y+1.45,lie.z+fz*3.8+r[1]*.7*ca);
       cam.tLook.set(lie.x,lie.y+(camera.aspect<1.2?.92:1.08),lie.z); k=5; fov=camera.aspect<1.2?54:38;   // wide: a raised fist (2.2 m) left the top of a 38° frame
     }
-    else fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
+    else { fov = aimFrame(lie, d, G.throwType === 'putt', cam.tPos, cam.tLook);
+      if (G.phase === 'aim') { const fx = cam.tLook.x - cam.tPos.x, fz = cam.tLook.z - cam.tPos.z, ax = lie.x - cam.tPos.x, az = lie.z - cam.tPos.z;   // where he stands in the frame the lens is heading for: pass & play's call never hops sides mid-ease
+        UI.heroSide(.5 + .5 * (az * fx - ax * fz) / Math.max(.1, ax * fx + az * fz) / (Math.tan(fov * DEG / 2) * camera.aspect)); } }
   } else if (cam.mode === 'flight' || cam.mode === 'result') {
     if (G.flight?.pos) { fov = flightCam(G.flight, dt); k = 1e3; }
     else if (cam.hold) { cam.tPos.copy(cam.pos); cam.tLook.copy(cam.look); fov = cam.hold.fov; cam.tShift = cam.hold.shift; }
@@ -1310,9 +1392,8 @@ function frame(dt, rawDt, background) {
   if (G.tween) { const tw = G.tween; tw.t += dt; const u = Math.min(1, tw.t / tw.dur); tw.fn(tw.raw ? u : u * u * (3 - 2 * u)); if (u >= 1) { G.tween = null; tw.done?.(); } }
   if (G.pending && (G.phase === 'release' || G.phase === 'flight' || G.phase === 'result')) {
     G.releaseT += dt; const p = G.players[G.pending.pi];
-    const leadIn = G.pending.leadIn || 0;
-    const u = leadIn ? Math.min(1, G.releaseT / leadIn) : 1;
-    const span = .5 - G.pending.startPhase, ph = G.releaseT < leadIn ? G.pending.startPhase + span * hermite(u, 1, HIT_RATE * leadIn / span) : releasePhase(G.releaseT - leadIn); p.char.setPhase(ph);   // the swipe's end eases into the hit at its speed
+    const P = G.pending, leadIn = P.leadIn || 0, T = leadIn + HIT_T;
+    const ph = leadIn && G.releaseT < T ? P.startPhase + (.62 - P.startPhase) * hermite(G.releaseT / T, P.v0, P.v1) : releasePhase(G.releaseT - leadIn); p.char.setPhase(ph);   // the swipe's end runs on into the hit at its speed (doThrow)
     if (!G.pending.fired && ph >= 0.62) { G.pending.fired = true; launchNow(); }
     if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && (p !== curP() || G.phase === 'flight')) { p.char.keepTravel?.(); p.char.setPhase(null); } }, G.lastParams?.throwType === 'putt' ? 0 : 350); }   // the athlete stays where the follow-through carried him; a putt's finish starts sinking at once (gltf-player PUTT_RELAX), as DGM's arm drops while the disc is still in the air
   }
@@ -1336,15 +1417,16 @@ function frame(dt, rawDt, background) {
     updatePreview();
   }
   updateCamera(dt);
+  if (preview.visible && aimChevrons.mesh.visible && G.phase === 'aim' && camera.aspect < 1.2) { const l = curP().lie, r = rightOf(aimDir()); if ((Math.sign((cam.tPos.x - l[0]) * r[0] + (cam.tPos.z - l[2]) * r[1]) || -1) !== aimChevrons.side) G.previewDirty = true; }   // the lens settled on the other side of him (a new lie's spot, a mirrored one by a trunk): the chevrons follow
   // Shadows follow what the camera shows: the disc in flight, the landing spot a miss holds on (the box used to snap back to
   // the thrower and a 70 m drive's landing lost its tree shadows), else the player. The near cascade (Desktop's crisp
   // shadows and sun flecks) stays where the throw began until the next turn: carried along at the disc's 25 m/s its
   // sharpness window and flecks slid across the turf ("the shadows move really fast"), and the far map alone holds still.
   const focus = G.flight?.pos ? _v2.set(G.flight.pos[0], G.flight.pos[1], G.flight.pos[2]) : G.phase === 'result' && cam.hold ? cam.look : p ? p.char.group.position : cam.look;
   if (!G.flight && G.phase !== 'result') nearFocus.copy(focus);
-  course.update(dt, time, focus, camera.position, nearFocus);
+  course.update(dt, time, focus, camera.position, nearFocus, camera);
   puffs.update(dt, camera, renderer); celebration.update(dt); windFx?.update(time, dt, world.wind, focus, camera, !G.flight && cam.mode === 'aim' && G.throwType === 'putt');   // held only over a putt: there the level lens puts a ribbon straight across the basket at flag height
-  if (G.throwType !== 'putt') previewMat.dashOffset -= dt * 1.6; previewEdge.dashOffset = previewMat.dashOffset;   // a putt's dashes hold still (its direction is the basket): flowing, the held frame's temporal resolve averaged them into one thin white arc, broken by the bushes ('floating white arcs that look like rendering glitches', r3 d-look)
+  if (G.throwType !== 'putt') aimLine.advance(dt);   // a putt's line holds still (its direction is the basket)
   contactShadow.visible=!!G.flight?.pos;
   if(contactShadow.visible){const a=G.flight.pos,y=world.height(a[0],a[2]),h=Math.max(0,a[1]-y);contactShadow.position.set(a[0],y+.025,a[2]);contactShadow.scale.setScalar(.35+h*.07);contactShadow.material.opacity=Math.max(.05,.7-h*.06);}
   trail.update(camera, !!G.flight);
@@ -1355,7 +1437,8 @@ function frame(dt, rawDt, background) {
 // history's colour box let them leave a tinted streak behind (drive clip, release).
 // Phones only: on Desktop the resolve's Gaussian softened a 4x-MSAA + FXAA frame that was already clean (blind build-vs-build
 // check, r2: desktop crispness and look 0/4 against round 1, "softened all over like a blurry upscale"; phones won 3/4).
-function draw() { const still = taa.begin(renderer, camera, !post && !/^(windup|release|flight)$/.test(G.phase)); if (post && postEnabled) post.render(still); else { renderer.render(scene, camera); if (still) taa.canvas(renderer); } taa.end(camera); }
+// A putt eases from the resolve into the live frame instead (temporal.js FADE): its locked lens snapped from soft to raw at the swipe.
+function draw() { const still = taa.begin(renderer, camera, !post && !/^(windup|release|flight)$/.test(G.phase), G.throwType === 'putt'); if (post && postEnabled) post.render(still); else { renderer.render(scene, camera); if (still) taa.canvas(renderer); } taa.end(camera); }
 
 // ---------- HUD / menu wiring ----------
 function pickThrow(id) { if (G.phase !== 'aim') return; G.throwType = id; UI.selectThrow(id); if (id === 'putt') { G.discId = 'putter'; UI.selectDisc('putter'); ensureDisc(curP(), 'putter'); curP().discMesh.visible = true; } G.previewDirty = true; G.previewPower = null; sfx.click(); }
@@ -1414,8 +1497,9 @@ UI.seg('orderSeg', setOrder); UI.seg('setupOrderSeg', setOrder); setOrder(G.sett
 $('qualSeg').querySelector(`[data-v="${G.settings.quality}"]`)?.classList.add('on'); $('qualSeg').querySelector(`[data-v="${G.settings.quality === 'low' ? 'high' : 'low'}"]`)?.classList.remove('on');
 let gfxSwitch = Promise.resolve();   // a graphics switch in flight: Play waits for it, and taps in a row apply in order
 UI.seg('qualSeg', v => { G.settings.quality = v; resize(); gfxSwitch = gfxSwitch.catch(() => {}).then(async () => { await loadModels(renderer, v); await loadCourse(G.courseId); makeHero(); upgradeBodies(); }); });
-// Mobile's full-detail bodies land after the first frame: rebuild the clubhouse athlete on them, and the player on the tee
-function upgradeBodies() { fullBodies.then(async up => { while (warming) await warming; if (!up) return; if (hero?.group.visible) makeHero(); const p = curP(); if (p && !p.lod && G.phase === 'aim' && isMine(p) && !p.runUp) { p.lod = true; setPlayerDetail(p, false); } }); }
+// Mobile's full-detail bodies land after the first frame: rebuild the clubhouse athlete on them, and the round's athletes while the
+// player lines up his own shot (otherwise at the next turn change)
+function upgradeBodies() { fullBodies.then(async up => { while (warming) await warming; if (!up) return; if (hero?.group.visible) makeHero(); const p = curP(); if (p && G.phase === 'aim' && isMine(p) && !p.runUp) G.players.forEach(upgradeBody); }); }
 for (const type of ['touchend', 'pointerup', 'click']) document.addEventListener(type, unlock, { capture: true, passive: true });   // audio.js: which gestures can start sound
 
 const me = () => ({ name: G.avatar.name.trim() || 'You', avatar: G.avatar });
@@ -1435,7 +1519,7 @@ $('btnLockerDone').onclick = () => {
   const back = lockerFrom === 'online' && G.net && G.phase === 'menu' ? 'online' : 'menu'; lockerFrom = 'menu';
   UI.hide('locker'); UI.show(back); cam.mode = 'menu'; placeHero(); sfx.click();
   if (back === 'online' && !G.net.locked) {   // wear the new look in the waiting room (and in the round it starts)
-    if (G.net.isHost) { const host = G.lobby.find(p => p.host); if (host) { host.name = uniqueName(safeName(G.avatar.name), G.lobby.filter(p => p !== host).map(p => p.name)); host.avatar = { ...G.avatar, name: host.name }; } publishLobby(); }
+    if (G.net.isHost) { const host = G.lobby.find(p => p.host); if (host) { host.name = uniqueName(roomName(G.avatar.name, host.name), G.lobby.filter(p => p !== host).map(p => p.name)); host.avatar = { ...G.avatar, name: host.name }; } publishLobby(); }
     else G.net.toHost({ t: 'look', avatar: { ...G.avatar } });
   }
 };
@@ -1565,6 +1649,10 @@ function renderLobby() {
 const publishLobby = () => { renderLobby(); G.net?.broadcast({ t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code, room: G.room }); };
 function rejectGuest(id, reason) { G.net.send(id, { t: 'rejected', reason }); G.net.disconnect(id); }
 let turnCheck = null;
+// A request for a turn this guest has already thrown: the one the host took (its stroke still in flight), or an earlier one. The
+// relay sends frames queued while a phone was locked once it is back, and a request the host was slow to see arrives after the
+// guest, handed its turn back, threw again. A guest still waiting on such a turn resyncs on its own (watchConfirm, turn markers).
+const playedTurn = (m, from) => { if (m.turn === G.thrownTurn) return true; const [s, h, c, k] = String(m.turn).split(':'), p = G.players[+c]; return s === G.sessionId && p?.peerId === from && (+h < G.holeIdx || (+h === G.holeIdx && +k < p.strokes)); };
 function roomGone(title, sub) { if (!G.net || G.net.isHost) return; toMenu(); UI.toast(title, sub, 4000); }
 addEventListener('pagehide', () => { if (G.net?.isHost) try { G.net.broadcast({ t: 'closed' }); } catch { /* best effort */ } });
 function onNet(ev) {
@@ -1590,7 +1678,7 @@ function onNet(ev) {
     }
     if (G.net.locked) return rejectGuest(ev.id, 'This round has started, and the room stays closed to new players. Ask the host to make a new room for the next round.');
     if (G.lobby.length >= MAX_PLAYERS) return rejectGuest(ev.id, `This room is full (${MAX_PLAYERS} players).`);
-    G.lobby.push({ name: uniqueName(ev.name, G.lobby.map(p => p.name)), peerId: ev.id, avatar: sanitizeAvatar(ev.avatar), token: ev.token }); publishLobby(); sfx.click();
+    G.lobby.push({ name: uniqueName(roomName(ev.name, 'Guest'), G.lobby.map(p => p.name)), peerId: ev.id, avatar: sanitizeAvatar(ev.avatar), token: ev.token }); publishLobby(); sfx.click();
   } else if (ev.type === 'leave') {
     if (G.net.isHost) {
       const li = G.lobby.findIndex(p => p.peerId === ev.id); if (li < 0) return;
@@ -1630,7 +1718,7 @@ function onNet(ev) {
         if (m.t === 'ready') { const was = !!member.ready; member.ready = m.ready === true; if (member.ready && !was) sfx.click(); }
         else {
           const look = sanitizeAvatar(m.avatar); if (!look) return;
-          if (look.name && look.name !== member.name) member.name = uniqueName(look.name, G.lobby.filter(p => p !== member).map(p => p.name));   // renamed in the locker
+          if (look.name && look.name !== member.name) member.name = uniqueName(roomName(look.name, member.name), G.lobby.filter(p => p !== member).map(p => p.name));   // renamed in the locker
           member.avatar = { ...look, name: member.name };
         }
         publishLobby(); return;
@@ -1638,13 +1726,14 @@ function onNet(ev) {
       if (m.t === 'sync-request') { G.net.send(ev.from, G.net.locked ? { t: 'snapshot', state: snapshot() } : { t: 'lobby', players: lobbyPublic(G.lobby), code: G.net.code, room: G.room }); return; }
       // Guests send input only: never accept a client's trajectory, result, next-hole or lobby message.
       if (m.t === 'throw-request') {
+        if (playedTurn(m, ev.from)) return;   // a late copy of a throw that already counted: denying it sent the guest's phone through a resync mid-flight
         if (G.phase !== 'aim' || !validateThrowRequest(m, G, ev.from)) { G.net.send(ev.from, { t: 'throw-denied', reason: 'Waiting for your turn. Syncing the scorecard…' }); return; }
         const p = curP(), q = m.params, d = q.dir;
         const params = { throwType: q.throwType, discId: q.discId, power: q.power, hyzer: q.hyzer, yawOffset: q.yawOffset, launchOffset: q.launchOffset,
           dir: [...d], pos: releasePos(world, p.lie, d), lefty: p.appearance?.hand === 'left' };
         const sim = runSim(params), seq = ++G.shotSeq;
         const shot = { t: 'throw', sessionId: G.sessionId, turn: m.turn, seq, pi: G.cur, params, ...sim };
-        G.lastShotSeq = seq; G.net.broadcast(shot); applyRemoteThrow(shot);
+        G.lastShotSeq = seq; G.thrownTurn = m.turn; G.net.broadcast(shot); applyRemoteThrow(shot);
       }
       return;
     }
@@ -1657,7 +1746,7 @@ function onNet(ev) {
     else if (m.t === 'botify' && G.players[m.pi]) { const p = G.players[m.pi]; p.isBot = true; p.peerId = null; UI.toast(`${p.name} is away`, 'A bot keeps the round moving', 2000); }
     else if (m.t === 'rejoin' && G.players[m.pi]) { G.players[m.pi].isBot = false; G.players[m.pi].peerId = m.peerId; }
     else if (m.t === 'throw-denied') { UI.toast('Round synchronizing', m.reason, 2000); G.net.toHost({ t: 'sync-request' }); }
-    else if (m.t === 'rejected') { const reason = m.reason; G.net.close(); G.net = null; leaveRoomView(); UI.onlineError(reason); }
+    else if (m.t === 'rejected') { const reason = m.reason; G.net.close(); G.net = null; leaveRoomView(); UI.onlineError(reason); roomMark(null); }
     else if (m.t === 'closed') roomGone('The host left', 'The room has closed. Start a new room or an invite match.');
     else if (m.t === 'turn') {   // the host's turn marker: a guest still on an older turn (a lost shot) resyncs instead of waiting forever
       clearTimeout(turnCheck);
@@ -1672,11 +1761,19 @@ const setInvited = code => {
   $('online').classList.toggle('invited', !!code); UI[code ? 'show' : 'hide']('inviteNote'); UI[code ? 'show' : 'hide']('btnHostInstead');
   $('onlineTitle').textContent = code ? `Join room ${code}` : 'Online room'; if (code) $('joinCode').value = code;
 };
-const openLive = (invite = '') => { UI.hide('menu'); UI.show('online'); leaveRoomView(); $('onlineName').value ||= G.avatar.name || 'Player'; setInvited(invite); };
+const openLive = (invite = '') => { UI.hide('menu'); UI.show('online'); leaveRoomView(); $('onlineName').value ||= roomName(G.avatar.name, ''); setInvited(invite); };
 // The online panel turns into the waiting room once a room exists, and back into the create/join choice when it is gone.
 function enterRoomView() { seenCards = new Set(); readyBefore = new Set(); roomShown = ''; startArmed = 0; $('online').classList.add('in-room'); $('onlineTitle').textContent = 'Waiting room'; UI.hide('onlineChoice'); UI.show('lobby'); renderLobby(); }
 function adoptName(name) { if (name && name !== G.avatar.name) { G.avatar.name = name; saveLocal('chains.avatar', G.avatar); updateHub(); } }
 function leaveRoomView() { $('online').classList.remove('in-room'); UI.hide('lobby'); UI.show('onlineChoice'); G.room = null; setInvited(''); }
+// A guest's room stays in the address bar (?room=CODE) and the tab remembers being in it: a reload, or iOS bringing back a tab it had
+// put away, reopened the clubhouse (or a Join to tap) while the host held the seat for 30 s. Now it joins again by itself.
+const inRoom = () => { try { return sessionStorage.getItem('chains.inRoom') || ''; } catch { return ''; } };
+function roomMark(code) {
+  try { if (code) sessionStorage.setItem('chains.inRoom', code); else sessionStorage.removeItem('chains.inRoom'); } catch { /* private mode: no rejoin */ }
+  const u = new URL(location.href); if (code) u.searchParams.set('room', code); else u.searchParams.delete('room');   // left: a reload is the clubhouse again
+  if (u.href !== location.href) history.replaceState(null, '', u.pathname + u.search + u.hash);
+}
 $('btnHostInstead').onclick = () => { setInvited(''); $('joinCode').value = ''; };
 $('onlineName').addEventListener('focus', e => { if (['You', 'Player'].includes(e.target.value)) e.target.select(); });   // the default name is a placeholder: typing replaces it
 // Invite matches (src/match.js): turn-based, over plain HTTPS, so phones on any network can play together.
@@ -1692,18 +1789,18 @@ $('btnOnline').onclick = () => { sfx.click(); matches.open(); };
 $('btnOnlineBack').onclick = () => { G.net?.close(); G.net = null; UI.hide('online'); UI.show('menu'); };
 $('btnLeave').onclick = toMenu;
 $('btnCreate').onclick = async () => {
-  const name = safeName($('onlineName').value || 'Host'); UI.onlineError(); UI.setConnecting('btnCreate', true); $('btnJoin').disabled = true;
+  const typed = roomName($('onlineName').value, ''), name = typed || 'Host'; UI.onlineError(); UI.setConnecting('btnCreate', true); $('btnJoin').disabled = true;
   try {
     G.net?.close(); G.net = createNet();
     const room = G.net, code = await room.host(name, onNet); if (G.net !== room) return;
-    adoptName(name); G.lobby = [{ name, peerId: room.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code;
+    adoptName(typed); G.lobby = [{ name, peerId: room.id(), host: true, avatar: { ...G.avatar, name } }]; $('roomCode').textContent = code;
     G.room = { courseId: COURSE_IDS.includes(G.courseId) ? G.courseId : COURSE_IDS[0], holes: +G.settings.holes === 3 ? 3 : 9, order: safeOrder(G.settings.order) };
     enterRoomView();
   } catch (e) { UI.onlineError('Could not create a room: ' + (e.message || e)); G.net?.close(); G.net = null; }
   finally { UI.setConnecting('btnCreate', false); $('btnJoin').disabled = false; }
 };
 $('btnJoin').onclick = async () => {
-  const name = safeName($('onlineName').value || 'Guest'), code = $('joinCode').value.trim().toUpperCase(); UI.onlineError();
+  const typed = roomName($('onlineName').value, ''), name = typed || 'Guest', code = $('joinCode').value.trim().toUpperCase(); UI.onlineError();
   if (!/^[A-Z2-9]{4}$/.test(code)) { UI.onlineError('Enter the four-character room code.'); $('joinCode').focus(); return; }
   UI.setConnecting('btnJoin', true); $('btnCreate').disabled = true;
   // A network that blocks a direct link (cellular, strict Wi-Fi) costs a 10 s try before the relay takes over. Past 4 s, say what is
@@ -1714,8 +1811,8 @@ $('btnJoin').onclick = async () => {
     G.net?.close(); G.net = createNet(); G.lobby = [];
     const room = G.net; room.onStatus = s => { if (s === 'relay') { note = 'Switching to the backup connection…'; if (late) UI.onlineNote(note); } };
     await room.join(code, name, onNet, { ...G.avatar, name }); room.onStatus = null; if (G.net !== room) return;
-    adoptName(name); $('roomCode').textContent = code; enterRoomView();
-  } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; }
+    adoptName(typed); $('roomCode').textContent = code; enterRoomView(); roomMark(code);
+  } catch (e) { UI.onlineError('Could not join: ' + (e.message || e)); G.net?.close(); G.net = null; try { sessionStorage.removeItem('chains.inRoom'); } catch {} }   // the link stays for a manual retry; no rejoin by itself
   finally { clearTimeout(slow); UI.onlineNote(); UI.setConnecting('btnJoin', false); $('btnCreate').disabled = false; }
 };
 $('btnLobbyBot').onclick = () => { if (G.lobby.length < MAX_PLAYERS && !G.net.locked) { G.lobby.push({ name: uniqueName(BOT_NAMES[G.lobby.filter(p => p.isBot).length % BOT_NAMES.length], G.lobby.map(p => p.name)), isBot: true }); publishLobby(); sfx.click(); } };
@@ -1774,6 +1871,7 @@ canvas.addEventListener('webglcontextrestored', () => { contextLost = false; res
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => { clock.getDelta(); if (document.hidden) { hiddenAt = Date.now(); return; } resize(); if (G.mode === 'online' && !G.net?.isHost && Date.now() - hiddenAt > 8000) G.net?.toHost({ t: 'sync-request' }); });   // a glance away no longer rebuilds the whole round
 setInterval(() => { if (document.hidden && G.mode === 'online' && G.net?.isHost) loop(true); }, 100);
+window.chainsStarted = true;   // every module evaluated: index.html's watch for a module that threw while loading stands down
 setTimeout(async () => {
   try {
   await loadManifest();
@@ -1781,15 +1879,18 @@ setTimeout(async () => {
   await loadCourse(G.courseId);
   makeHero(); updateHub(); updateCamera(10); cam.pos.copy(cam.tPos); cam.look.copy(cam.tLook);
   await Promise.all([warmShaders(), assetsIdle()]);
-  UI.hide('loading'); loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
-  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: draw, taa, performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, flightPlan, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor, AIM };
-  const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) openLive(invite);
+  UI.hide('loading'); try { sessionStorage.removeItem('chains.bootRetry'); } catch { /* private mode */ }   // booted: the next failure gets its own automatic reload (index.html)
+  loop(); upgradeBodies();   // after the warm-up: rebuilding the hero while compileAsync polls its materials threw and stalled boot 6 s
+  window.__chains = { G, renderer, scene, camera, course, world, holes, cam, AIM, input, coach, get hero() { return hero; }, get post() { return post; }, puffs, get windFx() { return windFx; }, renderFrame: draw, taa, performance: () => ({ frameMs: frameAverage * 1000, resolutionScale, postEnabled, ratio: renderer.getPixelRatio() }), startGame, nextTurn, doThrow, runSim, RUNUP, resolveThrow, flightPlan, setupTurn, loadCourse, makeHero, THREE, aimSpot, AIM_SPOTS, aimSpotFor };
+  const params = new URLSearchParams(location.search || location.hash.replace(/^#/, '?')), invite = (params.get('room') || '').toUpperCase(); if (/^[A-Z2-9]{4}$/.test(invite)) { const back = inRoom() === invite; openLive(invite); if (back) { $('onlineTitle').textContent = `Back to room ${invite}`; UI.hide('inviteNote'); $('btnJoin').click(); } }   // a reload mid-room: straight back in, not "type your name, then tap Join"
   else { matches.boot(); if (params.get('friends') === '1' && !matches.isOpen()) matches.open(); }   // ?friends=1: a host's "play online" lands on Friends
   if (['host', 'name', 'home', 'friends'].some(k => params.has(k))) { const u = new URL(location.href); for (const k of ['host', 'name', 'home', 'friends']) u.searchParams.delete(k); history.replaceState(null, '', u.pathname + u.search + u.hash); }   // kept for the tab in sessionStorage
   } catch (error) {
+    if (window.chainsBootFailed) { console.error('Game startup failed', error); chainsBootFailed(error?.message || error); return; }   // index.html: one reload by itself, then the reason and a button
     const loading = $('loading'); loading.replaceChildren();
     const message = document.createElement('p'); message.textContent = 'The course could not load. Check your connection, then try again.';
     const retry = document.createElement('button'); retry.textContent = 'Reload game'; retry.onclick = () => location.reload();
-    loading.append(message, retry); console.error('Game startup failed', error);
+    const detail = document.createElement('small'); detail.className = 'boot-error'; detail.textContent = String(error?.message || error).slice(0, 160);   // a phone has no console: the reason, small, for the bug report
+    loading.append(message, retry, detail); console.error('Game startup failed', error);
   }
 }, 60);

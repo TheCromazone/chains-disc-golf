@@ -100,16 +100,23 @@ function pose(s, warm) {
 // ---- clips: beats -> keys every 1/40
 // lead (optional): other beats that the samples up to lead.upto are eased from, so a follow-through can change without moving
 // the stroke before it (each beat's easing tangent reads its neighbours, so a new finish nudged the release key by ~.003 rad)
-function clip(name, beats, start, lead) {
-  const B = fill(beats), L = lead ? fill(lead.beats) : B, keys = []; let warm = start;
+// end (optional): a run-up is solved backwards from its drive's own key, so its last samples lie on the same branch as the key it
+// hands over to (solved forwards, the x-step reached the coil with the upper arm ~1 rad off in every Euler angle, the same hand by
+// another twist, and the last 1/40 swung the wrist through 6.5 cm in one frame to get onto the drive's)
+// The legs are still solved forwards (a swing foot recovering behind the hip folds the knee the way the stride before it left it;
+// solved back from the coil's forward-reaching leg it missed its path by up to 7 cm).
+function clip(name, beats, start, lead, end = null) {
+  const B = fill(beats), L = lead ? fill(lead.beats) : B;
   // the 1/40 grid plus every beat, minus grid samples crowding a beat (.62 beside .625 made a 5 ms segment whose curvature broke the
   // release's velocity continuity)
   const ts = new Set(B.map(b => b.t)); for (let i = 0; i <= 40; i++) { const t = +(i / 40).toFixed(4); if (B.every(b => Math.abs(b.t - t) > .009 || b.t === t)) ts.add(t); }
-  for (const t of [...ts].sort((a, b) => a - b)) {
+  const pass = (order, warm) => order.map(t => {
     const s = { t }, S = lead && t <= lead.upto ? L : B; for (const ch of Object.keys(B[0])) if (ch !== 't') s[ch] = channel(S, ch, t);
-    const k = pose(s, warm); warm = k;
-    keys.push({ t, ...Object.fromEntries(Object.entries(k).map(([j, v]) => [j, Array.isArray(v) ? v.map(x => +x.toFixed(4)) : +(+v).toFixed(4)])) });
-  }
+    const k = pose(s, warm); warm = k; return k;
+  });
+  const order = [...ts].sort((a, b) => a - b), fwd = pass(order, start), back = end && pass([...order].reverse(), end).reverse();
+  const keys = order.map((t, i) => { const k = back ? { ...fwd[i], shR: back[i].shR, elR: back[i].elR, shL: back[i].shL, elL: back[i].elL, err: Math.max(fwd[i].err, back[i].err) } : fwd[i];
+    return { t, ...Object.fromEntries(Object.entries(k).map(([j, v]) => [j, Array.isArray(v) ? v.map(x => +x.toFixed(4)) : +(+v).toFixed(4)])) }; });
   const worst = Math.max(...keys.map(k => k.err)); console.log(name.padEnd(10), keys.length, 'keys, worst miss', (worst * 100).toFixed(1), 'cm');
   for (const k of keys) delete k.err;
   return keys;
@@ -193,31 +200,53 @@ const BH = [
 
 // ============ the x-step run-up (bots, remote players) ============
 // Played before the drive by anyone the camera watches throw from a run-up: from standing ~1.5 m behind the lie, disc at the
-// chest in both hands, the throwing-side foot steps (.30), the off foot crosses behind it as the hips turn side-on and the arm
-// starts back (.62), and the throwing-side foot swings through toward the plant with the arm reaching back. It ends exactly
+// chest in both hands, the throwing-side foot steps (.24), the off foot crosses behind it as the hips turn side-on and the arm
+// starts back (.58), and the throwing-side foot swings through toward the plant with the arm reaching back. It ends exactly
 // on the drive's .35 beat (full coil, the front foot just off the ground), so the drive takes over from .35 and plants at .43.
 const coil = stateAt(BH, .35);
+// One beat past the end, the drive's next key (.375) at the time the pull reaches it (main.js windUp starts it at RUNUP.v0, drive phase
+// per second): poseAt never samples past 1, but every channel's tangent at 1 reads it, so the body carries its speed through the
+// handover. Eased to rest at the coil and pulled from rest, the pelvis slowed from 1.4 to 0.1 cm a frame and the swinging foot from
+// 9 to 0.2 in mid-stride, then surged to 3: a beat's hitch before the plant.
+const RUNUP_DUR = .8, PULL_V0 = .45, PAST = { t: .375, at: +(1 + .025 / RUNUP_DUR / PULL_V0).toFixed(4) };   // main.js RUNUP.dur, RUNUP.v0
+// The feet step: each one peels up off its spot, swings through high and comes down onto the next nearly vertically, and the
+// other foot stays planted until it has landed. The strides used to be eased straight between the footfalls, so a foot came in
+// skimming the last few centimetres of the ground and dragged its toe out again, and each stayed down until the body was ~.6 m past
+// it, on its toe at full stretch: the probe measured 24 cm of loaded-sole slide on the x-step and 41 on the crow hop (whose front
+// foot then crossed 78 cm of ground in the last 96 ms). Now each foot leaves before the body is ~.4 m past it.
+// step(side, t0, a, t1, b, h0, h1, via, land): leaves a (heading h0) at t0, lands on b (heading h1) at t1, crossing at via ([x, z]
+// half way, for a foot passing behind the other) ~15 cm up; land false: still in the air at t1, where the next beat takes it on
+const step = (side, t0, a, t1, b, h0, h1, via = null, land = true) => {
+  const k = 'sole' + side, f = 'foot' + side, at = (u, y) => [a[0] + (b[0] - a[0]) * u, y, a[2] + (b[2] - a[2]) * u], r = t => +t.toFixed(4), cm = 1 / Math.hypot(b[0] - a[0], b[2] - a[2]) / 100;   // a foot leaves and lands within 1 cm of its spot while it rises or drops the 5 cm nearest the ground
+  return [{ t: r(t0), [k]: a, [f]: h0 }, { t: r(t0 + .035), [k]: at(cm, .05) }, { t: r((t0 + t1) / 2), [k]: via ? [via[0], via[2] ?? .15, via[1]] : at(.5, .15) },
+    ...(land ? [{ t: r(t1 - .035), [k]: at(1 - cm, .05) }, { t: r(t1), [k]: b, [f]: h1 }] : [])];
+};
+const merge = (...beats) => { const m = new Map(); for (const b of beats.flat()) m.set(b.t, { ...m.get(b.t), ...b }); return [...m.values()].sort((a, b) => a.t - b.t); };
 // athletic through the approach: knees flexed and the chest over the feet (critics read 3 cm higher and 4 deg prouder as "upright, passive")
-const XSTEP = [
+// Feet: the right foot lands at .24 (.78 m from the lie) as the left leaves its standing spot, the left crosses behind it and lands
+// on the drive's rear-foot spot at .58, and the right leaves at .60 and is in the air at the coil (the drive plants it at .40). The
+// right lands turned 50 deg: once side-on its leg is crossed behind the left, and turned 35 the hip ran out of twist and adduction
+// swinging it out again (its path missed by up to 7 cm).
+const XSTEP = merge([
   { t: 0, at: [0, -.07, 1.50], pelvis: [-6, 22, 0], chest: [-16, 8, 0], head: [2, -26, 0],
     handR: [-.24, -.32, -.18], elbowR: [.02, -.28, .05], rollR: 0, handL: [.12, -.38, -.24], elbowL: [-.04, -.27, -.04], rollL: 0,
     soleR: [.12, 0, 1.52], footR: 22, soleL: [-.12, 0, 1.64], footL: 22 },
-  { t: .12, at: [-.02, -.09, 1.40], soleR: [.10, .08, 1.30] },
-  { t: .30, at: [0, -.15, 1.12], pelvis: [-8, 38, 0], chest: [-20, 22, 0], head: [2, -44, 0], soleR: [.06, 0, .95], footR: 38, soleL: [-.12, 0, 1.64],
+  { t: .12, at: [-.02, -.09, 1.40] },
+  { t: .30, at: [0, -.15, 1.12], pelvis: [-8, 38, 0], chest: [-20, 22, 0], head: [2, -44, 0],
     handR: [-.22, -.16, -.08], elbowR: [.04, -.22, .08] },
-  { t: .46, at: [.02, -.10, .80], pelvis: [-8, 70, -1], chest: [-20, 36, 2], head: [4, -62, 0], soleL: [.04, .08, .86], footL: 60,
+  { t: .46, at: [.02, -.10, .80], pelvis: [-8, 70, -1], chest: [-20, 36, 2], head: [4, -62, 0],
     handR: [-.20, -.13, .02], elbowR: [.05, -.18, .14], handL: [.16, -.30, -.30] },
   // r3 athlete c2 (both m-throw critics: "the reach-back is frozen: the disc holds one shoulder-height spot behind him for
   // four frames while only the legs step", "no coil before the throw"): the arm now travels, from the tuck at the chest
   // (.46) through half way back at the cross-step (.62) to a full, slightly low extension behind with the chest turned past
   // the hips and dropped over the feet (.8-.9), the loaded coil the drive's .35 carries on from
-  { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-22, 64, 3], head: [2, -80, 0], soleL: [-.27, 0, .29], footL: 70,
-    soleR: [.06, 0, .95], handR: [-.02, -.11, .33], elbowR: [.07, -.10, .15] },
+  { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-22, 64, 3], head: [2, -80, 0], handR: [-.02, -.11, .33], elbowR: [.07, -.10, .15] },
   { t: .8, at: [-.03, -.12, .22], pelvis: [-9, 97, -1], chest: [-26, 100, 4], head: [3, -84, 0],
-    soleR: [-.05, .09, .28], footR: 85, handR: [.11, -.16, .61], elbowR: [.10, -.09, .31] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
+    handR: [.11, -.16, .61], elbowR: [.10, -.09, .31] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
   { t: .9, chest: [-25, 101, 4], handR: [.12, -.15, .62], elbowR: [.10, -.08, .31] },
-  { ...coil, t: 1 },
-];
+  { ...coil, t: 1 }, { ...stateAt(BH, PAST.t), t: PAST.at },
+], step('R', 0, [.12, 0, 1.52], .24, [.14, 0, .78], 22, 50), step('L', .28, [-.12, 0, 1.64], .58, [-.27, 0, .29], 22, 70, [.24, .80]),
+  step('R', .60, [.14, 0, .78], 1, coil.soleR, 50, null, [.04, .22], false));
 
 // ============ the putt ============
 // A push putt from the staggered stance (throwing-side foot a half step ahead, square to the pin): the knees load with the
@@ -293,25 +322,29 @@ const FH = [
 // The forehand's run-up from the same standing start as the x-step: right, left, a hop onto the right (the load), and the
 // forehand takes over at .35 with the left foot in the air for the plant.
 const load = stateAt(FH, .35);
-const FXSTEP = [
+// Feet: the right foot lands at .20 (.97 m from the lie) as the left leaves, the left lands at .50 (.42 m), the right hops past it
+// onto the drive's back-foot spot at .76 already turned to its heading, and the left leaves at .80 and swings through to the plant.
+const FXSTEP = merge([
   { ...XSTEP[0] },
-  { t: .12, at: [0, -.05, 1.42], soleR: [.13, .07, 1.30] },
-  { t: .32, at: [.02, -.07, 1.02], pelvis: [-4, 5, 0], chest: [-8, -5, 0], head: [-2, 10, 0], soleR: [.16, 0, .78], footR: 0, soleL: [-.12, 0, 1.64] },
-  { t: .5, at: [.03, -.06, .66], soleL: [-.12, .07, .62], handR: [.16, -.34, -.05], elbowR: [.02, -.26, .10], handL: [.12, -.42, -.24] },
-  { t: .62, at: [.04, -.07, .42], pelvis: [-4, -25, 0], chest: [-7, -22, 0], head: [6, 45, 0], soleL: [-.12, 0, .36], footL: -20, soleR: [.16, 0, .78] },
-  { t: .78, at: [.07, -.05, .18], soleR: [.25, .08, .22], footR: -30 },
-  { t: .88, at: [.08, -.09, .08], soleR: [.25, 0, -.04], footR: -45, soleL: [-.12, 0, .36] },
-  { ...load, t: 1 },
-];
+  { t: .12, at: [0, -.05, 1.42] },
+  { t: .32, at: [.02, -.07, 1.02], pelvis: [-4, 5, 0], chest: [-8, -5, 0], head: [-2, 10, 0] },
+  { t: .5, at: [.03, -.06, .66], handR: [.16, -.34, -.05], elbowR: [.02, -.26, .10], handL: [.12, -.42, -.24] },
+  { t: .62, at: [.04, -.07, .42], pelvis: [-4, -25, 0], chest: [-7, -22, 0], head: [6, 45, 0] },
+  { t: .78, at: [.07, -.05, .18] },
+  { t: .88, at: [.08, -.09, .08] },
+  { ...load, t: 1 }, { ...stateAt(FH, PAST.t), t: PAST.at },
+], step('R', 0, [.12, 0, 1.52], .20, [.15, 0, .97], 22, 0), step('L', .23, [-.12, 0, 1.64], .50, [-.12, 0, .42], 22, -20),
+  step('R', .53, [.15, 0, .97], .76, [.25, 0, -.04], 0, -20), step('L', .80, [-.12, 0, .42], 1, load.soleL, -20, null, null, false));
 
-const SOLVED = {};
-SOLVED.backhand = clip('backhand', BH, warmFrom('backhand'));
-SOLVED.xstep = clip('xstep', XSTEP, warmFrom('putt'));
+const SOLVED = { backhand: clip('backhand', BH, warmFrom('backhand')), xstep: null };   // the run-ups after their drives (solved back from them), listed in the old order
 SOLVED.putt = clip('putt', PUTT, warmFrom('putt'), { beats: PUTT_STROKE, upto: .62 });
 SOLVED.forehand = clip('forehand', FH, warmFrom('forehand'));
-SOLVED.fxstep = clip('fxstep', FXSTEP, warmFrom('putt'));
+SOLVED.xstep = clip('xstep', XSTEP, warmFrom('putt'), null, SOLVED.backhand.find(k => k.t === .35));
+SOLVED.fxstep = clip('fxstep', FXSTEP, warmFrom('putt'), null, SOLVED.forehand.find(k => k.t === .35));
 // a run-up's last key is its drive's .35 key itself: the same targets solved from another warm start can land on an equivalent
 // arm with a few degrees more upper-arm twist, which would pop at the handover
-for (const [run, drive] of [['xstep', 'backhand'], ['fxstep', 'forehand']]) SOLVED[run][SOLVED[run].length - 1] = { ...SOLVED[drive].find(k => k.t === .35), t: 1 };
+for (const [run, drive] of [['xstep', 'backhand'], ['fxstep', 'forehand']]) SOLVED[run][SOLVED[run].findIndex(k => k.t === 1)] = { ...SOLVED[drive].find(k => k.t === .35), t: 1 };
+// ...and the key past it (the drive's next) is the drive's own too
+for (const [run, drive] of [['xstep', 'backhand'], ['fxstep', 'forehand']]) { const k = SOLVED[run].at(-1); SOLVED[run][SOLVED[run].length - 1] = { ...SOLVED[drive].find(d => d.t === PAST.t), t: k.t }; }
 
 writeFileSync(new URL('../src/throw-keys.js', import.meta.url), `// Generated by tools/author-throws.mjs (the throw solver); edit the beats there, not these keys.\nexport const SOLVED = ${JSON.stringify(SOLVED)};\n`);

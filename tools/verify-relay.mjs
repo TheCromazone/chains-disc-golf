@@ -5,8 +5,8 @@
 //   node tools/verify-relay.mjs [--dist] [--case 1|2|3]        (CHROME=/path/to/chrome; --case runs one of the three checks alone)
 // Checks: the relay guest locks for 10 s on its own turn and throws the moment it is back; the host locks for 15 s while the relay
 // guest throws; both throws must land (a throw the game hands back to be thrown again is allowed, a stuck "Confirming your throw…"
-// is not) with every client agreeing. A throw request the host holds back for 9 s must hand the guest its turn back and still
-// count once. Also: the screen wake lock is held in a room, asked for again on return and let go on leaving.
+// is not) with every client agreeing. A throw request the host holds back (lost, then delivered late) must hand the guest its
+// turn back and still count once. Also: the screen wake lock is held in a room, asked for again on return and let go on leaving.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -166,18 +166,24 @@ try {
     if (w.asked > asked && w.held) pass('Host asks for the wake lock again when it is back on screen'); else fail('Host asks for the wake lock again when it is back on screen', JSON.stringify(w));
   } catch (e) { fail('Host locked 15 s while the relay guest throws', e.message); }
 
-  // 3. The host holds a guest's throw request back for 9 s (lost, then late): the guest gets its turn back after about 7 s, throws
-  //    again, and the throw counts once even though the first request still arrives.
+  // 3. The host holds a guest's throw request back (lost, then late): the guest gets its turn back after about 7 s, throws
+  //    again, and the throw counts once even though the first request still arrives, 1.5 s after the second. (A fixed 9 s hold
+  //    raced the guest's resync: in this Chrome's software GL the snapshot's rebuild runs into the 6 s shader warm-up cap, the late
+  //    copy landed first and counted, and the check failed on "1 try" with the game behaving.) Held 30 s at most.
   if (!only || only === '3') try {
     const pi = await untilTurnOf(g1); await g1.wait(playable(pi), 'own turn');
     const before = await host.js(`__chains.G.players[${pi}].strokes`);
-    await host.js(`(()=>{const n=__chains.G.net,o=n.onEvent;let held=false;n.onEvent=ev=>{if(!held&&ev.type==='msg'&&ev.data?.t==='throw-request'){held=true;setTimeout(()=>o(ev),9000);return}return o(ev)};window.__unhold=()=>{n.onEvent=o}})()`);
+    await host.js(`(()=>{const n=__chains.G.net,o=n.onEvent;let held=null,done=false;const let_go=()=>{done=true;if(!held)return;const h=held;held=null;o(h)};
+      n.onEvent=ev=>{if(ev.type==='msg'&&ev.data?.t==='throw-request'&&!done){if(!held){held=ev;setTimeout(let_go,30000);return}const r=o(ev);setTimeout(let_go,1500);return r}return o(ev)};window.__unhold=()=>{n.onEvent=o}})()`);
+    await g1.js(`window.__toasts=[];new MutationObserver(()=>__toasts.push(document.getElementById('toastTitle').textContent)).observe(document.getElementById('toastTitle'),{childList:true,characterData:true,subtree:true});true`);
     const r = await throwUp({ pi, before });
     await pause(6000); await settle(); await agree('after the late request');
-    const after = await host.js(`__chains.G.players[${pi}].strokes`);
+    const after = await host.js(`__chains.G.players[${pi}].strokes`), toasts = await g1.js('__toasts');
     await host.js('window.__unhold()');
     if (after === before + 1 && r.attempts >= 2) pass('A lost throw request hands the guest its turn back; the late copy does not count twice', `${r.attempts} tries, ${(r.ms / 1000).toFixed(1)} s, strokes ${before} → ${after}`);
     else fail('A lost throw request hands the guest its turn back; the late copy does not count twice', `${r.attempts} tries, strokes ${before} → ${after}`);
+    if (!toasts.includes('Round synchronizing')) pass('The late copy is dropped quietly: the guest is not sent through a resync', JSON.stringify(toasts));
+    else fail('The late copy is dropped quietly: the guest is not sent through a resync', JSON.stringify(toasts));
   } catch (e) { fail('A lost throw request hands the guest its turn back', e.message); }
 
   const lobby = await host.js(`JSON.stringify(__chains.G.lobby.map(m=>m.name+(m.disconnected?' (disconnected)':'')+(m.isBot?' (bot)':'')))`);
