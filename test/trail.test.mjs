@@ -26,14 +26,16 @@ camera.position.set(0, 2, 0); trail.push([0, 1.5, -2.5], 1.1); trail.update(came
 trail.update(camera, false);
 assert.equal(mesh.visible, false, 'the ribbon clears when the flight ends');
 // A putt (start with the basket's [x, z]): seen from the locked aim frame behind the thrower, nearly end-on, it still draws (the
-// critics lost the disc between the hand and the chains), faint and thin, and never over the basket at the catch.
+// critics lost the disc between the hand and the chains, and its old faint wisp read as "a faint smear"): bold at the disc but
+// short, gone within about a metre behind it, and never over the basket at the catch.
 camera.position.set(1, 2.2, 3.5); camera.lookAt(0, 1, -8); camera.updateMatrixWorld();
-trail.start('#ff7a1a', [0, -8]);
+trail.start('#ff19c8', [0, -8]);
 const putt = i => [.7 - Math.min(24, i) * .03, 1.1, -Math.min(8, i / 3)];   // 10 m/s, into the chains at i = 24
 for (let i = 0; i <= 16; i++) { trail.push(putt(i), i / 30); trail.update(camera, true); }   // mid-flight, 2.7 m short of the basket
 { const g = fade(), on = [...Array(64).keys()].filter(i => g[i * 2] > 0), h = on.at(-1);
-  assert(g[h * 2] > .2 && g[h * 2] < .5, 'a putt draws a faint trail from behind the thrower');
-  assert(width(h) / dist(h) < .0064 * .7, 'thinner than a drive'); }
+  assert(g[h * 2] > .6, 'a putt draws a visible streak from behind the thrower');
+  const p = pos(), at = i => [(p[i * 6] + p[i * 6 + 3]) / 2, (p[i * 6 + 1] + p[i * 6 + 4]) / 2, (p[i * 6 + 2] + p[i * 6 + 5]) / 2];
+  assert(Math.hypot(...at(h).map((v, k) => v - at(on[0])[k])) < 1.3, 'short: it fades within about a metre of the disc'); }
 for (let i = 17; i <= 30; i++) { trail.push(putt(i), i / 30); trail.update(camera, true); }   // the catch
 assert(Math.max(...fade()) < .05, 'gone over the basket at the catch');
 trail.dispose(); assert.equal(scene.children.length, 0, 'disposed');

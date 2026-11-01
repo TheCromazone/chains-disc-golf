@@ -183,15 +183,18 @@ const BH = [
   { t: .7, at: [-.015, -.10, -.06], pelvis: [-9, 10, 0], chest: [-18, 45, -6], head: [0, -42, 0],
     handR: [-.42, -.04, -.38], elbowR: [-.18, -.03, -.22], handL: [.06, -.34, -.14], elbowL: [-.08, -.24, -.02],
     soleL: [-.30, .04, .20], footL: 32, footR: 80 },
-  { t: .74, soleL: [-.33, .15, .04], footL: 20, handR: [-.52, .03, -.18], elbowR: [-.24, -.02, -.20] },   // ...and only then lets go and swings round the posted front leg
+  // r9 athlete c2 (m-throw critics: "the arm snaps overhead at the end"; DGM's arm carries on round the front of the body at
+  // shoulder height): after the hit the hand stays a few cm under the shoulder and nearly at full reach as the chest turns past
+  // square, instead of rising 12-16 cm over it (seen from the run-up camera on his chest side, that read as the arm thrown over his head)
+  { t: .74, soleL: [-.33, .15, .04], footL: 20, handR: [-.56, -.07, -.18], elbowR: [-.28, -.05, -.12] },   // ...and only then lets go and swings round the posted front leg
   { t: .8, at: [-.06, -.10, -.20], pelvis: [-14, -20, 0], chest: [-27, 16, -2], head: [4, -6, 0],
-    handR: [-.50, .12, .02], elbowR: [-.30, -.04, -.16], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
+    handR: [-.57, -.06, .04], elbowR: [-.30, -.05, -.05], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
     soleL: [-.38, .15, -.26], footL: 6, footR: 34 },
   { t: .9, at: [-.13, -.11, -.36], pelvis: [-13, -38, 0], chest: [-25, -14, 0], head: [6, 18, 0],
-    handR: [-.40, .16, .22], elbowR: [-.30, -.02, -.12], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
+    handR: [-.46, -.04, .26], elbowR: [-.30, -.05, -.08], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
     soleL: [-.40, 0, -.62], footL: -24, footR: 4 },
   { t: 1, at: [-.16, -.11, -.40], pelvis: [-12, -42, 0], chest: [-21, -16, 0], head: [5, 22, 0],
-    handR: [-.36, .10, .22], elbowR: [-.30, -.06, -.10], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
+    handR: [-.42, -.08, .26], elbowR: [-.30, -.07, -.07], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
     soleL: [-.40, 0, -.62], footL: -28, footR: 0 },
 ];
 

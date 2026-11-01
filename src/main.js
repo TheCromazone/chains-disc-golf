@@ -13,7 +13,7 @@ import { createWindFx } from './wind.js';
 import { createShotGuide } from './shot-guide.js';
 import { suggestPower, basketLine, puttPower } from './shot-planning.js';
 import { createFlightTrail } from './flight-trail.js';
-import { createTemporal } from './temporal.js';
+import { createTemporal, ATHLETE_STENCIL, HAND_STENCIL } from './temporal.js';
 import { createAimLine, createAimChevrons } from './aim-line.js';
 import { setupInput } from './input.js';
 import { createCoach } from './coach.js';
@@ -89,7 +89,7 @@ const strHash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ 
 
 // ---------- renderer / scene ----------
 const canvas = $('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true, powerPreference: 'high-performance' });   // stencil: athletes tag their pixels for the phone resolve's soft outline (temporal.js)
 renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .74;   // sunlit turf lands mid-high and shade keeps a real dark; ACES rolls the sun's haze and aureole off instead of clipping them
 // Mobile's finish: Desktop grades the frame in a full-screen pass after ACES (effects.js GRADE: gain and lift, a gentle
 // S-curve, saturation about luma, greens toward olive, a cool-shade/warm-sun split tone, a cool veil in the deepest darks).
@@ -153,11 +153,17 @@ const netSend = msg => { if (G.mode !== 'online' || !G.net) return; G.net.isHost
 const buzz = pattern => { try { navigator.vibrate?.(pattern); } catch { /* no haptics */ } };   // Android only; iOS Safari ignores it
 
 // ---------- players ----------
+// Every athlete (players, the clubhouse hero) tags its pixels in the stencil, so the phone resolve softens his outline into
+// the scene (temporal.js) instead of leaving a cut-out edge. The disc is a separate mesh and keeps its crisp rim.
+// Phones also take his fresnel rim light off: with no history on his interior it drew sharp pale seams round every hair
+// lock and a light band inside the hand and forearm against the grass (g13 crisp: "a light halo-like rim with a hard boundary").
+// ponytail: read at build; a tier switch mid-round keeps the old players' rim until their bodies are rebuilt
+const athlete = c => { c.group.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) { Object.assign(m, /^(hold|rest)_/.test(o.name) ? HAND_STENCIL : ATHLETE_STENCIL); if (m.userData.rim && G.settings.quality === 'low') m.userData.rim.value.w = 0; } }); return c; };   // his modelled hands: bit 2 (temporal.js)
 function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerId = null, avatar = null, hand }, i) {
   // bots and unnamed humans get a deterministic random look (same on every online client) in their player colour
   color = safeColor(color, COLORS[i % COLORS.length]); avatar = avatar && sanitizeAvatar(avatar); name = safeName(name);   // a room's config comes off the network
   const appearance = avatar ? { ...avatar, jersey: color } : randomAvatar(makeRng(strHash(name) + i * 97), { jersey: color, name, ...(hand ? { hand } : {}) });
-  const char = createCharacter(appearance);
+  const char = athlete(createCharacter(appearance));
   char.setGround?.((x, z) => world.height(x, z));
   scene.add(char.group);
   const marker = new THREE.Mesh(new THREE.RingGeometry(0.27, 0.4, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false }));
@@ -171,7 +177,7 @@ function createPlayer({ name, color, isBot = false, difficulty = 'medium', peerI
 function upgradeBody(p) {
   if (!p.char.lod || !hasFullBody(p.char.avatar.figure === 'female' ? 'golfer_f' : 'golfer')) return;
   if (warming) { warming.then(() => upgradeBody(p)); return; }   // swap once the warm-up has let go of the old body's materials
-  const next = createCharacter(p.appearance);
+  const next = athlete(createCharacter(p.appearance));
   next.setGround?.((x, z) => world.height(x, z));
   next.group.position.copy(p.char.group.position); next.group.rotation.copy(p.char.group.rotation);
   scene.remove(p.char.group); p.char.dispose(); p.char = next; scene.add(next.group);
@@ -312,7 +318,7 @@ function stageClubhouse() {
   const n = world.normal(x, z); menuBlob.position.set(x, y + .03, z); menuBlob.quaternion.setFromUnitVectors(UP, _v.set(n[0], n[1], n[2]));
 }
 let heroDisc = null;
-function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = createCharacter(G.avatar); hero.group.visible = G.phase === 'menu'; hero.setGround?.((x, z) => world.height(x, z)); kickLight(hero.group); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
+function makeHero() { if (hero) { scene.remove(hero.group); hero.dispose(); } if (heroDisc) { scene.remove(heroDisc); heroDisc.userData.dispose?.(); } hero = athlete(createCharacter(G.avatar)); hero.group.visible = G.phase === 'menu'; hero.setGround?.((x, z) => world.height(x, z)); kickLight(hero.group); scene.add(hero.group); heroDisc = createDiscMesh(discById('driver')); scene.add(heroDisc); placeHero(); }
 // Disc in the hand. Idle: carried by the rim at the thigh, plate hanging beside the leg. Throwing: gripped so the
 // plate rides the wrist through the windup and is exactly level with the planned release normal at phase .62.
 const _qh = new THREE.Quaternion(), _qg = new THREE.Quaternion(), _off = new THREE.Vector3(), _nrm = new THREE.Vector3(), _gp = new THREE.Vector3(), _gn = new THREE.Vector3();
@@ -608,12 +614,20 @@ function updateFlight(dt) {
   const nn = [a[3] + (b[3] - a[3]) * u, a[4] + (b[4] - a[4]) * u, a[5] + (b[5] - a[5]) * u];
   if (a.length > 6) f.spinRate = a[6] + (b[6] - a[6]) * u; else f.spinRate *= (1 - 0.12 * dt);   // older peers send six-wide records
   f.spin += f.spinRate * dt;
+  // The putt's hero pass (r3 m-putt 0/4: "a tiny orange sliver beside the hand, lost in the basket"): seen from the locked frame
+  // behind him a 21 cm putter flies dead level ~1 m under the lens, a 2 cm edge-on line. Out of the hand it grows to PUTT_HERO
+  // and tips its plate PUTT_TIP toward the lens, so a lit ellipse travels to the chains; from just after the first contact it
+  // eases back to true size and the physics' own tilt, so the catch and the drop into the tray are the real disc.
+  const hit = f.events[0]?.[0] ?? n / 60, hw = f.params.throwType === 'putt' ? THREE.MathUtils.smoothstep(f.t, 0, .12) * (1 - THREE.MathUtils.smoothstep(f.t, hit + .04, hit + .22)) : 0;
+  if (hw > 0) { _v.set(camera.position.x - pos[0], camera.position.y - pos[1], camera.position.z - pos[2]).normalize(); nn[0] += _v.x * PUTT_TIP * hw; nn[1] += _v.y * PUTT_TIP * hw; nn[2] += _v.z * PUTT_TIP * hw; }
+  const hs = 1 + (PUTT_HERO - 1) * hw; p.discMesh.scale.set(hs, .6 * hs, hs);   // createDiscMesh's .6 thickness
   setDiscPose(p.discMesh, pos, nn, f.spin * THROWS[f.params.throwType].spin * (f.params.lefty ? -1 : 1));
   f.pos = pos; f.hv = [b[0] - a[0], 0, b[2] - a[2]]; f.vy = b[1] - a[1]; trail.push(pos, f.t);
   while (f.ei < f.events.length && f.events[f.ei][0] <= f.t) { onFlightEvent(f.events[f.ei][1]); f.ei++; }
   UI.setHud({ dist: Math.hypot(basketPos()[0] - pos[0], basketPos()[1] - pos[2]) });
   if (i >= n - 1 && f.t > n / 60 + 0.6) { G.flight = null; resolveThrow(f.pi, f.result, f); }
 }
+const PUTT_HERO = 1.4, PUTT_TIP = .4;   // updateFlight's putt hero pass: scale in the air, and the plate's tip toward the lens (~22 deg)
 const SURFACE_AT = p => world.inWater(p[0], p[2]) ? 'water' : world.rough(p[0], p[2]) > 0.5 ? 'dirt' : 'grass';
 function onFlightEvent(e) {
   if (document.hidden) return;
@@ -1381,7 +1395,7 @@ function frame(dt, rawDt, background) {
     const P = G.pending, leadIn = P.leadIn || 0, T = leadIn + HIT_T;
     const ph = leadIn && G.releaseT < T ? P.startPhase + (.62 - P.startPhase) * hermite(G.releaseT / T, P.v0, P.v1) : releasePhase(G.releaseT - leadIn); p.char.setPhase(ph);   // the swipe's end runs on into the hit at its speed (doThrow)
     if (!G.pending.fired && ph >= 0.62) { G.pending.fired = true; launchNow(); }
-    if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && (p !== curP() || G.phase === 'flight')) { p.char.keepTravel?.(); p.char.setPhase(null); } }, 350); }   // the athlete stays where the follow-through carried him
+    if (ph >= 1) { G.pending = null; const session = G.sessionId; setTimeout(() => { if (G.sessionId === session && G.players.includes(p) && (p !== curP() || G.phase === 'flight')) { p.char.keepTravel?.(); p.char.setPhase(null); } }, G.lastParams?.throwType === 'putt' ? 0 : 350); }   // the athlete stays where the follow-through carried him; a putt's finish starts sinking at once (gltf-player PUTT_RELAX), as DGM's arm drops while the disc is still in the air
   }
   if (G.flight) updateFlight(dt);
   if (background || contextLost) return; // Keep host authority alive without drawing an unavailable canvas.
