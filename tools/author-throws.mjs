@@ -252,6 +252,11 @@ const XSTEP = merge([
   // four frames while only the legs step", "no coil before the throw"): the arm now travels, from the tuck at the chest
   // (.46) through half way back at the cross-step (.62) to a full, slightly low extension behind with the chest turned past
   // the hips and dropped over the feet (.8-.9), the loaded coil the drive's .35 carries on from
+  // g18 (m-throw 1/4: "frames 1-4 the disc stays parked in front of the chest, elbow bent, walking with a plate"): the hand went
+  // straight back along the line, which the run-up camera (behind, ~30 deg off the line; on hole 1 it sits on the throwing side)
+  // saw pointing into its lens at half its length, low by the hip. It now leaves the chest from .46, is straight by .62 and holds
+  // a full reach at shoulder height ~30 deg off the line behind the trailing side through the plant (reads at ~85% of its length).
+  // Tried and dropped: bending the elbow to lead from the plant (.40) - from that camera it read as the disc held at the hip again.
   { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-22, 64, 3], head: [2, -80, 0], handR: [-.26, -.07, .48], elbowR: [-.08, -.08, .27], untwistR: .1 },
   { t: .8, at: [-.03, -.12, .22], pelvis: [-9, 97, -1], chest: [-26, 100, 4], head: [3, -84, 0],
     handR: [-.32, -.05, .53], elbowR: [-.15, -.03, .27] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
