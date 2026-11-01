@@ -276,9 +276,11 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
           // (measured on the frame: saturation .5 at hue 21-25 against the reference's .32 at hue 5-18). Taking chroma alone barely
           // moved it, since the orange comes from the warm sun and grade on top, so the tone is also white-balanced cooler
           // the arms keep more of it: they carry none of the face's baked redness (cheeks, lips, stubble), so the same cut left
-          // them a "muddy grey-brown" in shade and "pale, waxy" in the menu's light beside a warm photographic face
+          // them a "muddy grey-brown" in shade and "pale, waxy" in the menu's light beside a warm photographic face. Not all of it:
+          // at .68 and a 1.08 blue the sunlit forearm measured saturation .58 at the tee ("flat orange forearms") beside a grey
+          // modelled hand; they now share .62 and a 1.12 blue (gltf-player.js gripSkin) and meet at the wrist in one tone
           float armK = smoothstep(.3, .7, vArmW); chainsArm = w[0] * armK;
-          shifted = mix(vec3(dot(shifted, vec3(.2126, .7152, .0722))), shifted, .48 + .2 * armK) * mix(vec3(.93, .96, 1.25), vec3(.97, .96, 1.08), armK);
+          shifted = mix(vec3(dot(shifted, vec3(.2126, .7152, .0722))), shifted, .48 + .14 * armK) * mix(vec3(.93, .96, 1.25), vec3(.96, .96, 1.12), armK);
           shifted *= 1. + vec3(.05, .07, .08) * vArmW * smoothstep(.2, .7, -sign(vJerseyPos.x) * vBindN.x);   // the inner forearm and upper arm see less sun: paler, cooler
           #ifdef CHAINS_F
             shifted *= 1. + (uHeadTone - 1.) * smoothstep(uEye.x - .22, uEye.x - .14, vJerseyPos.y);   // her face and neck's brighter bake (MEAN_FIX above)
