@@ -465,7 +465,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     for (let gx = -W / 2 + 10; gx < W / 2 - 10; gx += 2) for (let gz = -H / 2 + 10; gz < H / 2 - 10; gz += 2) {
       const x = gx + (irng() - .5) * 1.9, z = gz + (irng() - .5) * 1.9, pick = irng(), s = .25 + irng() * .2, rot = irng() * 6.3;
       const { fi, halfW, side, openSide } = stand(x, z);
-      if (!fi.hole || side * openSide > 0 || fi.d < halfW + 2 || fi.d > halfW + 20 || fi.t < .2 || fi.t > .72 || pick > .5) continue;
+      if (!fi.hole || side * openSide > 0 || fi.d < halfW + 2 || fi.d > halfW + 28 || fi.t < .15 || fi.t > .72 || pick > .55) continue;
       if (ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7) || inLane({ x, z })) continue;
       if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 18 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 20)) continue;
       if (treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < t.r + .8)) continue;
