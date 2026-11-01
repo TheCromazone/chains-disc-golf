@@ -745,7 +745,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // against the glare stand as dark, rim-lit silhouettes instead of pale grey-olive puffs. Trunks and stems take 80% from 15 m:
     // bark 15-40 m out has to fall back into the haze row by row, and it has no lit rim to lose.
     s.uniforms.treeDisc = treeDisc; s.uniforms.treeAir = treeAir; s.uniforms.treeKeep = treeKeep;
-    s.fragmentShader = 'uniform vec3 treeDisc;uniform float treeAir, treeKeep;\n' + s.fragmentShader;
+    s.fragmentShader = '#define TREE_AIR_GAIN .6\n#define TREE_AIR_MIX .4\nuniform vec3 treeDisc;uniform float treeAir, treeKeep;\n' + s.fragmentShader;
     // Bark in the canopy's shadow also loses a third of its sky (w3-4: "white trunks lit evenly from crown to ground, no
     // patches of sun and shade"): at the putt we see their back-lit faces, which the sun's term never reaches, so without this
     // the leaf shadow crossing a stem changed nothing on it. sunVis: the sun's shadow here, from lights_fragment_begin.
@@ -768,9 +768,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       { float fd = smoothstep(20., 100., length(vViewPosition)) * (1. - .7 * (1. - treeAir) * pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.)), l = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
         fd *= 1. - treeKeep;   // the putt keeps some of a far crown's own light and shade and green inside its haze (w12-2: "trees 30-80 m away turn into low-contrast grey cardboard layers")
         outgoingLight = mix(vec3(l), outgoingLight, 1. - .2 * fd) * (.15 * pow(l / .15, 1. - .4 * fd) / l);   // DGM round: .45/.55 left the far stands grey cardboard (top-half green-lead .11-.35 against the reference's .5-.78)
-        ${full ? '' : `{ float ld = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4); float fa = smoothstep(45., 150., length(vViewPosition)) * (1. - treeKeep); outgoingLight = mix(vec3(ld), outgoingLight, 1. - .45 * fa);
+        ${full ? '' : `{ float ld = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4); float fa = smoothstep(30., 140., length(vViewPosition)) * (1. - treeKeep); outgoingLight = mix(vec3(ld), outgoingLight, 1. - .5 * fa);
           #ifdef USE_FOG
-          outgoingLight = mix(outgoingLight, fogColor, .22 * fa);
+          outgoingLight = mix(outgoingLight, mix(fogHaze, fogWarm, pow(max(dot(normalize(vFogRay), fogSun), 0.), 8.)) * TREE_AIR_GAIN, TREE_AIR_MIX * fa);
           #endif
           }   // Mobile ("the background trees are no hazier than the foreground ones", trees 0/4): rows past 45 m lose up to a further 45% of their green and take a fifth more of the scene's haze, so the stand steps back in layers; Full has effects.js's aerial pass`}
       }
@@ -843,7 +843,12 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // about 12%, and each tree differs from its neighbours by as much again, so no two crowns in a row read the same.
   const KIND_TINT = { spruce: [.74, .87, .82], scots: [.84, .88, .76], birch: [1.07, 1.08, .84], broad: [.92, .94, .96] };   // birch crowns a lighter yellow-green, broadleaves a step deeper and cooler, spruce bluer: one green everywhere read "a near-solid wall of the same mid-green clumps" (gauntlet r3 trees)
   const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5 + (noise(s.x * .53 + 7, s.z * .53 + 3) - .5) * .8, k = KIND_TINT[s.kind] || [1, 1, 1];
-    return col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.8 + noise(s.x * .61 + 11, s.z * .61 + 17) * .4)); };   // .8-1.2 (was .88-1.14, same mean): neighbouring crowns differ
+    col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.8 + noise(s.x * .61 + 11, s.z * .61 + 17) * .4));   // .8-1.2 (was .88-1.14, same mean): neighbouring crowns differ
+    // Mobile (r5 trees 0/4: 'clumped balls of evenly saturated cards, one uniform yellow-green tint'): each crown also leans its
+    // own way between a deep cool blue-green and a warm olive, and a step lighter or darker, on a hash fine enough that two
+    // neighbours rarely match. Lite only (its leaves have no grade-side variety); Full keeps its tints.
+    if (quality === 'low') { const t = (noise(s.x * .93 + 21, s.z * .93 + 13) - .5) * 2, v = .84 + noise(s.x * 1.17 + 5, s.z * 1.17 + 41) * .32; col.setRGB(col.r * (1 + t * .16) * v, col.g * (1 - Math.abs(t) * .04) * v, col.b * (1 - t * .3) * v); }
+    return col; };
   // Bark differs tree to tree as well (a stem greyer or redder, lighter or darker by ~15%), so a stand is not one repeated pole.
   const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = (.85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3) * (s.kind === 'birch' ? .62 + noise(s.x * .29 + 9, s.z * .29 + 2) * .25 : 1); return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
   for (const b of [...bushes, ...shrubs]) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
