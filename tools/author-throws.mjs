@@ -13,6 +13,7 @@
 import { writeFileSync } from 'node:fs';
 import { RIG, euler, toEuler, mul, apply, add, sub, len, scale } from './throw-fk.mjs';
 import { readyPose, STANCE, RIGS } from '../src/throw-poses.js';
+import { SOLVED as SHIPPED } from '../src/throw-keys.js';
 
 const T = m => [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]];   // transpose = inverse of a rotation
 const D = Math.PI / 180;
@@ -173,15 +174,22 @@ const BH = [
   { t: .24, at: [-.02, -.10, .08], pelvis: [-8, 92, -1], chest: [-19, 93, 5], head: [-3, -88, -2],
     handR: [.04, -.08, .50], elbowR: [.06, -.04, .26], handL: [.16, -.36, -.34], elbowL: [-.06, -.25, -.14] },
   // r3 athlete c2: the coil keeps the x-step's chest drop (-18 read "upright and square, no coil") and its slightly low hand
-  { t: .35, at: [-.035, -.13, .12], pelvis: [-10, 106, -2], chest: [-22, 108, 4], head: [4, -86, 0],
-    handR: [-.33, -.06, .53], elbowR: [-.16, -.035, .27], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16],
+  // g18 c2 (m-throw 0/2: "the arm is a straight stick behind the body for frames 2-4 while the legs step, then the pull, wrap
+  // and release all fall between frames 4 and 5"): the run-up's strip samples the x-step at .58/.79/.96, this drive at ~.45 and
+  // the release. The full coil is now one beat (.30; the x-step peaks at its .73, strip frame 2), the hips open first with the arm
+  // trailing and its elbow starting to bend as the run-up hands over (.35, frame 3), the front foot plants with the elbow leading
+  // (.40) and the disc is pulled in tight across the chest at pec height by .45 (frame 4), so the pull spans three frames
+  { t: .30, pelvis: [-10, 106, -2], chest: [-22, 108, 4], head: [4, -86, 0],
+    handR: [-.33, -.06, .53], elbowR: [-.16, -.035, .27], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16], untwistR: .1 },
+  { t: .35, at: [-.035, -.13, .12], pelvis: [-10, 88, -2], chest: [-22, 124, 4], head: [4, -88, 0],
+    handR: [-.21, -.12, .35], elbowR: [-.03, -.10, .08], handL: [.17, -.30, -.29], elbowL: [-.05, -.24, -.15],
     soleR: [-.11, .035, -.39], footR: 96, untwistR: .1 },
-  { t: .40, at: [-.03, -.135, .05], pelvis: [-9, 96, -2], chest: [-22, 116, 3], head: [2, -90, 0],
-    handR: [-.33, -.06, .54], elbowR: [-.16, -.035, .28], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
-    soleR: [-.10, 0, -.42], footR: 100, soleL: [-.27, 0, .29], footL: 70, untwistR: .1 },
-  { t: .44, pelvis: [-9, 76, -1], chest: [-17, 126, 2], head: [1, -96, 0], handR: [-.20, -.08, .45], elbowR: [0, -.10, .15], untwistR: .05 },   // the hips go first: the chest holds its coil while they open, and the elbow starts for the target with the disc still back
-  { t: .5, at: [-.02, -.145, .01], pelvis: [-8, 55, 0], chest: [-16, 128, 2], head: [0, -100, 0],
+  { t: .40, at: [-.03, -.135, .05], pelvis: [-9, 76, -2], chest: [-20, 130, 3], head: [2, -94, 0],
+    handR: [-.09, -.12, .24], elbowR: [.04, -.09, -.08], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
+    soleR: [-.10, 0, -.42], footR: 100, soleL: [-.27, 0, .29], footL: 70, untwistR: .05 },
+  { t: .45, at: [-.02, -.145, .01], pelvis: [-8, 60, 0], chest: [-16, 126, 2], head: [0, -98, 0],
     handR: [.03, -.13, .15], elbowR: [.06, -.08, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10, untwistR: 0 },
+  { t: .5, pelvis: [-8, 52, 0], chest: [-16, 118, 1], head: [0, -94, 0], handR: [-.05, -.13, .14], elbowR: [.05, -.085, -.24] },
   { t: .53, pelvis: [-8, 45, 0], chest: [-16, 112, 0], head: [0, -90, 0], handR: [-.12, -.12, .12], elbowR: [.04, -.09, -.25], soleL: [-.27, 0, .28], footL: 60 },   // the rear heel turns in as the hips fire (a sole's y is its lowest point: the toe stays down)   // the disc swings in front of the sternum, not through the shoulder
   { t: .565, at: [-.01, -.13, -.005], pelvis: [-8, 38, 0], chest: [-15, 82, -2], head: [0, -76, 0],
     handR: [-.23, -.10, -.06], elbowR: [.06, -.09, -.26], handL: [.04, -.32, -.14], elbowL: [-.06, -.25, -.06], rollR: 20 },
@@ -199,14 +207,18 @@ const BH = [
   // shoulder height): after the hit the hand stays a few cm under the shoulder and nearly at full reach as the chest turns past
   // square, instead of rising 12-16 cm over it (seen from the run-up camera on his chest side, that read as the arm thrown over his head)
   { t: .74, soleL: [-.33, .15, .04], footL: 20, handR: [-.56, -.07, -.18], elbowR: [-.28, -.05, -.12] },   // ...and only then lets go and swings round the posted front leg
+  // g18 c2 (m-throw: "the arm ends stretched out behind him", "no wrap"): the hand swept on round to 26 cm behind the right
+  // shoulder at full reach. Now the elbow folds once the arm is across the front (.8) and the hand wraps round to the far
+  // shoulder, 12 cm outside and ~18 cm behind it (.9-1), the upper arm across the chest: the camera behind him sees the forearm
+  // round his far shoulder (tucked just in front of it, the arm vanished behind his back)
   { t: .8, at: [-.06, -.10, -.20], pelvis: [-14, -20, 0], chest: [-27, 16, -2], head: [4, -6, 0],
-    handR: [-.57, -.06, .04], elbowR: [-.30, -.05, -.05], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
+    handR: [-.52, -.06, -.14], elbowR: [-.22, -.05, -.16], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
     soleL: [-.38, .15, -.26], footL: 6, footR: 34 },
   { t: .9, at: [-.13, -.11, -.36], pelvis: [-13, -38, 0], chest: [-25, -14, 0], head: [6, 18, 0],
-    handR: [-.46, -.04, .26], elbowR: [-.30, -.05, -.08], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
+    handR: [-.44, -.02, -.24], elbowR: [.09, -.05, -.37], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
     soleL: [-.40, 0, -.62], footL: -24, footR: 4 },
   { t: 1, at: [-.16, -.11, -.40], pelvis: [-12, -42, 0], chest: [-21, -16, 0], head: [5, 22, 0],
-    handR: [-.42, -.08, .26], elbowR: [-.30, -.07, -.07], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
+    handR: [-.42, -.04, -.27], elbowR: [.13, -.06, -.35], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
     soleL: [-.40, 0, -.62], footL: -28, footR: 0 },
 ];
 
@@ -258,9 +270,11 @@ const XSTEP = merge([
   // a full reach at shoulder height ~30 deg off the line behind the trailing side through the plant (reads at ~85% of its length).
   // Tried and dropped: bending the elbow to lead from the plant (.40) - from that camera it read as the disc held at the hip again.
   { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-22, 64, 3], head: [2, -80, 0], handR: [-.26, -.07, .48], elbowR: [-.08, -.08, .27], untwistR: .1 },
-  { t: .8, at: [-.03, -.12, .22], pelvis: [-9, 97, -1], chest: [-26, 100, 4], head: [3, -84, 0],
-    handR: [-.32, -.05, .53], elbowR: [-.15, -.03, .27] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
-  { t: .9, chest: [-25, 101, 4], handR: [-.33, -.05, .54], elbowR: [-.16, -.03, .28] },
+  // g18 c2 (m-throw 0/2: "a rigid T-arm held for strip frames 2-4 while the legs x-step"): the full coil is one moment, at .73
+  // (strip frame 2 at .79 is just past it), hips turned furthest back; from there the hips open and the elbow starts the pull into
+  // the drive's .35 (frame 3) at up to 4 cm a frame
+  { t: .73, pelvis: [-9, 100, -1], chest: [-26, 108, 4], head: [3, -84, 0], handR: [-.33, -.05, .54], elbowR: [-.16, -.03, .28] },
+  { t: .8, at: [-.03, -.12, .22] },
   { ...coil, t: 1 }, { ...stateAt(BH, PAST.t), t: PAST.at },
 ], step('R', 0, [.12, 0, 1.52], .24, [.14, 0, .78], 22, 50), step('L', .28, [-.12, 0, 1.64], .58, [-.27, 0, .29], 22, 70, [.24, .80]),
   step('R', .60, [.14, 0, .78], 1, coil.soleR, 50, null, [.04, .22], false));
@@ -354,6 +368,11 @@ const FXSTEP = merge([
   step('R', .53, [.15, 0, .97], .76, [.25, 0, -.04], 0, -20), step('L', .80, [-.12, 0, .42], 1, load.soleL, -20, null, null, false));
 
 const SOLVED = { backhand: clip('backhand', BH, warmFrom('backhand')), xstep: null };   // the run-ups after their drives (solved back from them), listed in the old order
+// The drive's release key (.62) as shipped: the aim stance seats the disc from it (gltf-player.js releaseFrame) and the solve's
+// warm start drifts it by ~.001-.003 rad whenever the windup before it changes, which would move the athlete still for nothing.
+// ponytail: the key is carried over from the last solve; PIN_RELEASE=0 re-solves it (do that when the release beat itself changes).
+if (process.env.PIN_RELEASE !== '0') { const shipped = SHIPPED.backhand.find(k => k.t === .62), i = SOLVED.backhand.findIndex(k => k.t === .62), d = Math.max(...Object.keys(shipped).filter(j => Array.isArray(shipped[j])).flatMap(j => shipped[j].map((x, c) => Math.abs(x - SOLVED.backhand[i][j][c]))));
+  console.log('backhand .62 drift from the shipped key', d.toFixed(4), 'rad (pinned)'); SOLVED.backhand[i] = shipped; }
 SOLVED.putt = clip('putt', PUTT, warmFrom('putt'), { beats: PUTT_STROKE, upto: .62 });
 SOLVED.forehand = clip('forehand', FH, warmFrom('forehand'));
 SOLVED.xstep = clip('xstep', XSTEP, warmFrom('putt'), null, SOLVED.backhand.find(k => k.t === .35));
