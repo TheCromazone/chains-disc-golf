@@ -548,7 +548,9 @@ export function createGLTFCharacter(avatar) {
   const headwear = createPlayerHeadwear(joints.head, skin, spec, avatar, lod);
   body.tuck(headwear.tuck, skin.skeleton.bones.indexOf(joints.head));   // hat hair: his locks lie down under a covering hat
   const holdHands = {};
-  const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(onWrist(h)); into[name] = h; };
+  // a full body's shadow comes from its proxy, whose scan hands cast it: the modelled hands (3.8k triangles each, every athlete now
+  // wears them) drawn into both shadow maps cost 61k at the Desktop tee for fingers a 1-2 cm shadow texel cannot hold
+  const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = lod; h.receiveShadow = true; h.visible = false; joints[name].add(onWrist(h)); into[name] = h; };
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.holds)) mount(geo, name, holdHands, 'hold_');
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.rests)) mount(geo, name, restHands, 'rest_');
   const cuffMat = new THREE.MeshStandardMaterial({ color: avatar.accent, roughness: .9 }); cuffMat.color.multiplyScalar(.68); owned.add(cuffMat);

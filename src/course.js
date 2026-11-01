@@ -522,17 +522,19 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const lodSun = (v => new THREE.Vector2(v.x, v.z).normalize())(new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1]))), lodReach = 22 / Math.tan(THREE.MathUtils.degToRad(def.sun[0]));
   // In the lens: a set that casts nothing (the conifers' sprays, whose old cards cast as their '-shadow' proxies: planted(); Full's
   // woods shrubs) draws only for the camera, so past 8 m it leaves out a tree whose crown (9 m round its trunk) lies wholly outside
-  // the view's half-width (widened for the pitch) plus 25 deg, a quarter second of a brisk pan. A turn of 12 deg, a 4 m move or a
-  // lens change refreshes the sets at once, not on the tick, so no crown is missing when it comes into view. The phone's Pine putt
-  // drew 65 conifers' sprays within 44 m, most of them off to the sides (gauntlet r4 trees verify: +6.5% triangles).
+  // the view's half-width (widened for the pitch) plus 15 deg. A turn of 6 deg, a 2 m move or a lens change refreshes the sets at
+  // once, not on the tick, so no crown is missing when it comes into view (the turn stays well inside the margin, and a 2 m move
+  // swings a tree 8 m off by at most 14 deg, inside the 9 m crown's allowance). The phone's Pine putt drew 65 conifers' sprays
+  // within 44 m, most of them off to the sides (gauntlet r4 trees verify: +6.5% triangles). Merged onto r3 the Desktop tee sat at
+  // 2.31M of its 2.3M with r4's 25 deg / 12 deg / 4 m; 15 / 6 / 2 m draw 27k fewer there (the refresh is a few hundred instances).
   const lodLook = new THREE.Vector3(), lodSeen = new THREE.Vector3(), lodAt = new THREE.Vector3(1e9, 0, 1e9); let lodFov = 0;
   const treeLod = (view, t, focus, cam) => { if (cam) cam.getWorldDirection(lodLook);
-    if (t - lodT < .25 && !(cam && (lodLook.dot(lodSeen) < .978 || view.distanceToSquared(lodAt) > 16 || Math.abs(cam.fov - lodFov) > 2))) return; lodT = t; treeEye.value.copy(view);
+    if (t - lodT < .25 && !(cam && (lodLook.dot(lodSeen) < .9945 || view.distanceToSquared(lodAt) > 4 || Math.abs(cam.fov - lodFov) > 2))) return; lodT = t; treeEye.value.copy(view);
     let fx = focus ? focus.x - view.x : 0, fz = focus ? focus.z - view.z : 0; const fl = Math.hypot(fx, fz); if (fl > 1) { fx /= fl; fz /= fl; } else fx = fz = 0;
     const back = 15 + Math.max(0, -(fx * lodSun.x + fz * lodSun.y)) * lodReach;
     let lx = 0, lz = 0, cone = 9;   // the lens's heading in plan and the cone's half-angle (rad; 9: no cone)
     if (cam) { lodSeen.copy(lodLook); lodAt.copy(view); lodFov = cam.fov; const pl = Math.hypot(lodLook.x, lodLook.z), tv = Math.tan(cam.fov * Math.PI / 360), tilt = Math.asin(Math.min(1, Math.abs(lodLook.y))) + Math.atan(tv);
-      if (pl > .2 && tilt < 1.4) { lx = lodLook.x / pl; lz = lodLook.z / pl; cone = Math.atan(tv * cam.aspect / Math.cos(tilt)) + .44; } }   // the frustum's far corners spread wider in plan the more it pitches
+      if (pl > .2 && tilt < 1.4) { lx = lodLook.x / pl; lz = lodLook.z / pl; cone = Math.atan(tv * cam.aspect / Math.cos(tilt)) + .26; } }   // the frustum's far corners spread wider in plan the more it pitches
     const R = treeNear.value + 4, i0 = Math.floor((view.x - R) / LOD_CELL), i1 = Math.floor((view.x + R) / LOD_CELL), j0 = Math.floor((view.z - R) / LOD_CELL), j1 = Math.floor((view.z + R) / LOD_CELL);
     for (const { im, mats, cols, pos, byCell, lens } of nearSets) {
       const dm = im.instanceMatrix, dc = im.instanceColor, c = lens ? cone : 9; let n = 0;
