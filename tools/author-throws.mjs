@@ -65,6 +65,15 @@ function gauss(A, b) {   // small dense solve with partial pivoting
 // visible spin once poseAt eased between them)
 const CONT = +(process.env.CONT || .03);
 const soft = (x, lo, hi, w = 8) => x < lo ? (lo - x) * w : x > hi ? (x - hi) * w : 0;   // a joint limit as a residual
+// a joint rotation's twist about its bone (the rest bone hangs along -Y): swing-twist split of its quaternion, radians
+function boneTwist(m) {
+  const tr = m[0] + m[4] + m[8]; let w, y;
+  if (tr > 0) { const s = Math.sqrt(tr + 1) * 2; w = s / 4; y = (m[2] - m[6]) / s; }
+  else if (m[0] > m[4] && m[0] > m[8]) { const s = Math.sqrt(1 + m[0] - m[4] - m[8]) * 2; w = (m[7] - m[5]) / s; y = (m[1] + m[3]) / s; }
+  else if (m[4] > m[8]) { const s = Math.sqrt(1 + m[4] - m[0] - m[8]) * 2; w = (m[2] - m[6]) / s; y = s / 4; }
+  else { const s = Math.sqrt(1 + m[8] - m[0] - m[4]) * 2; w = (m[3] - m[1]) / s; y = (m[5] + m[7]) / s; }
+  return w < 0 ? 2 * Math.atan2(-y, -w) : 2 * Math.atan2(y, w);
+}
 
 // ---- one sample: the pelvis and chest as given, the four limbs solved
 function pose(s, warm) {
@@ -79,7 +88,10 @@ function pose(s, warm) {
     const S = add(spineP, apply(chestM, RIG['sh' + side])), roll = s['roll' + side] * D, off = v => side === 'R' ? add(S, v) : add(S, apply(chestM, v));
     const hand = off(s['hand' + side]), elbowHint = off(s['elbow' + side]);
     const arm = p => { const m = mul(chestM, euler([p[0], p[1], p[2]])), E = add(S, apply(m, RIG['el' + side])), H = add(E, apply(mul(m, euler([p[3], roll, 0])), RIG.hand)); return { E, H }; };
-    const a = solve(warm['sh' + side].concat([warm['el' + side][0]]), p => { const { E, H } = arm(p); return [...sub(H, hand), ...scale(sub(E, elbowHint), .35), soft(p[3], .03, 2.5), ...p.map((x, j) => (x - (warm["sh" + side].concat([warm["el" + side][0]]))[j]) * CONT)]; });
+    // untwist (a beat channel, 0 unless a beat sets it): a near-straight arm leaves the upper arm's roll about its own bone free,
+    // and the reach-back drifted to ~170 deg of it, which the skin shows as a candy-wrapper shoulder and a thin stretched sleeve
+    const ut = side === 'R' && s.untwistR > 0 ? s.untwistR : 0;
+    const a = solve(warm['sh' + side].concat([warm['el' + side][0]]), p => { const { E, H } = arm(p); return [...sub(H, hand), ...scale(sub(E, elbowHint), .35), soft(p[3], .03, 2.5), ...p.map((x, j) => (x - (warm["sh" + side].concat([warm["el" + side][0]]))[j]) * CONT), ...(ut ? [boneTwist(euler(p.slice(0, 3))) * ut] : [])]; });
     out['sh' + side] = a.p.slice(0, 3); out['el' + side] = [a.p[3], roll, 0];
     // leg: hip (3) and knee (1) put the sole's centre over its spot at the asked height and turn the foot to its heading
     const Hp = add(rootP, apply(rootM, RIG['hip' + side])), sole = s['sole' + side], heading = s['foot' + side] * D;
@@ -149,7 +161,7 @@ const warmFrom = family => { const r = readyPose(family, 0, RIGS.glb); return { 
 const BH = [
   { t: 0, at: [0, -.08, 0], pelvis: [-7, 70, 0], chest: [-17, 80, 6], head: [-16, -100, -7],
     handR: [-.23, 0, .53], elbowR: [.04, -.02, .29], rollR: 0, handL: [-.04, -.58, -.10], elbowL: [-.03, -.29, .02], rollL: 0,
-    soleR: [-.14, 0, -.38], footR: 70, soleL: [-.27, 0, .29], footL: 70 },
+    soleR: [-.14, 0, -.38], footR: 70, soleL: [-.27, 0, .29], footL: 70, untwistR: 0 },
   // r3 athlete c3 (all four m-throw critics: "frames 1-4 hold almost the same pose for 0.45 s", "a static hold, not a coil",
   // "no wrap across the chest"): the address already reaches 56 cm across the chest, so the old windup moved the hand ~10 cm
   // and turned the chest 54 deg over the whole .9 s a bot takes. Now the disc first comes in to the chest, elbow out (.12: the
@@ -162,14 +174,14 @@ const BH = [
     handR: [.04, -.08, .50], elbowR: [.06, -.04, .26], handL: [.16, -.36, -.34], elbowL: [-.06, -.25, -.14] },
   // r3 athlete c2: the coil keeps the x-step's chest drop (-18 read "upright and square, no coil") and its slightly low hand
   { t: .35, at: [-.035, -.13, .12], pelvis: [-10, 106, -2], chest: [-22, 108, 4], head: [4, -86, 0],
-    handR: [.16, -.13, .60], elbowR: [.10, -.07, .30], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16],
-    soleR: [-.11, .035, -.39], footR: 96 },
+    handR: [-.33, -.06, .53], elbowR: [-.16, -.035, .27], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16],
+    soleR: [-.11, .035, -.39], footR: 96, untwistR: .1 },
   { t: .40, at: [-.03, -.135, .05], pelvis: [-9, 96, -2], chest: [-22, 116, 3], head: [2, -90, 0],
-    handR: [.15, -.13, .62], elbowR: [.10, -.07, .31], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
-    soleR: [-.10, 0, -.42], footR: 100, soleL: [-.27, 0, .29], footL: 70 },
-  { t: .44, pelvis: [-9, 76, -1], chest: [-17, 126, 2], head: [1, -96, 0], handR: [.10, -.11, .40], elbowR: [.07, -.07, -.02] },   // the hips go first: the chest holds its coil while they open, and the elbow starts for the target with the disc still back
+    handR: [-.33, -.06, .54], elbowR: [-.16, -.035, .28], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
+    soleR: [-.10, 0, -.42], footR: 100, soleL: [-.27, 0, .29], footL: 70, untwistR: .1 },
+  { t: .44, pelvis: [-9, 76, -1], chest: [-17, 126, 2], head: [1, -96, 0], handR: [-.20, -.08, .45], elbowR: [0, -.10, .15], untwistR: .05 },   // the hips go first: the chest holds its coil while they open, and the elbow starts for the target with the disc still back
   { t: .5, at: [-.02, -.145, .01], pelvis: [-8, 55, 0], chest: [-16, 128, 2], head: [0, -100, 0],
-    handR: [.03, -.13, .15], elbowR: [.06, -.08, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10 },
+    handR: [.03, -.13, .15], elbowR: [.06, -.08, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10, untwistR: 0 },
   { t: .53, pelvis: [-8, 45, 0], chest: [-16, 112, 0], head: [0, -90, 0], handR: [-.12, -.12, .12], elbowR: [.04, -.09, -.25], soleL: [-.27, 0, .28], footL: 60 },   // the rear heel turns in as the hips fire (a sole's y is its lowest point: the toe stays down)   // the disc swings in front of the sternum, not through the shoulder
   { t: .565, at: [-.01, -.13, -.005], pelvis: [-8, 38, 0], chest: [-15, 82, -2], head: [0, -76, 0],
     handR: [-.23, -.10, -.06], elbowR: [.06, -.09, -.26], handL: [.04, -.32, -.14], elbowL: [-.06, -.25, -.06], rollR: 20 },
@@ -230,20 +242,20 @@ const merge = (...beats) => { const m = new Map(); for (const b of beats.flat())
 const XSTEP = merge([
   { t: 0, at: [0, -.07, 1.50], pelvis: [-6, 22, 0], chest: [-16, 8, 0], head: [2, -26, 0],
     handR: [-.24, -.32, -.18], elbowR: [.02, -.28, .05], rollR: 0, handL: [.12, -.38, -.24], elbowL: [-.04, -.27, -.04], rollL: 0,
-    soleR: [.12, 0, 1.52], footR: 22, soleL: [-.12, 0, 1.64], footL: 22 },
+    soleR: [.12, 0, 1.52], footR: 22, soleL: [-.12, 0, 1.64], footL: 22, untwistR: 0 },
   { t: .12, at: [-.02, -.09, 1.40] },
   { t: .30, at: [0, -.15, 1.12], pelvis: [-8, 38, 0], chest: [-20, 22, 0], head: [2, -44, 0],
     handR: [-.22, -.16, -.08], elbowR: [.04, -.22, .08] },
   { t: .46, at: [.02, -.10, .80], pelvis: [-8, 70, -1], chest: [-20, 36, 2], head: [4, -62, 0],
-    handR: [-.20, -.13, .02], elbowR: [.05, -.18, .14], handL: [.16, -.30, -.30] },
+    handR: [-.16, -.10, .24], elbowR: [.02, -.17, .14], handL: [.16, -.30, -.30], untwistR: 0 },
   // r3 athlete c2 (both m-throw critics: "the reach-back is frozen: the disc holds one shoulder-height spot behind him for
   // four frames while only the legs step", "no coil before the throw"): the arm now travels, from the tuck at the chest
   // (.46) through half way back at the cross-step (.62) to a full, slightly low extension behind with the chest turned past
   // the hips and dropped over the feet (.8-.9), the loaded coil the drive's .35 carries on from
-  { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-22, 64, 3], head: [2, -80, 0], handR: [-.02, -.11, .33], elbowR: [.07, -.10, .15] },
+  { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-22, 64, 3], head: [2, -80, 0], handR: [-.26, -.07, .48], elbowR: [-.08, -.08, .27], untwistR: .1 },
   { t: .8, at: [-.03, -.12, .22], pelvis: [-9, 97, -1], chest: [-26, 100, 4], head: [3, -84, 0],
-    handR: [.11, -.16, .61], elbowR: [.10, -.09, .31] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
-  { t: .9, chest: [-25, 101, 4], handR: [.12, -.15, .62], elbowR: [.10, -.08, .31] },
+    handR: [-.32, -.05, .53], elbowR: [-.15, -.03, .27] },   // the arm and shoulders go back in the last step: full coil at the plant (the drive's .43), not walked there
+  { t: .9, chest: [-25, 101, 4], handR: [-.33, -.05, .54], elbowR: [-.16, -.03, .28] },
   { ...coil, t: 1 }, { ...stateAt(BH, PAST.t), t: PAST.at },
 ], step('R', 0, [.12, 0, 1.52], .24, [.14, 0, .78], 22, 50), step('L', .28, [-.12, 0, 1.64], .58, [-.27, 0, .29], 22, 70, [.24, .80]),
   step('R', .60, [.14, 0, .78], 1, coil.soleR, 50, null, [.04, .22], false));
