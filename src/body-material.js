@@ -138,7 +138,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     uPrint: { value: printTexture(avatar.number) },
     uArm: { value: new THREE.Vector4(-1, -1, -1, -1) },   // skeleton indices of the four arm bones (gltf-player.js): the 'pro' shirt's panels need arm vs torso
     uShoulder: { value: new THREE.Vector4() }, uFore: { value: new THREE.Vector2() },   // arm girth (vertex shader): shoulder lines, elbow and wrist heights
-    uPanelN: { value: prefix === 'body_f_' ? 0 : 1 }, uStrands: { value: 1 }, uSleeve: { value: 1e3 },
+    uPanelN: { value: prefix === 'body_f_' ? 0 : 1 }, uStrands: { value: 1 }, uSleeve: { value: 1e3 }, uHalftone: { value: avatar.jerseyStyle === 'pro' ? 1 : 0 },
     // her scan's arm weights reach 40-70 % across half her chest and back, and the sleeves' rumple orientation blended into the
     // torso's there drew chevrons through her jersey (r4: "a torn-looking sash"); her cloth keeps the torso's horizontal rumples,
     // which round an arm hanging in the bind pose are the sleeve's rings too
@@ -198,7 +198,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
     // per-region roughness: skin keeps a soft sheen, hair and cloth stay matte (a glossy jersey or scalp reads as plastic).
     // Skin also scatters: direct light wraps a little past the terminator with a warm tint, the cheap stand-in for
     // subsurface that keeps a face from looking like painted vinyl.
-    s.fragmentShader = (pat === 'vPatPos' ? 'varying vec3 vPatPos; float chainsAO = 1.;\n' : '') + 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec2 uEye; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve, uArmCloth, uHeadTone, uAO; uniform vec4 uTuckC; float chainsSkin = 0., chainsArm = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5, chainsCloth = 0., chainsHem = 0.; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + FOLD_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    s.fragmentShader = (pat === 'vPatPos' ? 'varying vec3 vPatPos; float chainsAO = 1.;\n' : '') + 'uniform sampler2D uMask1, uMask2, uKnit, uPrint; uniform vec3 uPal[7]; uniform float uMean[7]; uniform float uDetail[7]; uniform vec3 uBeard, uHair, uSkinMean; uniform vec2 uEye; uniform vec4 uPrintF, uPrintB; uniform float uPanelN; varying vec3 vBindN; varying float vArmW, vElbow;\nuniform float uStrands, uSleeve, uArmCloth, uHeadTone, uAO, uHalftone; uniform vec4 uTuckC; float chainsSkin = 0., chainsArm = 0., chainsMot = .5, chainsCav = 0., chainsHair = 0., chainsHairS = .5, chainsCloth = 0., chainsHem = 0.; vec3 chainsHairK = vec3(1.);\n' + NOISE_GLSL + FOLD_GLSL + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       { vec3 j = ${pat}; bool back = j.z > 0.; vec4 b = back ? uPrintB : uPrintF;   // after the jersey style, so the print sits on its panels; seen from its own side, the print reads left to right
         vec2 q = vec2((back ? j.x : -j.x) / b.y + .5, (j.y - b.x) / b.z + .5);
         // fetched outside the box test: a mipmapped read inside the branch picks a coarse mip along the box edge, which drew a faint outline round the print
@@ -212,6 +212,14 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
       { vec3 j = ${pat}; float v = (j.y + abs(j.x) * .7) / .042, aa = fwidth(v) + 1e-4, s = abs(fract(v) - .5);
         float band = (1. - smoothstep(.17 - aa, .17 + aa, s)) * (1. - smoothstep(.12, .22, aa)) * (1. - smoothstep(uFold.x + .02, uFold.y - .08, j.y));
         diffuseColor.rgb *= 1. - .3 * band * chainsJersey; }
+      // the 'pro' kit's all-over sublimation: every critic set our plain shirt ("a flat, nearly untextured slab") against the
+      // reference's printed jersey. A halftone of lighter diamonds on a 2.6 cm offset lattice, laid round the torso by arc length
+      // (the same cell on the chest, the flanks and the back), full over the hem and thinning to nothing by the chest, the way a
+      // fade print climbs a team shirt; the sleeves stay plain. Filtered edges, dropped before a cell shrinks under ~5 px
+      if (uHalftone > 0.) { vec3 j = ${pat}; vec2 c = vec2(atan(j.x, .02 - j.z) * .14, j.y) / .026; float aa = max(fwidth(c.x) + fwidth(c.y), .02);
+        c.x += .5 * mod(floor(c.y), 2.); vec2 f = fract(c) - .5; float r = .4 * (1. - smoothstep(uFold.x + .02, uFold.y + .06, j.y)) * (1. - smoothstep(.3, .6, vArmW));
+        float ht = (1. - smoothstep(r - aa, r + aa, abs(f.x) + abs(f.y))) * (1. - smoothstep(.3, .6, aa)) * step(.02, r) * chainsJersey * uHalftone;
+        diffuseColor.rgb = mix(diffuseColor.rgb, min(diffuseColor.rgb * 1.45 + .035, vec3(1.)), .55 * ht); }
       diffuseColor.rgb *= 1. + chainsKnit;   // the knit runs under the print too`).replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Chains', 'chainsSkin')}
       // cloth sheen (Charlie distribution, fibre-tinted): the knit's loose fibres scatter light back toward grazing views, so

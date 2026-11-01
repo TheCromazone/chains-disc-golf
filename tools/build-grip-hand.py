@@ -51,10 +51,12 @@ FINGERS = [([.002, -.098, -.028], [.042, .025, .020], [.0095, .0088, .0078, .006
 GRIP_CURL = [[50, 104, 44], [53, 105, 44], [56, 104, 46], [60, 104, 46]]
 REST_CURL = [[26, 40, 20], [30, 46, 24], [34, 52, 28], [38, 58, 30]]   # gltf-player.js REST
 REST_FALL = .22
-THUMB_R = [.0135, .0122, .0112, .0100, .0086]
+THUMB_R = [.0135, .0126, .0118, .0107, .0093]
 def grip_thumb():   # CMC and MCP inside the thenar as before, then the pad pressed into the top of the plate toward its centre (riding
-  # a centimetre over the dome, the edge-on tee view showed the thumb floating above the disc)
-  mcp = np.array([-.013, -.058, -.043]); ip = P(.064, htop(.064) + .0035, -.034); tip = P(.042, htop(.042) + .0015, -.027)
+  # a centimetre over the dome, the edge-on tee view showed the thumb floating above the disc). Sunk 6.5 mm into the plate,
+  # the thumb showed over the edge-on disc as a 5 px sliver and critics kept asking for "the thumb on top": now its pad
+  # presses 3 mm in and its back rides ~1.8 cm over the plate, a digit lying along the top of the disc
+  mcp = np.array([-.013, -.058, -.043]); ip = P(.064, htop(.064) + .0075, -.034); tip = P(.042, htop(.042) + .0055, -.027)
   return [np.array([-.003, -.012, -.022]), np.array([-.007, -.030, -.033]), mcp, ip, tip]
 REST_THUMB = [np.array(v) for v in [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]]]
 
