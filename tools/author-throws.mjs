@@ -176,16 +176,16 @@ const BH = [
   // r3 athlete c2: the coil keeps the x-step's chest drop (-18 read "upright and square, no coil") and its slightly low hand
   // g18 c2 (m-throw 0/2: "the arm is a straight stick behind the body for frames 2-4 while the legs step, then the pull, wrap
   // and release all fall between frames 4 and 5"): the run-up's strip samples the x-step at .58/.79/.96, this drive at ~.45 and
-  // the release. The full coil is now one beat (.30; the x-step peaks at its .8, strip frame 2), the hips open first with the arm
+  // the release. The full coil is now one beat (.30; the x-step peaks at its .73, strip frame 2), the hips open first with the arm
   // trailing and its elbow starting to bend as the run-up hands over (.35, frame 3), the front foot plants with the elbow leading
   // (.40) and the disc is pulled in tight across the chest at pec height by .45 (frame 4), so the pull spans three frames
   { t: .30, pelvis: [-10, 106, -2], chest: [-22, 108, 4], head: [4, -86, 0],
     handR: [-.33, -.06, .53], elbowR: [-.16, -.035, .27], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16], untwistR: .1 },
-  { t: .35, at: [-.035, -.13, .12], pelvis: [-10, 92, -2], chest: [-22, 120, 4], head: [4, -88, 0],
-    handR: [-.27, -.12, .42], elbowR: [-.08, -.10, .14], handL: [.17, -.30, -.29], elbowL: [-.05, -.24, -.15],
+  { t: .35, at: [-.035, -.13, .12], pelvis: [-10, 88, -2], chest: [-22, 124, 4], head: [4, -88, 0],
+    handR: [-.21, -.12, .35], elbowR: [-.03, -.10, .08], handL: [.17, -.30, -.29], elbowL: [-.05, -.24, -.15],
     soleR: [-.11, .035, -.39], footR: 96, untwistR: .1 },
-  { t: .40, at: [-.03, -.135, .05], pelvis: [-9, 80, -2], chest: [-20, 128, 3], head: [2, -94, 0],
-    handR: [-.16, -.12, .30], elbowR: [.02, -.10, .0], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
+  { t: .40, at: [-.03, -.135, .05], pelvis: [-9, 76, -2], chest: [-20, 130, 3], head: [2, -94, 0],
+    handR: [-.09, -.12, .24], elbowR: [.04, -.09, -.08], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
     soleR: [-.10, 0, -.42], footR: 100, soleL: [-.27, 0, .29], footL: 70, untwistR: .05 },
   { t: .45, at: [-.02, -.145, .01], pelvis: [-8, 60, 0], chest: [-16, 126, 2], head: [0, -98, 0],
     handR: [.03, -.13, .15], elbowR: [.06, -.08, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10, untwistR: 0 },
@@ -270,10 +270,11 @@ const XSTEP = merge([
   // a full reach at shoulder height ~30 deg off the line behind the trailing side through the plant (reads at ~85% of its length).
   // Tried and dropped: bending the elbow to lead from the plant (.40) - from that camera it read as the disc held at the hip again.
   { t: .62, at: [-.02, -.16, .40], pelvis: [-9, 90, -1], chest: [-22, 64, 3], head: [2, -80, 0], handR: [-.26, -.07, .48], elbowR: [-.08, -.08, .27], untwistR: .1 },
-  // g18 c2 (m-throw 0/2: "a rigid T-arm held for strip frames 2-4 while the legs x-step"): the full coil is one moment, at .8
-  // (strip frame 2), hips turned furthest back; from there the hips open with the arm trailing into the drive's .35 (frame 3)
-  { t: .8, at: [-.03, -.12, .22], pelvis: [-9, 104, -1], chest: [-26, 104, 4], head: [3, -84, 0],
-    handR: [-.33, -.05, .54], elbowR: [-.16, -.03, .28] },
+  // g18 c2 (m-throw 0/2: "a rigid T-arm held for strip frames 2-4 while the legs x-step"): the full coil is one moment, at .73
+  // (strip frame 2 at .79 is just past it), hips turned furthest back; from there the hips open and the elbow starts the pull into
+  // the drive's .35 (frame 3) at up to 4 cm a frame
+  { t: .73, pelvis: [-9, 100, -1], chest: [-26, 108, 4], head: [3, -84, 0], handR: [-.33, -.05, .54], elbowR: [-.16, -.03, .28] },
+  { t: .8, at: [-.03, -.12, .22] },
   { ...coil, t: 1 }, { ...stateAt(BH, PAST.t), t: PAST.at },
 ], step('R', 0, [.12, 0, 1.52], .24, [.14, 0, .78], 22, 50), step('L', .28, [-.12, 0, 1.64], .58, [-.27, 0, .29], 22, 70, [.24, .80]),
   step('R', .60, [.14, 0, .78], 1, coil.soleR, 50, null, [.04, .22], false));
