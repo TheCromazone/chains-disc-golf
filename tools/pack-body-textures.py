@@ -218,6 +218,7 @@ for sfx in ('', '_lod'):
     alb, m1, m2 = u8(a, 'RGB'), u8(k1, 'RGBA'), u8(k2, 'RGBA'); bare = b if not sfx else bare
   full = full or (alb, m1, m2)
   save(alb, f'albedo{sfx}.webp', 1024 if sfx else 2048, 'WEBP', quality=76 if sfx else 78, method=5)
+  # her mask2's alpha (no beard zones) holds her skin's AO, which this pack does not bake: re-run tools/patch-female-ao.py after it
   save(m1, f'mask1{sfx}.png', 512 if sfx else 1024, 'PNG', optimize=True); save(m2, f'mask2{sfx}.png', 512 if sfx else 1024, 'PNG', optimize=True)
 nrm = Image.open(SRC / 'normal.png').convert('RGB')
 if bare is not None and bare.any():   # bared arm (clean(): already feathered in 3D): flat normals
