@@ -209,15 +209,16 @@ const BH = [
   { t: .74, soleL: [-.33, .15, .04], footL: 20, handR: [-.56, -.07, -.18], elbowR: [-.28, -.05, -.12] },   // ...and only then lets go and swings round the posted front leg
   // g18 c2 (m-throw: "the arm ends stretched out behind him", "no wrap"): the hand swept on round to 26 cm behind the right
   // shoulder at full reach. Now the elbow folds once the arm is across the front (.8) and the hand wraps round to the far
-  // shoulder, just outside and behind it (.9-1), the upper arm across the chest
+  // shoulder, 12 cm outside and ~18 cm behind it (.9-1), the upper arm across the chest: the camera behind him sees the forearm
+  // round his far shoulder (tucked just in front of it, the arm vanished behind his back)
   { t: .8, at: [-.06, -.10, -.20], pelvis: [-14, -20, 0], chest: [-27, 16, -2], head: [4, -6, 0],
     handR: [-.52, -.06, -.14], elbowR: [-.22, -.05, -.16], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
     soleL: [-.38, .15, -.26], footL: 6, footR: 34 },
   { t: .9, at: [-.13, -.11, -.36], pelvis: [-13, -38, 0], chest: [-25, -14, 0], head: [6, 18, 0],
-    handR: [-.36, -.05, -.24], elbowR: [-.02, -.08, -.25], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
+    handR: [-.44, -.02, -.24], elbowR: [.09, -.05, -.37], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
     soleL: [-.40, 0, -.62], footL: -24, footR: 4 },
   { t: 1, at: [-.16, -.11, -.40], pelvis: [-12, -42, 0], chest: [-21, -16, 0], head: [5, 22, 0],
-    handR: [-.33, -.08, -.26], elbowR: [.02, -.10, -.25], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
+    handR: [-.42, -.04, -.27], elbowR: [.13, -.06, -.35], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
     soleL: [-.40, 0, -.62], footL: -28, footR: 0 },
 ];
 
