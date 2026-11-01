@@ -1276,9 +1276,9 @@ const TEE_AIR = .55;
 // r, g, b gain and how much of the trees' glare exemption the air takes back, treeAir). r5 forest c2 (trees 1/2 against DGM:
 // 'the pines and the trees behind the arch one wall of cutouts, no atmospheric falloff'; intro: 'the dense, evenly lit tree
 // wall flattens depth'): 5 m up the ground haze has thinned to a third and the crowns toward the sun kept out of what was left,
-// so the stand 40-150 m out kept the near crowns' green and value. Now the 0-40 m rows (the arch, the guardian trees) stay
-// clean and the stand behind steps into sunlit air, toward the sun as well (eye distance 50 m ~14%, 70 m 38%, 100 m 66%).
-const FLY_AIR = [40, .03, .9, 1, .85, .95, 1.15, 1];
+// so the stand 45-150 m out kept the near crowns' green and value. Now the 0-45 m rows (the arch, the guardian trees) stay
+// clean and the stand behind steps into sunlit air, toward the sun as well (eye distance 50 m 4%, 60 m 21%, 80 m 52%, 100 m 70%).
+const FLY_AIR = [45, .035, .9, 1, .85, .95, 1.15, 1];
 const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: TEE_AIR, z: 30, w: 0 }, air: { x: 15, y: .013, z: 0, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update()); air: Lite's putt aerial perspective (the fog chunk), effects.js Aerial's uShape: start (m), density per metre, ceiling (update(): 0 off the putt and on Full)
 for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape }, fogAir: { value: FOG.air } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
