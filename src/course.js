@@ -454,6 +454,22 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const near = treesNear(x, z); if (!near.some(t => Math.hypot(t.x - x, t.z - z) < 9) || near.some(t => Math.hypot(t.x - x, t.z - z) < t.r + 1)) continue;
     shrubs.push({ x, y: height(x, z), z, s, rot });
   }
+  // Intro understory (r5 intro, against the previous build: 'under the left tree line the undergrowth is thin and patchy, bare
+  // soil between the trunks, trees stuck into dirt'): the guardian side's woods, which the hole's flyover looks across from the
+  // tee to halfway, get a continuous low layer, knee to chest high (0.9-1.7 m), 2-20 m off the fairway's edge, unclumped, so
+  // the edge stand reads as one wall of growth down to the turf. Mobile only, where shrubs are one instanced card each and cast
+  // nothing (Full's 3D shrubs within 62 m would cost the tee's last triangles). Own rng: every other layout stays put; the same
+  // prop, pin, tee and trunk clearances as the woods shrubs.
+  if (quality === 'low') { const irng = makeRng(seed * 181 + 23);
+    for (let gx = -W / 2 + 10; gx < W / 2 - 10; gx += 2) for (let gz = -H / 2 + 10; gz < H / 2 - 10; gz += 2) {
+      const x = gx + (irng() - .5) * 1.9, z = gz + (irng() - .5) * 1.9, pick = irng(), s = .25 + irng() * .2, rot = irng() * 6.3;
+      const { fi, halfW, side, openSide } = stand(x, z);
+      if (!fi.hole || side * openSide > 0 || fi.d < halfW + 2 || fi.d > halfW + 20 || fi.t < .2 || fi.t > .72 || pick > .5) continue;
+      if (ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7) || inLane({ x, z })) continue;
+      if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 18 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 20)) continue;
+      if (treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < t.r + .8)) continue;
+      shrubs.push({ x, y: height(x, z), z, s, rot });
+    } }
   // Under crowns the turf goes thin and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
   // earth shows at the trunk base. Colour and splat weights only: no height change.
   // Tee-stands round: up to 40% darker under a crown (was 20%) and less of the pale dry grass (.15, was .4): from the tee the
