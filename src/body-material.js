@@ -83,6 +83,13 @@ export const NOISE_GLSL = `float chainsHash(vec3 p) { return fract(sin(dot(p, ve
 float chainsNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
   return mix(mix(mix(chainsHash(i), chainsHash(i + vec3(1., 0., 0.)), f.x), mix(chainsHash(i + vec3(0., 1., 0.)), chainsHash(i + vec3(1., 1., 0.)), f.x), f.y),
     mix(mix(chainsHash(i + vec3(0., 0., 1.)), chainsHash(i + vec3(1., 0., 1.)), f.x), mix(chainsHash(i + vec3(0., 1., 1.)), chainsHash(i + 1.), f.x), f.y), f.z); }
+float chainsPore(vec3 p) { return chainsNoise(p) * .7 + chainsNoise(p * 2.3) * .3; }
+// Bumps normal n by a height whose gradient g (per unit of p) is known at the pixel: its screen slope is g . dp/dscreen. The
+// slope as dFdx(height) is one value per 2x2 pixel quad, which cut every fold, rumple and pore into 2 px facets that the critics
+// read as "posterized, banded flat colour"; dp/dscreen (the surface's own derivatives) is smooth, so this shades per pixel.
+// sx, sy: dFdx/dFdy of the view position. Three's bump-map formula; a degenerate quad (det 0) keeps n (a NaN pixel blooms)
+vec3 chainsBumpN(vec3 n, vec3 g, vec3 dpx, vec3 dpy, vec3 sx, vec3 sy) { vec3 r1 = cross(sy, n), r2 = cross(n, sx); float det = dot(sx, r1);
+  vec3 bn = abs(det) * n - sign(det) * (dot(g, dpx) * r1 + dot(g, dpy) * r2); return dot(bn, bn) > 1e-30 ? normalize(bn) : n; }
 `;
 // Cloth relief of the jersey as a height (metres) in bind-pose space, whatever the style or colour: blind critics read the
 // fitted shirt as "one smooth, evenly lit plastic shell, no knit, no folds at the waist, armpits or shoulder seams". A pique
@@ -90,9 +97,11 @@ float chainsNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2
 // they never ring the waist), drag folds fanning from each armpit across the chest and back, and the raglan seams from
 // collar to underarm. uFold: hem, armpit and collar heights, armpit half-width.
 const FOLD_GLSL = `uniform vec4 uFold;
-float chainsFolds(vec3 p, float armW) {
+// the knit's fade by its on-screen period (a derivative: taken once per pixel, outside chainsFolds, which is also sampled at offsets)
+float chainsKnitFade(vec3 p) { vec2 kw = vec2((p.x * .7 + p.z * .7) * 698., p.y * 1047.); return 1. - smoothstep(.12, .3, max(fwidth(kw.x), fwidth(kw.y)) / 6.283); }   // gone by a 3.3 px period: at .3-.6 cycles a pixel the shirt's grazing sides kept a half-strength knit at the pixel grid, a hard checker once the phone resolve stopped averaging him (temporal.js)
+float chainsFolds(vec3 p, float armW, float fk) {
   float ax = abs(p.x), s = p.x < 0. ? -1. : 1., torso = 1. - smoothstep(.3, .6, armW);
-  vec2 kw = vec2((p.x * .7 + p.z * .7) * 698., p.y * 1047.); float fk = 1. - smoothstep(.12, .3, max(fwidth(kw.x), fwidth(kw.y)) / 6.283);   // gone by a 3.3 px period: at .3-.6 cycles a pixel the shirt's grazing sides kept a half-strength knit at the pixel grid, a hard checker once the phone resolve stopped averaging him (temporal.js)
+  vec2 kw = vec2((p.x * .7 + p.z * .7) * 698., p.y * 1047.);
   float h = .00035 * sin(kw.x) * sin(kw.y) * fk;
   float band = smoothstep(uFold.x - .01, uFold.x + .02, p.y) * (1. - smoothstep(uFold.x + .07, uFold.x + .17, p.y));
   float brk = smoothstep(.3, .7, chainsNoise(p * vec3(13., 5., 13.) + 3.));
@@ -106,10 +115,10 @@ float chainsFolds(vec3 p, float armW) {
 `;
 // pores: a bump of fine noise, ~4 mm cells and a fraction of a millimetre deep, faded out before a cell shrinks under a pixel
 // (far away it would only shimmer). Perturbs `normal` the way three's bump map does (screen-space derivatives).
-export const PORES_GLSL = (pos, k, scale = '260.', depth = '.00028') => `{ vec3 bp = ${pos} * ${scale}; float fade = ${k} * (1. - smoothstep(.35, .9, length(fwidth(bp))));
-        if (fade > .01) { float h = (chainsNoise(bp) * .7 + chainsNoise(bp * 2.3) * .3) * ${depth} * fade;
-          vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), r1 = cross(sy, normal), r2 = cross(normal, sx); float det = dot(sx, r1);
-          vec3 bn = abs(det) * normal - sign(det) * (dFdx(h) * r1 + dFdy(h) * r2); if (dot(bn, bn) > 1e-30) normal = normalize(bn); } }`;   // a degenerate pixel quad (det 0) would normalise to NaN, and bloom smears one NaN pixel over the frame
+// The slope is the noise's own gradient (forward differences a sixth of a cell long), carried by chainsBumpN.
+export const PORES_GLSL = (pos, k, scale = '260.', depth = '.00028') => `{ vec3 bp = ${pos} * ${scale}, dpx = dFdx(bp), dpy = dFdy(bp), sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition); float fade = ${k} * (1. - smoothstep(.35, .9, length(abs(dpx) + abs(dpy))));
+        if (fade > .01) { float h0 = chainsPore(bp); vec3 g = (vec3(chainsPore(bp + vec3(.16, 0., 0.)), chainsPore(bp + vec3(0., .16, 0.)), chainsPore(bp + vec3(0., 0., .16))) - h0) * (${depth} * fade / .16);
+          normal = chainsBumpN(normal, g, dpx, dpy, sx, sy); } }`;
 
 export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   const suffix = lod ? '_lod' : '';   // the LOD body has its own bake: its UV layout differs
@@ -230,8 +239,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         // 640 px critics read the jersey as a rigid shell. ~2.5 cm ridges a few mm deep, stretched the way cloth bunches
         + '\n' + PORES_GLSL('vJerseyPos', 'chainsJersey', 'mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW) * uArmCloth)', '.004')
         // FOLD_GLSL's knit, hem folds, armpit drag folds and raglan seams, bumped the same way
-        + `\n{ float h = chainsFoldH; vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), r1 = cross(sy, normal), r2 = cross(normal, sx); float det = dot(sx, r1);
-          vec3 bn = abs(det) * normal - sign(det) * (dFdx(h) * r1 + dFdy(h) * r2); if (dot(bn, bn) > 1e-30) normal = normalize(bn); }`).replace('#include <map_fragment>', `float chainsJersey = 0., chainsRough = 1., chainsKnit = 0., chainsFoldH = 0.;
+        + '\nnormal = chainsBumpN(normal, chainsFoldG, dFdx(vJerseyPos), dFdy(vJerseyPos), dFdx(-vViewPosition), dFdy(-vViewPosition));').replace('#include <map_fragment>', `float chainsJersey = 0., chainsRough = 1., chainsKnit = 0., chainsFoldH = 0.; vec3 chainsFoldG = vec3(0.); float chainsFk = chainsKnitFade(vJerseyPos);
       #include <map_fragment>
       { vec4 m1 = texture2D(uMask1, vMapUv), m2 = texture2D(uMask2, vMapUv);
         vec3 base = diffuseColor.rgb; float lum = dot(base, vec3(.2126, .7152, .0722));
@@ -255,6 +263,10 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         #else
           vec3 sb = base; float sl = lum;
         #endif
+        // the bare arms keep a third of the bake's light and dark: its blotches (the scan's own sleeve hem as a crown-shaped dark
+        // step across the upper arm, smeared shade from the capture) read as "blotchy, posterized skin" on the forearms. The
+        // procedural mottling below and the light carry their form; the face and neck keep the scan's full detail
+        { float ak = smoothstep(.3, .7, vArmW) * .65, f = pow(clamp(uMean[0] / max(sl, 1e-3), .3, 3.), ak); sb *= f; sl *= f; }
         { vec3 ratio = clamp(uPal[0] / max(uSkinMean, vec3(.01)), vec3(.25), vec3(3.)); vec3 shifted = mix(sb * ratio, uPal[0] * clamp(sl / uMean[0], .35, 1.7), .3);
           // under the 5000K key and the olive grade the tone still read orange-tan: a third of the chroma goes and the hue turns from orange toward rose
           // (measured on the frame: saturation .5 at hue 21-25 against the reference's .32 at hue 5-18). Taking chroma alone barely
@@ -290,9 +302,11 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
         // crease lines along the same rumples the bump draws (a ridge where the noise crosses its mid value): the torso sits in
         // shade at the tee, where a bump alone shows nothing, so the folds also carry a little occlusion in the cloth's tone
         { vec3 fp = vJerseyPos * mix(vec3(7., 40., 7.), vec3(40., 7., 7.), smoothstep(.3, .7, vArmW) * uArmCloth); float n = chainsNoise(fp) * .7 + chainsNoise(fp * 2.3) * .3;
-          chainsKnit += w[1] * (.06 - .3 * smoothstep(.72, .97, 1. - abs(2. * n - 1.))); }
+          chainsKnit += w[1] * .3 * (n - .5); }
         // the fold valleys and seams hold a little shade in the cloth's own tone (the torso is in shade at the tee, where a bump shows little)
-        chainsFoldH = chainsFolds(vJerseyPos, vArmW) * w[1]; chainsKnit += clamp(chainsFoldH / .0035, -1., 1.) * .16 * w[1]; chainsCloth = w[1] + .4 * w[2];
+        chainsFoldH = chainsFolds(vJerseyPos, vArmW, chainsFk) * w[1];
+        if (w[1] > .004) chainsFoldG = (vec3(chainsFolds(vJerseyPos + vec3(.0008, 0., 0.), vArmW, chainsFk), chainsFolds(vJerseyPos + vec3(0., .0008, 0.), vArmW, chainsFk), chainsFolds(vJerseyPos + vec3(0., 0., .0008), vArmW, chainsFk)) * w[1] - chainsFoldH) / .0008;   // its slope per pixel (chainsBumpN), .8 mm steps: an eighth of the knit's period
+        chainsKnit += clamp(chainsFoldH / .0035, -1., 1.) * .16 * w[1]; chainsCloth = w[1] + .4 * w[2];
         // cloth roughness ~.75 with ~3 cm variation (a uniform .89 lit the shirt as one even gradient)
         chainsJersey = w[1]; chainsSkin = w[0]; chainsRough = 1. + w[0] * (.1 + (chainsMot - .5) * .4 + .12 * min(chainsCav, 1.)) + w[3] * (-.22 + (chainsHairS - .5) * .7) + w[1] * ((chainsMot - .5) * .3 + .02) + .2 * (w[2] + w[4]); diffuseColor.rgb = col;
         chainsPanel = uPanelN > .5 ? max(smoothstep(.5, .78, abs(vBindN.x)) * (1. - smoothstep(.3, .6, vArmW)), smoothstep(.4, .8, vArmW) * smoothstep(.3, .45, -vBindN.x * sign(vJerseyPos.x))) : -1.; }`);   // the side panels follow the torso's turn (a hard cut flattened the back into one tone, a wide blend read as a shadow); her folded scan's normals scatter them into shards, so she takes the width-based panels
