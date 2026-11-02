@@ -4,7 +4,8 @@ into lobes (big leafy masses with gaps between; a third of the outermost clumps 
 by its own limb from the leader plus short branches inside it; spruces are whorls of branches clothed in short needle sprays;
 Scots pines carry needle pads (flattened clouds of small needle-tuft sprays) on spreading branches, on stems that differ in
 girth, taper, lean and bow. Mature proportions: birches ~17-19 m with the crown in the top 64%, broadleaves ~14-15 m, spruces
-~18-20 m, pines ~19-21 m bare to ~40%.
+~16-21.5 m (a squat broad cone and a tall narrow spire), pines ~19-22 m bare to ~40%. Lobes, pads and spruce branches each take
+their own tint (shade()), and birch and broadleaf stems bow (trunk_pts sweep), so no two masses or stems repeat.
 Leaves get the triangles: limbs are 4 segments, no twig under 1.3 m (the card's own drawn twig covers it); each variant draws
 < 2.6k tris, and each conifer also carries a 0.45-1k shadow proxy (its crown as the large cards it was built from: ghost()).
 Run: blender -b -P tools/build-trees.py [-- --preview art/qa/trees-preview] [--models-only] (needs tools/build-foliage.py's atlas first),
