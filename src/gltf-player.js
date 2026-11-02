@@ -8,7 +8,7 @@ import { rimLight } from './materials.js';
 import { repairPlayerSkinning } from './player-skinning.js';
 import { createPlayerHeadwear } from './player-headwear.js';
 import { createAthleteMotion } from './athlete-motion.js';
-import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL, SUN_GLSL, SUN_SHADE, calmShadow } from './body-material.js';
+import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL } from './body-material.js';
 import { JOINTS, RIGS, readyPose, heroPose, clapPose, dismayPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
@@ -174,7 +174,7 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // disc reaching back across the chest (the old cock held it level only at the end of a forearm dropping ~33°, which the tee
 // camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
-const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], spin: .9, wrist: [.12, -.12], press: .003, chroma: .52, tone: .86, taper: .16,
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], spin: .52, wrist: [.12, -.12], press: .003, chroma: .52, tone: .86, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
@@ -343,9 +343,7 @@ function handMorphs(mesh, handOffset, lod) {
     // spin (round 19): the hand rolled about the plate's own normal (the disc stays level, its centre moves a few cm). Unrolled,
     // the phone tee camera looked straight down the row of knuckles from the thumb side: the index hid the other three and
     // every critic saw "a mitten" with "no readable fingers on the rim"; rolled, it sees the back of the hand and four fingers
-    // over the rim (tools/build-grip-hand.py --spins previews the measured view). g19 final, still: "the hand does not visibly close
-    // on the disc", "the disc floats in front of the knuckles": at .52 rad the fingers hung below the plate's near end; at .9 the
-    // four curl round its rim with their tips under it (1.25 put the fingers in front of the plate's middle, which ran out both sides)
+    // over the rim (tools/build-grip-hand.py --spins previews the measured view)
     const qg = qw.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...GRIP.cock, 'XYZ'))).multiply(new THREE.Quaternion().setFromAxisAngle(_v.set(Math.sin(GRIP.tilt), Math.cos(GRIP.tilt), 0), GRIP.spin));
     // tuck: the scanned hand folds into a small core inside the grip hand's palm
     const taper = v => { const s = taperAt(v.y); v.x = cx + (v.x - cx) * s; v.z = cz + (v.z - cz) * s; return v; };
@@ -547,14 +545,7 @@ export function createGLTFCharacter(avatar) {
       .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= .45;')   // as the body's skin: well under a plastic's 4 %
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + PORES_GLSL('vHandPos', '1.', '260.', '.00028', ['.14', '.3']))
     .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
-      ${skinDirect('RE_Direct_Skin', '1.')}
-      ${SUN_GLSL}
-      void RE_Direct_Grip(const in IncidentLight sunLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
-        IncidentLight l = chainsSun(sunLight); RE_Direct_Skin(l, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight);
-        reflectedLight.directDiffuse += chainsBackRim(l, geometryNormal, geometryViewDir, material.diffuseColor); }
-      #undef RE_Direct
-      #define RE_Direct RE_Direct_Grip`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.', '1.') + SUN_SHADE + '\nreflectedLight.indirectDiffuse *= 1.15;');   // and the body's sun (body-material.js SUN_GLSL), so the hand lights as the forearm it ends
-    s.fragmentShader = calmShadow(s.fragmentShader); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove; and the bare arms' extra sky and bounce, so it lights as the forearm it ends
+      ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.', '1.') + '\nreflectedLight.indirectDiffuse *= 1.15;'); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove; and the bare arms' extra sky and bounce, so it lights as the forearm it ends
   gripMat.customProgramCacheKey = () => 'chains-grip'; rimLight(gripMat, { strength: .1 });
   // the arms' tone (body-material.js: chroma .52, white balance .97/.93/1.1), not the face's: with the face's 1.25 the hand measured
   // a grey brown (sat .41, a third darker) at the end of a warm forearm, a band at the wrist that read as a glove
