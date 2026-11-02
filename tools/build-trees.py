@@ -393,7 +393,7 @@ def spruce(rng, name, H=20., R0=3.4, zb=.1, lop=(0., 0.)):
       d = out + Z * (-.28 + .18 * f)
       br = grow(rng, Vector((0, 0, z)), d, L, 2, rise=.2, jitter=.04)
       t.tube([br[0], along(br, .55 if L > 1.4 else .75)[0]], .012 + .03 * L / R0, .006, 3)   # the wood stops inside the sprays: from outside a spruce shows needles, not sticks (on the short upper branches it carries them most of the way)
-      size = min(2.6, max(1.1, L * 1.05)); ctr = Vector((0, 0, z - .8)); g = shade(t.tone.uniform(-1, .5) * .8, .8 + .28 * (rng.uniform(.88, 1.05) - .88) / .17)   # branch to branch: dark blue-green to a lighter olive
+      size = min(2.6, max(1.1, L * 1.05)); ctr = Vector((0, 0, z - .8)); g = shade(t.tone.uniform(-1, .3) * .7 - .3, .72 + .26 * (rng.uniform(.88, 1.05) - .88) / .17)   # branch to branch, dark blue-green to a lighter green: a spruce reads darker and cooler than the broadleaves round it (g20 trees: the near sprays read as the same yellow-green as every crown)
       dip = rng.uniform(.05, .3); lie = Z * .75 + out * .55 + unit(rng) * .35   # the old frond's dip and facing (open, from above)
       tilt = rng.uniform(-.25, .15); edge = out.cross(Z) + Z * rng.uniform(-.2, .5) + unit(rng) * .35   # the crossing card's (on edge, from the side)
       hang = (rng.uniform(.4, .7), unit(rng), unit(rng)) if L > .8 else None   # the curtain's place and tilts
@@ -441,7 +441,7 @@ def pad(t, c, r, n, ax=None):
   keep near the horizontal, so a pad is a flat, drawn-out tuft rather than a ball. Its cards face out of a centre just below c,
   so it lights on top and falls dark underneath, and the clump tint varies pad to pad. Each card is drawn as a spray of up to five
   smaller tufts along its place (below) and casts as itself (the shadow proxy, ghost())."""
-  rng, fn = t.rng, t.fine; hue = rng.uniform(-1, 1); lit = rng.uniform(.82, 1.14); tint = shade(hue * .85, .74 + .42 * (lit - .82) / .32)   # pad to pad: blue-green to olive, a step darker or lighter
+  rng, fn = t.rng, t.fine; hue = rng.uniform(-1, 1); lit = rng.uniform(.82, 1.14); tint = shade(hue * .6 - .3, .72 + .36 * (lit - .82) / .32)   # pad to pad, grey blue-green to green, a step darker or lighter: Scots pine needles are bluer than the broadleaves
   ax = Vector((ax.x, ax.y, 0)).normalized() if ax is not None and Vector((ax.x, ax.y, 0)).length > 1e-3 else unit(rng).cross(Z).normalized()
   subs = [c + ax * r * rng.uniform(-.8, .8) + ax.cross(Z) * r * rng.uniform(-.35, .35) + Z * r * rng.uniform(-.15, .15) for _ in range(rng.randint(2, 3))]
   t.cur_lobe = c - Z * r * .35
