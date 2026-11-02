@@ -215,16 +215,22 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
       // the 'pro' kit's all-over sublimation: every critic set our plain shirt ("a flat, nearly untextured slab") against the
       // reference's printed jersey. A halftone of lighter diamonds on a 2.6 cm offset lattice, laid round the torso by arc length
       // (the same cell on the chest, the flanks and the back), full over the hem and thinning to nothing by the chest, the way a
-      // fade print climbs a team shirt; the sleeves stay plain. Filtered edges, dropped before a cell shrinks under ~5 px
+      // fade print climbs a team shirt; the sleeves stay plain. Filtered edges, dropped before a cell shrinks under ~5 px.
+      // g18: fading over hem to chest line, the diamonds kept most of their size to the number and read as "a uniform repeating
+      // tile" competing with the print: now size and strength both fall off, gone by 45 % of the way up to the chest line
       if (uHalftone > 0.) { vec3 j = ${pat}; vec2 c = vec2(atan(j.x, .02 - j.z) * .14, j.y) / .026; float aa = max(fwidth(c.x) + fwidth(c.y), .02);
-        c.x += .5 * mod(floor(c.y), 2.); vec2 f = fract(c) - .5; float r = .4 * (1. - smoothstep(uFold.x + .02, uFold.y + .06, j.y)) * (1. - smoothstep(.3, .6, vArmW));
+        c.x += .5 * mod(floor(c.y), 2.); vec2 f = fract(c) - .5; float g = 1. - smoothstep(uFold.x, mix(uFold.x, uFold.y, .45), j.y), r = .42 * g * (1. - smoothstep(.3, .6, vArmW));
         float ht = (1. - smoothstep(r - aa, r + aa, abs(f.x) + abs(f.y))) * (1. - smoothstep(.3, .6, aa)) * step(.02, r) * chainsJersey * uHalftone;
-        diffuseColor.rgb = mix(diffuseColor.rgb, min(diffuseColor.rgb * 1.45 + .035, vec3(1.)), .55 * ht); }
-      // a crew collar in the trim colour (critics: the reference jersey has "a printed pattern, a collar and believable folds"): the
-      // jersey's own texels within ~1.5 cm of the neck's skin (the skin mask read a
-      // few mips down, where it spills over the boundary), above the chest and off the sleeves
-      if (uCollar > 0.) { float nk = textureLod(uMask1, vMapUv, 4.).r, cl = smoothstep(.13, .2, nk) * smoothstep(uFold.y + .06, uFold.y + .1, vJerseyPos.y) * (1. - smoothstep(.12, .3, vArmW)) * chainsJersey * uCollar;
-        diffuseColor.rgb = mix(diffuseColor.rgb, jerseyAccent * .85, cl); }
+        diffuseColor.rgb = mix(diffuseColor.rgb, min(diffuseColor.rgb * 1.45 + .035, vec3(1.)), .55 * ht * g); }
+      // a crew collar (critics: the reference jersey has "a printed pattern, a collar and believable folds"): a ~1.1 cm rib in a
+      // deep shade of the shirt, from the neck's skin down to a line just under the scan's neckline (its height round the neck
+      // fitted to the mask's skin/jersey edge on the bind pose, centre (0, .017), sd 5 mm). g18: a cream band there read as "an
+      // undershirt or mesh seam right under the face", and its lower edge, the skin mask read four mips down (64 texels across
+      // the atlas), stair-stepped; this one is analytic, its edge filtered over a pixel
+      if (uCollar > 0.) { vec3 j = vJerseyPos; float a = atan(j.x, j.z - .017), r = length(vec2(j.x, j.z - .017));
+        float yn = 1.5197 + .0158 * cos(a) - .0045 * sin(a) - .0097 * cos(2. * a) + .001 * sin(2. * a), rn = .0715 + .0138 * cos(a);
+        float d = j.y - yn + .011, aa = fwidth(d) + 1e-5, cl = smoothstep(-aa, aa, d) * (1. - smoothstep(rn + .02, rn + .035, r)) * (1. - smoothstep(.12, .3, vArmW)) * chainsJersey * uCollar;
+        diffuseColor.rgb *= 1. - .5 * cl; }
       diffuseColor.rgb *= 1. + chainsKnit;   // the knit runs under the print too`).replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
       ${skinDirect('RE_Direct_Chains', 'chainsSkin')}
       // cloth sheen (Charlie distribution, fibre-tinted): the knit's loose fibres scatter light back toward grazing views, so
