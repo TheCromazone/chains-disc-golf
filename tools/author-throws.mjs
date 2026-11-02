@@ -187,14 +187,14 @@ const BH = [
   { t: .30, pelvis: [-10, 106, -2], chest: [-22, 108, 4], head: [4, -86, 0],
     handR: [-.31, -.11, .50], elbowR: [-.15, -.10, .27], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16], untwistR: .1 },
   { t: .35, at: [-.035, -.13, .12], pelvis: [-10, 76, -2], chest: [-22, 134, 4], head: [4, -90, 0],
-    handR: [-.17, -.19, .29], elbowR: [.02, -.20, .10], handL: [.17, -.30, -.29], elbowL: [-.05, -.24, -.15],
+    handR: [-.17, -.15, .29], elbowR: [.02, -.20, .10], handL: [.17, -.30, -.29], elbowL: [-.05, -.24, -.15],
     soleR: [-.11, .035, -.39], footR: 96, untwistR: .1 },
   { t: .40, at: [-.03, -.135, .05], pelvis: [-9, 68, -2], chest: [-20, 134, 3], head: [2, -96, 0],
-    handR: [-.08, -.16, .23], elbowR: [.06, -.14, -.06], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
+    handR: [-.08, -.11, .23], elbowR: [.07, -.13, -.06], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
     soleR: [-.10, 0, -.42], footR: 100, soleL: [-.27, 0, .29], footL: 70, untwistR: .05 },
   { t: .45, at: [-.02, -.145, .01], pelvis: [-8, 50, 0], chest: [-16, 130, 2], head: [0, -98, 0],
-    handR: [.03, -.13, .12], elbowR: [.08, -.08, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10, untwistR: 0 },
-  { t: .5, pelvis: [-8, 43, 0], chest: [-16, 124, 1], head: [0, -94, 0], handR: [-.05, -.13, .12], elbowR: [.06, -.085, -.24] },
+    handR: [.03, -.115, .16], elbowR: [.09, -.07, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10, untwistR: 0 },
+  { t: .5, pelvis: [-8, 43, 0], chest: [-16, 124, 1], head: [0, -94, 0], handR: [-.05, -.12, .15], elbowR: [.06, -.085, -.24] },
   { t: .53, pelvis: [-8, 38, 0], chest: [-16, 116, 0], head: [0, -90, 0], handR: [-.12, -.12, .11], elbowR: [.05, -.09, -.25], soleL: [-.27, 0, .28], footL: 60 },   // the rear heel turns in as the hips fire (a sole's y is its lowest point: the toe stays down)   // the disc swings in front of the sternum, not through the shoulder
   { t: .565, at: [-.01, -.13, -.005], pelvis: [-8, 34, 0], chest: [-15, 84, -2], head: [0, -76, 0],
     handR: [-.23, -.10, -.06], elbowR: [.06, -.09, -.26], handL: [.04, -.32, -.14], elbowL: [-.06, -.25, -.06], rollR: 20 },
@@ -222,13 +222,13 @@ const BH = [
   // shoulder, 12 cm outside and ~18 cm behind it (.9-1), the upper arm across the chest: the camera behind him sees the forearm
   // round his far shoulder (tucked just in front of it, the arm vanished behind his back)
   { t: .8, at: [-.06, -.11, -.20], pelvis: [-14, -24, 0], chest: [-27, 4, -2], head: [4, 4, 0],
-    handR: [.14, -.06, -.40], elbowR: [.20, -.06, -.14], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
+    handR: [.14, -.09, -.40], elbowR: [.20, -.09, -.14], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
     soleL: [-.38, .15, -.26], footL: 6, footR: 34 },
   { t: .9, at: [-.13, -.12, -.36], pelvis: [-14, -46, 0], chest: [-26, -30, 0], head: [6, 26, 0],
-    handR: [-.08, -.04, -.42], elbowR: [.22, -.07, -.10], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
+    handR: [-.08, -.12, -.42], elbowR: [.22, -.14, -.10], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
     soleL: [-.40, 0, -.62], footL: -24, footR: 4 },
   { t: 1, at: [-.16, -.12, -.40], pelvis: [-13, -50, 0], chest: [-23, -32, 0], head: [5, 28, 0],
-    handR: [-.07, -.05, -.44], elbowR: [.22, -.08, -.10], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
+    handR: [-.07, -.13, -.44], elbowR: [.22, -.15, -.10], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
     soleL: [-.40, 0, -.62], footL: -28, footR: 0 },
 ];
 
@@ -287,7 +287,7 @@ const XSTEP = merge([
   // reach of the drive's .30, and from .86 the hips open while the chest holds and the elbow drops to lead
   { t: .70, pelvis: [-9, 100, -1], chest: [-26, 106, 4], head: [3, -84, 0], handR: [-.31, -.11, .50], elbowR: [-.15, -.10, .27] },
   { t: .8, at: [-.03, -.12, .22] },
-  { t: .86, pelvis: [-9, 88, -1], chest: [-25, 120, 4], head: [3, -88, 0], handR: [-.23, -.155, .385], elbowR: [-.05, -.17, .20] },
+  { t: .86, pelvis: [-9, 88, -1], chest: [-25, 120, 4], head: [3, -88, 0], handR: [-.23, -.135, .385], elbowR: [-.05, -.17, .20] },
   { ...coil, t: 1 }, { ...stateAt(BH, PAST.t), t: PAST.at },
 ], step('R', 0, [.12, 0, 1.52], .24, [.14, 0, .78], 22, 50), step('L', .28, [-.12, 0, 1.64], .58, [-.27, 0, .29], 22, 70, [.24, .80]),
   step('R', .60, [.14, 0, .78], 1, coil.soleR, 50, null, [.04, .22], false));
