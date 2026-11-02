@@ -38,7 +38,7 @@ const HIT_T = RELEASE.dur * (1 - .76 ** (1 / RELEASE.pow)), HIT_RATE = .5 * RELE
 const HIT_V = HIT_RATE * (1 - HIT_T / RELEASE.dur) ** (RELEASE.pow - 1);   // phase per second through the hit
 const hermite = (s, v0, v1) => 3 * s * s - 2 * s ** 3 + v0 * (s ** 3 - 2 * s * s + s) + v1 * (s ** 3 - s * s);   // 0 -> 1 with end slopes v0, v1
 const windupPhase = (s, dur) => .5 * hermite(s, 0, HIT_RATE * dur / .5);
-const RUNUP = { dur: .8, pull: .15, v0: .45, min: 40, cam: { back: -.9, side: 3.7, up: 1.5, ahead: 1.1, lookY: 1.0, fov: 60, wide: 42, tall: [1.5, .35] } };   // seconds; drive phase/s as the pull starts; metres to the pin below which nobody runs up
+const RUNUP = { dur: .8, pull: .15, v0: .45, min: 40, cam: { back: -.9, side: 3.7, up: 1.5, ahead: .9, lookY: .95, fov: 60, wide: 36, tall: [1.5, .4] } };   // seconds; drive phase/s as the pull starts; metres to the pin below which nobody runs up
 // RUNUP.cam frames a watched run-up on its own: from straight behind, the reach-back pointed into the lens and the strides ran
 // along the line of sight, so the x-step read as "jogging in place under an unrelated upper body" (a ChatGPT critique,
 // 3.5/10), and even 13 degrees off the line the arm reaching back into the lens foreshortened to "a disc held at the chest".
@@ -50,10 +50,11 @@ const RUNUP = { dur: .8, pull: .15, v0: .45, min: 40, cam: { back: -.9, side: 3.
 // g19 (m-throw 1/4 vs DGM, two rounds of pose work unread): from 30 degrees behind, the reach-back still pointed at the lens and
 // every critic saw "the arm frozen straight out in front of the chest", "hips and chest turn together". Now side-on, broadcast
 // style: on his chest side, 3.7 m out (portrait: tall[0] x further and tall[1] x the lead, so his reach fits its narrow width),
-// panning with him and leading him by `ahead` m so the line he throws down fills the far side of the frame; the lens stands
-// .9 m ahead of the lie (`back` < 0), which keeps every tee's bench, and the bag on hole 1's, out from between it and his feet
-// (runCamSpot steps it along the line if furniture is in the shot). The reach-back, the hips opening ahead of the chest and the
-// wrap read in profile; the flight is not lost: after the wrap it cuts to the running chase.
+// panning with him on a 36-degree lens (his whole body ~3/4 of the frame) and leading him by `ahead` m so the line he throws
+// down fills the far side of the frame. The lens stands .9 m ahead of the lie (`back` < 0), which keeps every tee's bench,
+// and the bag on hole 1's, out from between it and his feet (runCamSpot steps it along the line if furniture is in the shot).
+// The reach-back, the hips opening ahead of the chest and the wrap read in profile; the flight is not lost: after the wrap it
+// cuts to the running chase.
 // Shader warm-up, bounded: compileAsync polls KHR_parallel_shader_compile, and on a busy GPU (several tabs, an old phone) a program
 // can report incomplete forever and the game sat on its loading screen. After 6 s, carry on: the first frames compile what is left.
 let warming = null;   // a warm-up in flight: nothing may dispose a material it is polling (compileAsync throws on one and never resolves)
