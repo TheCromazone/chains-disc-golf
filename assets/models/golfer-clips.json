@@ -219,13 +219,13 @@
     },
     "xstep": {
       "file": "assets/models/golfer-xstep.glb",
-      "bytes": 21500,
+      "bytes": 21364,
       "duration": 1,
       "meshes": 0
     },
     "xstep_left": {
       "file": "assets/models/golfer-xstep_left.glb",
-      "bytes": 21504,
+      "bytes": 21500,
       "duration": 1,
       "meshes": 0
     }
