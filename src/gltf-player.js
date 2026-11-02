@@ -174,7 +174,7 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // disc reaching back across the chest (the old cock held it level only at the end of a forearm dropping ~33°, which the tee
 // camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
-const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], spin: .52, wrist: [.12, -.12], press: .003, chroma: .52, tone: .86, taper: .16,
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], spin: .9, wrist: [.12, -.12], press: .003, chroma: .52, tone: .86, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
@@ -343,7 +343,9 @@ function handMorphs(mesh, handOffset, lod) {
     // spin (round 19): the hand rolled about the plate's own normal (the disc stays level, its centre moves a few cm). Unrolled,
     // the phone tee camera looked straight down the row of knuckles from the thumb side: the index hid the other three and
     // every critic saw "a mitten" with "no readable fingers on the rim"; rolled, it sees the back of the hand and four fingers
-    // over the rim (tools/build-grip-hand.py --spins previews the measured view)
+    // over the rim (tools/build-grip-hand.py --spins previews the measured view). g19 final, still: "the hand does not visibly close
+    // on the disc", "the disc floats in front of the knuckles": at .52 rad the fingers hung below the plate's near end; at .9 the
+    // four curl round its rim with their tips under it (1.25 put the fingers in front of the plate's middle, which ran out both sides)
     const qg = qw.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...GRIP.cock, 'XYZ'))).multiply(new THREE.Quaternion().setFromAxisAngle(_v.set(Math.sin(GRIP.tilt), Math.cos(GRIP.tilt), 0), GRIP.spin));
     // tuck: the scanned hand folds into a small core inside the grip hand's palm
     const taper = v => { const s = taperAt(v.y); v.x = cx + (v.x - cx) * s; v.z = cz + (v.z - cz) * s; return v; };
