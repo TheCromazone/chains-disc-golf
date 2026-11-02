@@ -707,9 +707,10 @@ def materials():
 bpy.ops.wm.read_factory_settings(use_empty=True)
 M = materials(); rng = random.Random(7)
 W = lambda t: (M[t.bark], M['leaves'])
-# stems bow and differ in girth variant to variant (g20 trees: "repeated identical straight trunks" behind the arch)
+# stems bow and differ in girth variant to variant (g20 trees: "repeated identical straight trunks" behind the arch); the spruces
+# are a tall narrow spire and a squat broad cone ("conifers near-identical copies in uniform rows")
 dec = [finish(t, W(t)) for t in (birch(rng, 'birch0', 17., 0., .23, .045, .25), birch(rng, 'birch1', 18.5, .05, .32, -.055, -.2), broadleaf(rng, 'broad0', 15., 5.2, .34, .5, .035, .3), broadleaf(rng, 'broad1', 13.5, 5.8, .3, .6, -.04, -.4))]
-pin = [finish(t, W(t)) for t in (spruce(rng, 'spruce0', 20., lop=(.22, .4)), spruce(rng, 'spruce1', 17.5, 3.0, .16, lop=(.3, 2.6)), scots(rng, 'scots0', 21., .41, .4, .05, .035, .06), scots(rng, 'scots1', 19., .38, .5, .09, -.05, .08), scots(rng, 'scots2', 22.5, .44, .64, .02, .06, .12))]
+pin = [finish(t, W(t)) for t in (spruce(rng, 'spruce0', 21.5, 3.1, lop=(.22, .4)), spruce(rng, 'spruce1', 16., 3.6, .14, lop=(.3, 2.6)), scots(rng, 'scots0', 21., .41, .4, .05, .035, .06), scots(rng, 'scots1', 19., .38, .5, .09, -.05, .08), scots(rng, 'scots2', 22.5, .44, .64, .02, .06, .12))]
 bsh = [finish(t, W(t)) for t in (bush(rng, 'bush0'), bush(rng, 'bush1'))]
 if PREVIEW: preview(dec, 'deciduous', M); preview(pin, 'pine', M); preview(bsh, 'bush', M)
 export('deciduous', dec); export('pine', pin + [SHADOWS[o.name] for o in pin if o.name in SHADOWS]); export('bush', bsh)
