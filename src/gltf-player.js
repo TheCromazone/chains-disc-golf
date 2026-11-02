@@ -24,7 +24,7 @@ const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
 // Forearm length: critics read the scan's forearms as "too short for the torso", "stubby". The forearm bones stretch along
 // their length (bone-local y, elbow to wrist); everything mounted on them (the modelled hands, the cuffs, the disc seat and
 // socket) is counter-scaled about the wrist, so the hands keep their size and ride the lengthened wrist rigidly.
-const FORE_LEN = 1.07;
+const FORE_LEN = 1.07, HEAD = 1.07;
 // Each athlete's shadow is drawn from a proxy, the low-detail body on the same skeleton (both GLBs share the rig and bind), never
 // from the full body the camera sees. Every athlete in a round wears the full body now (main.js upgradeBody), on Mobile subdivided
 // over the arms, and both shadow maps drew it again: ~+60k triangles at the phone tee (+20k at the desktop one) for detail a
@@ -174,7 +174,7 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // disc reaching back across the chest (the old cock held it level only at the end of a forearm dropping ~33°, which the tee
 // camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
-const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], spin: .52, wrist: [.12, -.12], press: .003, chroma: .57, tone: .86, taper: .16,
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], spin: .52, wrist: [.12, -.12], press: .003, chroma: .52, tone: .86, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
@@ -543,13 +543,13 @@ export function createGLTFCharacter(avatar) {
       diffuseColor.rgb *= mix(vec3(1.), vec3(1.02, .72, .72), saturate(1.15 - vColor.g)) * (1. + (chainsMot - .5) * vec3(.34, .06, .0));`)   // its AO creases (knuckles, between the fingers) go red like the body's
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = clamp(roughnessFactor + (chainsMot - .5) * .3 + .12 * saturate(1. - vColor.g), .5, .95);')
       .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= .45;')   // as the body's skin: well under a plastic's 4 %
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + PORES_GLSL('vHandPos', '1.'))
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + PORES_GLSL('vHandPos', '1.', '260.', '.00028', ['.14', '.3']))
     .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
-      ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.') + '\nreflectedLight.indirectDiffuse *= 1.15;'); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove; and the bare arms' extra sky and bounce, so it lights as the forearm it ends
+      ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.', '1.') + '\nreflectedLight.indirectDiffuse *= 1.15;'); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove; and the bare arms' extra sky and bounce, so it lights as the forearm it ends
   gripMat.customProgramCacheKey = () => 'chains-grip'; rimLight(gripMat, { strength: .1 });
-  // the arms' tone (body-material.js: chroma .57, white balance 1.12 blue), not the face's: with the face's 1.25 the hand measured
+  // the arms' tone (body-material.js: chroma .52, white balance .97/.93/1.1), not the face's: with the face's 1.25 the hand measured
   // a grey brown (sat .41, a third darker) at the end of a warm forearm, a band at the wrist that read as a glove
-  const gripSkin = a => { const c = gripMat.color.set(a.skin), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.setRGB((l + (c.r - l) * GRIP.chroma) * .96, (l + (c.g - l) * GRIP.chroma) * .96, (l + (c.b - l) * GRIP.chroma) * 1.12).multiplyScalar(GRIP.tone); };
+  const gripSkin = a => { const c = gripMat.color.set(a.skin), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.setRGB((l + (c.r - l) * GRIP.chroma) * .97, (l + (c.g - l) * GRIP.chroma) * .93, (l + (c.b - l) * GRIP.chroma) * 1.1).multiplyScalar(GRIP.tone); };
   gripSkin(avatar);
   const headwear = createPlayerHeadwear(joints.head, skin, spec, avatar, lod);
   body.tuck(headwear.tuck, skin.skeleton.bones.indexOf(joints.head));   // hat hair: his locks lie down under a covering hat
@@ -624,7 +624,10 @@ export function createGLTFCharacter(avatar) {
   }); }
   const remember = () => rigBones.forEach((b, i) => { shownQ[i].copy(b.quaternion); shownP[i].copy(b.position); });
   // the clips carry scale tracks too (all 1): every path through the mixer ends here, so the stretch is put back each time
-  function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; joints.elR.scale.y = FORE_LEN; if (joints.elL) joints.elL.scale.y = FORE_LEN; group.updateMatrixWorld(true); }
+  // his head, with its bone (at the neck's base, so the neck grows longer with it; body-material.js uFit slims it): both g19
+  // critics read "a small head and thick neck" on a torso too broad for it. Hats and glasses ride the bone and grow with it
+  const headScale = female ? 1 : HEAD;
+  function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; joints.elR.scale.y = FORE_LEN; if (joints.elL) joints.elL.scale.y = FORE_LEN; joints.head?.scale.setScalar(headScale); group.updateMatrixWorld(true); }
   function blendTo(pose, w, base = null) {   // slerp the bones toward a shared-contract pose: over the mixer output, or over the windup pose the clip was baked from
     // (the mixer skips bones whose value did not change, so a held windup phase is rebuilt from the shared keys instead of read back)
     for (const j of JOINTS) {
