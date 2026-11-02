@@ -2,7 +2,7 @@
 // hair, thin chains that break into dots, stepped dash ends"; Disc Golf Masters gets its soft edges from Unreal's TAA).
 // While the camera holds still the projection is jittered by a sub-pixel Halton offset each frame and the frame is blended
 // into a history, clamped to the current frame's 3x3 neighbourhood: a held frame (aim, putt, a paused flyover) converges
-// on a ~10x supersampled image and wind-moved leaves never ghost (on phones the athlete's interior takes a short one: canvas()). No reprojection: the moment the
+// on a ~10x supersampled image and wind-moved leaves never ghost (on phones the athlete's interior takes none: canvas()). No reprojection: the moment the
 // camera moves the jitter stops and the frame shows as rendered (MSAA, plus FXAA on Desktop), so motion never smears.
 // ponytail: still-camera only; add depth reprojection if moving shots ever need the same edges.
 import * as THREE from 'three';
@@ -32,7 +32,7 @@ export function createTemporal() {
     fragmentShader: `uniform sampler2D tCur,tHist,tMask;uniform vec2 uTexel,uJit;uniform float uAlpha,uSeed,uMask;varying vec2 vUv;
       float M(vec2 o){ return texture2D(tMask,vUv+o*uTexel).r; }
       void main(){ vec3 c=vec3(0.),lo=vec3(1e4),hi=vec3(-1e4); float ws=0.,al=uAlpha;
-        if(uMask>.5) al=mix(al,mix(max(al,.34),1.,texture2D(tMask,vUv).g),smoothstep(.55,1.,min(min(min(M(vec2(-1.5)),M(vec2(1.5,-1.5))),min(M(vec2(-1.5,1.5)),M(vec2(1.5)))),M(vec2(0.)))));   // phones: his interior takes a short history, his hands none, his outline all of it (canvas())
+        if(uMask>.5) al=mix(al,1.,smoothstep(.55,1.,min(min(min(M(vec2(-1.5)),M(vec2(1.5,-1.5))),min(M(vec2(-1.5,1.5)),M(vec2(1.5)))),M(vec2(0.)))));   // phones: his interior takes no history, his outline does (canvas())
         for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){ vec3 s=texture2D(tCur,vUv+vec2(x,y)*uTexel).rgb; vec2 d=vec2(x,y)+uJit; float k=exp(-4.5*dot(d,d));
           c+=s*k; ws+=k; lo=min(lo,s); hi=max(hi,s); }
         c/=ws; vec3 o=mix(clamp(texture2D(tHist,vUv).rgb,lo,hi),c,al);
@@ -134,11 +134,9 @@ export function createTemporal() {
         cur = new THREE.FramebufferTexture(w, h); hist = new THREE.FramebufferTexture(w, h); mask = new THREE.FramebufferTexture(w, h);
         for (const x of [cur, hist, mask]) Object.assign(x, { format: THREE.RGBFormat, internalFormat: 'RGB8', minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });   // copyTexSubImage2D may only drop channels, never add alpha
       }
-      // The athlete's interior takes a short history: his idle arms and hands move every frame and skinned meshes carry no motion
+      // The athlete's interior takes no history: his idle arms and hands move every frame and skinned meshes carry no motion
       // vectors, so the running mean dragged them into a smear the colour box could not reject (g11 athlete: "arms and hands
-      // soft, smeared, blurred mush next to his sharp face"). With none, his shirt showed one frame's single sample per pixel
-      // beside a supersampled scene (g19 crisp: "grainy high-frequency speckle on the jersey shoulder and upper arm"): each
-      // frame now takes at least a third (about three frames' mean, too short to drag the idle sway), his hands still none. His outline keeps it: with one frame's MSAA the hand and forearm
+      // soft, smeared, blurred mush next to his sharp face"). His outline keeps it: with one frame's MSAA the hand and forearm
       // against the grass stepped in hard facets (g13 crisp 0/4: "hard, faceted stair-steps", "a sticker cut-out edge"), and a
       // spatial band could not match the jittered supersample (g14: "the previous build's hair and shoulder blend more softly").
       // So his mask comes first (R all of him, his hands too; G his hands): clear colour only, the stencil keeps his tags. The
