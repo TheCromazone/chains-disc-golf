@@ -1015,16 +1015,16 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     }
     const tuftGeo = new THREE.BufferGeometry(); tuftGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); tuftGeo.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
     tuftGeo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-    const tuftMat = windMaterial(toonMaterial({ color: cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), windCompile = tuftMat.onBeforeCompile;
-    tuftMat.onBeforeCompile = s => { windCompile(s); s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
-    tuftMat.customProgramCacheKey = () => 'chains-tuft-blades';
-    // Round the pin the tufts grow out of what they stand in (grass.js gTuftTint, the carpet's own ground data): the lower
+    // Every tuft grows out of what it stands in grow out of what they stand in (grass.js gTuftTint, the carpet's own ground data): the lower
     // third of every blade fades into the ground at its root (mulch, gravel, or that turf in shade) before windMaterial's root
     // shade, a contact shadow in the ground's own colour, so a clump on brown mulch is no longer a lime card standing on it (r3
     // ground: "isolated billboard cards stuck onto a flat plane"). Above that the blades keep their own green: tinted to the lawn
     // round the pin (40%, or wholly in r3 nature c1) they went straw-olive, "pale and hazy" to the putt's haze critic, and on the
-    // tee's ridge they vanished into the dirt (light and trees 1/4). The tee's tufts keep tuftMat: the tee frame does not change.
-    const gr = carpet.userData.ground, rimMat = windMaterial(toonMaterial({ color: cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), rimCompile = rimMat.onBeforeCompile;
+    // tee's ridge they vanished into the dirt (light and trees 1/4). The Mobile tee's tufts too now (gauntlet r3 ground: the clumps
+    // beside the bed "repeated, oversaturated sprite cards stuck on top of the turf"), and their green a quarter less saturated.
+    const tuftC = cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), tl = tuftC.r * .3 + tuftC.g * .59 + tuftC.b * .11;
+    tuftC.lerp(new THREE.Color(tl * 1.08, tl, tl * .8), .25);
+    const gr = carpet.userData.ground, rimMat = windMaterial(toonMaterial({ color: tuftC, vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), rimCompile = rimMat.onBeforeCompile;
     rimMat.onBeforeCompile = s => { rimCompile(s); Object.assign(s.uniforms, gr.uniforms);
       s.vertexShader = `varying vec3 vTuftBlade,vTuftSoil;${gr.glsl}\n` + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
         #ifdef USE_INSTANCING
@@ -1038,8 +1038,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       return Math.max(smooth(.25, .5, at4(turf, 3, x, z)) * smooth(.4, .52, ax) * (1 - smooth(.62, .85, ax)), smooth(.1, .28, sx) * (1 - smooth(.38, .55, sx)));   // the trail's 1 m strip, the apron and worn earth
     };
     const tee = [], teeStarts = [], rim = [], rimStarts = []; let spots = tee;   // two meshes a hole: the tee's are culled behind the putt lens
-    const add = (x, z, s, dry) => spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, 0, 0, s * (.85 + trng() * .3), s * (.8 + trng() * .4), s * (.85 + trng() * .3)),
-      c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : col.setRGB(.85 + trng() * .25, .8 + trng() * .25, .75 + trng() * .3).clone() });   // a third of the fringe gone to seed, straw-olive
+    // Each clump its own lean (to ~17 degrees), squat-and-wide to tall-and-narrow, and its own green: olive-yellow, lawn or a dark
+    // blue-green, so no two read as one card stamped down (r3 ground: "repeated identical billboard cards").
+    const add = (x, z, s, dry) => { const wd = .7 + trng() * .6, ht = (.65 + trng() * .7) / Math.sqrt(wd), hue = trng(), v = .82 + trng() * .3;
+      spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, (trng() - .5) * .6, (trng() - .5) * .6, s * wd * (.9 + trng() * .2), s * ht, s * wd * (.9 + trng() * .2)),
+        c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : (hue < .3 ? col.setRGB(1.12 * v, 1.04 * v, .66 * v) : hue < .55 ? col.setRGB(.72 * v, .86 * v, .78 * v) : col.setRGB(v, v, .92 * v)).clone() }); };   // a third of the fringe gone to seed, straw-olive
     // Grass the mower cannot reach at a trunk's foot (build-vs-build critics, trees: "trunks stuck into a lawn", "add irregular
     // undergrowth around the trunk bases"): 10-28 clumps, 20-62 cm (to ~1 m and fewer, 45 m out), in a broken ring out to ~1.6 m, thickest on one side.
     const foot = (t, g = 1) => { const n = (10 + trng() * 18) / g | 0, side = trng() * 6.283;   // g: farther trees, fewer and bigger clumps (they still read at 60 m)
@@ -1080,7 +1083,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       }
       for (const t of trees) if (Math.hypot(t.x - h.basket[0], t.z - h.basket[1]) < 20) foot(t);   // and round the pin, in front of the putt lens
     }
-    perHole(tuftGeo, quality === 'low' ? tuftMat : rimMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);   // Full's tee tufts root in the ground too: phones' light and trees critics judge the tee frame, and the Mobile tee stays as it was
+    perHole(tuftGeo, rimMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);
   }
   {
     // Fallen leaves and twigs on the putting circle's litter, as geometry: a leaf is 4 triangles, cupped (its edges curl up
@@ -1102,16 +1105,28 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     leafMat.customProgramCacheKey = () => 'chains-leaf-litter';
     const PAL = [[.36, [.56, .41, .24]], [.34, [.38, .25, .13]], [.14, [.22, .15, .09]], [.06, [.7, .54, .2]], [.05, [.55, .29, .12]], [.05, [.32, .33, .14]]];   // linear albedo, the litter tile's own range (its shader lifts the photo ~2.5x)
     const spots = [], starts = [], dens = quality === 'low' ? 50 : 60;   // leaves per m2 under a full litter weight: since the chip relief (materials.js) the mulch carries its own detail, and 85-100 a m2 of orange and yellow leaves read 'scattered on top' of it (r3 ground)
+    const leaf = (x, z) => {
+      const twig = lrng() < .07, L = twig ? .1 + lrng() * .18 : .045 + lrng() * .065, w = twig ? .008 + lrng() * .006 : L * (.45 + lrng() * .3);
+      let p = lrng(), base = PAL[0][1]; for (const [pr, c] of PAL) { if ((p -= pr) < 0) { base = c; break; } }
+      const g = .75 + lrng() * .45, c = twig ? col.setRGB(.26 * g, .19 * g, .13 * g) : col.setRGB(base[0] * g, base[1] * g, base[2] * g);
+      spots.push({ m: lay(x, meshY(x, z) + .004, z, lrng() * 6.283, (lrng() - .5) * .3, (lrng() - .5) * .3, w, twig ? .03 : L * (.6 + lrng() * .8), L), c: c.clone() });
+    };
     for (const h of holes) {
       starts.push(spots.length);
       for (let k = 0, n = Math.round(Math.PI * 121 * dens); k < n; k++) {
         const a = lrng() * 6.283, r = .45 + Math.sqrt(lrng()) * 10.5, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r;
         const l = at4(splats, 2, x, z) + (noise(x * 1.3 + 5, z * 1.3 + 5) - .5) * .5, keep = Math.max(smooth(.25, .65, l), smooth(.05, .25, l) * .07);
         if (lrng() > keep) continue;
-        const twig = lrng() < .07, L = twig ? .1 + lrng() * .18 : .045 + lrng() * .065, w = twig ? .008 + lrng() * .006 : L * (.45 + lrng() * .3);
-        let p = lrng(), base = PAL[0][1]; for (const [pr, c] of PAL) { if ((p -= pr) < 0) { base = c; break; } }
-        const g = .75 + lrng() * .45, c = twig ? col.setRGB(.26 * g, .19 * g, .13 * g) : col.setRGB(base[0] * g, base[1] * g, base[2] * g);
-        spots.push({ m: lay(x, meshY(x, z) + .004, z, lrng() * 6.283, (lrng() - .5) * .3, (lrng() - .5) * .3, w, twig ? .03 : L * (.6 + lrng() * .8), L), c: c.clone() });
+        leaf(x, z);
+      }
+      // and blown round the tee (r3 ground: "no leaf litter, bare or worn patches around the tee"): drifts of a few a square metre on
+      // the gravel apron and the trail, sparser on the turf, none on the bed (props.js lays its stone above the ground), out to ~10 m
+      const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw);
+      for (let k = 0; k < 5000; k++) {
+        const u = (lrng() - .5) * 14, w = 3 - lrng() * 13, x = h.tee[0] + u * cy + w * sy, z = h.tee[1] - u * sy + w * cy;
+        const stone = Math.max(smooth(.1, .4, at4(splats, 0, x, z)), smooth(.25, .5, at4(turf, 3, x, z)) * (1 - smooth(.42, .62, Math.abs(at4(turf, 2, x, z)))));
+        if (Math.max(Math.abs(u) - BED.u, -w - BED.f1, BED.f0 + w) < .06 || lrng() > (.2 + stone * .6) * smooth(.35, .65, noise(x / 2.1 + 3, z / 2.1 + 11))) continue;
+        leaf(x, z);
       }
     }
     perHole(leafGeo, leafMat, spots, starts);

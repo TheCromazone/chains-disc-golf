@@ -52,11 +52,13 @@ const sm = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e
 function paintMat(g, w, h) {
   const c = pixels(w, h, (x, y) => {
     const fine = hash2(x, y, 3), streak = vnoise(x * .9, y * .22, 5), broad = vnoise(x / 60, y / 60, 7) * .6 + vnoise(x / 17, y / 17, 8) * .4;
-    let k = .62 + fine * .3 + streak * .22 + (x % 4 === 0 ? -.12 : 0) + (broad - .5) * .18;
+    // pile in clumps 1-3 cm across with dark gaps between: from the tee camera the even woven pile read "a flat, untextured green rectangle" (r3 ground)
+    const clump = sm(.28, .78, vnoise(x / 5.5, y / 4, 13) * .65 + vnoise(x / 2.3, y / 1.8, 14) * .35), tint = vnoise(x / 34, y / 34, 15) - .5;
+    let k = .5 + fine * .22 + streak * .16 + clump * .42 + (x % 4 === 0 ? -.08 : 0) + (broad - .5) * .3;
     const plant = Math.exp(-(((x - w * .5) / (w * .3)) ** 2 + ((y - h * .19) / (h * .12)) ** 2)), run = Math.exp(-(((x - w * .5) / (w * .19)) ** 2)) * sm(.32, .55, y / h) * (1 - sm(.86, 1, y / h));
     const wear = Math.min(1, plant * .95 + run * .45) * (.65 + broad * .6);
     const edge = Math.min(x, w - 1 - x, y, h - 1 - y), rim = 1 - sm(0, 9, edge) * .28 - .72;
-    let r = 68 * k, gg = 132 * k, b = 46 * k;   // sunlit tee turf samples yellow-green in the reference, not lawn blue-green
+    let r = 68 * k * (1 + tint * .5), gg = 132 * k, b = 46 * k * (1 - tint * .4);   // sunlit tee turf samples yellow-green in the reference, not lawn blue-green; patches a little yellower or bluer
     r += (156 * k - r) * wear * .7; gg += (158 * k - gg) * wear * .55; b += (98 * k - b) * wear * .6;   // flattened pile shows the paler, yellowed backing
     const dirt = sm(.8, 1, y / h) * .5 + (1 - sm(0, 26, edge)) * .35, d = sm(.55, .9, vnoise(x / 9, y / 9, 11) + dirt * .6 - .3) * .8;
     r += (92 - r) * d; gg += (74 - gg) * d; b += (50 - b) * d;
