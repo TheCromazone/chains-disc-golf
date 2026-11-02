@@ -38,7 +38,7 @@ const HIT_T = RELEASE.dur * (1 - .76 ** (1 / RELEASE.pow)), HIT_RATE = .5 * RELE
 const HIT_V = HIT_RATE * (1 - HIT_T / RELEASE.dur) ** (RELEASE.pow - 1);   // phase per second through the hit
 const hermite = (s, v0, v1) => 3 * s * s - 2 * s ** 3 + v0 * (s ** 3 - 2 * s * s + s) + v1 * (s ** 3 - s * s);   // 0 -> 1 with end slopes v0, v1
 const windupPhase = (s, dur) => .5 * hermite(s, 0, HIT_RATE * dur / .5);
-const RUNUP = { dur: .8, pull: .15, v0: .45, min: 40, cam: { back: 3.4, side: 2.0, up: 1.5, ahead: .2, lookY: 1.05, fov: 60, wide: 42 } };   // seconds; drive phase/s as the pull starts; metres to the pin below which nobody runs up
+const RUNUP = { dur: .8, pull: .15, v0: .45, min: 40, cam: { back: -.9, side: 3.7, up: 1.5, ahead: .9, lookY: .95, fov: 60, wide: 36, tall: [1, .3] } };   // seconds; drive phase/s as the pull starts; metres to the pin below which nobody runs up
 // RUNUP.cam frames a watched run-up on its own: from straight behind, the reach-back pointed into the lens and the strides ran
 // along the line of sight, so the x-step read as "jogging in place under an unrelated upper body" (a ChatGPT critique,
 // 3.5/10), and even 13 degrees off the line the arm reaching back into the lens foreshortened to "a disc held at the chest".
@@ -47,6 +47,14 @@ const RUNUP = { dur: .8, pull: .15, v0: .45, min: 40, cam: { back: 3.4, side: 2.
 // ran off the edge of a portrait frame). Wider was worse with Gemini, in the same blind A/B: at 45 degrees the reach-back read
 // longer but the shot "stares at the woods instead of down the fairway" (5.5), and side-on (90) the approach read as "walking
 // backward blindly" with the flight hidden (3). This view: 7-7.5.
+// g19 (m-throw 1/4 vs DGM, two rounds of pose work unread): from 30 degrees behind, the reach-back still pointed at the lens and
+// every critic saw "the arm frozen straight out in front of the chest", "hips and chest turn together". Now side-on, broadcast
+// style: on his chest side, 3.7 m out (portrait: tall[0] x as far, which must keep the bench behind the lens, and tall[1] x the lead, so his reach fits),
+// panning with him on a 36-degree lens (his whole body ~3/4 of the frame) and leading him by `ahead` m so the line he throws
+// down fills the far side of the frame. The lens stands .9 m ahead of the lie (`back` < 0), which keeps every tee's bench,
+// and the bag on hole 1's, out from between it and his feet (runCamSpot steps it along the line if furniture is in the shot).
+// The reach-back, the hips opening ahead of the chest and the wrap read in profile; the flight is not lost: after the wrap it
+// cuts to the running chase.
 // Shader warm-up, bounded: compileAsync polls KHR_parallel_shader_compile, and on a busy GPU (several tabs, an old phone) a program
 // can report incomplete forever and the game sat on its loading screen. After 6 s, carry on: the first frames compile what is left.
 let warming = null;   // a warm-up in flight: nothing may dispose a material it is polling (compileAsync throws on one and never resolves)
@@ -592,7 +600,7 @@ function launchNow() {
   G.flight.lock = params.throwType === 'putt' && staysInFrame(sim.traj);   // a putt holds its aim frame into the chains, unless it leaves that frame
   trail.start(discById(params.discId)?.color || "#ffffff", G.flight.lock ? basketPos() : null);   // a putt in its locked frame: a faint wisp (flight-trail.js)
   G.phase = 'flight'; cam.mode = 'flight'; sfx.whoosh(params.power);
-  if (p.runUp) { cam.mode = 'aim'; G.flight.camAt = .55; }   // a watched run-up keeps the tee camera through the follow-through (Gemini: "the cut at release wipes it out"), then cuts to the chase
+  if (p.runUp) { cam.mode = 'aim'; G.flight.camAt = .3; }   // a watched run-up keeps its side-on camera through the wrap (Gemini: "the cut at release wipes it out"), then cuts to the chase (.3 flight s = .4 s at CHASE.rate)
   UI.setHud({ throwNo: `Throw ${p.strokes + 1}` });
 }
 // The putt's locked broadcast frame holds only while the disc stays inside it; a putt thrown long (a missed lag, a putt chosen
@@ -941,19 +949,22 @@ function aimSpotFor(lie, P, side, putt, halfW) {
   if (top - score0 < .15) best = 0;   // only a real obstruction moves the rig: a leaf card's worth of difference keeps the familiar framing
   aimSpot.key = key; aimSpot.k = best; aimSpot.scores = scores; return best;
 }
-// A watched run-up: the three-quarter view through the approach, dollying round behind the thrower from the hit to the end of
-// the follow-through hold (Gemini: "start offset so the run-up reads, then move behind the shoulder to centre the fairway and
-// hand over to the flight cam without a jarring cut"), so the chase takes over from the usual behind-the-thrower frame.
-const _runPos = new THREE.Vector3(), _runLook = new THREE.Vector3();
+// A watched run-up: the side-on view (RUNUP.cam) through the approach, the hit and the wrap, then a cut to the running chase
+// (launchNow's camAt). It used to dolly round behind him from the hit: square to the line, that swing is a quarter circle in
+// half a second, and its middle frames lost him off the frame's edge with the fairway not yet in view.
+// the run-up lens for a side (sgn > 0: left of the line) `back` m behind the lie, into out; one place, so runCamSpot scores the
+// spot the camera takes
+function runLens(lie, d, sgn, back, out) {
+  const C = RUNUP.cam, r = rightOf(d), s = C.side * sgn * (camera.aspect < 1.2 ? C.tall[0] : 1), x = lie.x - d[0] * back - r[0] * s, z = lie.z - d[1] * back - r[1] * s;
+  return out.set(x, Math.max(lie.y, world.height(x, z)) + C.up, z);
+}
+const runAhead = () => RUNUP.cam.ahead * (camera.aspect < 1.2 ? RUNUP.cam.tall[1] : 1);
 function aimFrame(lie, d, putt, pos, look) {
   const fov = aimFrameBase(lie, d, putt, pos, look), p = curP();
   if (!p?.runUp || putt) return fov;
-  const C = RUNUP.cam, side = C.side * runCamSide(lie, d) * (p.appearance?.hand === 'left' ? -1 : 1), r = rightOf(d), portrait = camera.aspect < 1.2;
-  const x = lie.x - d[0] * C.back - r[0] * side, z = lie.z - d[1] * C.back - r[1] * side, at = p.char.joints?.root?.getWorldPosition(_v3) || lie;
-  _runPos.set(x, Math.max(lie.y, world.height(x, z)) + C.up, z); _runLook.set(at.x + d[0] * C.ahead, lie.y + C.lookY, at.z + d[1] * C.ahead);
-  const t = G.pending || G.phase === 'flight' ? Math.min(1, Math.max(0, (G.releaseT - .2) / .5)) : 0, b = t * t * (3 - 2 * t);   // still through the hit (critics: "keep the camera anchored during the power phase"), then round behind him
-  pos.lerpVectors(_runPos, pos, b); look.lerpVectors(_runLook, look, b);
-  return (portrait ? C.fov : C.wide) * (1 - b) + fov * b;
+  const C = RUNUP.cam, ahead = runAhead(), at = p.char.joints?.root?.getWorldPosition(_v3) || lie, spot = runCamSpot(lie, d);
+  runLens(lie, d, spot.side * (p.appearance?.hand === 'left' ? -1 : 1), spot.back, pos); look.set(at.x + d[0] * ahead, lie.y + C.lookY, at.z + d[1] * ahead);
+  return camera.aspect < 1.2 ? C.fov : C.wide;   // held through the hit and the wrap (critics: "keep the camera anchored during the power phase"); launchNow's camAt cuts to the chase
 }
 const hudFloor = (() => { let k = '', y = 0; return () => {   // the swipe hint's top edge in CSS px, read once per viewport (#pad's padding sets it, safe area included)
   const key = innerWidth + 'x' + innerHeight; if (k !== key) { const pad = $('pad'), r = pad.getBoundingClientRect(); y = r.height ? r.bottom - parseFloat(getComputedStyle(pad).paddingBottom) - 36 : innerHeight - 138; if (r.height) k = key; }
@@ -988,22 +999,31 @@ function aimFrameBase(lie, d, putt, pos, look) {
   look.set(pos.x + fx * 14, pos.y - Math.tan(pitch * DEG) * 14, pos.z + fz * 14);
   return 2 * Math.atan(vt) / DEG;
 }
-// The run-up camera's side for a lie: the thrower's chest side unless a trunk, a tent or a banner stands in the way of the
-// athlete (at the lie or the start of his run-up) or right in front of the lens, then the throwing side. Once per lie.
-const runCam = { key: '', side: 1 }, _ray = new THREE.Raycaster();
-function runCamSide(lie, d) {
-  const fore = G.throwType.startsWith('forehand') ? -1 : 1, key = `${G.holeIdx}:${lie.x.toFixed(1)}:${lie.z.toFixed(1)}:${fore}`; if (runCam.key === key) return runCam.side;   // a forehand's chest faces the other way
-  const r = rightOf(d), head = lie.y + 1.4, C = RUNUP.cam, score = sgn => {
-    const x = lie.x - d[0] * C.back - r[0] * C.side * sgn, z = lie.z - d[1] * C.back - r[1] * C.side * sgn, y = Math.max(lie.y, world.height(x, z)) + C.up;
+// The run-up camera's spot for a lie: the thrower's chest side unless a trunk, a tent or a banner stands in the way of the
+// athlete (at the lie or the start of his run-up) or right in front of the lens, then the throwing side; RUNUP.cam.back along
+// the line unless tee furniture is in the shot there, then a step further on or back. Once per lie.
+const runCam = { key: '', side: 1, back: 0 }, _ray = new THREE.Raycaster();
+function runCamSpot(lie, d) {
+  const fore = G.throwType.startsWith('forehand') ? -1 : 1, key = `${G.holeIdx}:${lie.x.toFixed(1)}:${lie.z.toFixed(1)}:${fore}:${camera.aspect < 1.2}`; if (runCam.key === key) return runCam;   // a forehand's chest faces the other way
+  const C = RUNUP.cam, head = lie.y + 1.4, hand = curP()?.appearance?.hand === 'left' ? -1 : 1, ahead = runAhead(), tv = Math.tan((camera.aspect < 1.2 ? C.fov : C.wide) * DEG / 2), th = tv * camera.aspect;
+  const hit = (from, dir, far) => { _ray.set(from, dir); _ray.far = far; return _ray.intersectObjects(course.props || [], false).length ? 1 : 0; };
+  const score = (sgn, back) => {
+    const L = runLens(lie, d, sgn * hand, back, new THREE.Vector3()), { x, y, z } = L;   // the spot aimFrame takes (a left-hander's mirrored)
     const lens = [...world.treesNear(x, z).map(t => Math.hypot(t.x - x, t.z - z) - t.r), ...(world.camBlockers || world.capsules || []).map(c => Math.hypot((c.a[0] + c.b[0]) / 2 - x, (c.a[2] + c.b[2]) / 2 - z) - c.r)];
     // the others waiting beside the pad (2.8 m to the thrower's left on a tee) or at their lies: none near the lens or in the way
     const seg = (px, pz) => { const ex = lie.x - x, ez = lie.z - z, t = Math.max(0, Math.min(1, ((px - x) * ex + (pz - z) * ez) / (ex * ex + ez * ez || 1))); return Math.hypot(px - x - ex * t, pz - z - ez * t); };
     const crowd = G.players.some(q => q !== curP() && (Math.hypot(q.char.group.position.x - x, q.char.group.position.z - z) < 2.2 || seg(q.char.group.position.x, q.char.group.position.z) < .7));
-    // and the built props themselves (tee signs, benches, banners): rays from the lens to the athlete's chest along his run-up
-    let props = 0; for (const s of [0, .75, 1.5]) { _v.set(lie.x - d[0] * s, lie.y + 1.2, lie.z - d[1] * s); _v2.set(x, y, z); _ray.far = _v2.distanceTo(_v); _ray.set(_v2, _v.sub(_v2).normalize()); if (_ray.intersectObjects(course.props || [], false).length) props++; }
+    // and the built props themselves (tee signs, benches, the bag on one, bins, banners): rays from the lens to the athlete's chest
+    // and knees along his run-up, and out 2.2 m into the frame's lower corners, where a bin beside the lens fills a corner without
+    // crossing either (side-on from 3.7 m, the bag on hole 1's bench hid his feet)
+    let props = 0; for (const s of [0, .75, 1.5]) for (const hy of [1.2, .45]) { _v.set(lie.x - d[0] * s, lie.y + hy, lie.z - d[1] * s).sub(L); const far = _v.length(); props += hit(L, _v.normalize(), far); }
+    const f = new THREE.Vector3(lie.x + d[0] * ahead, lie.y + C.lookY, lie.z + d[1] * ahead).sub(L).normalize(), rt = new THREE.Vector3().crossVectors(f, UP).normalize(), up = new THREE.Vector3().crossVectors(rt, f);
+    for (const a of [-.8, 0, .8]) props += hit(L, _v.copy(f).addScaledVector(rt, a * th).addScaledVector(up, -.75 * tv).normalize(), 2.2);
     return clearFraction(world, lie.x, head, lie.z, x, y, z, .3, .15) + clearFraction(world, lie.x - d[0] * 1.5, head, lie.z - d[1] * 1.5, x, y, z, .3, .15) - (lens.some(m => m < 1.4) ? 1 : 0) - (crowd ? 1.5 : 0) - props * .8;
   };
-  const chest = score(fore), arm = score(-fore); runCam.key = key; runCam.side = chest >= arm - .1 ? fore : -fore; return runCam.side;
+  let top = -Infinity;   // the chest side unless the throwing side is clearly better; the nominal spot unless another is
+  for (const sgn of [fore, -fore]) [C.back, C.back + .7, C.back - .7].forEach((back, i) => { const s = score(sgn, back) - (sgn === fore ? 0 : .1) - i * .05; if (s > top + 1e-6) { top = s; runCam.side = sgn; runCam.back = back; } });
+  runCam.key = key; return runCam;
 }
 // Putt background: a trunk standing behind the basket's band and flag reads as a pole growing out of the target. Each lie
 // scores the camera's lateral nudges (5 cm steps across P.nudge; + swings the athlete toward the frame edge, - toward the pin)

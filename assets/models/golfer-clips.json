@@ -15,13 +15,13 @@
   "clips": {
     "backhand": {
       "file": "assets/models/golfer-backhand.glb",
-      "bytes": 21372,
+      "bytes": 21504,
       "duration": 1,
       "meshes": 0
     },
     "backhand_io": {
       "file": "assets/models/golfer-backhand_io.glb",
-      "bytes": 21372,
+      "bytes": 21508,
       "duration": 1,
       "meshes": 0
     },
@@ -39,7 +39,7 @@
     },
     "backhand_oi": {
       "file": "assets/models/golfer-backhand_oi.glb",
-      "bytes": 21372,
+      "bytes": 21508,
       "duration": 1,
       "meshes": 0
     },
