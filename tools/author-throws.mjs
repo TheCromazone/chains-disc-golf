@@ -225,6 +225,8 @@ const BH = [
   // and the arm stays long at shoulder height, out along the line past the release (.7-.76: from the side, a straight arm
   // pointing down the fairway), then round in front of him (.82) to his right side as the chest turns past the line (.9-1),
   // so it sweeps round the body at shoulder height instead of folding in to the far shoulder
+  // g20 c2: once the rear foot swings in beside the front one (.82-1) the pelvis stands 4-5.5 cm taller still: 8 cm down over
+  // feet that close, both knees bowed out and strip frame 7 still read as a squat
   { t: .7, at: [-.015, -.09, -.06], pelvis: [-8, 6, 0], chest: [-12, 34, -6], head: [0, -36, 0],
     handR: [.08, -.04, -.54], elbowR: [.04, -.02, -.27], handL: [.06, -.34, -.14], elbowL: [-.08, -.24, -.02],
     soleL: [-.30, .04, .20], footL: 32, footR: 80 },
@@ -236,14 +238,14 @@ const BH = [
   // shoulder at full reach. Now the elbow folds once the arm is across the front (.8) and the hand wraps round to the far
   // shoulder, 12 cm outside and ~18 cm behind it (.9-1), the upper arm across the chest: the camera behind him sees the forearm
   // round his far shoulder (tucked just in front of it, the arm vanished behind his back)
-  { t: .82, at: [-.07, -.085, -.22], pelvis: [-9, -28, 0], chest: [-12, 0, -2], head: [4, 8, 0],
+  { t: .82, at: [-.07, -.045, -.22], pelvis: [-9, -28, 0], chest: [-12, 0, -2], head: [4, 8, 0],
     handR: [.48, -.03, -.30], elbowR: [.25, -.02, -.15], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
     soleL: [-.38, .15, -.30], footL: 4, footR: 34 },
   { t: .86, handR: [.36, -.03, .14], elbowR: [.22, -.02, .04] },
-  { t: .9, at: [-.13, -.08, -.36], pelvis: [-8, -46, 0], chest: [-12, -30, 0], head: [6, 26, 0],
+  { t: .9, at: [-.13, -.03, -.36], pelvis: [-8, -46, 0], chest: [-12, -30, 0], head: [6, 26, 0],
     handR: [.04, -.03, .46], elbowR: [.08, -.02, .24], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
     soleL: [-.40, 0, -.62], footL: -24, footR: 4 },
-  { t: 1, at: [-.16, -.08, -.40], pelvis: [-8, -50, 0], chest: [-10, -32, 0], head: [5, 28, 0],
+  { t: 1, at: [-.16, -.025, -.40], pelvis: [-8, -50, 0], chest: [-10, -32, 0], head: [5, 28, 0],
     handR: [-.04, -.05, .44], elbowR: [.04, -.03, .24], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
     soleL: [-.40, 0, -.62], footL: -28, footR: 0 },
 ];
