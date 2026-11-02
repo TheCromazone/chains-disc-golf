@@ -184,17 +184,19 @@ const BH = [
   // shorter with the elbow hinted down (~150 deg, soft, not locked) and the disc ~5 cm lower, toward the trailing hip; from the
   // full coil the hips open ~30 deg ahead of the chest (the chest holds ~205 deg world through the plant) while the elbow drops
   // under the shoulder and leads, the disc trailing up behind it, so strip frame 3 is a bent, loaded arm and frame 4 the pocket
-  // g19 c2: the coil as the x-step's (.74) and from it the chest unwinds steadily behind the hips (~184 deg world at .35, ~150
-  // at the pocket, strip frame 4) instead of holding ~209 to .45 and whipping 95 deg in the last frame before the hit
+  // g19 c2: the coil as the x-step's (.74) and from it the chest unwinds steadily behind the hips (~185 deg world at .35, ~150
+  // at the pocket, strip frame 4) instead of holding ~209 to .45 and whipping 95 deg in the last frame before the hit. The hips
+  // fire first: ~33 deg open by frame 3 against the chest's ~25, ~56 by the plant (the front foot lands toed in 6 deg more so
+  // the knee follows them), and the pocket is pulled toward the sternum at pec height, where the run-up camera sees the disc
   { t: .30, pelvis: [-10, 106, -2], chest: [-28, 110, 4], head: [6, -86, 0],
     handR: [-.30, -.18, .47], elbowR: [-.18, .01, .26], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16], untwistR: .1 },
-  { t: .35, at: [-.035, -.13, .12], pelvis: [-10, 68, -2], chest: [-23, 116, 4], head: [4, -92, 0],
+  { t: .35, at: [-.035, -.13, .12], pelvis: [-10, 60, -2], chest: [-23, 125, 4], head: [4, -92, 0],
     handR: [-.12, -.19, .30], elbowR: [.03, -.21, .10], handL: [.17, -.30, -.29], elbowL: [-.05, -.24, -.15],
     soleR: [-.11, .035, -.39], footR: 96, untwistR: .1 },
-  { t: .40, at: [-.03, -.135, .05], pelvis: [-9, 56, -2], chest: [-20, 106, 3], head: [2, -96, 0],
+  { t: .40, at: [-.03, -.135, .05], pelvis: [-9, 46, -2], chest: [-20, 114, 3], head: [2, -96, 0],
     handR: [.03, -.12, .27], elbowR: [.08, -.15, -.06], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
-    soleR: [-.10, 0, -.42], footR: 90, soleL: [-.27, 0, .29], footL: 70, untwistR: .05 },
-  { t: .45, at: [-.02, -.145, .01], pelvis: [-8, 46, 0], chest: [-16, 98, 2], head: [0, -90, 0],
+    soleR: [-.10, 0, -.42], footR: 84, soleL: [-.27, 0, .29], footL: 70, untwistR: .05 },
+  { t: .45, at: [-.02, -.145, .01], pelvis: [-8, 40, 0], chest: [-16, 102, 2], head: [0, -90, 0],
     handR: [.08, -.09, .22], elbowR: [.09, -.07, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10, untwistR: 0 },
   { t: .5, pelvis: [-8, 41, 0], chest: [-16, 92, 1], head: [0, -88, 0], handR: [.0, -.12, .17], elbowR: [.06, -.085, -.24] },
   { t: .53, pelvis: [-8, 38, 0], chest: [-16, 84, 0], head: [0, -84, 0], handR: [-.12, -.12, .11], elbowR: [.05, -.09, -.25], soleL: [-.27, 0, .28], footL: 60 },   // the rear heel turns in as the hips fire (a sole's y is its lowest point: the toe stays down)   // the disc swings in front of the sternum, not through the shoulder
@@ -298,7 +300,7 @@ const XSTEP = merge([
   // the chest has already unwound ~25 deg behind hips ~30 deg open, the elbow dropping to lead with the disc trailing
   { t: .74, pelvis: [-10, 102, -1], chest: [-28, 110, 4], head: [6, -86, 0], handR: [-.30, -.18, .47], elbowR: [-.18, .01, .26] },
   { t: .8, at: [-.03, -.12, .22] },
-  { t: .89, pelvis: [-10, 79, -1], chest: [-24, 110, 4], head: [4, -91, 0], handR: [-.17, -.20, .35], elbowR: [-.01, -.21, .15] },
+  { t: .89, pelvis: [-10, 70, -1], chest: [-24, 120, 4], head: [4, -91, 0], handR: [-.17, -.20, .35], elbowR: [-.01, -.21, .15] },
   { ...coil, t: 1 }, { ...stateAt(BH, PAST.t), t: PAST.at },
 ], step('R', 0, [.12, 0, 1.52], .24, [.14, 0, .78], 22, 50), step('L', .28, [-.12, 0, 1.64], .58, [-.27, 0, .29], 22, 70, [.24, .80]),
   // g19 c2 (m-throw: "the back leg kicked out" in frames 2-3): the swing to the plant skims 9 cm up instead of 15, so its knee
