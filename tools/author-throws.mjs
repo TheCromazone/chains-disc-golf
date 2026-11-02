@@ -184,7 +184,7 @@ const BH = [
   // shorter with the elbow hinted down (~150 deg, soft, not locked) and the disc ~5 cm lower, toward the trailing hip; from the
   // full coil the hips open ~30 deg ahead of the chest (the chest holds ~205 deg world through the plant) while the elbow drops
   // under the shoulder and leads, the disc trailing up behind it, so strip frame 3 is a bent, loaded arm and frame 4 the pocket
-  // g19 c2: the coil as the x-step's (.76) and from it the chest unwinds steadily behind the hips (~178 deg world at .35, ~150
+  // g19 c2: the coil as the x-step's (.74) and from it the chest unwinds steadily behind the hips (~184 deg world at .35, ~150
   // at the pocket, strip frame 4) instead of holding ~209 to .45 and whipping 95 deg in the last frame before the hit
   { t: .30, pelvis: [-10, 106, -2], chest: [-28, 110, 4], head: [6, -86, 0],
     handR: [-.30, -.18, .47], elbowR: [-.18, .01, .26], handL: [.18, -.30, -.32], elbowL: [-.05, -.24, -.16], untwistR: .1 },
@@ -294,14 +294,16 @@ const XSTEP = merge([
   // reach of the drive's .30, and from .86 the hips open while the chest holds and the elbow drops to lead
   // g19 c2 (m-throw: "frames 2-4 hold one pose: a rigid arm straight out at shoulder height, the chest square to the lens"):
   // the chest held ~209 deg world from .70 to the drive's .42 (strip frames 2, 3 and 4) while only the hips, hidden by the
-  // shorts, turned. Now the coil peaks on frame 2 (.76) with the disc at chest height and the elbow soft and up, and by frame 3
+  // shorts, turned. Now the coil peaks at frame 2 (.74) with the disc at chest height and the elbow soft and up, and by frame 3
   // the chest has already unwound ~25 deg behind hips ~30 deg open, the elbow dropping to lead with the disc trailing
   { t: .74, pelvis: [-10, 102, -1], chest: [-28, 110, 4], head: [6, -86, 0], handR: [-.30, -.18, .47], elbowR: [-.18, .01, .26] },
   { t: .8, at: [-.03, -.12, .22] },
   { t: .89, pelvis: [-10, 79, -1], chest: [-24, 110, 4], head: [4, -91, 0], handR: [-.17, -.20, .35], elbowR: [-.01, -.21, .15] },
   { ...coil, t: 1 }, { ...stateAt(BH, PAST.t), t: PAST.at },
 ], step('R', 0, [.12, 0, 1.52], .24, [.14, 0, .78], 22, 50), step('L', .28, [-.12, 0, 1.64], .58, [-.27, 0, .29], 22, 70, [.24, .80]),
-  step('R', .60, [.14, 0, .78], 1, coil.soleR, 50, null, [.04, .22], false));
+  // g19 c2 (m-throw: "the back leg kicked out" in frames 2-3): the swing to the plant skims 9 cm up instead of 15, so its knee
+  // folds less and the shin no longer flicks out behind
+  step('R', .60, [.14, 0, .78], 1, coil.soleR, 50, null, [.04, .22, .09], false));
 
 // ============ the putt ============
 // A push putt from the staggered stance (throwing-side foot a half step ahead, square to the pin): the knees load with the
