@@ -50,8 +50,8 @@ export const GROUND_GLSL = `
 float gHash(vec2 p){vec3 q=fract(p.xyx*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}   // no sin(): cheap and stable on phones
 float gNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(gHash(i),gHash(i+vec2(1,0)),f.x),mix(gHash(i+vec2(0,1)),gHash(i+vec2(1,1)),f.x),f.y);}
 #ifdef GROUND_LITE   // Lite: the same turf as Full (r3 nature: its one-octave drift, no clumps, thin patches, scuffs or clover read "a smooth painted green carpet", ground 1/4); only its olive differs
-#define gOlive .7   /* Lite has no grade to ease greens toward olive: the turf does it alone */
-#define gGain vec3(1.2,1.22,1.08)   /* Full's thin patches, rough weeds and clump gaps took ~12% off its lawn (tee hill rgb 91,107,55 -> 82,95,52); this gives it back */
+#define gOlive .63   /* Lite has no grade to ease greens toward olive: the turf does it alone (.7 read "a uniform, overly saturated green", r3 ground) */
+#define gGain vec3(1.26,1.21,1.04)   /* Full's thin patches, rough weeds and clump gaps took ~12% off its lawn (tee hill rgb 91,107,55 -> 82,95,52); this gives it back */
 #else
 #define gOlive .62
 #define gGain 1.
@@ -149,6 +149,8 @@ export function terrainSplat(material, geometry, { splat, turf, pads, pin = { va
             l=mix(l,mix(lm,vec3(dot(lm,vec3(.3,.59,.11))),.25),nk*.55)*mix(vec3(1.),pow(mix(vec3(dot(ch,vec3(.3,.59,.11))),ch,.5),vec3(1.3))*.9,nk);   // a touch less orange, as real mulch is: DGM's sits at ~#77614d
             gChipN=vec3(((texture2D(gChipsN,cq).xy*2.-1.)*f0+((texture2D(gChipsN,cr).xy*2.-1.)*mat2(.6,-.8,.8,.6))*f1)/(f0+f1),nk); }   // the turned tile's slope turned back to world x, z
           #endif
+          float big=smoothstep(.28,.74,gNoise(p/2.7+77.)*.65+gNoise(p/.85+19.)*.35);
+          l*=mix(vec3(.72,.69,.66),vec3(1.17,1.14,1.08),big);   // damp dark hollows and sun-dried drifts 1-3 m across, over the chips too, so the circle is not one even, tiled brown (r3 ground: "hard, uniform and tiled")
           c=mix(c,l,max(cov.z,reach*smoothstep(.1,.2,ll)*.85)); }
         if(cov.x>0.){ vec3 g=texture2D(gGravel,p/1.3).rgb;   // packed pea gravel, shaded per pebble in the tile; its contrast eases with distance so it cannot speckle
           g=mix(g,${vec3s([.328, .306, .271])},smoothstep(3.,16.,d)*.25)*vec3(1.5,1.43,1.25)*mix(1.,.62,smoothstep(.55,.85,gNoise(p*.8+3.)))*mix(1.,dot(texture2D(gGravel,mat2(.6,.8,-.8,.6)*p/4.1).rgb,vec3(1.12)),.55);   // packed earth shows in patches; stones three times the size keep a grain at 20 m (Mobile too: its trail read as a flat beige decal)

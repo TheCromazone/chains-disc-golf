@@ -1105,16 +1105,28 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     leafMat.customProgramCacheKey = () => 'chains-leaf-litter';
     const PAL = [[.36, [.56, .41, .24]], [.34, [.38, .25, .13]], [.14, [.22, .15, .09]], [.06, [.7, .54, .2]], [.05, [.55, .29, .12]], [.05, [.32, .33, .14]]];   // linear albedo, the litter tile's own range (its shader lifts the photo ~2.5x)
     const spots = [], starts = [], dens = quality === 'low' ? 50 : 60;   // leaves per m2 under a full litter weight: since the chip relief (materials.js) the mulch carries its own detail, and 85-100 a m2 of orange and yellow leaves read 'scattered on top' of it (r3 ground)
+    const leaf = (x, z) => {
+      const twig = lrng() < .07, L = twig ? .1 + lrng() * .18 : .045 + lrng() * .065, w = twig ? .008 + lrng() * .006 : L * (.45 + lrng() * .3);
+      let p = lrng(), base = PAL[0][1]; for (const [pr, c] of PAL) { if ((p -= pr) < 0) { base = c; break; } }
+      const g = .75 + lrng() * .45, c = twig ? col.setRGB(.26 * g, .19 * g, .13 * g) : col.setRGB(base[0] * g, base[1] * g, base[2] * g);
+      spots.push({ m: lay(x, meshY(x, z) + .004, z, lrng() * 6.283, (lrng() - .5) * .3, (lrng() - .5) * .3, w, twig ? .03 : L * (.6 + lrng() * .8), L), c: c.clone() });
+    };
     for (const h of holes) {
       starts.push(spots.length);
       for (let k = 0, n = Math.round(Math.PI * 121 * dens); k < n; k++) {
         const a = lrng() * 6.283, r = .45 + Math.sqrt(lrng()) * 10.5, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r;
         const l = at4(splats, 2, x, z) + (noise(x * 1.3 + 5, z * 1.3 + 5) - .5) * .5, keep = Math.max(smooth(.25, .65, l), smooth(.05, .25, l) * .07);
         if (lrng() > keep) continue;
-        const twig = lrng() < .07, L = twig ? .1 + lrng() * .18 : .045 + lrng() * .065, w = twig ? .008 + lrng() * .006 : L * (.45 + lrng() * .3);
-        let p = lrng(), base = PAL[0][1]; for (const [pr, c] of PAL) { if ((p -= pr) < 0) { base = c; break; } }
-        const g = .75 + lrng() * .45, c = twig ? col.setRGB(.26 * g, .19 * g, .13 * g) : col.setRGB(base[0] * g, base[1] * g, base[2] * g);
-        spots.push({ m: lay(x, meshY(x, z) + .004, z, lrng() * 6.283, (lrng() - .5) * .3, (lrng() - .5) * .3, w, twig ? .03 : L * (.6 + lrng() * .8), L), c: c.clone() });
+        leaf(x, z);
+      }
+      // and blown round the tee (r3 ground: "no leaf litter, bare or worn patches around the tee"): drifts of a few a square metre on
+      // the gravel apron and the trail, sparser on the turf, none on the bed (props.js lays its stone above the ground), out to ~10 m
+      const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw);
+      for (let k = 0; k < 5000; k++) {
+        const u = (lrng() - .5) * 14, w = 3 - lrng() * 13, x = h.tee[0] + u * cy + w * sy, z = h.tee[1] - u * sy + w * cy;
+        const stone = Math.max(smooth(.1, .4, at4(splats, 0, x, z)), smooth(.25, .5, at4(turf, 3, x, z)) * (1 - smooth(.42, .62, Math.abs(at4(turf, 2, x, z)))));
+        if (Math.max(Math.abs(u) - BED.u, -w - BED.f1, BED.f0 + w) < .06 || lrng() > (.2 + stone * .6) * smooth(.35, .65, noise(x / 2.1 + 3, z / 2.1 + 11))) continue;
+        leaf(x, z);
       }
     }
     perHole(leafGeo, leafMat, spots, starts);
