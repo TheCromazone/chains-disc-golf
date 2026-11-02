@@ -24,7 +24,13 @@ const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
 // Forearm length: critics read the scan's forearms as "too short for the torso", "stubby". The forearm bones stretch along
 // their length (bone-local y, elbow to wrist); everything mounted on them (the modelled hands, the cuffs, the disc seat and
 // socket) is counter-scaled about the wrist, so the hands keep their size and ride the lengthened wrist rigidly.
-const FORE_LEN = 1.07;
+const FORE_LEN = 1.07, HEAD = 1.07;
+// Each athlete's shadow is drawn from a proxy, the low-detail body on the same skeleton (both GLBs share the rig and bind), never
+// from the full body the camera sees. Every athlete in a round wears the full body now (main.js upgradeBody), on Mobile subdivided
+// over the arms, and both shadow maps drew it again: ~+60k triangles at the phone tee (+20k at the desktop one) for detail a
+// 1-2 cm shadow texel cannot hold (the menu frame came out pixel-identical on Desktop). The proxy's material is shown only inside
+// renderer.shadowMap.render (main.js), so the main pass never draws it.
+export const SHADOW_ONLY = new THREE.MeshBasicMaterial({ visible: false });
 // ?liveclips: throws drawn straight from the shared keys (throw-poses.js) instead of the Blender-baked clips, so a key edit shows
 // on a reload without a bake (tools/author-throws.mjs authoring); the shipped game always plays the baked clips
 const LIVE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('liveclips');
@@ -34,18 +40,27 @@ const LIVE = typeof location !== 'undefined' && new URLSearchParams(location.sea
 // duplicates, then relaxed over the neighbours (the head keeps its own detail).
 // ponytail: a flood-filled consistent winding looked the same here; the one remaining dark wedge on her upper back is a
 // real fold of the scan, which only a mesh fix removes.
-function relaxNormals(g, headBone, passes = 3) {
+// Her scan's source normals are themselves wrong: against the outward direction off her bones, 48 % of the relaxed vertex
+// normals pointed into the body (50 % on the torso, the male's scan a few ticks), and a face oriented to agree with them
+// faced inward too. Lit from inside, those patches of jersey and shorts went pale in the sun and dark in shade: the pale
+// scratches across her sash and shoulders. With `skel` (her body), faces are oriented by the mesh itself instead: a flood
+// fill makes each connected piece wind one way across its shared edges, and each piece (her scan is ~4,400 of them, joined
+// at folds) then faces the way most of its area points off the nearest bone. Inward-pointing normals, as the game draws her:
+// 48 % -> 30 % (his 14 %: that measure also counts the armpits, crotch and inner thighs, where the nearest bone misleads, and
+// the inner layer of her shirt, which the culling hides).
+function relaxNormals(g, headBone, passes = 3, skel = null) {
   if (g.userData.relaxed) return; g.userData.relaxed = true;
   const pos = g.attributes.position, nrm = g.attributes.normal, idx = g.index.array, n = pos.count, weld = new Int32Array(n), key = new Map();
   for (let i = 0; i < n; i++) { const k = Math.round(pos.getX(i) * 1e4) + ',' + Math.round(pos.getY(i) * 1e4) + ',' + Math.round(pos.getZ(i) * 1e4); let w = key.get(k); if (w === undefined) key.set(k, w = key.size); weld[i] = w; }
   const W = key.size, was = new Float32Array(W * 3), acc = new Float32Array(W * 3), head = new Uint8Array(W), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
   const si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
   for (let i = 0; i < n; i++) { const w = weld[i] * 3; was[w] += nrm.getX(i); was[w + 1] += nrm.getY(i); was[w + 2] += nrm.getZ(i); for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === headBone && sw.getComponent(i, k) > .5) head[weld[i]] = 1; }
+  const side = skel ? orientFaces(pos, idx, weld, W, skel) : null;   // per face: +1 keeps its winding's normal, -1 flips it
   const links = Array.from({ length: W }, () => new Set());
   for (let f = 0; f < idx.length; f += 3) {
     const p = [idx[f], idx[f + 1], idx[f + 2]], q = p.map(i => weld[i]);
     a.fromBufferAttribute(pos, p[0]); b.fromBufferAttribute(pos, p[1]).sub(a); c.fromBufferAttribute(pos, p[2]).sub(a); b.cross(c);   // area-weighted face normal
-    const s = q.reduce((d, w) => d + b.x * was[w * 3] + b.y * was[w * 3 + 1] + b.z * was[w * 3 + 2], 0) < 0 ? -1 : 1;
+    const s = side ? side[f / 3] : q.reduce((d, w) => d + b.x * was[w * 3] + b.y * was[w * 3 + 1] + b.z * was[w * 3 + 2], 0) < 0 ? -1 : 1;
     for (const w of q) { acc[w * 3] += s * b.x; acc[w * 3 + 1] += s * b.y; acc[w * 3 + 2] += s * b.z; }
     links[q[0]].add(q[1]).add(q[2]); links[q[1]].add(q[0]).add(q[2]); links[q[2]].add(q[0]).add(q[1]);
   }
@@ -58,6 +73,37 @@ function relaxNormals(g, headBone, passes = 3) {
   }
   for (let i = 0; i < n; i++) { const w = weld[i] * 3; nrm.setXYZ(i, cur[w], cur[w + 1], cur[w + 2]); }
   nrm.needsUpdate = true;
+}
+// relaxNormals' face orientation for a scan whose normals cannot be trusted: +1 / -1 per face (see there). The bones' bind
+// segments stand in for the body's axis: spine and neck, collar bones, upper arms and forearms (to the wrist), hips, thighs
+// and shins (to the ankle) and the skull.
+function orientFaces(pos, idx, weld, W, skel) {
+  const J = {}; skel.bones.forEach((b, i) => { J[b.name] = new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(skel.boneInverses[i]).invert()); });
+  const seg = [['root', 'spine'], ['spine', 'head'], ['spine', 'shL'], ['spine', 'shR'], ['shL', 'elL'], ['shR', 'elR'], ['root', 'hipL'], ['root', 'hipR'], ['hipL', 'knL'], ['hipR', 'knR']].filter(([p, q]) => J[p] && J[q]).map(([p, q]) => [J[p], J[q]]);
+  for (const s of 'LR') { const e = J['el' + s], h = J['sh' + s], k = J['kn' + s]; if (e && h) seg.push([e, e.clone().lerp(h, -.95)]); if (k) seg.push([k, new THREE.Vector3(k.x, .08, k.z)]); }
+  if (J.head) seg.push([J.head, J.head.clone().add(new THREE.Vector3(0, .12, 0))]);
+  const F = idx.length / 3, nf = new Float32Array(F * 3), out = new Float32Array(F), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), d = new THREE.Vector3(), q = new THREE.Vector3(), best = new THREE.Vector3();
+  const edges = new Map();
+  for (let f = 0; f < F; f++) {
+    const i0 = idx[f * 3], i1 = idx[f * 3 + 1], i2 = idx[f * 3 + 2];
+    a.fromBufferAttribute(pos, i0); b.fromBufferAttribute(pos, i1).sub(a); c.fromBufferAttribute(pos, i2).sub(a); b.cross(c); nf[f * 3] = b.x; nf[f * 3 + 1] = b.y; nf[f * 3 + 2] = b.z;
+    c.add(a).add(a).add(d.fromBufferAttribute(pos, i1)).divideScalar(3);   // centroid (c held the third corner less the first)
+    let near = Infinity; for (const [p0, p1] of seg) { d.subVectors(p1, p0); const t = Math.max(0, Math.min(1, q.subVectors(c, p0).dot(d) / d.lengthSq())); q.copy(p0).addScaledVector(d, t); const l = c.distanceToSquared(q); if (l < near) { near = l; best.subVectors(c, q); } }
+    out[f] = b.dot(best) / (best.length() || 1);   // area-weighted vote: this face's winding against the outward direction
+    const w = [weld[i0], weld[i1], weld[i2]];
+    for (let k = 0; k < 3; k++) { const u = w[k], v = w[(k + 1) % 3]; if (u === v) continue; const e = Math.min(u, v) * W + Math.max(u, v); let l = edges.get(e); if (!l) edges.set(e, l = []); l.push(f, u < v ? 1 : 0); }
+  }
+  const adj = Array.from({ length: F }, () => []);
+  for (const l of edges.values()) if (l.length === 4) { adj[l[0]].push(l[2], l[1] === l[3] ? 1 : 0); adj[l[2]].push(l[0], l[1] === l[3] ? 1 : 0); }   // a shared edge run the same way: the two faces wind opposite ways
+  const flip = new Int8Array(F), comp = new Int32Array(F).fill(-1), side = new Float32Array(F), stack = [], members = [];
+  for (let s = 0, nc = 0; s < F; s++) {
+    if (comp[s] >= 0) continue;
+    comp[s] = nc; stack.push(s); members.length = 0; let vote = 0;
+    while (stack.length) { const f = stack.pop(); members.push(f); vote += flip[f] ? -out[f] : out[f]; for (let k = 0; k < adj[f].length; k += 2) { const h = adj[f][k]; if (comp[h] < 0) { comp[h] = nc; flip[h] = flip[f] ^ adj[f][k + 1]; stack.push(h); } } }
+    for (const f of members) side[f] = (flip[f] ? -1 : 1) * (vote < 0 ? -1 : 1);
+    nc++;
+  }
+  return side;
 }
 
 // One level of curved subdivision over the shoulders and arms, once per loaded full body on the Mobile tier: every edge whose
@@ -128,7 +174,7 @@ const HOOK = [[.9, .5], [.79, 1.2], [.55, .7]];   // (joint, angle), distal firs
 // disc reaching back across the chest (the old cock held it level only at the end of a forearm dropping ~33°, which the tee
 // camera, above the shoulder, saw as an arm hanging to the hip). Round 12: re-solved with the screen-space stance; round 14
 // re-solved jointly with it again (throw-poses.js STANCE.backhand) so the hand, not the elbow, leads toward the target.
-const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], wrist: [.12, -.12], press: .003, chroma: .6, tone: .8, taper: .16,
+const GRIP = { rim: -.092, flex: .5, tilt: .6, cock: [-1.375, -.567, -.169], spin: .52, wrist: [.12, -.12], press: .003, chroma: .52, tone: .86, taper: .16,
   fingers: [[[.002, -.098, -.029], [.041, .025, .019], [.0098, .009, .008, .0068], [62, 100, 66]], [[.002, -.100, -.009], [.045, .028, .02], [.0102, .0094, .0083, .007], [60, 102, 66]],
     [[.002, -.098, .01], [.042, .026, .02], [.0096, .0088, .0078, .0066], [62, 102, 66]], [[.001, -.091, .027], [.034, .02, .017], [.0084, .0077, .0068, .0058], [66, 104, 66]]],
   thumb: [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.035, .014, -.048], [-.06, .015, -.044]], thumbR: [.0125, .0118, .0105, .0095, .0082] };   // thumb y after the MCP is relative to the rim
@@ -294,7 +340,11 @@ function handMorphs(mesh, handOffset, lod) {
     // than steps): the plate's normal leaves the flex plane, so a thumb-up hand holds the disc level at the end of a forearm
     // lying across the chest. With flex and tilt alone the disc was level only with the palm turned down, which a forearm
     // reaching toward the target from an elbow in front of the ribs cannot do (the solve folded it into a chicken wing)
-    const qg = qw.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...GRIP.cock, 'XYZ')));
+    // spin (round 19): the hand rolled about the plate's own normal (the disc stays level, its centre moves a few cm). Unrolled,
+    // the phone tee camera looked straight down the row of knuckles from the thumb side: the index hid the other three and
+    // every critic saw "a mitten" with "no readable fingers on the rim"; rolled, it sees the back of the hand and four fingers
+    // over the rim (tools/build-grip-hand.py --spins previews the measured view)
+    const qg = qw.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...GRIP.cock, 'XYZ'))).multiply(new THREE.Quaternion().setFromAxisAngle(_v.set(Math.sin(GRIP.tilt), Math.cos(GRIP.tilt), 0), GRIP.spin));
     // tuck: the scanned hand folds into a small core inside the grip hand's palm
     const taper = v => { const s = taperAt(v.y); v.x = cx + (v.x - cx) * s; v.z = cz + (v.z - cz) * s; return v; };
     const TP = R.map(r => { const t = smooth(.014, -.004, r.y); return bend(taper(new THREE.Vector3(r.x + (cx + (r.x - cx) * .15 - r.x) * t, r.y + (-.016 + (r.y + .016) * .08 - r.y) * t, r.z + (cz + (r.z - cz) * .15 - r.z) * t))); });   // all of it inside the grip palm: half-tucked, the scan's thumb base stood out of it as a flap
@@ -457,14 +507,14 @@ export function createGLTFCharacter(avatar) {
   const joints = {}, owned = new Set();
   const colors = { hair: avatar.hairColor, headwear: avatar.headwearColor, trim: avatar.accent };
   const spec = actor.getObjectByName('ChainsRig')?.userData || {}, handOffset = new THREE.Vector3(...(spec.handOffset || [0, -.25, 0]));
-  let body = null, skin = null;
+  let body = null, skin = null, raw = null;
   actor.traverse(o => {
     if (o.isBone) joints[o.name] = o;
     if (o.name.startsWith('hair_') || o.name.startsWith('headwear_') || o.name.startsWith('glasses_')) o.visible = false;
     if (o.name.startsWith('accessory_wristband')) o.visible = false; // fitted cloth cuffs replace the scan's loose torus bands
     if (!o.isMesh) return;
     const slotKey = [].concat(o.material)[0].name.replace(/\.\d+$/, '');
-    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head')); if (!lod && document.body.classList.contains('gfx-mobile')) o.geometry = smoothArms(o.geometry, o); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const bp = i => new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert()), by = i => bp(i).y; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); body.girth(bp(ai[0]), bp(ai[2]), by(ai[1]), by(ai[1]) + handOffset.y + .075); } }
+    if (slotKey === 'body') { body = bodyMaterial(spec, avatar, lod, female ? 'body_f_' : 'body_'); o.material = body.material; if (o.isSkinnedMesh) { repairPlayerSkinning(o); relaxNormals(o.geometry, o.skeleton.bones.findIndex(b => b.name === 'head'), 3, female ? o.skeleton : null); raw = o.geometry; if (!lod && document.body.classList.contains('gfx-mobile')) o.geometry = smoothArms(o.geometry, o); handMorphs(o, handOffset, lod); o.updateMorphTargets(); skin = o; const ai = ['shR', 'elR', 'shL', 'elL'].map(n => o.skeleton.bones.findIndex(b => b.name === n)); body.arms(ai); const bp = i => new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(o.skeleton.boneInverses[i]).invert()), by = i => bp(i).y; body.sleeve(by(ai[1]) + .4 * (by(ai[0]) - by(ai[1]))); body.girth(bp(ai[0]), bp(ai[2]), by(ai[1]), by(ai[1]) + handOffset.y + .075); } }
     else { const slot = SLOT[slotKey] || { roughness: .8 }; o.material = new THREE.MeshStandardMaterial({ color: colors[slotKey] || slot.color || '#ffffff', roughness: slot.roughness, metalness: slot.metalness || 0, transparent: slot.opacity < 1, opacity: slot.opacity ?? 1 }); if (slot.rim) rimLight(o.material, { strength: slot.rim }); }
     // culled against one static sphere round every pose (skinned bounds measured over the clips reach 1.5 m from it): the
     // waiting players behind the tee camera stop drawing, and the bind-pose bounds never clip a throw at the frame edge.
@@ -475,6 +525,13 @@ export function createGLTFCharacter(avatar) {
   // FORE_LEN: a part mounted on a forearm bone (bone-local, before the bone's stretch) keeps its size and moves with the wrist
   const wristY = handOffset.y + .075, onWrist = (o, y = o.position.y) => { o.position.y = wristY + (y - wristY) / FORE_LEN; o.scale.y /= FORE_LEN; return o; };
   const sockOffset = handOffset.clone().setY(wristY + (handOffset.y - wristY) / FORE_LEN);
+  if (!lod) {   // the full body: its shadow from the low-detail one (SHADOW_ONLY above), whose skin indices must name the same bones in the same order
+    const rig = skin.skeleton.bones.map(b => b.name).join();
+    let low = null; model(key + '_lod')?.scene.traverse(o => { if (o.isSkinnedMesh && o.skeleton.bones.map(b => b.name).join() === rig && [].concat(o.material)[0].name.startsWith('body')) low = o; });
+    const proxy = new THREE.SkinnedMesh(low ? (repairPlayerSkinning(low), low.geometry) : raw, SHADOW_ONLY); proxy.name = 'shadow_proxy';
+    proxy.position.copy(skin.position); proxy.quaternion.copy(skin.quaternion); proxy.scale.copy(skin.scale); skin.parent.add(proxy);
+    proxy.bind(skin.skeleton, skin.bindMatrix); proxy.boundingSphere = REACH; proxy.castShadow = true; skin.castShadow = false;
+  }
   // the modelled grip hands (handMorphs), children of the forearm bones, shown in the backhand set-up in place of the tucked
   // scan hand; their skin takes the palette tone the way the body shader turns the scan's (a quarter of the chroma gone)
   const gripMat = new THREE.MeshStandardMaterial({ roughness: .74, vertexColors: true }); owned.add(gripMat);
@@ -486,16 +543,20 @@ export function createGLTFCharacter(avatar) {
       diffuseColor.rgb *= mix(vec3(1.), vec3(1.02, .72, .72), saturate(1.15 - vColor.g)) * (1. + (chainsMot - .5) * vec3(.34, .06, .0));`)   // its AO creases (knuckles, between the fingers) go red like the body's
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = clamp(roughnessFactor + (chainsMot - .5) * .3 + .12 * saturate(1. - vColor.g), .5, .95);')
       .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= .45;')   // as the body's skin: well under a plastic's 4 %
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + PORES_GLSL('vHandPos', '1.'))
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + PORES_GLSL('vHandPos', '1.', '260.', '.00028', ['.14', '.3']))
     .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
-      ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.')); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove
+      ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.', '1.') + '\nreflectedLight.indirectDiffuse *= 1.15;'); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove; and the bare arms' extra sky and bounce, so it lights as the forearm it ends
   gripMat.customProgramCacheKey = () => 'chains-grip'; rimLight(gripMat, { strength: .1 });
-  const gripSkin = a => { const c = gripMat.color.set(a.skin), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.setRGB((l + (c.r - l) * GRIP.chroma) * .93, (l + (c.g - l) * GRIP.chroma) * .96, (l + (c.b - l) * GRIP.chroma) * 1.25).multiplyScalar(GRIP.tone); };   // the body's cooler white balance
+  // the arms' tone (body-material.js: chroma .52, white balance .97/.93/1.1), not the face's: with the face's 1.25 the hand measured
+  // a grey brown (sat .41, a third darker) at the end of a warm forearm, a band at the wrist that read as a glove
+  const gripSkin = a => { const c = gripMat.color.set(a.skin), l = c.r * .2126 + c.g * .7152 + c.b * .0722; c.setRGB((l + (c.r - l) * GRIP.chroma) * .97, (l + (c.g - l) * GRIP.chroma) * .93, (l + (c.b - l) * GRIP.chroma) * 1.1).multiplyScalar(GRIP.tone); };
   gripSkin(avatar);
   const headwear = createPlayerHeadwear(joints.head, skin, spec, avatar, lod);
   body.tuck(headwear.tuck, skin.skeleton.bones.indexOf(joints.head));   // hat hair: his locks lie down under a covering hat
   const holdHands = {};
-  const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = h.receiveShadow = true; h.visible = false; joints[name].add(onWrist(h)); into[name] = h; };
+  // a full body's shadow comes from its proxy, whose scan hands cast it: the modelled hands (3.8k triangles each, every athlete now
+  // wears them) drawn into both shadow maps cost 61k at the Desktop tee for fingers a 1-2 cm shadow texel cannot hold
+  const restHands = {}, mount = (geo, name, into, tag) => { const h = new THREE.Mesh(geo, gripMat); h.name = tag + name; h.castShadow = lod; h.receiveShadow = true; h.visible = false; joints[name].add(onWrist(h)); into[name] = h; };
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.holds)) mount(geo, name, holdHands, 'hold_');
   for (const [name, geo] of Object.entries(skin.geometry.userData.grip.rests)) mount(geo, name, restHands, 'rest_');
   const cuffMat = new THREE.MeshStandardMaterial({ color: avatar.accent, roughness: .9 }); cuffMat.color.multiplyScalar(.68); owned.add(cuffMat);
@@ -550,7 +611,7 @@ export function createGLTFCharacter(avatar) {
   // The menu hero, whose disc holdDisc carries outside any throw (carry()), gets the cover-shot pose instead; bystanders,
   // who hold no visible disc, keep the relaxed idle clip rather than raising an empty hand. ponytail: inferred rather than
   // a setStance() call because main.js is shared; add the call if a second consumer needs the state.
-  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand', clapFor = 0, clapW = 0, dismayW = 0;
+  let aimHit = false, aimFrames = 0, gripHit = false, grips = 0, carryHit = false, carries = 0, readyW = 0, heroW = 0, aimType = 'backhand', clapFor = 0, clapW = 0, dismayW = 0, snapN = 0;
   // The mixer writes a bone only when its sampled value differs from the last one it wrote (PropertyMixer.apply), so while a
   // swipe holds still every bone keeps last frame's overlays and the overlays land on top of them again: the backhand's
   // quarter-turn forearm roll spun the hand 90° a frame late in the windup, the gaze and the leg scale crept. Each update
@@ -563,7 +624,10 @@ export function createGLTFCharacter(avatar) {
   }); }
   const remember = () => rigBones.forEach((b, i) => { shownQ[i].copy(b.quaternion); shownP[i].copy(b.position); });
   // the clips carry scale tracks too (all 1): every path through the mixer ends here, so the stretch is put back each time
-  function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; joints.elR.scale.y = FORE_LEN; if (joints.elL) joints.elL.scale.y = FORE_LEN; group.updateMatrixWorld(true); }
+  // his head, with its bone (at the neck's base, so the neck grows longer with it; body-material.js uFit slims it): both g19
+  // critics read "a small head and thick neck" on a torso too broad for it. Hats and glasses ride the bone and grow with it
+  const headScale = female ? 1 : HEAD;
+  function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; joints.elR.scale.y = FORE_LEN; if (joints.elL) joints.elL.scale.y = FORE_LEN; joints.head?.scale.setScalar(headScale); group.updateMatrixWorld(true); }
   function blendTo(pose, w, base = null) {   // slerp the bones toward a shared-contract pose: over the mixer output, or over the windup pose the clip was baked from
     // (the mixer skips bones whose value did not change, so a held windup phase is rebuilt from the shared keys instead of read back)
     for (const j of JOINTS) {
@@ -592,11 +656,75 @@ export function createGLTFCharacter(avatar) {
     if (k > 0 && /^(backhand|xstep)/.test(family)) { forearm.quaternion.multiply(_q.setFromAxisAngle(UP, (lefty ? -1 : 1) * k * Math.PI / 2)); group.updateMatrixWorld(true); }
     placeSocket();
   }
+  // Out of a throw the legs re-plant one at a time instead of gliding: the clip's finish (the putt's staggered stance, a drive's
+  // follow-through) cross-faded to the idle's feet in .22 s, and both soles skated ~15 cm across the green in the putt's locked
+  // frame. The foot standing higher (the rear one up on its toe) steps first while the other carries him, then the other steps
+  // while the first carries him and he rises from the crouch he finished in to the idle's height, then his weight settles the
+  // way the idle stands. Each leg reaches its foot's spot (reach() below), so the foot carrying him holds still while he rises:
+  // left to the grounding, the first foot down stood him on the longer leg at once (the pelvis jumped 3.4 cm in a frame, 7 cm in
+  // four) and the planted foot swung ~6 cm with the pelvis's turn.
+  const LEGS = ['hipR', 'knR', 'hipL', 'knL'], planted = LEGS.map(() => new THREE.Quaternion()), clip = LEGS.map(() => new THREE.Quaternion()), legQ = LEGS.map(() => new THREE.Quaternion()),STEP = .6, LIFT = .07, XA = new THREE.Vector3(1, 0, 0);
+  const DOWN1 = .4, DOWN2 = .74;   // where in the step the first foot lands, and the second
+  const SOLE = { L: 0, R: 1 }, foot = () => ({ c: new THREE.Vector3(), n: 0, s: 0, f: 0 }), start = { R: foot(), L: foot() }, end = { R: foot(), L: foot() };   // athlete-motion's shoe index; each shoe where the step starts and ends
+  // a shoe as it stands now: its sole's centre (c) and the body height that would put it down (n); then, with the body at height
+  // y, that centre's height over the shoe's lowest point (s) and how far that point is off the ground (f)
+  const measure = (k, o) => { o.n = motion.sole(SOLE[k], o.c); return o; };
+  const stand = (o, y) => { o.c.y += y - actor.position.y; o.f = Math.max(0, y - o.n); o.s = o.c.y - groundAt(o.c.x, o.c.z) - .012 - o.f; };
+  let replant = STEP, lead = 'R', startY = 0, groundAt = null;
+  function step() {   // the re-plant's legs: athlete-motion calls it after its cross-fades, before it stands the body on them
+    replant += frameDt; const u = Math.min(1, replant / STEP);
+    LEGS.forEach((n, i) => joints[n].quaternion.copy(clip[i])); joints.hipR.updateMatrixWorld(true); joints.hipL.updateMatrixWorld(true);
+    const top = Math.max(measure('R', end.R).n, measure('L', end.L).n); stand(end.R, top); stand(end.L, top);   // the idle's own legs, stood on the ground: where the step ends
+    // he rises while the second foot steps, as high as the first foot's leg holds him (the idle may rest that one, shorter), and
+    // the rest as his weight settles onto the second, the way the idle stands
+    const held = top - end[lead].f; actor.position.y = startY + (held - startY) * smooth(.25, .82, u) + (top - held) * smooth(.7, 1, u); actor.updateMatrixWorld(true);
+    for (const k of ['R', 'L']) {
+      const first = k === lead, w = first ? smooth(0, DOWN1, u) : smooth(DOWN1, DOWN2, u), i = LEGS.indexOf('hip' + k), a = start[k], b = end[k];
+      joints['hip' + k].quaternion.copy(planted[i]).slerp(clip[i], w); joints['kn' + k].quaternion.copy(planted[i + 1]).slerp(clip[i + 1], w);
+      // where the shoe goes: from where it stood to where the idle puts it, down on the ground while it carries him (the first
+      // one lands on it, the second steps off it), lifted LIFT mid-step, then off the ground as far as the idle rests it
+      const off = (first ? a.f * (1 - w) + b.f * smooth(DOWN2, 1, u) : b.f * w) + LIFT * Math.sin(Math.PI * w);
+      _tg.lerpVectors(a.c, b.c, w); _tg.y = groundAt(_tg.x, _tg.z) + .012 + a.s + (b.s - a.s) * w + off;
+      // the sole's centre stands a little higher or lower over its lowest point once the leg bends (the rig has no ankle, so the
+      // shoe pitches with the shin): twice more, raised or lowered by however far the lowest point missed
+      for (let n = 0; n < 3; n++) { reach(k, _st.copy(_tg)); if (n < 2) _tg.y += off - (actor.position.y - motion.sole(SOLE[k])); }
+    }
+  }
+  // Two-bone IK in the actor's frame (a slim or broad build scales the actor unevenly; the rig under it is rigid): the knee turns
+  // about its own x, the axis it bends on, until the sole's centre (rigid on the shin) is as far from the hip as the target,
+  // staying bent the way it was; then the hip swings it onto the target.
+  const _st = new THREE.Vector3(), _tg = new THREE.Vector3(), _h = new THREE.Vector3(), _k = new THREE.Vector3(), _s = new THREE.Vector3(), _n = new THREE.Vector3(), _w = new THREE.Vector3(), _vp = new THREE.Vector3(), _vx = new THREE.Vector3();
+  const _mi = new THREE.Matrix4(), _mb = new THREE.Matrix4(), _qp = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qs = new THREE.Quaternion(), _sc = new THREE.Vector3();
+  function reach(k, target) {
+    const hip = joints['hip' + k], kn = joints['kn' + k]; hip.updateMatrixWorld(true);
+    const inv = _mi.copy(actor.matrixWorld).invert(), H = _h.setFromMatrixPosition(hip.matrixWorld).applyMatrix4(inv), K = _k.setFromMatrixPosition(kn.matrixWorld).applyMatrix4(inv);
+    motion.centre(SOLE[k], _s).applyMatrix4(inv); const T = _st.copy(target).applyMatrix4(inv);
+    const n = _n.setFromMatrixColumn(_mb.multiplyMatrices(inv, kn.matrixWorld), 0).normalize(), w = _w.subVectors(K, H), v = _vp.subVectors(_s, K), vn = v.dot(n);
+    const vv = v.lengthSq(); v.addScaledVector(n, -vn); _vx.crossVectors(n, v);   // the shin's sole offset: along the axis (vn) and turning about it (v, and v turned a quarter)
+    const A = w.dot(v), B = w.dot(_vx), R = Math.hypot(A, B); if (R < 1e-6) return;
+    const D = (T.distanceToSquared(H) - w.lengthSq() - vv) / 2 - vn * w.dot(n), phi = Math.atan2(B, A), al = Math.acos(THREE.MathUtils.clamp(D / R, -.3, 1));
+    // phi: the reach's longest; of the two knees that reach the target, the one nearer the knee now, never one bent backwards
+    // (the rigs bend on -x; the sole's centre lies ahead of the shin, so the longest reach is a knee a little bent)
+    const near = Math.abs(phi - al) < Math.abs(phi + al) ? phi - al : phi + al, psi = 2 * Math.atan2(kn.quaternion.x, kn.quaternion.w) + near <= .02 ? near : phi - al;
+    kn.quaternion.multiply(_qs.setFromAxisAngle(XA, psi));
+    _s.copy(K).addScaledVector(n, vn).addScaledVector(v, Math.cos(psi)).addScaledVector(_vx, Math.sin(psi)).sub(H).normalize();   // hip to the sole, after the knee's turn
+    _mb.multiplyMatrices(inv, hip.parent.matrixWorld).decompose(_sc, _qp, _sc);
+    hip.quaternion.premultiply(_qs.setFromUnitVectors(_s, T.sub(H).normalize()).premultiply(_qi.copy(_qp).invert()).multiply(_qp)); hip.updateMatrixWorld(true);
+  }
   function sample(name, at) {
     const action = actions.get(name); if (!action) return;
-    if (active !== action) { previous?.stop(); previous = active; active = action; blend = phase === null ? 0 : 1; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
+    if (active !== action) {
+      if (phase === null && active && groundAt && !/^(idle|celebrate|slump|walk|practice)/.test(active.getClip().name)) {   // still the pose shown last frame
+        LEGS.forEach((n, i) => planted[i].copy(joints[n].quaternion)); replant = 0; group.updateMatrixWorld(true); startY = actor.position.y;
+        for (const k of ['R', 'L']) stand(measure(k, start[k]), startY);
+        lead = start.R.n < start.L.n ? 'R' : 'L'; }   // the higher foot: it would stand on the ground with the body lower
+      previous?.stop(); previous = active; active = action; blend = phase === null ? 0 : 1; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
     blend = Math.min(1, blend + frameDt / fadeFor); const w = fadeFor > .22 ? blend * blend * (3 - 2 * blend) : blend; active.setEffectiveWeight(w); previous?.setEffectiveWeight(1 - w); if (blend === 1) { previous?.stop(); previous = null; fadeFor = .22; }
     action.paused = true; action.time = THREE.MathUtils.clamp(at, 0, action.getClip().duration - .00001); mixer.update(0);
+    // the putt's relax (PUTT_RELAX) is the arm and chest's: the legs keep the .22 s fade, so the re-plant (step) walks them into the
+    // idle's own stance by its end instead of a stance still fading after it (the feet then glid the last ~40 % of the way)
+    if (previous && fadeFor > .22) { const wl = Math.min(1, blend * fadeFor / .22); active.setEffectiveWeight(wl); previous.setEffectiveWeight(1 - wl); mixer.update(0); LEGS.forEach((n, i) => legQ[i].copy(joints[n].quaternion));
+      active.setEffectiveWeight(w); previous.setEffectiveWeight(1 - w); mixer.update(0); LEGS.forEach((n, i) => joints[n].quaternion.copy(legQ[i])); }
   }
   const frames = new Map();
   // Socket frame at the release phase (.62) in the group's own space: the disc grip is derived from it so the disc rides the
@@ -626,7 +754,7 @@ export function createGLTFCharacter(avatar) {
   const gripW = () => (phase === null ? aimType : throwType).startsWith('backhand') ? coilW() : 0;   // the seated grip belongs to the backhand set-up and hands over to the release frame through the windup
   const seat = () => skin.geometry.userData.grip.seats[forearm.name];
   const api = {
-    group, hand, elbow: forearm, joints, avatar, source: 'glb', releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},
+    group, hand, elbow: forearm, joints, avatar, source: 'glb', lod, releaseFrame, headY: (spec.eyeY || headC[1]) * tall, clips: [...actions.keys()], faceParts: {},   // lod: wears the low-detail body (main.js swaps it once the full one lands)
     setFace(value) { body.setPalette(value); gripSkin(value); hairShow(value); headwear.setFace(value); },
     setThrow(t) { throwType = actions.has(handed(t)) ? handed(t) : handed('backhand'); }, setPhase(p) { if (p === null || phase === null) kept = false; fadeFor = p === null && phase >= .95 && /^putt/.test(throwType) ? PUTT_RELAX : .22; phase = p; if (p !== null) mood = null; },
     // the end of a throw: move the athlete to where the follow-through left him (the travel becomes the group's position), so
@@ -636,7 +764,12 @@ export function createGLTFCharacter(avatar) {
     get heroWeight() { return heroW; },   // blend into the relaxed clubhouse stance
     gripPose(pos, nrm) { const w = gripW(); if (w > 0) { const s = seat(); forearm.localToWorld(pos.copy(s.c).setY(wristY + (s.c.y - wristY) / FORE_LEN)); nrm.copy(s.n).setY(s.n.y / FORE_LEN).transformDirection(forearm.matrixWorld); } return w; },   // undo FORE_LEN's stretch: the seat rides the hand   // holdDisc: the disc seated in the gripping hand, and how much of it to use
     carry() { carryHit = true; },   // holdDisc, every frame it shows this character's disc outside a throw
-    setGround: fn => motion.setGround(fn),
+    setGround: fn => { groundAt = fn; motion.setGround(fn); },
+    // main.js moved him to a new spot (a turn's lie, a parked bystander) or cut to his turn: whatever he stands in there shows at
+    // once. The aim stance used to cross-fade in over ~.3 s after the cut, both feet skating 30-40 cm across the tee into it at
+    // every turn's start. aim: the throw he lines up there; the stance shows on the very next frame instead of once faceDir and
+    // holdDisc have asked for it (aiming, below), which left one frame of idle after the cut and a 1 m snap of the wrist on the next
+    snap(aim = null) { snapN = 6; motion.snap(); if (aim) { aimHit = gripHit = true; aimFrames = grips = 1; aimType = aim; } },
     lookAt: value => motion.lookAt(value),
     react(kind) { if (kind === 'clap') { clapFor = 2.6; return; } mood = { name: handed(kind), t: 0 }; phase = null; },
     play(name) { if (actions.has(name)) { locomotion = name; phase = null; mood = null; time = 0; } },
@@ -654,8 +787,9 @@ export function createGLTFCharacter(avatar) {
       if (LIVE && phase !== null) { let pose = poseAt(keysFor(throwType.replace(/_left$/, '')), phase); if (lefty) pose = mirrorPose(pose); pose.rootY = -Math.min(...soleHeights(pose, false, RIGS.glb)); blendTo(pose, 1); }
       // the stance weight holds through the whole windup (a swipe pulled back under STANCE_FADE eases back into the coil
       // instead of popping onto the bare clip) and lets go once the release starts
-      readyW = aiming ? Math.min(1, readyW + dt / .22) : runUp() ? 0 : phase !== null && phase <= .5 ? readyW : Math.max(0, readyW - dt / .22);
-      heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + dt / .35) : Math.max(0, heroW - dt / .35);
+      const fade = snapN > 0 ? 1e3 : dt; if (snapN > 0) snapN--;   // just placed (snap()): the stance he takes there shows at once
+      readyW = aiming ? Math.min(1, readyW + fade / .22) : runUp() ? 0 : phase !== null && phase <= .5 ? readyW : Math.max(0, readyW - fade / .22);
+      heroW = name?.startsWith('idle') && !locomotion && !aiming && carries >= 1 ? Math.min(1, heroW + fade / .35) : Math.max(0, heroW - fade / .35);
       dismayW = mood?.name.startsWith('slump') ? smooth(0, .28, mood.t) * (1 - smooth(1.15, 1.7, mood.t)) : 0;
       clapFor = Math.max(0, clapFor - dt); clapW = clapFor > 0 && phase === null && !mood && !aiming ? Math.min(1, clapW + dt / .25) : Math.max(0, clapW - dt / .3);
       // the disc hand hooks round the rim while it holds one (a bystander's hands hang open) and lets go just after release;
@@ -674,11 +808,13 @@ export function createGLTFCharacter(avatar) {
         restHands[side].visible = !throwingHand || !held;
       }
       overlay();
+      if (phase !== null || aiming || snapN > 0) replant = STEP;   // a new throw, the aim stance or a jump to a new spot take over
+      if (replant < STEP) LEGS.forEach((n, i) => clip[i].copy(joints[n].quaternion));   // the idle's own legs: where the step ends
       // the pelvis's travel through the throw (rootX/rootZ of the keys), faded in as the clip takes over from the aim stance
       let tx = 0, tz = 0;
       if (phase !== null && !kept) { const t = poseAt(keysFor(throwType.replace(/_left$/, '')), phase), w = 1 - coilW(); tx = (lefty ? -t.rootX : t.rootX) * w; tz = t.rootZ * w; }
       joints.root.position.x = rootRestX + tx; joints.root.position.z = rootRestZ + tz;
-      motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase);
+      motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase, replant < STEP ? step : null);
       placeSocket(); remember();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },

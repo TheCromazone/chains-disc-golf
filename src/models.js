@@ -20,7 +20,7 @@ export async function loadModels(renderer, quality = 'full') {
   const bodies = full ? ['golfer', 'golfer_lod', 'golfer_f', 'golfer_f_lod'] : ['golfer_lod', 'golfer_f_lod'];
   const baseClips = ['idle','practice','backhand','backhand_io','backhand_oi','forehand','forehand_io','forehand_oi','tomahawk','scoober','hammer','blade','putt','xstep','fxstep','celebrate','slump','walk'];   // xstep/fxstep: the run-ups into a drive
   const clipNames = [...baseClips,...baseClips.map(n=>n+'_left')];
-  const names = [...bodies, 'disc', 'hand', 'pine', 'deciduous', 'bush', ...clipNames.map(n=>'golfer_'+n)];   // both tiers fetch the Blender trees (~230 KB): Lite draws the near ones in 3D too
+  const names = [...bodies, 'disc', 'hand', 'pine', 'deciduous', 'bush', ...clipNames.map(n=>'golfer_'+n)];   // both tiers fetch the Blender trees (~330 KB: pine.glb 217 KB with the conifers' sprays and shadow proxies): Lite draws the near ones in 3D too
   if (!names.some(n => asset('models', n))) return;
   // relative to the page, not the site root: Chains also runs one level down as Huck Yeah's disc golf (/discgolf/)
   const vendor = location.pathname.startsWith('/node_modules/') ? '/node_modules/three/examples/jsm/libs/' : new URL(document.querySelector('script[type="importmap"]') ? 'node_modules/three/examples/jsm/libs/' : 'vendor/', document.baseURI).pathname;
@@ -59,6 +59,7 @@ export async function loadModels(renderer, quality = 'full') {
   Promise.all([hats, fullBodies]).finally(() => { draco.dispose(); ktx.dispose(); });
 }
 export const model = name => models.get(name);
+export const hasFullBody = name => models.has(name) && models.get(name) !== models.get(name + '_lod');   // 'golfer' | 'golfer_f': the full-detail body has landed
 export function cloneModel(name) {
   const src = models.get(name); if (!src) return null;
   return { scene: clone(src.scene), animations: src.animations };

@@ -5,6 +5,25 @@ import * as THREE from 'three';
 
 let manifest = null;
 const cache = {};
+// A phone's cold first load drops the odd request (cellular, a tab still waking), and an asset that failed once stayed broken for
+// the session: one lost body albedo drew the athlete's skin black, a lost grass map the turf blank, a lost clip fell back for good.
+// Image and file loads (textures, GLBs, the Draco and Basis decoders) try twice more, after .8 s and 2.4 s; a missing file (4xx)
+// does not. The loading manager keeps the item open over the wait, so the loading screen (main.js assetsIdle) still waits on it.
+for (const Loader of [THREE.ImageLoader, THREE.FileLoader]) {
+  const load = Loader.prototype.load;
+  Loader.prototype.load = function (url, onLoad, onProgress, onError) {
+    let tries = 0; const remote = typeof url === 'string' && !/^(data|blob):/.test(url), held = `${url}#retry`;
+    const attempt = () => load.call(this, url, onLoad, onProgress, e => {
+      if (!remote || tries >= 2) { onError?.(e); return; }
+      this.manager.itemStart(held);
+      // A file load's error carries its status. An image's says nothing (a 404 and a dropped request look the same, and every missing
+      // image waited 3.2 s through two more tries), so one HEAD asks the server whether the file is there at all.
+      Promise.resolve(e?.response ? e.response.status : e instanceof Event ? fetch(this.manager.resolveURL((this.path || '') + url), { method: 'HEAD', cache: 'no-store' }).then(r => r.status, () => 0) : 0)
+        .then(s => { if (s >= 400 && s < 500) { onError?.(e); this.manager.itemEnd(held); } else setTimeout(() => { attempt(); this.manager.itemEnd(held); }, 800 * 3 ** tries++); });
+    });
+    return attempt();
+  };
+}
 export async function loadManifest() {
   try { manifest = await fetch('assets/manifest.json').then(r => r.ok ? r.json() : null); } catch { manifest = null; }
   return manifest;

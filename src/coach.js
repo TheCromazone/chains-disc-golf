@@ -47,7 +47,8 @@ export function createCoach({ hud, pad }) {
   const edge = (ids, side) => ids.map(id => document.getElementById(id)?.getBoundingClientRect()).filter(b => b?.height).map(b => b[side]);
   function layout() {
     const r = pad.getBoundingClientRect(), wide = r.left > innerWidth * .2, w = card.offsetWidth, h = card.offsetHeight;
-    const ceiling = Math.max(0, ...edge(['top', 'utilities', 'shotPlan'], 'bottom')) + 8, floor = Math.min(innerHeight, ...edge(['conditions', 'controls', 'power'], 'top')) - 8;
+    const up = edge(['conditions'], 'top')[0] < innerHeight / 2;   // the wind plate stands along the top (upright, and beside a phone on its side's score plate) or the bottom
+    const ceiling = Math.max(0, ...edge(['top', 'utilities', 'shotPlan', ...up ? ['conditions'] : []], 'bottom')) + 8, floor = Math.min(innerHeight, ...edge([...up ? [] : ['conditions'], 'controls', 'power'], 'top')) - 8;
     const open = r.height - (parseFloat(getComputedStyle(pad).paddingBottom) || 0), [sx, sy] = THROWS[throwType].swipe;
     const len = Math.max(80, Math.min(150, r.width * .42, open * .7)), half = Math.abs(sy) * len / 2, room = ceiling + h + 44;   // room: the highest a ghost can sit with the card above it
     const cx = r.left + r.width / 2, cy = wide ? Math.min(Math.max(r.top + open / 2, room + half), r.top + open - 26 - half) : r.top + open / 2;

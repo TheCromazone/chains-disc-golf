@@ -23,6 +23,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 OUT = os.path.join(ROOT, arg('--out', 'assets/models/grip-hand.glb'))
 PREVIEW = arg('--preview'); PREVIEW = PREVIEW and os.path.join(ROOT, PREVIEW)
 VOX = float(arg('--vox', '.0008'))
+FSLIM = float(arg('--fslim', '.86'))   # finger radii share: at .95 the digits touched along their length, and seen over the back of the hand (round 19's rolled grip) the row fused
+AOK = float(arg('--aok', '.62'))       # occlusion strength: the crease between two digits is what separates them at 6 px a centimetre
 TRIS = int(arg('--tris', '3800'))   # the full hand (the tee's and the clubhouse's): at 2600 its silhouette stepped at 120 px; 3800 keeps the phone scorecard (9 hand draws with shadows) under 1.0M
 
 # ---- the disc, as gltf-player.js seats it -----------------------------------------------------------------------------------
@@ -30,6 +32,7 @@ TILT = .6; C = np.array([-.015, -.092, 0.])
 EO = np.array([math.cos(TILT), -math.sin(TILT), 0.])     # in the plate, from the disc centre out to the gripped rim
 NRM = np.array([math.sin(TILT), math.cos(TILT), 0.])     # the plate's top
 ZZ = np.array([0., 0., 1.])
+TEE_VIEW = np.array([.015, -.31, -.951])   # from the hand toward the phone tee camera (measured in game, round 19): the thumb side, a little below
 D = C - (.105 - .003) * EO + np.array([0, 0, -.006]) - .012 * NRM   # seat, then sunk 1.2 cm (main.js GRIP_SINK)
 P = lambda u, h, z=0.: D + u * EO + h * NRM + z * ZZ
 # tools/build-disc.py: the top from the centre out over the wing, then under the rim
@@ -51,10 +54,12 @@ FINGERS = [([.002, -.098, -.028], [.042, .025, .020], [.0095, .0088, .0078, .006
 GRIP_CURL = [[50, 104, 44], [53, 105, 44], [56, 104, 46], [60, 104, 46]]
 REST_CURL = [[26, 40, 20], [30, 46, 24], [34, 52, 28], [38, 58, 30]]   # gltf-player.js REST
 REST_FALL = .22
-THUMB_R = [.0135, .0122, .0112, .0100, .0086]
+THUMB_R = [.0135, .0126, .0118, .0107, .0093]
 def grip_thumb():   # CMC and MCP inside the thenar as before, then the pad pressed into the top of the plate toward its centre (riding
-  # a centimetre over the dome, the edge-on tee view showed the thumb floating above the disc)
-  mcp = np.array([-.013, -.058, -.043]); ip = P(.064, htop(.064) + .0035, -.034); tip = P(.042, htop(.042) + .0015, -.027)
+  # a centimetre over the dome, the edge-on tee view showed the thumb floating above the disc). Sunk 6.5 mm into the plate,
+  # the thumb showed over the edge-on disc as a 5 px sliver and critics kept asking for "the thumb on top": now its pad
+  # presses 3 mm in and its back rides ~1.8 cm over the plate, a digit lying along the top of the disc
+  mcp = np.array([-.013, -.058, -.043]); ip = P(.064, htop(.064) + .0075, -.034); tip = P(.042, htop(.042) + .0055, -.027)
   return [np.array([-.003, -.012, -.022]), np.array([-.007, -.030, -.033]), mcp, ip, tip]
 REST_THUMB = [np.array(v) for v in [[-.003, -.012, -.022], [-.007, -.03, -.033], [-.013, -.058, -.043], [-.016, -.079, -.045], [-.019, -.103, -.04]]]
 
@@ -70,7 +75,7 @@ def pose(kind):
   fingers = [finger_pts(f, curl[f], fall) for f in range(4)]
   if kind == 'grip':   # fingertips gather a little toward the middle finger round the curved rim
     for pts, _ in fingers:
-      for j in range(2, 5): pts[j][2] = pts[j][2] * (1 - .05 * (j - 1)) - .002 * (j - 1)
+      for j in range(2, 5): pts[j][2] = pts[j][2] * (1 - .02 * (j - 1)) - .002 * (j - 1)   # (at .05 a joint the tips touched and the row read as one block from the back of the hand)
   return fingers, (grip_thumb() if kind == 'grip' else [v.copy() for v in REST_THUMB])
 
 # ---- signed distance pieces (vectorised over (n, 3) points) ----------------------------------------------------------------
@@ -119,7 +124,7 @@ def palmish(p, fingers):
 def parts(p, kind):
   fingers, thumb = pose(kind)
   base = palmish(p, fingers)
-  fs = [chain(p, pts, [r * .95 for r in radii], .0007) for pts, radii in fingers]
+  fs = [chain(p, pts, [r * (FSLIM if kind == 'grip' else .95) for r in radii], .0007) for pts, radii in fingers]   # a hanging hand's fingers lie together
   th = chain(p, thumb, THUMB_R, .0006)
   return base, fs, th, fingers, thumb
 def field(p, kind):
@@ -226,7 +231,7 @@ def shade(v, f, kind):
   ao = np.zeros(len(v))
   for i, (dd, w) in enumerate([(.0015, 1.), (.003, .8), (.0055, .6), (.009, .45), (.014, .3), (.02, .2)]):
     ao += w * np.maximum(dd - occ(v + n * dd), 0) / dd
-  ao = np.clip(1 - .42 * ao, .4, 1)
+  ao = np.clip(1 - AOK * ao, .35, 1)
   base, fs, th, fingers, thumb = parts(v, kind)
   owner = np.argmin(np.stack([base + .002] + fs + [th], 1), 1)   # 0 palm, 1..4 fingers, 5 thumb
   for fi, (pts, radii) in enumerate(fingers):
@@ -315,15 +320,23 @@ def preview(obs, folder):
   me = bpy.data.meshes.new('disc'); me.from_pydata(vs, [], fs); disc = bpy.data.objects.new('disc', me); sc.collection.objects.link(disc)
   cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam; cam.data.lens = 85
   target = np.array([-.02, -.085, -.004])
-  views = {'outside': EO * .30 + NRM * .12 + ZZ * .05, 'back': np.array([.30, .02, .06]), 'thumb': np.array([.02, .10, -.30]), 'above': NRM * .32 + EO * .05, 'under': -NRM * .28 + EO * .12}
+  views = {'outside': EO * .30 + NRM * .12 + ZZ * .05, 'back': np.array([.30, .02, .06]), 'thumb': np.array([.02, .10, -.30]), 'above': NRM * .32 + EO * .05, 'under': -NRM * .28 + EO * .12,
+           'tee': TEE_VIEW * .32}
+  spins = [float(a) for a in (arg('--spins') or '').split(',') if a]   # preview only: the tee view with the hand rolled about the plate normal
+  for a in spins:
+    t = math.radians(-a); k = NRM; v = TEE_VIEW
+    views[f'tee{a:+.0f}'] = (v * math.cos(t) + np.cross(k, v) * math.sin(t) + k * (k @ v) * (1 - math.cos(t))) * .32   # the phone tee camera, measured in this frame (the tee camera's direction from the gripped hand)
   for ob in obs:
     for o in obs: o.hide_render = o is not ob
     disc.hide_render = not ob.name.startswith('grip')
     for vname, off in views.items():
       pos = target + off; cam.location = pos.tolist()
       d = target - pos; cam.rotation_mode = 'QUATERNION'
-      from mathutils import Vector
-      cam.rotation_quaternion = Vector(d.tolist()).to_track_quat('-Z', 'Y')
+      from mathutils import Vector, Matrix
+      if vname.startswith('tee'):   # screen up = the plate's top (the disc is level in the game's frame), as the tee camera sees it
+        f = d / np.linalg.norm(d); r = np.cross(f, NRM); r /= np.linalg.norm(r); u = np.cross(r, f)
+        cam.rotation_quaternion = Matrix([r.tolist(), u.tolist(), (-f).tolist()]).transposed().to_quaternion()
+      else: cam.rotation_quaternion = Vector(d.tolist()).to_track_quat('-Z', 'Y')
       sc.render.filepath = os.path.join(folder, f'{ob.name}-{vname}.png'); bpy.ops.render.render(write_still=True)
 
 # ---- build -------------------------------------------------------------------------------------------------------------------
@@ -338,7 +351,9 @@ for kind in ('grip', 'rest'):
     if kind == 'grip': m['open'], m['openN'] = open_shape(v, m['n'], owner)
     meshes[kind + suffix] = m; print(kind + suffix, len(v), 'verts', len(f), 'tris')
     col = ob.data.color_attributes.new('ao', 'FLOAT_COLOR', 'POINT')
-    col.data.foreach_set('color', np.concatenate([np.clip(ao, 0, 1)[:, None].repeat(3, 1), np.ones((len(ao), 1))], 1).ravel())
+    rgb = np.clip(ao, 0, 1)[:, None].repeat(3, 1)
+    if '--owners' in argv: rgb = rgb * np.array([[1, 1, 1], [1, .3, .3], [.3, 1, .3], [.3, .3, 1], [1, 1, .3], [1, .3, 1]])[owner]   # preview: each digit its own colour
+    col.data.foreach_set('color', np.concatenate([rgb, np.ones((len(ao), 1))], 1).ravel())
     obs.append(ob)
 write_glb(OUT, meshes); print('wrote', OUT, os.path.getsize(OUT), 'bytes')
 if PREVIEW: preview([o for o in obs if not o.name.endswith('_lod')] + [o for o in obs if o.name == 'grip_lod'], PREVIEW)

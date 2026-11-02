@@ -314,7 +314,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // the arch read as cloned straight poles of one girth); the rest keep the narrow range
   // Conifers' height varies +-17% more on a finer hash, so neighbours along the skyline differ (r3 trees: 'pine silhouettes along the skyline repeat identically').
   const plant = (x, z, s, rot, kind, pine, wide = 0) => {
-    const y = height(x, z), D = DIMS[kind], sy = 1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16) - (kind === 'spruce' || kind === 'scots' ? (noise(x * 1.37 + 71, z * 1.37 + 3) - .5) * .34 : 0), g = 1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36), lean = wide ? .22 : .12;
+    const con = kind === 'spruce' || kind === 'scots', deep = con ? smooth(25, 40, fairwayInfo(holes, x, z).d) : 0;   // deep woods, 25-40 m+ off any fairway (r5 trees: 'the pine silhouettes along the top edge repeat the same thin spike'): a conifer there may stand up to 25% taller or shorter and 30% broader or slimmer on its own hash, so the skyline mixes squat, broad crowns with tall spires; play never comes near them, so the records barely matter
+    const y = height(x, z), D = DIMS[kind], sy = (1.08 - (1 - noise(x * .53 + 17, z * .53 + 23)) * (wide ? .3 : .16) - (con ? (noise(x * 1.37 + 71, z * 1.37 + 3) - .5) * .34 : 0)) * (1 + (noise(x * .83 + 3, z * .83 + 77) - .5) * .5 * deep), g = (1.2 - (1 - noise(x * .47 + 61, z * .47 + 19)) * (wide ? .55 : .36)) * (1 + (noise(x * .91 + 51, z * .91 + 9) - .5) * .6 * deep), lean = wide ? .22 : .12;
     (pine ? pineSpots : decSpots).push({ x, y, z, s, rot, kind, variant: kind + Math.min(VARIANTS[kind] - 1, Math.floor(noise(x * .37 + 13, z * .37 + 5) * VARIANTS[kind])), tx: (noise(x * .61 + 41, z * .61 + 7) - .5) * lean, tz: (noise(x * .61 + 3, z * .61 + 29) - .5) * lean, sy, g });
     const t = { x, y, z, r: D[0] * s * g, h: D[1] * s * sy, fy: D[2] * s * sy, fr: D[3] * s * (g + sy) / 2 }; trees.push(t); return t;
   };
@@ -454,6 +455,22 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
     const near = treesNear(x, z); if (!near.some(t => Math.hypot(t.x - x, t.z - z) < 9) || near.some(t => Math.hypot(t.x - x, t.z - z) < t.r + 1)) continue;
     shrubs.push({ x, y: height(x, z), z, s, rot });
   }
+  // Intro understory (r5 intro, against the previous build: 'under the left tree line the undergrowth is thin and patchy, bare
+  // soil between the trunks, trees stuck into dirt'): the guardian side's woods, which the hole's flyover looks across from the
+  // tee to halfway, get a continuous low layer, knee to chest high (0.9-1.7 m), 2-20 m off the fairway's edge, unclumped, so
+  // the edge stand reads as one wall of growth down to the turf. Mobile only, where shrubs are one instanced card each and cast
+  // nothing (Full's 3D shrubs within 62 m would cost the tee's last triangles). Own rng: every other layout stays put; the same
+  // prop, pin, tee and trunk clearances as the woods shrubs.
+  if (quality === 'low') { const irng = makeRng(seed * 181 + 23);
+    for (let gx = -W / 2 + 10; gx < W / 2 - 10; gx += 2) for (let gz = -H / 2 + 10; gz < H / 2 - 10; gz += 2) {
+      const x = gx + (irng() - .5) * 1.9, z = gz + (irng() - .5) * 1.9, pick = irng(), s = .25 + irng() * .2, rot = irng() * 6.3;
+      const { fi, halfW, side, openSide } = stand(x, z);
+      if (!fi.hole || side * openSide > 0 || fi.d < halfW + 2 || fi.d > halfW + 28 || fi.t < .15 || fi.t > .72 || pick > .55) continue;
+      if (ponds.some(p => ((x - p.x) / p.rx) ** 2 + ((z - p.z) / p.rz) ** 2 < 1.9) || flats.some(f => Math.hypot(x - f.x, z - f.z) < 7) || inLane({ x, z })) continue;
+      if (holes.some(h => Math.hypot(x - h.basket[0], z - h.basket[1]) < 18 || Math.hypot(x - h.tee[0], z - h.tee[1]) < 20)) continue;
+      if (treesNear(x, z).some(t => Math.hypot(t.x - x, t.z - z) < t.r + .8)) continue;
+      shrubs.push({ x, y: height(x, z), z, s, rot });
+    } }
   // Under crowns the turf goes thin and darker (shade-starved grass: a dry weight) and litter collects (duff splat);
   // earth shows at the trunk base. Colour and splat weights only: no height change.
   // Tee-stands round: up to 40% darker under a crown (was 20%) and less of the pale dry grass (.15, was .4): from the tee the
@@ -520,14 +537,27 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // so that is a 40 deg margin for a quarter second of turning), and with the sun ahead its shadow falls further behind too;
   // with the sun behind, the margin grows by the shadow's reach. About a third of the near trees, drawn three times each.
   const lodSun = (v => new THREE.Vector2(v.x, v.z).normalize())(new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[0]), THREE.MathUtils.degToRad(def.sun[1]))), lodReach = 22 / Math.tan(THREE.MathUtils.degToRad(def.sun[0]));
-  const treeLod = (view, t, focus) => { if (t - lodT < .25) return; lodT = t; treeEye.value.copy(view);
+  // In the lens: a set that casts nothing (the conifers' sprays, whose old cards cast as their '-shadow' proxies: planted(); Full's
+  // woods shrubs) draws only for the camera, so past 8 m it leaves out a tree whose crown (9 m round its trunk) lies wholly outside
+  // the view's half-width (widened for the pitch) plus 15 deg. A turn of 6 deg, a 2 m move or a lens change refreshes the sets at
+  // once, not on the tick, so no crown is missing when it comes into view (the turn stays well inside the margin, and a 2 m move
+  // swings a tree 8 m off by at most 14 deg, inside the 9 m crown's allowance). The phone's Pine putt drew 65 conifers' sprays
+  // within 44 m, most of them off to the sides (gauntlet r4 trees verify: +6.5% triangles). Merged onto r3 the Desktop tee sat at
+  // 2.31M of its 2.3M with r4's 25 deg / 12 deg / 4 m; 15 / 6 / 2 m draw 27k fewer there (the refresh is a few hundred instances).
+  const lodLook = new THREE.Vector3(), lodSeen = new THREE.Vector3(), lodAt = new THREE.Vector3(1e9, 0, 1e9); let lodFov = 0;
+  const treeLod = (view, t, focus, cam) => { if (cam) cam.getWorldDirection(lodLook);
+    if (t - lodT < .25 && !(cam && (lodLook.dot(lodSeen) < .9945 || view.distanceToSquared(lodAt) > 4 || Math.abs(cam.fov - lodFov) > 2))) return; lodT = t; treeEye.value.copy(view);
     let fx = focus ? focus.x - view.x : 0, fz = focus ? focus.z - view.z : 0; const fl = Math.hypot(fx, fz); if (fl > 1) { fx /= fl; fz /= fl; } else fx = fz = 0;
     const back = 15 + Math.max(0, -(fx * lodSun.x + fz * lodSun.y)) * lodReach;
+    let lx = 0, lz = 0, cone = 9;   // the lens's heading in plan and the cone's half-angle (rad; 9: no cone)
+    if (cam) { lodSeen.copy(lodLook); lodAt.copy(view); lodFov = cam.fov; const pl = Math.hypot(lodLook.x, lodLook.z), tv = Math.tan(cam.fov * Math.PI / 360), tilt = Math.asin(Math.min(1, Math.abs(lodLook.y))) + Math.atan(tv);
+      if (pl > .2 && tilt < 1.4) { lx = lodLook.x / pl; lz = lodLook.z / pl; cone = Math.atan(tv * cam.aspect / Math.cos(tilt)) + .26; } }   // the frustum's far corners spread wider in plan the more it pitches
     const R = treeNear.value + 4, i0 = Math.floor((view.x - R) / LOD_CELL), i1 = Math.floor((view.x + R) / LOD_CELL), j0 = Math.floor((view.z - R) / LOD_CELL), j1 = Math.floor((view.z + R) / LOD_CELL);
-    for (const { im, mats, cols, pos, byCell } of nearSets) {
-      const dm = im.instanceMatrix, dc = im.instanceColor; let n = 0;
+    for (const { im, mats, cols, pos, byCell, lens } of nearSets) {
+      const dm = im.instanceMatrix, dc = im.instanceColor, c = lens ? cone : 9; let n = 0;
       for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (const k of byCell.get(lodKey(i, j)) || []) {
-        const dx = pos[k * 2] - view.x, dz = pos[k * 2 + 1] - view.z; if (dx * dx + dz * dz > R * R || dx * fx + dz * fz < -back) continue;
+        const dx = pos[k * 2] - view.x, dz = pos[k * 2 + 1] - view.z, d2 = dx * dx + dz * dz; if (d2 > R * R || dx * fx + dz * fz < -back) continue;
+        if (c < 3 && d2 > 64) { const d = Math.sqrt(d2); if (Math.acos(Math.max(-1, Math.min(1, (dx * lx + dz * lz) / d))) - Math.atan(9 / d) > c) continue; }
         dm.array.set(mats.subarray(k * 16, k * 16 + 16), n * 16); if (dc) dc.array.set(cols.subarray(k * 3, k * 3 + 3), n * 3); n++;
       }
       im.count = n; dm.clearUpdateRanges(); dm.addUpdateRange(0, n * 16); dm.needsUpdate = true;
@@ -585,7 +615,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: mat.alphaTest ? mat.map : null, alphaTest: mat.alphaTest || 0 });
       im.customDepthMaterial = canopyGaps(near3d(windMaterial(depth, windClock))); depth.dispose();   // leaf cards cut their shadows out too: the sun gets through a crown only where its cards leave gaps
-      im.castShadow = shadow; im.receiveShadow = true; group.add(im); nearSets.push({ im, mats, cols, pos, byCell });
+      im.castShadow = shadow; im.receiveShadow = true; group.add(im); nearSets.push({ im, mats, cols, pos, byCell, lens: !shadow });   // lens: only the camera sees it (treeLod)
       return;
     }
     const cells=new Map(), size=64;
@@ -683,6 +713,15 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         // sunlight scattered leaf to leaf through the crown: a soft yellow-green fill that follows the sun, not the shadow map,
         // so the shaded side of a back-lit crown reads green instead of black (a fifth of it at the heart of the crown)
         reflectedLight.indirectDiffuse += diffuseColor.rgb * sun * RECIPROCAL_PI * .26 * mix(.4, 1., bakedAO) * mix(.2, 1., sunThin) * leafMask * vec3(1., 1., .6);
+        ${full ? '' : `#ifdef CROWN
+        // Mobile's shaded side (gauntlet r4: "flat, dark paper cut-outs", 9% of the foliage under value .15 looking into a
+        // stand): with no bloom or aerial pass to lift it, a card turned from the sun fell straight to the fills, so each crown
+        // split into lit cards and black ones. A thin blade wraps the light past its terminator (Lambert wrapped by .8) and
+        // passes it through its back face, most looking into the sun and least through a thick crown (sunThin), warm as the
+        // transmitted light is; both carry the shadow (lit) and the crown's core dimming below, so the heart stays dark.
+        { float ndl = dot(normal, L), wrap = saturate((ndl + .8) / 1.8) - saturate(ndl);
+          reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * (1.5 * wrap * vec3(1., 1., .8) + saturate(-ndl) * (.3 + into) * mix(.3, 1., sunThin) * vec3(.95, .95, .5)); }
+        #endif`}
         #ifdef CROWN
         // Clump light (a crown past 30 m read as one flat dark-green mass under the haze): the crown's sun-side shell, lit by
         // the crown-sphere normal with wrap, breaks into warm yellow-green clumps, clump by clump bright or dim, and its heart
@@ -711,7 +750,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         // w6 verdicts ("no dark interior hollows", "no cooler, darker leaves inside the crown"): measured, the leaves we see sit
         // at .5-1.1 of the envelope, where depth squared barely dimmed them. Now the half-depth leaves go to a quarter, greyed
         // and cooled (the shade inside a crown is lit by the sky, not the sun), grading to full colour only at the outer shell.
-        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .45) * vec3(.24, .28, .33), diffuseColor.rgb, smoothstep(.5, 1., crownDepth));
+        diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .45) * ${full ? 'vec3(.24, .28, .33)' : 'vec3(.43, .46, .5)'}, diffuseColor.rgb, smoothstep(.5, 1., crownDepth));   // Mobile's core a step lighter (r4): without Desktop's aerial veil a quarter read near-black
         #else
         diffuseColor.rgb = mix(mix(vec3(l), diffuseColor.rgb, .5) * .4, diffuseColor.rgb, crownDepth * crownDepth);
         #endif
@@ -723,7 +762,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // against the glare stand as dark, rim-lit silhouettes instead of pale grey-olive puffs. Trunks and stems take 80% from 15 m:
     // bark 15-40 m out has to fall back into the haze row by row, and it has no lit rim to lose.
     s.uniforms.treeDisc = treeDisc; s.uniforms.treeAir = treeAir; s.uniforms.treeKeep = treeKeep;
-    s.fragmentShader = 'uniform vec3 treeDisc;uniform float treeAir, treeKeep;\n' + s.fragmentShader;
+    s.fragmentShader = '#define TREE_AIR_GAIN .6\n#define TREE_AIR_MIX .4\nuniform vec3 treeDisc;uniform float treeAir, treeKeep;\n' + s.fragmentShader;
     // Bark in the canopy's shadow also loses a third of its sky (w3-4: "white trunks lit evenly from crown to ground, no
     // patches of sun and shade"): at the putt we see their back-lit faces, which the sun's term never reaches, so without this
     // the leaf shadow crossing a stem changed nothing on it. sunVis: the sun's shadow here, from lights_fragment_begin.
@@ -746,9 +785,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       { float fd = smoothstep(20., 100., length(vViewPosition)) * (1. - .7 * (1. - treeAir) * pow(saturate(dot(normalize(-vViewPosition), normalize((viewMatrix * vec4(treeDisc, 0.)).xyz))), 6.)), l = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4);
         fd *= 1. - treeKeep;   // the putt keeps some of a far crown's own light and shade and green inside its haze (w12-2: "trees 30-80 m away turn into low-contrast grey cardboard layers")
         outgoingLight = mix(vec3(l), outgoingLight, 1. - .2 * fd) * (.15 * pow(l / .15, 1. - .4 * fd) / l);   // DGM round: .45/.55 left the far stands grey cardboard (top-half green-lead .11-.35 against the reference's .5-.78)
-        ${full ? '' : `{ float ld = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4); float fa = smoothstep(45., 150., length(vViewPosition)) * (1. - treeKeep); outgoingLight = mix(vec3(ld), outgoingLight, 1. - .45 * fa);
+        ${full ? '' : `{ float ld = max(dot(outgoingLight, vec3(.2126, .7152, .0722)), 1e-4); float fa = smoothstep(30., 140., length(vViewPosition)) * (1. - treeKeep); outgoingLight = mix(vec3(ld), outgoingLight, 1. - .5 * fa);
           #ifdef USE_FOG
-          outgoingLight = mix(outgoingLight, fogColor, .22 * fa);
+          outgoingLight = mix(outgoingLight, mix(fogHaze, fogWarm, pow(max(dot(normalize(vFogRay), fogSun), 0.), 8.)) * TREE_AIR_GAIN, TREE_AIR_MIX * fa);
           #endif
           }   // Mobile ("the background trees are no hazier than the foreground ones", trees 0/4): rows past 45 m lose up to a further 45% of their green and take a fifth more of the scene's haze, so the stand steps back in layers; Full has effects.js's aerial pass`}
       }
@@ -821,17 +860,28 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // about 12%, and each tree differs from its neighbours by as much again, so no two crowns in a row read the same.
   const KIND_TINT = { spruce: [.74, .87, .82], scots: [.84, .88, .76], birch: [1.07, 1.08, .84], broad: [.92, .94, .96] };   // birch crowns a lighter yellow-green, broadleaves a step deeper and cooler, spruce bluer: one green everywhere read "a near-solid wall of the same mid-green clumps" (gauntlet r3 trees)
   const leafTint = s => { const h = noise(s.x / 19 + 3, s.z / 19) - .5 + (noise(s.x * .53 + 7, s.z * .53 + 3) - .5) * .8, k = KIND_TINT[s.kind] || [1, 1, 1];
-    return col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.8 + noise(s.x * .61 + 11, s.z * .61 + 17) * .4)); };   // .8-1.2 (was .88-1.14, same mean): neighbouring crowns differ
+    col.setRGB((1.14 + h * .18) * k[0], 1.02 * k[1], (.74 - h * .22) * k[2]).multiplyScalar((1.3 + noise(s.z / 23, s.x / 23 + 7) * .35) * (.8 + noise(s.x * .61 + 11, s.z * .61 + 17) * .4));   // .8-1.2 (was .88-1.14, same mean): neighbouring crowns differ
+    // Mobile (r5 trees 0/4: 'clumped balls of evenly saturated cards, one uniform yellow-green tint'): each crown also leans its
+    // own way between a deep cool blue-green and a warm olive, and a step lighter or darker, on a hash fine enough that two
+    // neighbours rarely match. Lite only (its leaves have no grade-side variety); Full keeps its tints.
+    if (quality === 'low') { const t = (noise(s.x * .93 + 21, s.z * .93 + 13) - .5) * 2, v = .84 + noise(s.x * 1.17 + 5, s.z * 1.17 + 41) * .32; col.setRGB(col.r * (1 + t * .16) * v, col.g * (1 - Math.abs(t) * .04) * v, col.b * (1 - t * .3) * v); }
+    return col; };
   // Bark differs tree to tree as well (a stem greyer or redder, lighter or darker by ~15%), so a stand is not one repeated pole.
   const barkTint = s => { const h = noise(s.x * .83 + 31, s.z * .83 + 47) - .5, v = (.85 + noise(s.x * .67 + 3, s.z * .67 + 71) * .3) * (s.kind === 'birch' ? .62 + noise(s.x * .29 + 9, s.z * .29 + 2) * .25 : 1); return col.setRGB(v * (1 + h * .2), v, v * (1 - h * .24)); };
   for (const b of [...bushes, ...shrubs]) b.variant = 'bush' + (noise(b.x * .37 + 13, b.z * .37 + 5) > .5 ? 1 : 0);
+  // A conifer's '-shadow' mesh (tools/build-trees.py ghost()) is its crown as the few large cards it was built from before the
+  // sprays: it casts in their place, drawn only inside the shadow passes (its material is shown by main.js's shadowMap.render),
+  // so the sprays (1.6-3.1x the cards' triangles) cost the main pass alone and the ground keeps the shadows it had (gauntlet r4 trees).
+  const shadowLeaf = new THREE.MeshBasicMaterial({ visible: false, map: leafAtlas, alphaTest: .5, side: THREE.DoubleSide });   // the depth pass takes its map, cut and sides
   const planted = (name, spots, shadow = true, lod = true) => {
     const src = leafAtlas && model(name); if (!src) return false;
-    src.scene.updateMatrixWorld(true);
+    src.scene.updateMatrixWorld(true); const proxied = new Set();
+    src.scene.traverse(o => { if (o.isMesh && o.name.endsWith('-shadow')) proxied.add(o.name.slice(0, -7)); });
     src.scene.traverse(o => { if (!o.isMesh) return;
-      const variant = o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+      const proxy = o.name.endsWith('-shadow'), variant = proxy ? o.name.slice(0, -7) : o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+      if (proxy) { if (shadow && mine.length) inst(g, shadowLeaf, mine, null, true, lod); return; }
       const mat = key === 'leaves' ? leafFull(g) : (name === 'bush' ? bushWood : woodMats)[key] || trunkMat, tint = key === 'leaves' ? leafTint : barkTint;
-      if (mine.length) inst(g, mat, mine, tint, shadow, lod); });
+      if (mine.length) inst(g, mat, mine, tint, shadow && !(key === 'leaves' && proxied.has(variant)), lod); });
       // Every tree casts. The edge stand's open side and young trees, the clearing groves and the back woods used to skip the
       // shadow pass (it triples a tree's triangles), so from the tee they stood as trunks on evenly sunlit grass (tee-stands
       // round, 2026-10-07). Casting costs ~.5 ms a frame on Pine Hollow's tee and flyover (11-12 ms, Full, 1600x900).
@@ -841,7 +891,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // x and y, crown depth and a leaf mask) and writes the card extents to src/impostors.js. One instanced card per tree turns
   // about the vertical to face the camera (the sun, in the shadow pass), leans as its 3D instance leans, and lights through
   // the same canopy shading as the 3D leaves, so a far crown is dark into the sun with lit, glowing rims like the near ones.
-  const impMap = texture('impostors'), impNormal = texture('impostors_n', { srgb: false });
+  const impMap = texture('impostors'), impNormal = texture('impostors_n', { srgb: false }), impCast = texture('impostors_s', { srgb: false });   // impCast (grey): what a card casts, a conifer's old cards as its 3D crown casts them (tools/build-trees.py)
   const billboard = s => { s.uniforms.treeEye = treeEye; s.uniforms.treeNear = treeNear;
     s.vertexShader = 'attribute float impCell;attribute vec3 impBark;uniform vec3 treeEye;uniform float treeNear;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;\n' + s.vertexShader
       .replace('#include <begin_vertex>', `vec3 impO = instanceMatrix[3].xyz, impT = cameraPosition - impO; impT.y = 0.; impT = normalize(impT + vec3(1e-4, 0., 0.));
@@ -864,7 +914,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       sunOcc = mix(1., n.z * mix(n.z, 1., .5), smoothstep(-.2, .6, dot(-normalize(vViewPosition), directionalLights[0].direction)) * leafMask);
       #endif
       }`); }, customProgramCacheKey: () => 'chains-impostor' }));
-  const impDepth = impMat && canopyGaps(Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: billboard, customProgramCacheKey: () => 'chains-impostor-depth' }), .8);   // far crowns cut sun gaps too, a little fewer than near ones (a far crown stands in for its whole stand): solid impostor shadows left the woods floor past ~40 m one even shade, the near cut a sunlit sheet
+  const impDepth = impMat && canopyGaps(Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: s => { billboard(s); if (!impCast) return; s.uniforms.impCast = { value: impCast };   // its own uniform: three's shadow pass sets a depth material's map to the object material's
+    s.fragmentShader = 'uniform sampler2D impCast;\n' + s.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.a = texture2D(impCast, vMapUv).g;'); }, customProgramCacheKey: () => 'chains-impostor-depth' + !!impCast }), .8);   // far crowns cut sun gaps too, a little fewer than near ones (a far crown stands in for its whole stand): solid impostor shadows left the woods floor past ~40 m one even shade, the near cut a sunlit sheet
   const impostors = (spots, shadow = true) => {
     if (!impMat || !spots.length) return false;
     const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).translate(0, .5, 0), impMat, spots.length), cells = new Float32Array(spots.length), barks = new Float32Array(spots.length * 3);
@@ -964,16 +1015,16 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     }
     const tuftGeo = new THREE.BufferGeometry(); tuftGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); tuftGeo.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
     tuftGeo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-    const tuftMat = windMaterial(toonMaterial({ color: cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), windCompile = tuftMat.onBeforeCompile;
-    tuftMat.onBeforeCompile = s => { windCompile(s); s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
-    tuftMat.customProgramCacheKey = () => 'chains-tuft-blades';
-    // Round the pin the tufts grow out of what they stand in (grass.js gTuftTint, the carpet's own ground data): the lower
+    // Every tuft grows out of what it stands in grow out of what they stand in (grass.js gTuftTint, the carpet's own ground data): the lower
     // third of every blade fades into the ground at its root (mulch, gravel, or that turf in shade) before windMaterial's root
     // shade, a contact shadow in the ground's own colour, so a clump on brown mulch is no longer a lime card standing on it (r3
     // ground: "isolated billboard cards stuck onto a flat plane"). Above that the blades keep their own green: tinted to the lawn
     // round the pin (40%, or wholly in r3 nature c1) they went straw-olive, "pale and hazy" to the putt's haze critic, and on the
-    // tee's ridge they vanished into the dirt (light and trees 1/4). The tee's tufts keep tuftMat: the tee frame does not change.
-    const gr = carpet.userData.ground, rimMat = windMaterial(toonMaterial({ color: cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), rimCompile = rimMat.onBeforeCompile;
+    // tee's ridge they vanished into the dirt (light and trees 1/4). The Mobile tee's tufts too now (gauntlet r3 ground: the clumps
+    // beside the bed "repeated, oversaturated sprite cards stuck on top of the turf"), and their green a quarter less saturated.
+    const tuftC = cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), tl = tuftC.r * .3 + tuftC.g * .59 + tuftC.b * .11;
+    tuftC.lerp(new THREE.Color(tl * 1.08, tl, tl * .8), .25);
+    const gr = carpet.userData.ground, rimMat = windMaterial(toonMaterial({ color: tuftC, vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), rimCompile = rimMat.onBeforeCompile;
     rimMat.onBeforeCompile = s => { rimCompile(s); Object.assign(s.uniforms, gr.uniforms);
       s.vertexShader = `varying vec3 vTuftBlade,vTuftSoil;${gr.glsl}\n` + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
         #ifdef USE_INSTANCING
@@ -987,8 +1038,11 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       return Math.max(smooth(.25, .5, at4(turf, 3, x, z)) * smooth(.4, .52, ax) * (1 - smooth(.62, .85, ax)), smooth(.1, .28, sx) * (1 - smooth(.38, .55, sx)));   // the trail's 1 m strip, the apron and worn earth
     };
     const tee = [], teeStarts = [], rim = [], rimStarts = []; let spots = tee;   // two meshes a hole: the tee's are culled behind the putt lens
-    const add = (x, z, s, dry) => spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, 0, 0, s * (.85 + trng() * .3), s * (.8 + trng() * .4), s * (.85 + trng() * .3)),
-      c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : col.setRGB(.85 + trng() * .25, .8 + trng() * .25, .75 + trng() * .3).clone() });   // a third of the fringe gone to seed, straw-olive
+    // Each clump its own lean (to ~17 degrees), squat-and-wide to tall-and-narrow, and its own green: olive-yellow, lawn or a dark
+    // blue-green, so no two read as one card stamped down (r3 ground: "repeated identical billboard cards").
+    const add = (x, z, s, dry) => { const wd = .7 + trng() * .6, ht = (.65 + trng() * .7) / Math.sqrt(wd), hue = trng(), v = .82 + trng() * .3;
+      spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, (trng() - .5) * .6, (trng() - .5) * .6, s * wd * (.9 + trng() * .2), s * ht, s * wd * (.9 + trng() * .2)),
+        c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : (hue < .3 ? col.setRGB(1.12 * v, 1.04 * v, .66 * v) : hue < .55 ? col.setRGB(.72 * v, .86 * v, .78 * v) : col.setRGB(v, v, .92 * v)).clone() }); };   // a third of the fringe gone to seed, straw-olive
     // Grass the mower cannot reach at a trunk's foot (build-vs-build critics, trees: "trunks stuck into a lawn", "add irregular
     // undergrowth around the trunk bases"): 10-28 clumps, 20-62 cm (to ~1 m and fewer, 45 m out), in a broken ring out to ~1.6 m, thickest on one side.
     const foot = (t, g = 1) => { const n = (10 + trng() * 18) / g | 0, side = trng() * 6.283;   // g: farther trees, fewer and bigger clumps (they still read at 60 m)
@@ -1029,7 +1083,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       }
       for (const t of trees) if (Math.hypot(t.x - h.basket[0], t.z - h.basket[1]) < 20) foot(t);   // and round the pin, in front of the putt lens
     }
-    perHole(tuftGeo, quality === 'low' ? tuftMat : rimMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);   // Full's tee tufts root in the ground too: phones' light and trees critics judge the tee frame, and the Mobile tee stays as it was
+    perHole(tuftGeo, rimMat, tee, teeStarts); perHole(tuftGeo, rimMat, rim, rimStarts);
   }
   {
     // Fallen leaves and twigs on the putting circle's litter, as geometry: a leaf is 4 triangles, cupped (its edges curl up
@@ -1051,16 +1105,28 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     leafMat.customProgramCacheKey = () => 'chains-leaf-litter';
     const PAL = [[.36, [.56, .41, .24]], [.34, [.38, .25, .13]], [.14, [.22, .15, .09]], [.06, [.7, .54, .2]], [.05, [.55, .29, .12]], [.05, [.32, .33, .14]]];   // linear albedo, the litter tile's own range (its shader lifts the photo ~2.5x)
     const spots = [], starts = [], dens = quality === 'low' ? 50 : 60;   // leaves per m2 under a full litter weight: since the chip relief (materials.js) the mulch carries its own detail, and 85-100 a m2 of orange and yellow leaves read 'scattered on top' of it (r3 ground)
+    const leaf = (x, z) => {
+      const twig = lrng() < .07, L = twig ? .1 + lrng() * .18 : .045 + lrng() * .065, w = twig ? .008 + lrng() * .006 : L * (.45 + lrng() * .3);
+      let p = lrng(), base = PAL[0][1]; for (const [pr, c] of PAL) { if ((p -= pr) < 0) { base = c; break; } }
+      const g = .75 + lrng() * .45, c = twig ? col.setRGB(.26 * g, .19 * g, .13 * g) : col.setRGB(base[0] * g, base[1] * g, base[2] * g);
+      spots.push({ m: lay(x, meshY(x, z) + .004, z, lrng() * 6.283, (lrng() - .5) * .3, (lrng() - .5) * .3, w, twig ? .03 : L * (.6 + lrng() * .8), L), c: c.clone() });
+    };
     for (const h of holes) {
       starts.push(spots.length);
       for (let k = 0, n = Math.round(Math.PI * 121 * dens); k < n; k++) {
         const a = lrng() * 6.283, r = .45 + Math.sqrt(lrng()) * 10.5, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r;
         const l = at4(splats, 2, x, z) + (noise(x * 1.3 + 5, z * 1.3 + 5) - .5) * .5, keep = Math.max(smooth(.25, .65, l), smooth(.05, .25, l) * .07);
         if (lrng() > keep) continue;
-        const twig = lrng() < .07, L = twig ? .1 + lrng() * .18 : .045 + lrng() * .065, w = twig ? .008 + lrng() * .006 : L * (.45 + lrng() * .3);
-        let p = lrng(), base = PAL[0][1]; for (const [pr, c] of PAL) { if ((p -= pr) < 0) { base = c; break; } }
-        const g = .75 + lrng() * .45, c = twig ? col.setRGB(.26 * g, .19 * g, .13 * g) : col.setRGB(base[0] * g, base[1] * g, base[2] * g);
-        spots.push({ m: lay(x, meshY(x, z) + .004, z, lrng() * 6.283, (lrng() - .5) * .3, (lrng() - .5) * .3, w, twig ? .03 : L * (.6 + lrng() * .8), L), c: c.clone() });
+        leaf(x, z);
+      }
+      // and blown round the tee (r3 ground: "no leaf litter, bare or worn patches around the tee"): drifts of a few a square metre on
+      // the gravel apron and the trail, sparser on the turf, none on the bed (props.js lays its stone above the ground), out to ~10 m
+      const cy = Math.cos(h.yaw), sy = Math.sin(h.yaw);
+      for (let k = 0; k < 5000; k++) {
+        const u = (lrng() - .5) * 14, w = 3 - lrng() * 13, x = h.tee[0] + u * cy + w * sy, z = h.tee[1] - u * sy + w * cy;
+        const stone = Math.max(smooth(.1, .4, at4(splats, 0, x, z)), smooth(.25, .5, at4(turf, 3, x, z)) * (1 - smooth(.42, .62, Math.abs(at4(turf, 2, x, z)))));
+        if (Math.max(Math.abs(u) - BED.u, -w - BED.f1, BED.f0 + w) < .06 || lrng() > (.2 + stone * .6) * smooth(.35, .65, noise(x / 2.1 + 3, z / 2.1 + 11))) continue;
+        leaf(x, z);
       }
     }
     perHole(leafGeo, leafMat, spots, starts);
@@ -1089,7 +1155,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The glare a shade warmer than the key (its light took the long way through the air), and ~40% of the key's strength:
   // any brighter and the tee's back third, which looks into the lobe, goes to a milky cream veil.
   const glow = { r: sunColor.r * .42, g: sunColor.g * .39, b: sunColor.b * .33 }; Object.assign(FOG.glow, glow);   // glow: the base, which the putt scales (update(): PUTT_AIR.glow)
-  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG, gap: { hole: gapHole, aim: gapAim, reach: gapReach, sun: gapSun }, putt: PUTT_AIR, air: treeAir };   // air: the putt factor (update())   // effects.js aims the light shafts at the disc; FOG for the debug hook
+  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG, gap: { hole: gapHole, aim: gapAim, reach: gapReach, sun: gapSun }, putt: PUTT_AIR, fly: FLY_AIR, air: treeAir };   // air: the putt factor (update())   // effects.js aims the light shafts at the disc; FOG for the debug hook
   const sky = skyDome(def, pano); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
   // green-brown bounce from below (the dome's `ground` switch) and the sun's aureole glints in discs, chains and water.
@@ -1172,9 +1238,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const rough = (x, z) => { const fi = fairwayInfo(holes, x, z); return clamp((fi.d - 7 * def.fairwayW) / 5, 0, 1); };
   const world = { height, normal, treesNear, inWater, waterLevel, inBounds, wind: [0, 0], basket: null, ponds, holes, rough, capsules: dressing.capsules, camBlockers: [...dressing.capsules, ...(dressing.camCapsules || [])] };
   const setHole = i => { const h = holes[i]; tuftHoles.forEach((l, k) => l.forEach(t => { t.visible = k === i; })); world.basket = { x: h.basket[0], y: h.basketY, z: h.basket[1] }; gapHole.value.set(h.basket[0], h.basket[1], gapHole.value.z, h.basketY); const L = Math.hypot(h.tee[0] - h.basket[0], h.tee[1] - h.basket[1]) || 1; gapAim.value.set((h.tee[0] - h.basket[0]) / L, (h.tee[1] - h.basket[1]) / L, gapAim.value.z, gapAim.value.w); };
-  const update = (dt, t, focus, view, nearFocus = focus) => {   // nearFocus: where the near cascade sits (main.js holds it still through a flight)
+  const update = (dt, t, focus, view, nearFocus = focus, cam) => {   // nearFocus: where the near cascade sits (main.js holds it still through a flight); cam: the lens, for the sets only it sees (treeLod)
     if(view && t-lastCull>.25){lastCull=t;for(const c of clusters){const p=c.boundingSphere.center;const r=c.boundingSphere.radius+155;c.visible=(p.x-view.x)**2+(p.z-view.z)**2<r*r;}}
-    if (view) treeLod(view, t, focus);   // trees: 3D near the eye, impostors beyond (the trees section)
+    if (view) treeLod(view, t, focus, cam);   // trees: 3D near the eye, impostors beyond (the trees section)
     if (view) FOG.shape.w = height(view.x, view.z);   // the haze thins with height above the ground, not above the eye: the flyover drone looks through thinner air
     // Near the pin the air thickens, as the broadcast's long putt lens compresses the woods behind the basket (w4-5 putt
     // verdicts: the stand 30-45 m out, 25-40 m past the pin, took no haze at all under the tee's 34 m clear zone and read as
@@ -1190,8 +1256,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // (#aab8c6-ish on screen) instead of the green-grey that read as fog.
     if (view && world.basket) { const k = 1 - THREE.MathUtils.smoothstep(Math.hypot(view.x - world.basket.x, view.z - world.basket.z), 15, 40), P = PUTT_AIR, m = (a, b) => a + (b - a) * k;
       FOG.putt = k;   // effects.js's Aerial pass grades Full's putt by it (a plain field, no uniform)
-      Object.assign(FOG.shape, { x: m(34, P.clear), y: m(TEE_AIR, P.density), z: m(30, P.knee) }); Object.assign(FOG.air, { x: P.air[0], y: P.air[1], z: quality === 'low' ? m(0, P.air[2]) : 0, w: P.air[3] });   // Lite's Aerial ramp at the putt only: g2 c1 ran it everywhere and the tee lost light 2/2 -> 0/2 (its arch and woods 20-80 m out washed)
-      Object.assign(FOG.haze, { r: haze.r * m(1, P.haze[0]), g: haze.g * m(1, P.haze[1]), b: haze.b * m(1, P.haze[2]) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm[0]), g: warm.g * m(1, P.warm[1]), b: warm.b * m(1, P.warm[2]) }); const gl = m(1, P.glow); Object.assign(FOG.glow, { r: glow.r * gl, g: glow.g * gl, b: glow.b * gl }); treeAir.value = k; treeKeep.value = m(0, P.keep); sun.intensity = def.sun[4] * m(1, P.sun); sun.shadow.radius = m(2, P.soft); Object.assign(SOFT, quality === 'low' ? { x: P.shade[0] * k, y: P.shade[1], z: P.shade[2] * k } : { x: 0, z: 0 }); hemi.intensity = 1.5 * m(1, P.fill[0]); scene.environmentIntensity = .5 * m(1, P.fill[1]); gapHole.value.z = m(1.5, P.cut); gapAim.value.w = m(.4, P.aim); gapReach.value.set(m(15, P.reach[0]), m(35, P.reach[1]), m(3.2, P.reach[2])); }   // the putt's canopy gaps (PUTT_AIR.cut, .aim, .reach); the tee and flyover keep 1.5, .4, 15-35 m and 3.2 m cells
+      Object.assign(FOG.shape, { x: m(34, P.clear), y: m(TEE_AIR, P.density), z: m(30, P.knee) }); Object.assign(FOG.air, { x: P.air[0], y: P.air[1], z: quality === 'low' ? m(0, P.air[2]) : 0, w: P.air[3] }); Object.assign(FOG.beam, { x: quality === 'low' ? m(0, P.beam[0]) : 0, y: P.beam[1], z: P.beam[2], w: P.beam[3] }); Object.assign(FOG.rays, { x: P.rays[0], y: P.rays[1], z: P.rays[2] });   // Lite's Aerial ramp at the putt only: g2 c1 ran it everywhere and the tee lost light 2/2 -> 0/2 (its arch and woods 20-80 m out washed)
+      const fly = quality === 'low' ? THREE.MathUtils.smoothstep(view.y - FOG.shape.w, 3, 4.5) * (1 - k) : 0; if (fly > 0) Object.assign(FOG.air, { x: FLY_AIR[0], y: FLY_AIR[1], z: FLY_AIR[2] * fly, w: FLY_AIR[3] });   // and from the air (the flyover drone, 4.5 m+ over the ground; 5.3 m at the intro frame): FLY_AIR; the tee's eye stays under 3 m, so its frame keeps the tee's crisp air
+      const PH = quality === 'low' ? P.hazeLite : P.haze; const ft = i => 1 + (FLY_AIR[4 + i] - 1) * fly; Object.assign(FOG.haze, { r: haze.r * m(1, PH[0]) * ft(0), g: haze.g * m(1, PH[1]) * ft(1), b: haze.b * m(1, PH[2]) * ft(2) }); Object.assign(FOG.warm, { r: warm.r * m(1, P.warm[0]), g: warm.g * m(1, P.warm[1]), b: warm.b * m(1, P.warm[2]) }); const gl = m(1, P.glow); Object.assign(FOG.glow, { r: glow.r * gl, g: glow.g * gl, b: glow.b * gl }); treeAir.value = Math.max(k, fly * FLY_AIR[7]); treeKeep.value = m(0, P.keep); sun.intensity = def.sun[4] * m(1, P.sun); sun.shadow.radius = m(2, P.soft); Object.assign(SOFT, quality === 'low' ? { x: P.shade[0] * k, y: P.shade[1], z: P.shade[2] * k } : { x: 0, z: 0 }); hemi.intensity = 1.5 * m(1, P.fill[0]); scene.environmentIntensity = .5 * m(1, P.fill[1]); gapHole.value.z = m(1.5, P.cut); gapAim.value.w = m(.4, P.aim); gapReach.value.set(m(15, P.reach[0]), m(35, P.reach[1]), m(3.2, P.reach[2])); }   // the putt's canopy gaps (PUTT_AIR.cut, .aim, .reach); the tee and flyover keep 1.5, .4, 15-35 m and 3.2 m cells
     windClock.value=t; sky.material.uniforms.time.value = t;
     if (waterNormal) { waterNormal.offset.x = t * .02; waterNormal.offset.y = t * .013; }
     if (focus) { place(sun, focus, extent * 2 / sm);   // the near cascade sits 5 m ahead of the focus, so it covers the putt's basket and the lawn in front of the tee
@@ -1203,7 +1270,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
-  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs }, props: dressing.meshes };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one); props: the built dressing, for the run-up camera's line-of-sight rays
+  return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs }, props: dressing.meshes, shadowOnly: shadowLeaf };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one); props: the built dressing, for the run-up camera's line-of-sight rays
 }
 
 // Aerial perspective for every fogged material on both tiers: exponential in the true eye distance past 8 m (not
@@ -1213,15 +1280,22 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
 // mixed colour is tone mapped and encoded here whenever the material itself is, because fog lands after that step.
 // FOG is shared by reference into every ShaderLib material (cloneUniforms copies plain objects by reference), so each
 // course just rewrites it; the sky dome reads the same three values, so its horizon is exactly the fog along that ray.
-const PUTT_AIR = { clear: 28, density: .25, knee: 30, haze: [.42, .52, .78], warm: [1.65, 1.45, 1.1], glow: 2.2, keep: .6, cut: 1.35, aim: 1.1, reach: [25, 45, 2], sun: 1.2, fill: [1.08, 1.18], shafts: .3, air: [12, .06, .9, 1.15], soft: 3, shade: [.04, .5, .75] };   // r3 look g1 c1 (haze 2/4 against DGM: 'the mid-ground 15-30 m as crisp and saturated as the foreground, the haze only a grey-white curtain at the very back, a fog wall'; 'tree shadows crisp, evenly dark parallel stripes, equally sharp near and far'): air 30 m/.065 -> 12 m/.06 with a soft quadratic onset (the fog chunk's 15 m knee: eye distance 15 m ~3%, 22 m ~17%, 30 m ~32%, 45 m ~66%, 60 m ~80%), toward an air half as bright within 20 m as past 60 m, so the mid-ground loses contrast and saturation toward a cool mid-tone instead of lifting milky; the warm lobe widened toward the sun past ~35 m only (a broad warm share at mid range read sepia); shade: Lite's sun taps widen 4% per metre past 8 m (up to 1.5x) and the air fills 75% of the shade by 45 m, so the lawn's bars pale and soften with distance while the near ones stay dark (taps <= 4.5 texels: no stepping). Tried: a 14 m start with the old bright air everywhere (milky); a 10-exponent warm lobe at all ranges (the mid tree went sepia); +.35 desaturation on the air share (grey cardboard). r3 look g1 (haze 1/4 against DGM: 'one flat white wash over a nearby wall of birches', 'the far trunks keep near-foreground contrast'): the air's share is now the cool haze itself (the fog chunk), not the warm lobe times a gain, which the Lite grade's warm highlight split turned cream; it starts at 30 m and climbs faster (27 m/.055/.75/1.5 -> 30/.065/.9/1.15), so the rows within 30 m keep their bark and the stand 40-75 m back steps into a cool blue-grey (phone putt by depth band: 55-75 m rgb 188,179,156 sd 19 -> 178,181,175 sd 12; 40-55 m sd 28 -> 23; 22-40 m unchanged). r3 look c2 (haze 0/4 on the phone putt: 'the far birches keep the near trunks' contrast and saturation, one flat wall'; c1's 20 m start faded the round tree just past the pin as much as the deepest rows): air 22 m/.018/.55 -> 27 m/.055/.75, so the 10-27 m trunks keep their dark bark and each row past ~30 m steps back (eye distance 35 m 27%, 45 m 47%, 60 m 63%), and the air's share is a cool blue-grey (the fog chunk's gain) instead of cream. g2 foliage c2 (haze 0/2 twice on the phone: "far trees keep the near trees' saturation and contrast, the forest one flat wall"; "shadows under trees hard dark stencils"): air: Lite's own aerial perspective round the pin (the fog chunk's FOG.air: start m, density per m, ceiling, brightness of the air's share; Full has effects.js's Aerial pass instead), measured on the phone putt: top half luma 89 -> 113 (the reference 70 and 103), rows past ~30 m go pale blue-grey while the trunks within 20 m keep their dark bark; c1's 15 m / .013 / .52 at the pass's dim gain lifted the far rows only ~5 and read as no haze at all. soft: Lite's shadow taps at the putt (texels; 2 elsewhere), fill 1/1.1 -> 1.08/1.18: penumbrae a little wider and shade a little lifted, the trunk bars still crisp (c1's 5 texels everywhere and 1.25/1.3 read as 'faint, vague shadow patches'). Woods round (2026-10-07): density .4 -> .25. With the air off, Bluffs' and Meadows' far stands went the reference's deep green; the sun and the crowns' shadow cut barely changed them: what lifted the woods behind the pin to a pale yellow-grey was the air. With the woods shrubs, the putt's top-half foliage went from value .38-.47 to .36-.43 and green-lead .29-.58 to .33-.64. Saturation round (2026-10-07): density .7 -> .4 and the air away from the disc a step darker (haze .6/.72/1.05 -> .42/.52/.78). Measured on the putt frame, the top half's foliage sat at value .45-.57 and saturation .28-.37 (the reference: .21-.39 and .40-.54): Meadows' woods past 40 m a milky wall, Bluffs' spruce blue-grey. Now .38-.47 and .32-.47 (with the leaves' own colour back), and the rows still step back. DGM round (2026-10-07, Disc Golf Masters as the reference): density 1.8 -> .7 and clear 24 -> 28 m. Their putts look through crisp, saturated woods; ours put a pale wall 20 m past the pin (top-half green-lead .15 against their .5-.78), and on the coast courses it read as sea fog. w12-3 (w12-2 lost haze 0/4: 'past ~20 m one flat cool grey-blue wash with no pull toward the sun', 'trees 30-80 m away turn into low-contrast grey cardboard layers', 'shade blotchy with little sky fill'): the air now leans on the sun. Away from the disc a cooler, dimmer blue (haze .6/.72/1.05), toward it a warm cream lobe (warm 1.65/1.45/1.1) and the forward-scatter glare 2.2x (glow: the fog chunk's and the sky dome's lobe round the disc), so the gaps upper-left glow warm and the right-hand rows go cool; the clear zone back to 24 m on a 30 m knee so the 20-40 m trunks stay dark; keep: the 3D and impostor crowns give back 60% of their far squeeze (the trees section's 20-100 m luminance and saturation squeeze), so a far crown keeps its own lit side and shade inside the haze; the sky fill in shade up to 1/1.1 (hemi, environment). w12-2 (haze 0/4: 'birches 10 m and 60 m away keep the same white-on-dark contrast under one uniform pale-yellow lift'; the shaded bushes bottom-left 'crushed near-black'): measured by depth band on the putt frame (640x360, depth from the scene's own depth buffer), the 40-60 m rows that fill most of the gaps behind the pin took ~2% air under the 42 m clear zone and sat darker (luma 75, black point 34) than the 25-40 m ones (85), with a beige air (78, 76, 57). Now the air starts at 20 m on a short 25 m knee and a lighter density, so it grades: 10-25 m untouched (luma 119, saturation .38), 25-40 m a first step (black point 36 -> 49, saturation .37 -> .24), 40-60 m 122 (black point 91), 60-80 m 146, 80-110 m 163, beyond 181; and the air is a cool grey (haze gains .85/1.05/1.7, the disc's lobe near-neutral 1.1/1.12/1.15: 40-80 m reads 120-146, 123-146, 126-151 rgb instead of beige), with the sky fill back up a little (.75/.8 -> .85/.9) so shade is cool mid-dark, not black. w11-5's 70 m knee still left the 40-60 m rows under 10%. w11-1 (haze 3/6: 'a uniform milky beige wash from a few metres past the basket', 'shade barely darker than sun'): the top half sat at luma 114 against the reference's 73 and the lit ground peaked at 169 against 187, so the air clears to 42 m and thins (density 4.5 -> 2.6, knee 50 -> 40: rows 40-60 m out keep their trunks, the far gaps still lift pale), the key rises 1.2x over a sky fill (hemi, environment) cut to .75/.8, so lit dirt sits ~2x its shade, and Full's light shafts and veiling glare keep 30% (their diagonal cream streaks were most of the upper-left 'milky wash'). The air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains (r, g, b); key and fill gains (hemi, environment); effects.js's shaft and glare gain; the putt's canopy gaps (the trees section): gapHole.z's cut round the pin, gapAim.w's on the approach, gapReach (where they give way to the course-wide cut, m, and the gap noise's cell, m). w8-3 cycle 3: A/B live, with the crowns' shadows off the clearing is sunlit and the trunks lay long crisp bars across it (the pole and tray too); every crown shadow on (cut 1, approach .4) buries them under canopy shade, and 9 m cells turned that shade into the 'wide parallel stripes nothing could have cast' (w8-2, 2/6). Now most crowns within 25 m open (cut 1.35, approach 1.1: the clearing and the dirt in sun: bare dirt luma ~125 lit, ~74 in the tray's shadow, the reference 126 and ~60-116), cut by 2 m cells so what still casts is broken clumps with sun between, and the trunk, pole and tray shadows read on sunlit ground, all falling one way. w8-2: the putt had lost its trunk streaks (w7-1 had them): A/B live, the lawn is 75% sunlit, but with every crown within 15 m cut (2.2) only thin trunk bars crossed it and the green's blade noise swallowed them, so the critics saw 'no readable cast shadows, soft blotches, you cannot tell where the sun is'. Now the crowns keep their shade (cut 1: about half of them cast), cut by a noise ~3x coarser: light-plane cells 9 m across stretch ~2.5x along the sun on the ground at 24°, so the canopy lays long diagonal shade bands with sunlit swaths between (the reference's clearing), all running one way with the trunk bars. And the air there was a cold blue (haze .73, 1.09, 1.96 linear: 'a milky blue-white veil, nothing picks up the sun's warmth'): now a warm pale (~1.37, 1.39, 1.34, the lobe toward the disc a cream 2.1, 1.83, 1.4), a little denser so each row past ~40 m lifts a step into it. Earlier: w7-2 (gains .48/.54/.66, 0/4): "the haze darkens the scene"; w7-3 (.9/1.05/1.35, density 5.5 from 28 m, 0/4): "a flat milky grey-white fog wall past ~15 m, near and far trees fade alike, overcast mist, not sunlit air"; w7-4 (gains .8/.92/1.2, warm 1.4, density 3.5): 0/6.
+const PUTT_AIR = { clear: 28, density: .25, knee: 30, haze: [.42, .52, .78], hazeLite: [.26, .45, 1.2], warm: [1.65, 1.45, 1.1], glow: 2.2, keep: .6, cut: 1.35, aim: 1.1, reach: [25, 45, 2], sun: 1.2, fill: [1.08, 1.18], shafts: .3, air: [15, .045, .95, 1.05], beam: [2.2, 20, .03, .8], rays: [.8, 9, 23], soft: 3, shade: [.04, .5, .75] };   // r6 air c2 (haze 1/2 against DGM: 'a flat, even blue-white wash on the back trunks, with no light direction or glow'; 'tint it warm toward the sun side, add a light-shaft or bloom glow through the canopy gaps'): beam, Lite's forward scatter (the fog chunk: the air past 8 m screens in the warm glare within ~20° of the low disc, combed into soft rays by `rays`), so the upper-left canopy gaps glow gold in shafts (phone putt, x 600-1100 y 0-300: rgb 143,141,129 -> ~170,163,145), and the air's own share a step dimmer (air[3] 1.2 -> 1.05), so the stand away from the sun stays a cool blue-grey with a little more of its bark (50-100 m luma sd 14/11 -> 17/14). Tried: the glare added to the air's share only (no rays; 'more veil', not light), and rays at 1.0/14/31 with gain 2.8 (the upper left went milky). r6 air c1 (haze 2/4 against DGM and 0/4 against the round before: 'the background trees 30 m+ keep full green saturation and dark contrast, near, mid and far one flat plane'; the 12 m / .06 air before it was 'a uniform milky veil from a few metres behind the basket'): Lite's air 22 m/.032 -> 15 m/.045 with a slightly brighter, bluer ceiling, so the putt frame's layers part (eye distance 20 m ~5%, 27 m ~20%, 34 m ~36%, 45 m ~56%, 60 m ~74%; the basket 9 m, the banners 15 m, the left trunks 27 m, the round tree 34 m, the birches 38-58 m). Measured by depth band on the phone putt (luma, saturation, luma std): 25-35 m 131/.39/46 -> 139/.21/37, 35-50 m 132/.20/34 -> 153/.10/25, 50-70 m 149/.08/18 -> 171/.09/14 (rgb 166,172,176, away from the sun cooler still), 0-18 m unchanged; the old air gave 146/.17/32, 165/.09/20, 180/.05/12 there, one pale band. r5 forest c1 (haze 2/4 against DGM: 'one uniform milky white veil from a few metres behind the basket: mid trees at 20 m as washed as the far forest, the layers merge'; 'make the fog build with distance, later start, tinted with the sky colour, not white'): Lite's air 12 m/.06 -> 22 m/.032, so the trunks and crowns 10-30 m out keep their bark, green and contrast (eye distance 30 m ~6%, 45 m ~27%, 60 m ~46%, 90 m ~72%, 150 m ~90% of the .92 ceiling) and only the far stand washes, toward a cooler, bluer air (hazeLite; Full's Aerial pass keeps haze). r3 look g1 c1 (haze 2/4 against DGM: 'the mid-ground 15-30 m as crisp and saturated as the foreground, the haze only a grey-white curtain at the very back, a fog wall'; 'tree shadows crisp, evenly dark parallel stripes, equally sharp near and far'): air 30 m/.065 -> 12 m/.06 with a soft quadratic onset (the fog chunk's 15 m knee: eye distance 15 m ~3%, 22 m ~17%, 30 m ~32%, 45 m ~66%, 60 m ~80%), toward an air half as bright within 20 m as past 60 m, so the mid-ground loses contrast and saturation toward a cool mid-tone instead of lifting milky; the warm lobe widened toward the sun past ~35 m only (a broad warm share at mid range read sepia); shade: Lite's sun taps widen 4% per metre past 8 m (up to 1.5x) and the air fills 75% of the shade by 45 m, so the lawn's bars pale and soften with distance while the near ones stay dark (taps <= 4.5 texels: no stepping). Tried: a 14 m start with the old bright air everywhere (milky); a 10-exponent warm lobe at all ranges (the mid tree went sepia); +.35 desaturation on the air share (grey cardboard). r3 look g1 (haze 1/4 against DGM: 'one flat white wash over a nearby wall of birches', 'the far trunks keep near-foreground contrast'): the air's share is now the cool haze itself (the fog chunk), not the warm lobe times a gain, which the Lite grade's warm highlight split turned cream; it starts at 30 m and climbs faster (27 m/.055/.75/1.5 -> 30/.065/.9/1.15), so the rows within 30 m keep their bark and the stand 40-75 m back steps into a cool blue-grey (phone putt by depth band: 55-75 m rgb 188,179,156 sd 19 -> 178,181,175 sd 12; 40-55 m sd 28 -> 23; 22-40 m unchanged). r3 look c2 (haze 0/4 on the phone putt: 'the far birches keep the near trunks' contrast and saturation, one flat wall'; c1's 20 m start faded the round tree just past the pin as much as the deepest rows): air 22 m/.018/.55 -> 27 m/.055/.75, so the 10-27 m trunks keep their dark bark and each row past ~30 m steps back (eye distance 35 m 27%, 45 m 47%, 60 m 63%), and the air's share is a cool blue-grey (the fog chunk's gain) instead of cream. g2 foliage c2 (haze 0/2 twice on the phone: "far trees keep the near trees' saturation and contrast, the forest one flat wall"; "shadows under trees hard dark stencils"): air: Lite's own aerial perspective round the pin (the fog chunk's FOG.air: start m, density per m, ceiling, brightness of the air's share; Full has effects.js's Aerial pass instead), measured on the phone putt: top half luma 89 -> 113 (the reference 70 and 103), rows past ~30 m go pale blue-grey while the trunks within 20 m keep their dark bark; c1's 15 m / .013 / .52 at the pass's dim gain lifted the far rows only ~5 and read as no haze at all. soft: Lite's shadow taps at the putt (texels; 2 elsewhere), fill 1/1.1 -> 1.08/1.18: penumbrae a little wider and shade a little lifted, the trunk bars still crisp (c1's 5 texels everywhere and 1.25/1.3 read as 'faint, vague shadow patches'). Woods round (2026-10-07): density .4 -> .25. With the air off, Bluffs' and Meadows' far stands went the reference's deep green; the sun and the crowns' shadow cut barely changed them: what lifted the woods behind the pin to a pale yellow-grey was the air. With the woods shrubs, the putt's top-half foliage went from value .38-.47 to .36-.43 and green-lead .29-.58 to .33-.64. Saturation round (2026-10-07): density .7 -> .4 and the air away from the disc a step darker (haze .6/.72/1.05 -> .42/.52/.78). Measured on the putt frame, the top half's foliage sat at value .45-.57 and saturation .28-.37 (the reference: .21-.39 and .40-.54): Meadows' woods past 40 m a milky wall, Bluffs' spruce blue-grey. Now .38-.47 and .32-.47 (with the leaves' own colour back), and the rows still step back. DGM round (2026-10-07, Disc Golf Masters as the reference): density 1.8 -> .7 and clear 24 -> 28 m. Their putts look through crisp, saturated woods; ours put a pale wall 20 m past the pin (top-half green-lead .15 against their .5-.78), and on the coast courses it read as sea fog. w12-3 (w12-2 lost haze 0/4: 'past ~20 m one flat cool grey-blue wash with no pull toward the sun', 'trees 30-80 m away turn into low-contrast grey cardboard layers', 'shade blotchy with little sky fill'): the air now leans on the sun. Away from the disc a cooler, dimmer blue (haze .6/.72/1.05), toward it a warm cream lobe (warm 1.65/1.45/1.1) and the forward-scatter glare 2.2x (glow: the fog chunk's and the sky dome's lobe round the disc), so the gaps upper-left glow warm and the right-hand rows go cool; the clear zone back to 24 m on a 30 m knee so the 20-40 m trunks stay dark; keep: the 3D and impostor crowns give back 60% of their far squeeze (the trees section's 20-100 m luminance and saturation squeeze), so a far crown keeps its own lit side and shade inside the haze; the sky fill in shade up to 1/1.1 (hemi, environment). w12-2 (haze 0/4: 'birches 10 m and 60 m away keep the same white-on-dark contrast under one uniform pale-yellow lift'; the shaded bushes bottom-left 'crushed near-black'): measured by depth band on the putt frame (640x360, depth from the scene's own depth buffer), the 40-60 m rows that fill most of the gaps behind the pin took ~2% air under the 42 m clear zone and sat darker (luma 75, black point 34) than the 25-40 m ones (85), with a beige air (78, 76, 57). Now the air starts at 20 m on a short 25 m knee and a lighter density, so it grades: 10-25 m untouched (luma 119, saturation .38), 25-40 m a first step (black point 36 -> 49, saturation .37 -> .24), 40-60 m 122 (black point 91), 60-80 m 146, 80-110 m 163, beyond 181; and the air is a cool grey (haze gains .85/1.05/1.7, the disc's lobe near-neutral 1.1/1.12/1.15: 40-80 m reads 120-146, 123-146, 126-151 rgb instead of beige), with the sky fill back up a little (.75/.8 -> .85/.9) so shade is cool mid-dark, not black. w11-5's 70 m knee still left the 40-60 m rows under 10%. w11-1 (haze 3/6: 'a uniform milky beige wash from a few metres past the basket', 'shade barely darker than sun'): the top half sat at luma 114 against the reference's 73 and the lit ground peaked at 169 against 187, so the air clears to 42 m and thins (density 4.5 -> 2.6, knee 50 -> 40: rows 40-60 m out keep their trunks, the far gaps still lift pale), the key rises 1.2x over a sky fill (hemi, environment) cut to .75/.8, so lit dirt sits ~2x its shade, and Full's light shafts and veiling glare keep 30% (their diagonal cream streaks were most of the upper-left 'milky wash'). The air round the pin (update()): clear distance (m), density scale, knee (m), haze and warm-lobe gains (r, g, b); key and fill gains (hemi, environment); effects.js's shaft and glare gain; the putt's canopy gaps (the trees section): gapHole.z's cut round the pin, gapAim.w's on the approach, gapReach (where they give way to the course-wide cut, m, and the gap noise's cell, m). w8-3 cycle 3: A/B live, with the crowns' shadows off the clearing is sunlit and the trunks lay long crisp bars across it (the pole and tray too); every crown shadow on (cut 1, approach .4) buries them under canopy shade, and 9 m cells turned that shade into the 'wide parallel stripes nothing could have cast' (w8-2, 2/6). Now most crowns within 25 m open (cut 1.35, approach 1.1: the clearing and the dirt in sun: bare dirt luma ~125 lit, ~74 in the tray's shadow, the reference 126 and ~60-116), cut by 2 m cells so what still casts is broken clumps with sun between, and the trunk, pole and tray shadows read on sunlit ground, all falling one way. w8-2: the putt had lost its trunk streaks (w7-1 had them): A/B live, the lawn is 75% sunlit, but with every crown within 15 m cut (2.2) only thin trunk bars crossed it and the green's blade noise swallowed them, so the critics saw 'no readable cast shadows, soft blotches, you cannot tell where the sun is'. Now the crowns keep their shade (cut 1: about half of them cast), cut by a noise ~3x coarser: light-plane cells 9 m across stretch ~2.5x along the sun on the ground at 24°, so the canopy lays long diagonal shade bands with sunlit swaths between (the reference's clearing), all running one way with the trunk bars. And the air there was a cold blue (haze .73, 1.09, 1.96 linear: 'a milky blue-white veil, nothing picks up the sun's warmth'): now a warm pale (~1.37, 1.39, 1.34, the lobe toward the disc a cream 2.1, 1.83, 1.4), a little denser so each row past ~40 m lifts a step into it. Earlier: w7-2 (gains .48/.54/.66, 0/4): "the haze darkens the scene"; w7-3 (.9/1.05/1.35, density 5.5 from 28 m, 0/4): "a flat milky grey-white fog wall past ~15 m, near and far trees fade alike, overcast mist, not sunlit air"; w7-4 (gains .8/.92/1.2, warm 1.4, density 3.5): 0/6.
 // The density scale away from the pin (tee, fairway, flyover). Glare round (2026-10-07, Disc Golf Masters as the reference):
 // 2.25 -> .9. The air is near-white, so even a quarter of it over dark trunks 80 m out read as a pale grey wall, and
 // Lakeshore, Meadows and Bluffs lost the left half of every tee to it. Saturation round (same day): .9 -> .55, the far
 // spruce on Bluffs still blue-grey (top-half foliage value .49 against the reference's .21-.39). The fog chunk's ramp now
 // gives (pine, eye 1.7 m up) ~3% at 60 m, 7% at 80, 11% at 100, 20% at 150: rows still step back, the treeline stays green.
 const TEE_AIR = .55;
-const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: TEE_AIR, z: 30, w: 0 }, air: { x: 15, y: .013, z: 0, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update()); air: Lite's putt aerial perspective (the fog chunk), effects.js Aerial's uShape: start (m), density per metre, ceiling (update(): 0 off the putt and on Full)
-for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape }, fogAir: { value: FOG.air } });
+// Lite's aerial ramp from the flyover drone (the fog chunk's FOG.air: start m, density, ceiling, brightness; then the haze's
+// r, g, b gain and how much of the trees' glare exemption the air takes back, treeAir). r5 forest c2 (trees 1/2 against DGM:
+// 'the pines and the trees behind the arch one wall of cutouts, no atmospheric falloff'; intro: 'the dense, evenly lit tree
+// wall flattens depth'): 5 m up the ground haze has thinned to a third and the crowns toward the sun kept out of what was left,
+// so the stand 45-150 m out kept the near crowns' green and value. Now the 0-45 m rows (the arch, the guardian trees) stay
+// clean and the stand behind steps into sunlit air, toward the sun as well (eye distance 50 m 4%, 60 m 21%, 80 m 52%, 100 m 70%).
+const FLY_AIR = [45, .035, .9, 1, .85, .95, 1.15, 1];
+const FOG = { sun: { x: 0, y: .2, z: 1 }, haze: { r: 0, g: 0, b: 0 }, warm: { r: 0, g: 0, b: 0 }, glow: { r: 0, g: 0, b: 0 }, shape: { x: 34, y: TEE_AIR, z: 30, w: 0 }, air: { x: 15, y: .013, z: 0, w: 0 }, beam: { x: 0, y: 32, z: .03, w: 1.5 }, rays: { x: 0, y: 9, z: 23, w: 0 } };   // shape: clear distance (m), density scale, knee (m) of the fog chunk's ramp, ground height under the eye (update()); air: Lite's putt aerial perspective (the fog chunk), effects.js Aerial's uShape: start (m), density per metre, ceiling (update(): 0 off the putt and on Full)
+for (const u of [THREE.UniformsLib.fog, ...Object.values(THREE.ShaderLib).map(s => s.uniforms)]) if (u?.fogColor) Object.assign(u, { fogSun: { value: FOG.sun }, fogHaze: { value: FOG.haze }, fogWarm: { value: FOG.warm }, fogGlow: { value: FOG.glow }, fogShape: { value: FOG.shape }, fogAir: { value: FOG.air }, fogBeam: { value: FOG.beam }, fogRays: { value: FOG.rays } });
 // The sun's shadow. Directional light 0 is the sun; on Full light 1 is its near cascade (course section), which lights
 // nothing: its loop pass is skipped and the sun samples its map inside the cascade's box (sunShadow() in the shadow chunk).
 // So after the loop directLight still holds the sun with its shadow, which the canopy and blade shaders read. Shade is
@@ -1249,7 +1323,7 @@ reflectedLight.indirectDiffuse *= mix( vec3( .9, .87, .8 ), vec3( 1. ), sunVis )
 #endif`,
   fog_pars_vertex: '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n#endif',
   fog_vertex: '#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z;\n\tvFogRay = ( vec4( mvPosition.xyz, 0. ) * viewMatrix ).xyz;\n#endif',   // eye-to-vertex in world axes
-  fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogWarm, fogGlow;\n\tuniform vec4 fogShape, fogAir;\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
+  fog_pars_fragment: '#ifdef USE_FOG\n\tuniform vec3 fogColor, fogSun, fogHaze, fogWarm, fogGlow;\n\tuniform vec4 fogShape, fogAir, fogBeam, fogRays;\n\tfloat fogRayN( float x ) { float i = floor( x ), f = fract( x ); return mix( fract( sin( i * 12.9898 ) * 43758.5453 ), fract( sin( ( i + 1. ) * 12.9898 ) * 43758.5453 ), f * f * ( 3. - 2. * f ) ); }\n\tvarying float vFogDepth;\n\tvarying vec3 vFogRay;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif',
   fog_fragment: `#ifdef USE_FOG
 	float fogDist = max( length( vFogRay ), 1e-3 ), fogCos = max( dot( vFogRay, fogSun ) / fogDist, 0. );
 	#ifdef FOG_EXP2
@@ -1267,6 +1341,21 @@ reflectedLight.indirectDiffuse *= mix( vec3( .9, .87, .8 ), vec3( 1. ), sunVis )
 		fogTint = toneMapping( fogTint );
 	#endif
 	gl_FragColor.rgb = mix( mix( gl_FragColor.rgb, vec3( dot( gl_FragColor.rgb, vec3( .2126, .7152, .0722 ) ) ), .3 * fogFactor + .15 * fogAirF ), linearToOutputTexel( vec4( fogTint, 1. ) ).rgb, fogFactor );   // what the haze veils also loses its colour first: far greens go grey-green row by row, not a saturated olive under a tinted wash
+	// Forward scatter on Lite's putt (FOG.beam, FOG.rays; zero elsewhere and on Full, whose effects.js shafts and bloom do this).
+	// r6 air c2 (haze 1/2 against DGM: 'a flat, even blue-white wash with no light direction or glow'; 'add a light-shaft or
+	// bloom glow through the canopy gaps'): the putt looks ~22° from the low sun, which stands just above the frame's top left,
+	// so the air past 8 m takes a screen of the warm glare in a ~20° cone round it (fogBeam: gain, cone exponent, density per m,
+	// glare level), and the cone is combed into soft rays fanning from the disc (an angle noise round the sun axis, fogRays: depth,
+	// two frequencies): the canopy gaps upper left glow gold in shafts while the stand away from the sun stays cool blue-grey.
+	if ( fogBeam.x > 0. && fogDist > 8. ) {
+		vec3 fogBeamC = fogGlow * fogBeam.w;
+		#ifdef TONE_MAPPING
+			fogBeamC = toneMapping( fogBeamC );
+		#endif
+		vec3 fogU = normalize( cross( fogSun, vec3( 0., 1., 0. ) ) ), fogV = cross( fogU, fogSun );
+		float fogAng = atan( dot( vFogRay, fogV ), dot( vFogRay, fogU ) ), fogRay = fogRayN( fogAng * fogRays.y ) * .6 + fogRayN( fogAng * fogRays.z + 7. ) * .4;
+		gl_FragColor.rgb = 1. - ( 1. - gl_FragColor.rgb ) * ( 1. - linearToOutputTexel( vec4( fogBeamC, 1. ) ).rgb * fogBeam.x * pow( fogCos, fogBeam.y ) * mix( 1., .3 + 1.4 * smoothstep( .3, .75, fogRay ), fogRays.x ) * ( 1. - exp( - fogBeam.z * ( fogDist - 8. ) ) ) );
+	}
 #endif`,
   // Sun shadows: the stock PCF kernel spaced at `radius` texels leaves blocky rings under leafy canopies. 16 taps on a
   // Vogel disk turned per pixel (white noise: IGN's diagonals show without TAA) give the same cost a smooth penumbra, grain
