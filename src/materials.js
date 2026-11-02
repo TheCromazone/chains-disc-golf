@@ -128,7 +128,9 @@ export function terrainSplat(material, geometry, { splat, turf, pads, pin = { va
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.02,.72)*mix(.95,mix(.7,1.25,step(.55,gNoise(p*21.))),1.-smoothstep(.015,.04,fw)),sp.y*.8);   // clover: round leaves, bluer and darker than the grass
         c=mix(c,mix(${vec3s([.2, .14, .085])},c*.6,step(.62,gNoise(p*9.+4.))*(1.-smoothstep(.04,.1,fw))),sp.x);   // scuffed to soil, a few blades left
         float d=length(vViewPosition),u=${lite ? 'clamp((5.8-d)/2.8,0.,1.)*.55' : 'clamp((8.5-d)/5.,0.,1.)*.9+.12*(1.-smoothstep(9.,15.,d))'};
-        c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.25,.28),u*.75)*(1.-u*.18);   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo or bare soil
+        c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.25,.28),u*.75)*(1.-u*.18);
+        ${lite ? `{ float pz=(1.-smoothstep(20.,32.,distance(p,gPin.xy)))*smoothstep(10.,16.,d),lr=dot(vColor*gGain,vec3(.3,.59,.11))+.002;   // the lawn 10-30 m past the pin, under the putt's air
+          c*=pow(max(dot(c,vec3(.3,.59,.11)),.001)/lr,.9*pz)*(1.-.12*pz); }   // its clumps' light and dark pushed apart (luminance only): the air lifted it to "a pale, smooth green" with the grass variation gone (r3 ground)` : ''}   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo or bare soil
         vec3 cov=gCover(vSplat,vTurf.zw,br);
         cov.z=max(cov.z,smoothstep(.6,.78,gNoise(p*2.3+61.)*.7+gNoise(p*7.1+5.)*.3)*smoothstep(0.,.3,vSplat.z+br*.3)*.9*(1.-smoothstep(24.,32.,distance(p,gPin.xy))));   // round the pin, chip islands 15-50 cm strewn a metre or two past the mulch's edge: the circle frays out instead of ending on a lobed line (r3 ground: "a hard, blotchy edge"). Only there: on the tee's ridge the same islands under the crowns read as a pale, flat dirt bank (r3 nature c1, light 1/4)
         float reach=smoothstep(.02,.4,vSplat.z+br*.5);   // beyond the litter's edge single leaves stray into the turf (Mobile too: its mulch ended on a clean blend)
