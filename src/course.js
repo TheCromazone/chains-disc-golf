@@ -1015,9 +1015,9 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const trng = makeRng(seed + 733), P = [], C = [], N = [];
     for (let b = 0; b < 10; b++) {
       const a = trng() * 6.283, r = Math.sqrt(trng()) * .07, x0 = Math.cos(a) * r, z0 = Math.sin(a) * r, h = .55 + trng() * .45, w = .03 + trng() * .025;
-      const la = a + (trng() - .5) * 1.4, lean = h * (.12 + trng() * .45), fx = -Math.sin(la) * w, fz = Math.cos(la) * w, k = .72 + trng() * .5, straw = trng() < .26;   // a quarter dead: unmown grass is never all live green (r3 ground: "oversaturated sprite cards")
+      const la = a + (trng() - .5) * 1.4, lean = h * (.12 + trng() * .45), fx = -Math.sin(la) * w, fz = Math.cos(la) * w, k = .72 + trng() * .5, straw = trng() < .18;   // a fifth dead: unmown grass is never all live green (r3 ground: "oversaturated sprite cards")
       P.push(x0 - fx, -.04, z0 - fz, x0 + fx, -.04, z0 + fz, x0 + Math.cos(la) * lean, h, z0 + Math.sin(la) * lean);
-      for (let j = 0; j < 3; j++) { C.push(...(straw ? [1.3 * k, 1.12 * k, .55 * k] : [k, k * (1 + (trng() - .5) * .12), k])); N.push(Math.cos(la) * .287, .958, Math.sin(la) * .287); }
+      for (let j = 0; j < 3; j++) { C.push(...(straw ? [1.1 * k, .96 * k, .5 * k] : [k, k * (1 + (trng() - .5) * .12), k])); N.push(Math.cos(la) * .287, .958, Math.sin(la) * .287); }
     }
     const tuftGeo = new THREE.BufferGeometry(); tuftGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); tuftGeo.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
     tuftGeo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
@@ -1049,7 +1049,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // Values .68-1.1 and a fifth half-dead tan-olive: clumps step darker and paler than the lawn round them, not one lime.
     const add = (x, z, s, dry) => { const wd = .7 + trng() * .6, ht = (.65 + trng() * .7) / Math.sqrt(wd), hue = trng(), v = .68 + trng() * .42;
       spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, (trng() - .5) * .6, (trng() - .5) * .6, s * wd * (.9 + trng() * .2), s * ht, s * wd * (.9 + trng() * .2)),
-        c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : (hue < .26 ? col.setRGB(1.12 * v, 1.04 * v, .66 * v) : hue < .5 ? col.setRGB(.72 * v, .86 * v, .78 * v) : hue < .7 ? col.setRGB(1.1 * v, .9 * v, .58 * v) : col.setRGB(v, v, .92 * v)).clone() }); };   // a third of the fringe gone to seed, straw-olive
+        c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : (hue < .26 ? col.setRGB(1.12 * v, 1.04 * v, .66 * v) : hue < .5 ? col.setRGB(.72 * v, .86 * v, .78 * v) : hue < .7 ? col.setRGB(.98 * v, .92 * v, .6 * v) : col.setRGB(v, v, .92 * v)).clone() }); };   // a third of the fringe gone to seed, straw-olive
     // Grass the mower cannot reach at a trunk's foot (build-vs-build critics, trees: "trunks stuck into a lawn", "add irregular
     // undergrowth around the trunk bases"): 10-28 clumps, 20-62 cm (to ~1 m and fewer, 45 m out), in a broken ring out to ~1.6 m, thickest on one side.
     const foot = (t, g = 1) => { const n = (10 + trng() * 18) / g | 0, side = trng() * 6.283;   // g: farther trees, fewer and bigger clumps (they still read at 60 m)
