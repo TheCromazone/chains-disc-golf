@@ -244,6 +244,12 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
       const dry = dryNoise(x, z), bd = Math.hypot(x - h.basket[0], z - h.basket[1]);
       const bm = segDist(x, z, h.basket, [h.basket[0] - dx / length * 6.5, h.basket[1] - dz / length * 6.5]).d * 1.45;
       splats[i * 4 + 3] = Math.max(smooth(.4 + fair * .12, .72, dry) * .85, soilMask * .9, (1 - smooth(4, 9, bd)) * .25);   // the unwatered rough dries out more than the fairway
+      // The walk-off: every player leaves the pad down the middle of the fairway to find their disc, so the first ~40% of the hole
+      // is trampled into a lighter lane 2.6 m wide at the pad, ~7 m by 30 m, frayed and patchy (the dry weight: straw-olive, bare
+      // soil between the clumps, straw blades in the carpet). gauntlet r3 ground: the mid fairway above the tee "a smooth tinted
+      // carpet"; the fix asked for "trampled lighter lanes toward the basket", as Disc Golf Masters' worn landing zone in front of its pads.
+      const lw = 1.3 + Math.max(along, 0) * .075, lane = smooth(-1, 3, along) * (1 - smooth(length * .3, length * .5, along)) * (1 - smooth(lw * .45, lw, fi.d + (noise(x / 3.1 + 23, z / 3.1 + 7) - .5) * 1.8));
+      splats[i * 4 + 3] = Math.max(splats[i * 4 + 3], lane * (.62 + .33 * smooth(.3, .7, noise(x / 5.5 + 3, z / 5.5 + 51))));
       splats[i * 4 + 2] = (1 - smooth(1.8, 5.2, bm + (noise(x / 1.7 + 5, z / 1.7 + 5) - .5) * 2.8 + (noise(x / 4.5 + 31, z / 4.5 + 31) - .5) * 4.4)) * .95;
       // Tee: the gravel apron, a scuff at the sign post, and the driest patches within ~12 m worn through to earth.
       const tx = x - h.tee[0], tz = z - h.tee[1], cy = Math.cos(h.yaw), sy = Math.sin(h.yaw), u = tx * cy - tz * sy, v = tx * sy + tz * cy, wear = padWear(x, z);
@@ -1009,7 +1015,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const trng = makeRng(seed + 733), P = [], C = [], N = [];
     for (let b = 0; b < 10; b++) {
       const a = trng() * 6.283, r = Math.sqrt(trng()) * .07, x0 = Math.cos(a) * r, z0 = Math.sin(a) * r, h = .55 + trng() * .45, w = .03 + trng() * .025;
-      const la = a + (trng() - .5) * 1.4, lean = h * (.12 + trng() * .45), fx = -Math.sin(la) * w, fz = Math.cos(la) * w, k = .72 + trng() * .5, straw = trng() < .14;
+      const la = a + (trng() - .5) * 1.4, lean = h * (.12 + trng() * .45), fx = -Math.sin(la) * w, fz = Math.cos(la) * w, k = .72 + trng() * .5, straw = trng() < .26;   // a quarter dead: unmown grass is never all live green (r3 ground: "oversaturated sprite cards")
       P.push(x0 - fx, -.04, z0 - fz, x0 + fx, -.04, z0 + fz, x0 + Math.cos(la) * lean, h, z0 + Math.sin(la) * lean);
       for (let j = 0; j < 3; j++) { C.push(...(straw ? [1.3 * k, 1.12 * k, .55 * k] : [k, k * (1 + (trng() - .5) * .12), k])); N.push(Math.cos(la) * .287, .958, Math.sin(la) * .287); }
     }
@@ -1023,14 +1029,14 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // tee's ridge they vanished into the dirt (light and trees 1/4). The Mobile tee's tufts too now (gauntlet r3 ground: the clumps
     // beside the bed "repeated, oversaturated sprite cards stuck on top of the turf"), and their green a quarter less saturated.
     const tuftC = cRough.clone().lerp(cFair, .4).multiplyScalar(quality === 'low' ? 1.1 : 1), tl = tuftC.r * .3 + tuftC.g * .59 + tuftC.b * .11;
-    tuftC.lerp(new THREE.Color(tl * 1.08, tl, tl * .8), .25);
+    tuftC.lerp(new THREE.Color(tl * 1.1, tl, tl * .74), .5);   // half way to olive (was a quarter): beside the bed and round the pin they still read "saturated lime", "oversaturated" (r3 ground)
     const gr = carpet.userData.ground, rimMat = windMaterial(toonMaterial({ color: tuftC, vertexColors: true, roughness: .9, side: THREE.DoubleSide }), windClock, true), rimCompile = rimMat.onBeforeCompile;
     rimMat.onBeforeCompile = s => { rimCompile(s); Object.assign(s.uniforms, gr.uniforms);
       s.vertexShader = `varying vec3 vTuftBlade,vTuftSoil;${gr.glsl}\n` + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
         #ifdef USE_INSTANCING
         gTuftTint((modelMatrix*vec4(instanceMatrix[3].xyz,1.)).xz,vTuftBlade,vTuftSoil);
         #endif`);
-      s.fragmentShader = 'varying vec3 vTuftBlade,vTuftSoil;\n' + s.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb=mix(vTuftSoil,diffuseColor.rgb,smoothstep(0.,.35,vBladeY));')
+      s.fragmentShader = 'varying vec3 vTuftBlade,vTuftSoil;\n' + s.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb=mix(vTuftSoil,diffuseColor.rgb,smoothstep(.03,.55,vBladeY));')
         .replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
     rimMat.customProgramCacheKey = () => 'chains-tuft-rim-' + quality;
     const fringeAt = (x, z) => {   // 1 on the turf just outside the ground shader's gravel (gCover without its noise)
@@ -1040,9 +1046,10 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const tee = [], teeStarts = [], rim = [], rimStarts = []; let spots = tee;   // two meshes a hole: the tee's are culled behind the putt lens
     // Each clump its own lean (to ~17 degrees), squat-and-wide to tall-and-narrow, and its own green: olive-yellow, lawn or a dark
     // blue-green, so no two read as one card stamped down (r3 ground: "repeated identical billboard cards").
-    const add = (x, z, s, dry) => { const wd = .7 + trng() * .6, ht = (.65 + trng() * .7) / Math.sqrt(wd), hue = trng(), v = .82 + trng() * .3;
+    // Values .68-1.1 and a fifth half-dead tan-olive: clumps step darker and paler than the lawn round them, not one lime.
+    const add = (x, z, s, dry) => { const wd = .7 + trng() * .6, ht = (.65 + trng() * .7) / Math.sqrt(wd), hue = trng(), v = .68 + trng() * .42;
       spots.push({ m: lay(x, meshY(x, z) - .02, z, trng() * 6.3, (trng() - .5) * .6, (trng() - .5) * .6, s * wd * (.9 + trng() * .2), s * ht, s * wd * (.9 + trng() * .2)),
-        c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : (hue < .3 ? col.setRGB(1.12 * v, 1.04 * v, .66 * v) : hue < .55 ? col.setRGB(.72 * v, .86 * v, .78 * v) : col.setRGB(v, v, .92 * v)).clone() }); };   // a third of the fringe gone to seed, straw-olive
+        c: dry ? col.setRGB(1.05 + trng() * .2, .85 + trng() * .1, .5).clone() : (hue < .26 ? col.setRGB(1.12 * v, 1.04 * v, .66 * v) : hue < .5 ? col.setRGB(.72 * v, .86 * v, .78 * v) : hue < .7 ? col.setRGB(1.1 * v, .9 * v, .58 * v) : col.setRGB(v, v, .92 * v)).clone() }); };   // a third of the fringe gone to seed, straw-olive
     // Grass the mower cannot reach at a trunk's foot (build-vs-build critics, trees: "trunks stuck into a lawn", "add irregular
     // undergrowth around the trunk bases"): 10-28 clumps, 20-62 cm (to ~1 m and fewer, 45 m out), in a broken ring out to ~1.6 m, thickest on one side.
     const foot = (t, g = 1) => { const n = (10 + trng() * 18) / g | 0, side = trng() * 6.283;   // g: farther trees, fewer and bigger clumps (they still read at 60 m)
@@ -1060,13 +1067,13 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         const bed = Math.max(Math.abs(u) - BED.u, -w - BED.f1, BED.f0 + w);   // metres outside the bed's timbers (props' f runs toward the basket: -w)
         const edge = Math.max(fringeAt(x, z), bed > .02 && bed < .3 ? 1 : 0) * smooth(.3, .6, noise(x / 1.4 + 13, z / 1.4 + 13));   // in clumps and gaps along the edge, not a planted border
         if (bed < .02 || trng() > edge) continue;
-        add(x, z, .11 + trng() ** 2 * .18, trng() < .3);
+        add(x, z, .09 + trng() ** 2 * .15, trng() < .3);   // a fifth shorter (r3 ground: "tall tufts", "spiky": they stood over the lawn, not in it)
       }
       // and a dense, taller band hugging the bed's edging timbers, where no mower reaches: it leans out over them (r4 ground:
       // the edge 'a clean cutoff with little blending')
       for (let k = 0; k < 2400; k++) {
         const side = trng() * 4 | 0, t = trng(), o = .06 + trng() ** 1.5 * .32, u = side < 2 ? (side ? 1 : -1) * (BED.u + .1 + o) : lerp(-BED.u - .1, BED.u + .1, t), w = side < 2 ? lerp(-BED.f1 - .1, -BED.f0 + .1, t) : side === 2 ? -BED.f1 - .1 - o : -BED.f0 + .1 + o, [x, z] = at(u, w);
-        if (trng() < smooth(.25, .55, noise(x / .9 + 41, z / .9 + 17))) add(x, z, .14 + trng() ** 2 * .2, trng() < .25);
+        if (trng() < smooth(.25, .55, noise(x / .9 + 41, z / .9 + 17))) add(x, z, .1 + trng() ** 2 * .16, trng() < .25);   // ~30% shorter: at .14-.34 m the band read as a lime hedge beside the bed
       }
       for (const t of trees) { const dx = t.x - h.tee[0], dz = t.z - h.tee[1], u = dx * cy - dz * sy, w = dx * sy + dz * cy; if (w < 0 && w > -45 && Math.abs(u) < 35) foot(t, 1 + Math.max(0, -w - 15) / 55); }   // the tee camera's view. Not past 45 m: the mesh's bounds would reach the putt lens's frustum (the tee set is meant to be culled there) and draw ~80k more triangles
       spots = rim;
@@ -1077,8 +1084,8 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       // many tufts in all (r3 ground: "evenly spaced billboard clumps"; the phone putt sits at 981k of 1.0M triangles).
       for (let k = 0; k < 5800; k++) {
         const a = trng() * 6.283, r = 1 + Math.sqrt(trng()) * 10, x = h.basket[0] + Math.cos(a) * r, z = h.basket[1] + Math.sin(a) * r, l = at4(splats, 2, x, z);
-        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29)) * smooth(.42, .68, noise(x / 3.8 + 7, z / 3.8 + 91))) {
-          const big = .1 + trng() ** 1.5 * .24, dry = trng() < .2;
+        if (trng() < smooth(.12, .3, l) * (1 - smooth(.45, .7, l)) * smooth(.35, .6, noise(x / 1.1 + 71, z / 1.1 + 29)) * smooth(.42, .68, noise(x / 3.8 + 7, z / 3.8 + 91)) * (quality === 'low' ? 1.8 : 1)) {   // Mobile: nearly twice the crowds now they are low (its putt has the triangles; Full's tee, which also draws this set, does not)
+          const big = .08 + trng() ** 2 * .18, dry = trng() < .2;   // mostly low, the odd tall one (r3 ground: "spiky, card-like sprites that stick up stiffly")
           for (let j = 3 + trng() * 7 | 0; j > 0; j--) { const b = trng() * 6.283, d = Math.sqrt(trng()) * (.1 + big * 1.1); add(x + Math.cos(b) * d, z + Math.sin(b) * d, big * (.4 + trng() * .7), dry && trng() < .7); } }
       }
       for (const t of trees) if (Math.hypot(t.x - h.basket[0], t.z - h.basket[1]) < 20) foot(t);   // and round the pin, in front of the putt lens

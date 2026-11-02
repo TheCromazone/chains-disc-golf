@@ -747,6 +747,15 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   // pass keeps the rest pose: a few centimetres the eye never checks).
   print.material.onBeforeCompile = s => {
     s.uniforms.windTime = windTime; s.uniforms.windVec = windVec; GRIME_V(s); GRIME_F(s, !full);
+    // The tee mat's pile at its own scale, one tuft of fibres per 1.6 cm in world space: the atlas holds a texel per 3-6 mm, so the
+    // camera 2-4 m away magnifies it 2-4x and the mat read "a flat, untextured green rectangle" (r3 ground). Fades to its mean
+    // under ~1.5 px a tuft. Only inside the atlas's mat region.
+    s.fragmentShader = s.fragmentShader.replace('#include <alphamap_fragment>', `#include <alphamap_fragment>
+      { vec4 mr=vec4(${uvRect('mat').map(v => v.toFixed(5)).join(',')});
+        if(all(greaterThan(vMapUv,mr.xy))&&all(lessThan(vMapUv,mr.zw))){ vec2 q=vWp.xz/.016,i=floor(q),f=fract(q)-.5;float fw=length(fwidth(q));
+          vec3 hq=fract(i.xyx*.1031);hq+=dot(hq,hq.yzx+33.33);vec2 h=fract((hq.xx+hq.yz)*hq.zy);
+          float t=(1.-smoothstep(.05,.5,length(f-(h-.5)*.7)))*mix(.4,1.,h.x);
+          diffuseColor.rgb*=mix(1.,.72+t*.75,(1.-smoothstep(.45,1.,fw))*.9); } }`);
     s.vertexShader = 'attribute float sway;uniform float windTime;uniform vec2 windVec;\n' + s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       transformed += objectNormal * sin(windTime * 4.3 - sway * 5.5 + position.x * .9 + position.z * .7) * (.03 + min(length(windVec), 1.) * .07) * sway;`);
   };
