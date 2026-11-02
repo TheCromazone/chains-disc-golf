@@ -25,7 +25,7 @@
       "scots2-shadow"
     ],
     "triangles": 15876,
-    "bytes": 237976
+    "bytes": 237972
   },
   "bush": {
     "variants": [
@@ -33,7 +33,7 @@
       "bush1"
     ],
     "triangles": 346,
-    "bytes": 12492
+    "bytes": 12488
   },
   "impostors": {
     "birch0": [

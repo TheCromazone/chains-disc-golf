@@ -179,14 +179,16 @@ def finish(t, mats):
     return 1.
   vis = [(lambda q: sum(visible(p, q @ d) for d in dirs) / len(dirs))(Z.rotation_difference(t.n[i])) for i, p in enumerate(verts)]
   # Sun leaves and shade leaves (canopy c2, trees 2/4: "uniformly saturated yellow-green clumps of the same sprite", "darken and
-  # cool the inner shadowed parts of each crown"): a clump (a spruce branch, a pine pad) takes one tone from its mean sky
-  # visibility, the way a real crown grows small light yellow-green sun leaves on its rim and larger, darker blue-green shade
-  # leaves inside, and each lobe (or pad) a darker or lighter step of its own. Darker only, never lighter than before: the open
-  # rim keeps its tone and the masses under and behind it fall away, so a crown reads in lobes of light and shade, also in the
-  # impostors (they bake this albedo).
+  # cool the inner shadowed parts of each crown"): a clump (a spruce branch, a pine pad) takes one tone from how much sky it sees
+  # above it, the way a real crown grows small light yellow-green sun leaves on its rim and larger, darker blue-green shade
+  # leaves inside and underneath, and each lobe (or pad) a darker or lighter step of its own. Darker only, never lighter than
+  # before: the open top keeps its tone and the masses under and inside it fall away, so a crown reads in lobes of light and
+  # shade, also in the impostors (they bake this albedo).
+  # (Rays round +Z, not round each leaf's normal as the sky visibility above: a crown's underside looks out at open air below, so by
+  # that measure the crown over the tee, seen from beneath, kept one tone.)
   groups = {}
-  for i in range(len(verts)):
-    if t.kind[i] == 1: groups.setdefault(id(t.clump[i]), []).append(vis[i])
+  for i, p in enumerate(verts):
+    if t.kind[i] == 1: groups.setdefault(id(t.clump[i]), []).append(sum(visible(p, d) for d in dirs[::2]) / len(dirs[::2]))
   cv = {k: sum(v) / len(v) for k, v in groups.items()}; ranked = sorted(cv.values())
   lo_, hi_ = (ranked[int(.15 * (len(ranked) - 1))], ranked[int(.85 * (len(ranked) - 1))]) if ranked else (0., 1.)
   lobe_tone = {}
