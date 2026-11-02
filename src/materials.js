@@ -59,7 +59,7 @@ float gNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(g
 #define gThin(p) (1.-smoothstep(.36,.62,gNoise(p/3.2+51.)*.45+gNoise(p/14.+83.)*.55))   /* 3 m and 15 m lumpy patches of thin, sun-dried turf between lush ones: value and height, not just hue */
 vec2 gSpot(vec2 p,float edge){   // sparse bare-soil scuffs (x) and clover/broadleaf weed mats (y), 0.5-1.2 m, one per 2.4 m cell at most; thicker along trail and apron edges
   vec2 q=p/2.4,i=floor(q),f=q-i-.3-.4*vec2(gHash(i+5.1),gHash(i+9.7));float h=gHash(i+3.3),r=length(f)/(.1+.15*gHash(i+1.9))+(gNoise(p*2.7+i*3.1)-.5)*.7;
-  return vec2(step(h,.025+edge*.35),step(.92-edge*.1,h))*(1.-smoothstep(.7,1.,r));
+  return vec2(step(h,.07+edge*.3),step(.92-edge*.1,h))*(1.-smoothstep(.7,1.,r));
 }
 float gEdge(float g,vec2 trail){return max(smoothstep(.02,.25,g)*(1.-smoothstep(.4,.7,g)),trail.y*smoothstep(.45,.65,abs(trail.x))*(1.-smoothstep(.8,1.6,abs(trail.x))));}   // the worn margin of gravel beds and trails
 vec2 gCell(vec2 p){   // Voronoi: x = F2-F1 (0 on a border between two tufts), y = the tuft's own random vigour
@@ -114,11 +114,15 @@ export function terrainSplat(material, geometry, { splat, turf, pads, pin = { va
         detail*=mix(1.,dot(gTile(gRough,mat2(-.28,.96,-.96,-.28)*p,5.5,${vec3s(TILE_MEAN.rough)}),vec3(.33)),.45);   // clumps 0.5-2 m wide that still read at 20-80 m, where the fine tiles have gone to their mean (Mobile too: two fetches, mean 1; its mid lawn read "a smooth painted green", ground 1/4)
         vec3 c=gTurf(p,vColor,vTurf.xy,dry)*mix(detail,vec3(dot(detail,vec3(.33))),dry*.4);
         vec2 fp=fwidth(p); float fw=max(fp.x,fp.y);   // metres per pixel along the view: the tee camera sees the slope at ~8 degrees, so ~.1 m at 20 m
-        float lv=clamp(log2(fw*14./.3),0.,6.),l0=floor(lv),lt=lv-l0,s0=.3*exp2(l0);   // tufts stay ~14 px wide at every distance (7 at the critics' 640 px): a fine octave hands over to one twice as coarse instead of fading to a smooth mean, so the far hill keeps its clumps
+        float lv=clamp(log2(fw*${lite ? '9.' : '14.'}/.3),0.,6.),l0=floor(lv),lt=lv-l0,s0=.3*exp2(l0);   // tufts stay ~14 px wide at every distance (7 at the critics' 640 px): a fine octave hands over to one twice as coarse instead of fading to a smooth mean, so the far hill keeps its clumps
         vec2 k0=gCell(p/s0+l0*17.),k1=gCell(p/(s0*2.)+l0*17.+17.);
         float gw=${lite ? '.16' : '.07'},gp=mix(1.-smoothstep(0.,gw+fw*1.4/s0,k0.x),1.-smoothstep(0.,gw+fw*.7/s0,k1.x),lt),cl=mix(k0.y,k1.y,lt)*(1.-gp*${lite ? '.5' : '.75'});   // dark soil and shadow between tufts; each tuft its own vigour
         c=mix(c*mix(${lite ? '1.,1.42' : '.82,1.26'},smoothstep(.3,.85,cl)),mix(c*.42,${vec3s([.15, .095, .05])},max(dry,gWorn(p)*.6)*.7),(1.-smoothstep(.12,.35,cl))*${lite ? '.3' : '.8'});   // light clumps over dark thatch, bare soil where it is dry: what a photo tile averaged to its mean cannot show at 20 m. Lite: wide soft gaps, half as dark (its sharp, untemporal frame drew Full's thin dark seams as cracked tiles on the tee's hill)
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.25,1.12,.6),smoothstep(.75,1.,cl)*.3);   // the odd tuft gone to seed, olive-tan
+        { float wz=smoothstep(.32,.72,gNoise(p/4.3+29.)*.6+gNoise(p/1.5+3.)*.4)*(1.-dry*.5),fd=.1+wz*.42,t0=fract(k0.y*53.7),t1=fract(k1.y*53.7);   // worn zones 2-6 m across where a third to half the clumps are dead thatch
+          float dead=mix(step(t0,fd),step(t1,fd),lt)*(1.-gp*.6),lush=mix(step(.74,t0),step(.74,t1),lt)*(1.-wz*.7),lm=dot(c,vec3(.3,.59,.11));
+          c=mix(c,lm*mix(vec3(1.4,1.14,.6),vec3(1.05,.8,.48)*.78,step(.5,fract(k0.y*91.3))),dead*${lite ? '.62' : '.55'});   // a clump of dead thatch is straw or brown, not a darker green: the hue breaks the lawn up at 20-40 m, where every clump is a few pixels (gauntlet r3 ground: "a smooth tinted carpet with no blade or soil breakup")
+          c=mix(c,max(mix(vec3(lm),c,1.3),0.)*.58,lush*.75); }   // and a quarter are dense tussocks, dark in their own shade and a richer green: Disc Golf Masters' lawn is dark clumps on a paler, drier mat
         br+=(cl-.45)*1.1;   // every cover edge frays at clump scale: tufts into the gravel, bare fingers into the turf
         vec2 sp=gSpot(p,gEdge(vSplat.x,vTurf.zw));
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.02,.72)*mix(.95,mix(.7,1.25,step(.55,gNoise(p*21.))),1.-smoothstep(.015,.04,fw)),sp.y*.8);   // clover: round leaves, bluer and darker than the grass
@@ -154,7 +158,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, pin = { va
         c*=1.-.45*(1.-smoothstep(0.,.25,pd));   // contact shade where the pad sits on the ground`}
         diffuseColor.rgb=c; }`);
   };
-  material.customProgramCacheKey = () => 'chains-ground-v14' + (lite ? '-lite' : '');
+  material.customProgramCacheKey = () => 'chains-ground-v15' + (lite ? '-lite' : '');
   return material;
 }
 
