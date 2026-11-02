@@ -117,7 +117,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, pin = { va
         float lv=clamp(log2(fw*${lite ? '9.' : '14.'}/.3),0.,6.),l0=floor(lv),lt=lv-l0,s0=.3*exp2(l0);   // tufts stay ~14 px wide at every distance (7 at the critics' 640 px): a fine octave hands over to one twice as coarse instead of fading to a smooth mean, so the far hill keeps its clumps
         vec2 k0=gCell(p/s0+l0*17.),k1=gCell(p/(s0*2.)+l0*17.+17.);
         float gw=${lite ? '.16' : '.07'},gp=mix(1.-smoothstep(0.,gw+fw*1.4/s0,k0.x),1.-smoothstep(0.,gw+fw*.7/s0,k1.x),lt),cl=mix(k0.y,k1.y,lt)*(1.-gp*${lite ? '.5' : '.75'});   // dark soil and shadow between tufts; each tuft its own vigour
-        c=mix(c*mix(${lite ? '1.,1.42' : '.82,1.26'},smoothstep(.3,.85,cl)),mix(c*.42,${vec3s([.15, .095, .05])},max(dry,gWorn(p)*.6)*.7),(1.-smoothstep(.12,.35,cl))*${lite ? '.3' : '.8'});   // light clumps over dark thatch, bare soil where it is dry: what a photo tile averaged to its mean cannot show at 20 m. Lite: wide soft gaps, half as dark (its sharp, untemporal frame drew Full's thin dark seams as cracked tiles on the tee's hill)
+        c=mix(c*mix(${lite ? '1.,1.42' : '.82,1.26'},smoothstep(.3,.85,cl)),mix(c*.42,${vec3s([.15, .095, .05])},max(dry,gWorn(p)*.6)*.7),(1.-smoothstep(.12,.35+dry*.12,cl))*(${lite ? '.3' : '.8'}+dry*${lite ? '.38' : '.15'}));   // light clumps over dark thatch, bare soil where it is dry: what a photo tile averaged to its mean cannot show at 20 m. Lite: wide soft gaps, half as dark (its sharp, untemporal frame drew Full's thin dark seams as cracked tiles on the tee's hill)
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(1.25,1.12,.6),smoothstep(.75,1.,cl)*.3);   // the odd tuft gone to seed, olive-tan
         { float wz=smoothstep(.32,.72,gNoise(p/4.3+29.)*.6+gNoise(p/1.5+3.)*.4)*(1.-dry*.5),fd=.1+wz*.42,t0=fract(k0.y*53.7),t1=fract(k1.y*53.7);   // worn zones 2-6 m across where a third to half the clumps are dead thatch
           float dead=mix(step(t0,fd),step(t1,fd),lt)*(1.-gp*.6),lush=mix(step(.74,t0),step(.74,t1),lt)*(1.-wz*.7),lm=dot(c,vec3(.3,.59,.11));
@@ -129,6 +129,8 @@ export function terrainSplat(material, geometry, { splat, turf, pads, pin = { va
         c=mix(c,mix(${vec3s([.2, .14, .085])},c*.6,step(.62,gNoise(p*9.+4.))*(1.-smoothstep(.04,.1,fw))),sp.x);   // scuffed to soil, a few blades left
         float d=length(vViewPosition),u=${lite ? 'clamp((5.8-d)/2.8,0.,1.)*.55' : 'clamp((8.5-d)/5.,0.,1.)*.9+.12*(1.-smoothstep(9.,15.,d))'};
         c=mix(c,dot(c,vec3(.3,.59,.11))*vec3(.62,1.25,.28),u*.75)*(1.-u*.18);
+        ${lite ? `{ float md=smoothstep(7.,16.,d)*smoothstep(20.,32.,distance(p,gPin.xy)),lm=dot(c,vec3(.3,.59,.11)),pm=gNoise(p/3.3+131.)*.6+gNoise(p/1.1+71.)*.4;   // the tee's mid lawn, 7 m out (not round the pin: the putt's air is tuned on it)
+          c=mix(c,lm*mix(vec3(1.1,1.06,.64),vec3(1.34,1.15,.6),smoothstep(.45,.7,pm)),md*.4)*mix(1.,mix(.82,1.12,smoothstep(.3,.7,pm)),md); }   // olive-khaki, drier patches 1-3 m across a shade paler, damp ones darker: at 640 px it read "a saturated, uniform green", "a smooth tinted carpet" (r3 ground)` : ''}
         ${lite ? `{ float pz=(1.-smoothstep(20.,32.,distance(p,gPin.xy)))*smoothstep(10.,16.,d),lr=dot(vColor*gGain,vec3(.3,.59,.11))+.002;   // the lawn 10-30 m past the pin, under the putt's air
           c*=pow(max(dot(c,vec3(.3,.59,.11)),.001)/lr,.9*pz)*(1.-.12*pz); }   // its clumps' light and dark pushed apart (luminance only): the air lifted it to "a pale, smooth green" with the grass variation gone (r3 ground)` : ''}   // under the blade carpet the gaps are shaded green undergrowth, not the flat photo or bare soil
         vec3 cov=gCover(vSplat,vTurf.zw,br);
@@ -162,7 +164,7 @@ export function terrainSplat(material, geometry, { splat, turf, pads, pin = { va
         c*=1.-.45*(1.-smoothstep(0.,.25,pd));   // contact shade where the pad sits on the ground`}
         diffuseColor.rgb=c; }`);
   };
-  material.customProgramCacheKey = () => 'chains-ground-v15' + (lite ? '-lite' : '');
+  material.customProgramCacheKey = () => 'chains-ground-v16' + (lite ? '-lite' : '');
   return material;
 }
 
