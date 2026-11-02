@@ -189,13 +189,16 @@ const BH = [
   { t: .35, at: [-.035, -.13, .12], pelvis: [-10, 76, -2], chest: [-22, 134, 4], head: [4, -90, 0],
     handR: [-.17, -.15, .29], elbowR: [.02, -.20, .10], handL: [.17, -.30, -.29], elbowL: [-.05, -.24, -.15],
     soleR: [-.11, .035, -.39], footR: 96, untwistR: .1 },
-  { t: .40, at: [-.03, -.135, .05], pelvis: [-9, 68, -2], chest: [-20, 134, 3], head: [2, -96, 0],
+  // g20 (side-on run-up camera; m-throw: "no change in hip rotation between frames", "hips and chest turn together"): in profile
+  // the hip lead reads as the hips driving out over the plant while the trunk stays back, so from the plant the pelvis travels
+  // ~4 cm further toward the target and leans ~5 deg less over it (the chest, the arm and the feet are unchanged)
+  { t: .40, at: [-.03, -.135, .01], pelvis: [-4, 68, -2], chest: [-20, 134, 3], head: [2, -96, 0],
     handR: [-.08, -.11, .23], elbowR: [.07, -.13, -.06], handL: [.15, -.29, -.24], elbowL: [-.05, -.23, -.12],
     soleR: [-.10, 0, -.42], footR: 100, soleL: [-.27, 0, .29], footL: 70, untwistR: .05 },
-  { t: .45, at: [-.02, -.145, .01], pelvis: [-8, 50, 0], chest: [-16, 130, 2], head: [0, -98, 0],
+  { t: .45, at: [-.02, -.145, -.03], pelvis: [-3, 50, 0], chest: [-16, 130, 2], head: [0, -98, 0],
     handR: [.03, -.115, .16], elbowR: [.09, -.07, -.22], handL: [.15, -.25, -.19], elbowL: [-.04, -.22, -.10], rollR: 10, untwistR: 0 },
-  { t: .5, pelvis: [-8, 43, 0], chest: [-16, 124, 1], head: [0, -94, 0], handR: [-.05, -.12, .15], elbowR: [.06, -.085, -.24] },
-  { t: .53, pelvis: [-8, 38, 0], chest: [-16, 116, 0], head: [0, -90, 0], handR: [-.12, -.12, .11], elbowR: [.05, -.09, -.25], soleL: [-.27, 0, .28], footL: 60 },   // the rear heel turns in as the hips fire (a sole's y is its lowest point: the toe stays down)   // the disc swings in front of the sternum, not through the shoulder
+  { t: .5, pelvis: [-5, 43, 0], chest: [-16, 124, 1], head: [0, -94, 0], handR: [-.05, -.12, .15], elbowR: [.06, -.085, -.24] },
+  { t: .53, pelvis: [-6, 38, 0], chest: [-16, 116, 0], head: [0, -90, 0], handR: [-.12, -.12, .11], elbowR: [.05, -.09, -.25], soleL: [-.27, 0, .28], footL: 60 },   // the rear heel turns in as the hips fire (a sole's y is its lowest point: the toe stays down)   // the disc swings in front of the sternum, not through the shoulder
   { t: .565, at: [-.01, -.13, -.005], pelvis: [-8, 34, 0], chest: [-15, 84, -2], head: [0, -76, 0],
     handR: [-.23, -.10, -.06], elbowR: [.06, -.09, -.26], handL: [.04, -.32, -.14], elbowL: [-.06, -.25, -.06], rollR: 20 },
   { t: .62, at: [0, -.115, -.01], pelvis: [-7, 30, 0], chest: [-14, 64, -6], head: [0, -60, 0],
@@ -210,25 +213,31 @@ const BH = [
   // the arm carries on round the throwing side at shoulder height, out wide on the right where the run-up camera sees it (.74),
   // then the elbow folds and the forearm wraps back across the chest to the far shoulder (.8-.9) as the chest turns ~80 deg
   // past the line and the hips ~50
-  { t: .7, at: [-.015, -.10, -.06], pelvis: [-9, 6, 0], chest: [-18, 34, -6], head: [0, -36, 0],
-    handR: [.24, -.08, -.50], elbowR: [.12, -.05, -.24], handL: [.06, -.34, -.14], elbowL: [-.08, -.24, -.02],
+  // g20 (side-on run-up camera, strip frames 6-7 at .76/.88: the finish read as "a squat", the hand "folded at the chest" and
+  // reaching down past the hip): the follow-through stands up (trunk ~12 deg over the plant, not ~27; the pelvis 3-4 cm higher)
+  // and the arm stays long at shoulder height, out along the line past the release (.7-.76: from the side, a straight arm
+  // pointing down the fairway), then round in front of him (.82) to his right side as the chest turns past the line (.9-1),
+  // so it sweeps round the body at shoulder height instead of folding in to the far shoulder
+  { t: .7, at: [-.015, -.09, -.06], pelvis: [-8, 6, 0], chest: [-12, 34, -6], head: [0, -36, 0],
+    handR: [.08, -.04, -.54], elbowR: [.04, -.02, -.27], handL: [.06, -.34, -.14], elbowL: [-.08, -.24, -.02],
     soleL: [-.30, .04, .20], footL: 32, footR: 80 },
   // r9 athlete c2 (m-throw critics: "the arm snaps overhead at the end"; DGM's arm carries on round the front of the body at
   // shoulder height): after the hit the hand stays a few cm under the shoulder and nearly at full reach as the chest turns past
   // square, instead of rising 12-16 cm over it (seen from the run-up camera on his chest side, that read as the arm thrown over his head)
-  { t: .74, soleL: [-.33, .15, .04], footL: 20, handR: [.46, -.07, -.36], elbowR: [.24, -.05, -.18] },   // ...and only then lets go and swings round the posted front leg
+  { t: .76, soleL: [-.33, .15, .04], footL: 20, handR: [.19, -.03, -.52], elbowR: [.10, -.02, -.26] },   // ...and only then lets go and swings round the posted front leg
   // g18 c2 (m-throw: "the arm ends stretched out behind him", "no wrap"): the hand swept on round to 26 cm behind the right
   // shoulder at full reach. Now the elbow folds once the arm is across the front (.8) and the hand wraps round to the far
   // shoulder, 12 cm outside and ~18 cm behind it (.9-1), the upper arm across the chest: the camera behind him sees the forearm
   // round his far shoulder (tucked just in front of it, the arm vanished behind his back)
-  { t: .8, at: [-.06, -.11, -.20], pelvis: [-14, -24, 0], chest: [-27, 4, -2], head: [4, 4, 0],
-    handR: [.14, -.09, -.40], elbowR: [.20, -.09, -.14], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
-    soleL: [-.38, .15, -.26], footL: 6, footR: 34 },
-  { t: .9, at: [-.13, -.12, -.36], pelvis: [-14, -46, 0], chest: [-26, -30, 0], head: [6, 26, 0],
-    handR: [-.08, -.12, -.42], elbowR: [.22, -.14, -.10], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
+  { t: .82, at: [-.07, -.085, -.22], pelvis: [-9, -28, 0], chest: [-12, 0, -2], head: [4, 8, 0],
+    handR: [.48, -.03, -.30], elbowR: [.25, -.02, -.15], handL: [.10, -.32, -.16], elbowL: [-.08, -.24, -.02],
+    soleL: [-.38, .15, -.30], footL: 4, footR: 34 },
+  { t: .86, handR: [.36, -.03, .14], elbowR: [.22, -.02, .04] },
+  { t: .9, at: [-.13, -.08, -.36], pelvis: [-8, -46, 0], chest: [-12, -30, 0], head: [6, 26, 0],
+    handR: [.04, -.03, .46], elbowR: [.08, -.02, .24], handL: [.10, -.34, -.14], elbowL: [-.08, -.25, -.02],
     soleL: [-.40, 0, -.62], footL: -24, footR: 4 },
-  { t: 1, at: [-.16, -.12, -.40], pelvis: [-13, -50, 0], chest: [-23, -32, 0], head: [5, 28, 0],
-    handR: [-.07, -.13, -.44], elbowR: [.22, -.15, -.10], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
+  { t: 1, at: [-.16, -.08, -.40], pelvis: [-8, -50, 0], chest: [-10, -32, 0], head: [5, 28, 0],
+    handR: [-.04, -.05, .44], elbowR: [.04, -.03, .24], handL: [.06, -.38, -.12], elbowL: [-.08, -.26, -.02],
     soleL: [-.40, 0, -.62], footL: -28, footR: 0 },
 ];
 
