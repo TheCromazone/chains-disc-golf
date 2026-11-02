@@ -3,8 +3,8 @@ build them. A tapering trunk with a root flare and a few dead stubs; birch and b
 into lobes (big leafy masses with gaps between; a third of the outermost clumps dropped, so the outline is ragged), each lobe fed
 by its own limb from the leader plus short branches inside it; spruces are whorls of branches clothed in short needle sprays;
 Scots pines carry needle pads (flattened clouds of small needle-tuft sprays) on spreading branches, on stems that differ in
-girth, taper, lean and bow. Mature proportions: birches ~17-19 m with the crown in the top 64%, broadleaves ~14-15 m, spruces
-~18-20 m, pines ~19-21 m bare to ~40%.
+girth, taper, lean and bow. Mature proportions: birches ~17-19 m with the crown in the top 64% on bowed stems, broadleaves ~14-15 m,
+spruces ~15-20 m (a full cone, an old gappy lop-sided one, a squat broad one), pines ~19-21 m bare to ~40%.
 Leaves get the triangles: limbs are 4 segments, no twig under 1.3 m (the card's own drawn twig covers it); each variant draws
 < 2.6k tris, and each conifer also carries a 0.45-1k shadow proxy (its crown as the large cards it was built from: ghost()).
 Run: blender -b -P tools/build-trees.py [-- --preview art/qa/trees-preview] [--models-only] (needs tools/build-foliage.py's atlas first),
@@ -15,9 +15,10 @@ Lighting data baked per vertex, read by src/course.js:
   little up), so each mass has a lit side and a shaded side and the crown still reads as one volume; wood keeps tube normals.
 - colour: sky visibility from 40 rays per vertex through the tree's own leaves and wood. A ray that hits a card samples the atlas
   alpha at the hit and passes through transparent texels, so a clump behind a sparse spray is only partly occluded. Interior
-  leaves fall to ~0.2, the sunlit rim stays ~1; clumps carry a slight hue and brightness jitter; birch trunks darken at the base,
+  leaves fall to ~0.2, the sunlit rim stays ~1; clumps carry a slight hue and brightness jitter, and each clump's rgb is a sun
+  or shade leaf by the sky above it (under and inside a crown darker and cooler, to 58%) times its lobe's own step (70-100%); birch trunks darken at the base,
   pine stems go fox-orange up in the crown.
-Writes assets/models/deciduous.glb (birch0, birch1, broad0, broad1), pine.glb (spruce0, spruce1, scots0-2, each with its
+Writes assets/models/deciduous.glb (birch0, birch1, broad0, broad1), pine.glb (spruce0-2, scots0-2, each with its
 '-shadow' proxy), bush.glb (bush0, bush1): one mesh per variant with two materials, 'bark' or 'bark_birch' (tubes, UV u around, v along in bark tiles) and
 'leaves' (cards mapped to the atlas cells of assets/textures/foliage/leaves.webp); the impostor atlas (see impostors()); and
 src/impostors.js with the card extents and each species' collider (trunk radius and height, crown centre and radius), measured
@@ -201,8 +202,8 @@ def finish(t, mats):
     if t.kind[i] == 1:
       s = min(1., max(0., (cv[id(t.clump[i])] - lo_) / max(hi_ - lo_, 1e-3))); s = s * s * (3 - 2 * s)
       lk = id(t.lobe[i]) if t.lobe[i] is not None else id(t.clump[i])
-      if lk not in lobe_tone: lobe_tone[lk] = t.tone.uniform(.8, 1.)
-      v = (.62 + .38 * s) * lobe_tone[lk]; kr, kg, kb = v * (.86 + .14 * s), v, v * (1.18 - .22 * s)   # shade: darker, cooler, a little greyer
+      if lk not in lobe_tone: lobe_tone[lk] = t.tone.uniform(.7, 1.)
+      v = (.58 + .42 * s) * lobe_tone[lk]; kr, kg, kb = v * (.86 + .14 * s), v, v * (1.18 - .22 * s)   # shade: darker, cooler, a little greyer
     col.append((tr * kr, tg * kg, tb * kb, c))   # rgb tints the albedo; alpha is the sky visibility, which the runtime puts on ambient light only
   me = bpy.data.meshes.new(t.name); me.from_pydata([tuple(v) for v in verts], [], t.faces); me.update()
   for mat in mats: me.materials.append(mat)
