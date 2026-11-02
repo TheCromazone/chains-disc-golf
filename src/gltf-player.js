@@ -24,7 +24,7 @@ const REACH = new THREE.Sphere(new THREE.Vector3(0, .95, 0), 1.6);
 // Forearm length: critics read the scan's forearms as "too short for the torso", "stubby". The forearm bones stretch along
 // their length (bone-local y, elbow to wrist); everything mounted on them (the modelled hands, the cuffs, the disc seat and
 // socket) is counter-scaled about the wrist, so the hands keep their size and ride the lengthened wrist rigidly.
-const FORE_LEN = 1.07;
+const FORE_LEN = 1.07, HEAD = 1.07;
 // Each athlete's shadow is drawn from a proxy, the low-detail body on the same skeleton (both GLBs share the rig and bind), never
 // from the full body the camera sees. Every athlete in a round wears the full body now (main.js upgradeBody), on Mobile subdivided
 // over the arms, and both shadow maps drew it again: ~+60k triangles at the phone tee (+20k at the desktop one) for detail a
@@ -624,7 +624,10 @@ export function createGLTFCharacter(avatar) {
   }); }
   const remember = () => rigBones.forEach((b, i) => { shownQ[i].copy(b.quaternion); shownP[i].copy(b.position); });
   // the clips carry scale tracks too (all 1): every path through the mixer ends here, so the stretch is put back each time
-  function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; joints.elR.scale.y = FORE_LEN; if (joints.elL) joints.elL.scale.y = FORE_LEN; group.updateMatrixWorld(true); }
+  // his head, with its bone (at the neck's base, so the neck grows longer with it; body-material.js uFit slims it): both g19
+  // critics read "a small head and thick neck" on a torso too broad for it. Hats and glasses ride the bone and grow with it
+  const headScale = female ? 1 : HEAD;
+  function settle() { if (legScale !== 1) joints.root.position.y = rootRestY + (joints.root.position.y - rootRestY) * legScale; joints.elR.scale.y = FORE_LEN; if (joints.elL) joints.elL.scale.y = FORE_LEN; joints.head?.scale.setScalar(headScale); group.updateMatrixWorld(true); }
   function blendTo(pose, w, base = null) {   // slerp the bones toward a shared-contract pose: over the mixer output, or over the windup pose the clip was baked from
     // (the mixer skips bones whose value did not change, so a held windup phase is rebuilt from the shared keys instead of read back)
     for (const j of JOINTS) {

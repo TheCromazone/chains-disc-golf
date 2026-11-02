@@ -149,6 +149,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   u.uPrintF = { value: new THREE.Vector4(chestY + box.front[0], ...box.front.slice(1)) }; u.uPrintB = { value: new THREE.Vector4(chestY + box.back[0], ...box.back.slice(1)) };
   const knitAmp = u.uKnit.value ? .32 : 0, hemY = spec.shirtHem || chestY - .4;
   u.uFold = { value: new THREE.Vector4(hemY, chestY + .01, chestY + .17, .145) };   // FOLD_GLSL landmarks from the rig extras
+  u.uFit = { value: new THREE.Vector4(hemY, chestY, prefix === 'body_' ? .1 : 0, 0) };   // the torso's fit and the neck (vertex shader): his scan only
   // Her shirt's pattern and print are placed where the cloth is now, seen from her torso, not where it was in the bind pose
   // (vPatPos). Her scan weights 40-70 % of the cloth round the shoulder blade to the arm, and with the arm drawn across in the
   // stance that cloth folds over itself (6.6 % of her torso's area against his 3.4 %, 767 triangles): a sash or number carried
@@ -158,7 +159,7 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
   material.onBeforeCompile = s => {
     Object.assign(s.uniforms, u);
     // bind-pose normal and arm weight: which cloth faces sideways off the torso and which is the arm's underside
-    s.vertexShader = (pat === 'vPatPos' ? 'varying vec3 vPatPos;\n' : '') + 'uniform vec4 uArm, uTuckC, uShoulder; uniform vec2 uFore; uniform float uHeadBone; uniform sampler2D uTuck; varying vec3 vBindN; varying float vArmW, vElbow;\n' + s.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+    s.vertexShader = (pat === 'vPatPos' ? 'varying vec3 vPatPos;\n' : '') + 'uniform vec4 uArm, uTuckC, uShoulder, uFit; uniform vec2 uFore; uniform float uHeadBone; uniform sampler2D uTuck; varying vec3 vBindN; varying float vArmW, vElbow;\n' + s.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
       vBindN = objectNormal; vArmW = 0.; vElbow = 0.;
       #ifdef USE_SKINNING
         vec4 armW = vec4(dot(skinWeight, vec4(equal(skinIndex, uArm.xxxx))), dot(skinWeight, vec4(equal(skinIndex, uArm.yyyy))), dot(skinWeight, vec4(equal(skinIndex, uArm.zzzz))), dot(skinWeight, vec4(equal(skinIndex, uArm.wwww))));
@@ -185,6 +186,19 @@ export function bodyMaterial(spec, avatar, lod, prefix = 'body_') {
           float ft = clamp((transformed.y - uFore.y) / (uFore.x - uFore.y), 0., 1.), right = step(armW.z + armW.w, armW.x + armW.y);
           float g = .13 * (armW.x + armW.z) + mix(.03, .3, smoothstep(0., .55, ft)) * (armW.y + armW.w);
           vec2 c = mix(uShoulder.zw, uShoulder.xy, right); transformed.xz = c + (transformed.xz - c) * (1. + g);
+        }
+        // g19 athlete, both critics: "a rigid, boxy torso too wide for its small head and thick neck", "fit the shirt closer to
+        // the torso". The scan's shirt falls straight from the armpits to the hem: the torso (never the arms) narrows toward the
+        // spine, most over the waist and hips (x 9 %, z 6 %), easing out by the armpits (the shoulders carry the arms) and over
+        // the thighs. The neck slims 10 % between the collar and the jaw (its axis at z .017, the collar's); the jaw, ~11 cm
+        // off that axis, keeps its line. gltf-player.js grows the head with its bone (HEAD), the neck's length with it.
+        // uFit: hem height, chest height, neck slimming, 0 (off: her scan)
+        if (uFit.z > 0.) {
+          float y = transformed.y, tw = 1. - smoothstep(.12, .45, vArmW);
+          float wk = smoothstep(uFit.x - .14, uFit.x + .02, y) * (1. - smoothstep(uFit.x + .16, uFit.y + .02, y)) * tw;
+          transformed.xz = vec2(0., .01) + (transformed.xz - vec2(0., .01)) * (1. - vec2(.15, .12) * wk);
+          vec2 nd = transformed.xz - vec2(0., .017); float nk = smoothstep(uFit.y + .14, uFit.y + .19, y) * (1. - smoothstep(uFit.y + .27, uFit.y + .31, y)) * (1. - smoothstep(.075, .1, length(nd))) * tw;
+          transformed.xz = vec2(0., .017) + nd * (1. - uFit.z * nk);
         }
       #endif
       #include <skinning_vertex>` + (pat === 'vPatPos' ? `
