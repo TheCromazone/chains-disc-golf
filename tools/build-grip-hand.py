@@ -23,8 +23,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 OUT = os.path.join(ROOT, arg('--out', 'assets/models/grip-hand.glb'))
 PREVIEW = arg('--preview'); PREVIEW = PREVIEW and os.path.join(ROOT, PREVIEW)
 VOX = float(arg('--vox', '.0008'))
-FSLIM = float(arg('--fslim', '.9'))   # finger radii share: at .95 the digits touched along their length, and seen over the back of the hand (round 19's rolled grip) the row fused
-AOK = float(arg('--aok', '.5'))       # occlusion strength: the crease between two digits is what separates them at 6 px a centimetre
+FSLIM = float(arg('--fslim', '.86'))   # finger radii share: at .95 the digits touched along their length, and seen over the back of the hand (round 19's rolled grip) the row fused
+AOK = float(arg('--aok', '.62'))       # occlusion strength: the crease between two digits is what separates them at 6 px a centimetre
 TRIS = int(arg('--tris', '3800'))   # the full hand (the tee's and the clubhouse's): at 2600 its silhouette stepped at 120 px; 3800 keeps the phone scorecard (9 hand draws with shadows) under 1.0M
 
 # ---- the disc, as gltf-player.js seats it -----------------------------------------------------------------------------------
