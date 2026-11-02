@@ -8,7 +8,7 @@ import { rimLight } from './materials.js';
 import { repairPlayerSkinning } from './player-skinning.js';
 import { createPlayerHeadwear } from './player-headwear.js';
 import { createAthleteMotion } from './athlete-motion.js';
-import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL } from './body-material.js';
+import { bodyMaterial, skinDirect, skinShade, NOISE_GLSL, PORES_GLSL, SUN_GLSL, SUN_SHADE, calmShadow } from './body-material.js';
 import { JOINTS, RIGS, readyPose, heroPose, clapPose, dismayPose, mirrorPose, poseAt, keysFor, soleHeights, STANCE_FADE, stanceFade, STANCE_F } from './throw-poses.js';
 
 const HEIGHT = { short: .94, average: 1, tall: 1.06 };
@@ -545,7 +545,14 @@ export function createGLTFCharacter(avatar) {
       .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n material.specularColor *= .45;')   // as the body's skin: well under a plastic's 4 %
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + PORES_GLSL('vHandPos', '1.', '260.', '.00028', ['.14', '.3']))
     .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
-      ${skinDirect('RE_Direct_Grip', '1.')}`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.', '1.') + '\nreflectedLight.indirectDiffuse *= 1.15;'); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove; and the bare arms' extra sky and bounce, so it lights as the forearm it ends
+      ${skinDirect('RE_Direct_Skin', '1.')}
+      ${SUN_GLSL}
+      void RE_Direct_Grip(const in IncidentLight sunLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
+        IncidentLight l = chainsSun(sunLight); RE_Direct_Skin(l, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight);
+        reflectedLight.directDiffuse += chainsBackRim(l, geometryNormal, geometryViewDir, material.diffuseColor); }
+      #undef RE_Direct
+      #define RE_Direct RE_Direct_Grip`).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + skinShade('1.', '1.') + SUN_SHADE + '\nreflectedLight.indirectDiffuse *= 1.15;');   // and the body's sun (body-material.js SUN_GLSL), so the hand lights as the forearm it ends
+    s.fragmentShader = calmShadow(s.fragmentShader); };   // the body shader's skin scatter and warm shade (body-material.js): without them the hand turned away from the sun read as a brown glove; and the bare arms' extra sky and bounce, so it lights as the forearm it ends
   gripMat.customProgramCacheKey = () => 'chains-grip'; rimLight(gripMat, { strength: .1 });
   // the arms' tone (body-material.js: chroma .52, white balance .97/.93/1.1), not the face's: with the face's 1.25 the hand measured
   // a grey brown (sat .41, a third darker) at the end of a warm forearm, a band at the wrist that read as a glove
