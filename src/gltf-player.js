@@ -663,18 +663,23 @@ export function createGLTFCharacter(avatar) {
   // way the idle stands. Each leg reaches its foot's spot (reach() below), so the foot carrying him holds still while he rises:
   // left to the grounding, the first foot down stood him on the longer leg at once (the pelvis jumped 3.4 cm in a frame, 7 cm in
   // four) and the planted foot swung ~6 cm with the pelvis's turn.
-  const LEGS = ['hipR', 'knR', 'hipL', 'knL'], planted = LEGS.map(() => new THREE.Quaternion()), clip = LEGS.map(() => new THREE.Quaternion()), legQ = LEGS.map(() => new THREE.Quaternion()),STEP = .6, LIFT = .07, XA = new THREE.Vector3(1, 0, 0);
+  const LEGS = ['hipR', 'knR', 'hipL', 'knL'], planted = LEGS.map(() => new THREE.Quaternion()), clip = LEGS.map(() => new THREE.Quaternion()), STEP = .6, LIFT = .07, XA = new THREE.Vector3(1, 0, 0);
   const DOWN1 = .4, DOWN2 = .74;   // where in the step the first foot lands, and the second
   const SOLE = { L: 0, R: 1 }, foot = () => ({ c: new THREE.Vector3(), n: 0, s: 0, f: 0 }), start = { R: foot(), L: foot() }, end = { R: foot(), L: foot() };   // athlete-motion's shoe index; each shoe where the step starts and ends
   // a shoe as it stands now: its sole's centre (c) and the body height that would put it down (n); then, with the body at height
   // y, that centre's height over the shoe's lowest point (s) and how far that point is off the ground (f)
   const measure = (k, o) => { o.n = motion.sole(SOLE[k], o.c); return o; };
   const stand = (o, y) => { o.c.y += y - actor.position.y; o.f = Math.max(0, y - o.n); o.s = o.c.y - groundAt(o.c.x, o.c.z) - .012 - o.f; };
-  let replant = STEP, lead = 'R', startY = 0, groundAt = null;
+  let replant = STEP, stepFor = STEP, lead = 'R', startY = 0, groundAt = null;   // stepFor: the re-plant runs on to the end of a PUTT_RELAX fade
+  const relaxLegs = LEGS.map(() => new THREE.Quaternion()), relaxRoot = new THREE.Quaternion(), _qr = new THREE.Quaternion(); let relaxRootY = 0;   // the idle alone while PUTT_RELAX eases (sample)
   function step() {   // the re-plant's legs: athlete-motion calls it after its cross-fades, before it stands the body on them
     replant += frameDt; const u = Math.min(1, replant / STEP);
     LEGS.forEach((n, i) => joints[n].quaternion.copy(clip[i])); joints.hipR.updateMatrixWorld(true); joints.hipL.updateMatrixWorld(true);
+    // while PUTT_RELAX eases, the step ends where the idle's own pelvis puts its feet; the legs reach there from the eased one
+    const easing = previous && fadeFor > .22, ry = joints.root.position.y;
+    if (easing) { _qr.copy(joints.root.quaternion); joints.root.quaternion.copy(relaxRoot); joints.root.position.y = rootRestY + (relaxRootY - rootRestY) * legScale; joints.root.updateMatrixWorld(true); }
     const top = Math.max(measure('R', end.R).n, measure('L', end.L).n); stand(end.R, top); stand(end.L, top);   // the idle's own legs, stood on the ground: where the step ends
+    if (easing) { joints.root.quaternion.copy(_qr); joints.root.position.y = ry; joints.root.updateMatrixWorld(true); }
     // he rises while the second foot steps, as high as the first foot's leg holds him (the idle may rest that one, shorter), and
     // the rest as his weight settles onto the second, the way the idle stands
     const held = top - end[lead].f; actor.position.y = startY + (held - startY) * smooth(.25, .82, u) + (top - held) * smooth(.7, 1, u); actor.updateMatrixWorld(true);
@@ -715,16 +720,22 @@ export function createGLTFCharacter(avatar) {
     const action = actions.get(name); if (!action) return;
     if (active !== action) {
       if (phase === null && active && groundAt && !/^(idle|celebrate|slump|walk|practice)/.test(active.getClip().name)) {   // still the pose shown last frame
-        LEGS.forEach((n, i) => planted[i].copy(joints[n].quaternion)); replant = 0; group.updateMatrixWorld(true); startY = actor.position.y;
+        LEGS.forEach((n, i) => planted[i].copy(joints[n].quaternion)); replant = 0; stepFor = Math.max(STEP, fadeFor); group.updateMatrixWorld(true); startY = actor.position.y;
         for (const k of ['R', 'L']) stand(measure(k, start[k]), startY);
         lead = start.R.n < start.L.n ? 'R' : 'L'; }   // the higher foot: it would stand on the ground with the body lower
       previous?.stop(); previous = active; active = action; blend = phase === null ? 0 : 1; action.reset().setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; action.play(); }
     blend = Math.min(1, blend + frameDt / fadeFor); const w = fadeFor > .22 ? blend * blend * (3 - 2 * blend) : blend; active.setEffectiveWeight(w); previous?.setEffectiveWeight(1 - w); if (blend === 1) { previous?.stop(); previous = null; fadeFor = .22; }
-    action.paused = true; action.time = THREE.MathUtils.clamp(at, 0, action.getClip().duration - .00001); mixer.update(0);
-    // the putt's relax (PUTT_RELAX) is the arm and chest's: the legs keep the .22 s fade, so the re-plant (step) walks them into the
-    // idle's own stance by its end instead of a stance still fading after it (the feet then glid the last ~40 % of the way)
-    if (previous && fadeFor > .22) { const wl = Math.min(1, blend * fadeFor / .22); active.setEffectiveWeight(wl); previous.setEffectiveWeight(1 - wl); mixer.update(0); LEGS.forEach((n, i) => legQ[i].copy(joints[n].quaternion));
-      active.setEffectiveWeight(w); previous.setEffectiveWeight(1 - w); mixer.update(0); LEGS.forEach((n, i) => joints[n].quaternion.copy(legQ[i])); }
+    action.paused = true; action.time = THREE.MathUtils.clamp(at, 0, action.getClip().duration - .00001);
+    // PUTT_RELAX eases the arm off the line for 1.1 s, but the re-plant has to step to the idle's own stance, not to the half-
+    // relaxed one: stepping onto the eased legs, the landed feet slid on with the fade for another half second. So while it
+    // eases, the idle is also posed alone once for its legs and pelvis (relaxLegs, relaxRoot), the step's end
+    if (previous && fadeFor > .22 && replant < stepFor) {
+      active.setEffectiveWeight(1); previous.setEffectiveWeight(0); mixer.update(0);
+      LEGS.forEach((n, i) => relaxLegs[i].copy(joints[n].quaternion)); relaxRoot.copy(joints.root.quaternion); relaxRootY = joints.root.position.y;
+      active.setEffectiveWeight(w); previous.setEffectiveWeight(1 - w);
+    }
+    mixer.update(0);
+    if (previous && fadeFor > .22 && replant < stepFor) LEGS.forEach((n, i) => joints[n].quaternion.copy(relaxLegs[i]));   // the step starts from these (clip, update)
   }
   const frames = new Map();
   // Socket frame at the release phase (.62) in the group's own space: the disc grip is derived from it so the disc rides the
@@ -808,13 +819,13 @@ export function createGLTFCharacter(avatar) {
         restHands[side].visible = !throwingHand || !held;
       }
       overlay();
-      if (phase !== null || aiming || snapN > 0) replant = STEP;   // a new throw, the aim stance or a jump to a new spot take over
-      if (replant < STEP) LEGS.forEach((n, i) => clip[i].copy(joints[n].quaternion));   // the idle's own legs: where the step ends
+      if (phase !== null || aiming || snapN > 0) replant = stepFor;   // a new throw, the aim stance or a jump to a new spot take over
+      if (replant < stepFor) LEGS.forEach((n, i) => clip[i].copy(joints[n].quaternion));   // the idle's own legs: where the step ends
       // the pelvis's travel through the throw (rootX/rootZ of the keys), faded in as the clip takes over from the aim stance
       let tx = 0, tz = 0;
       if (phase !== null && !kept) { const t = poseAt(keysFor(throwType.replace(/_left$/, '')), phase), w = 1 - coilW(); tx = (lefty ? -t.rootX : t.rootX) * w; tz = t.rootZ * w; }
       joints.root.position.x = rootRestX + tx; joints.root.position.z = rootRestZ + tz;
-      motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase, replant < STEP ? step : null);
+      motion.update(dt, phase !== null ? `throw:${throwType}` : mood?.name || (aiming ? `ready:${aimType}` : heroW > .5 ? 'hero' : name || 'idle'), phase, replant < stepFor ? step : null);
       placeSocket(); remember();
     },
     faceDir(dx, dz) { group.rotation.y = Math.atan2(-dx, -dz); aimHit = true; },
