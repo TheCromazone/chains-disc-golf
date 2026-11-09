@@ -9,6 +9,10 @@
 // of that kind closer than the 3D range, along the ray from the tree through the player (so the tree stays ahead of the player
 // and is never culled), in 0.5 m steps from 4 m inside the 3D range to 4 m past it, a quarter second (the LOD tick) per step (walk-NN.png).
 // --swap <m>: the 3D range for this run (course.js treeNear, every tree: 40 m on Mobile, 62 on Desktop), to try another swap.
+// --ring <kind>: the swap's tone step. The eye stands half a metre inside the 3D range of a tree of that kind, on up to 8 bearings
+// round it with a clear sightline, and shoots it twice from the same spot, framed on its crown: in 3D (ring-NN-3d.png) and as its
+// far card (the 3D range pulled a metre short of it, ring-NN-far.png). --pairs of them (8), over as many trees as it takes;
+// probe.ring lists each with its bearing off the sun (0 = looking into it). tools/qa/swap-tone.py measures the pairs.
 // --eval <js>: statements run in the page before the stills (`c` is __chains, `T` is THREE), to try a material or texture change live;
 // what they leave in window.__evalOut is printed.
 // Writes probe.json: eye, target, distance, draw calls and triangles per still, and the walk's steps.
@@ -26,7 +30,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/crown-probe' }, port: { type: 'string', default: '8404' }, size: { type: 'string', default: '844x390' }, dpr: { type: 'string', default: '3' },
   quality: { type: 'string', default: 'low' }, mobile: { type: 'boolean', default: false }, course: { type: 'string', default: 'pine' }, seed: { type: 'string', default: '4' },
-  kinds: { type: 'string', default: 'spruce,scots' }, near: { type: 'string', default: '2' }, far: { type: 'string', default: '1' }, iso: { type: 'string', default: '2' }, walk: { type: 'string' }, swap: { type: 'string' }, eval: { type: 'string' },
+  kinds: { type: 'string', default: 'spruce,scots' }, near: { type: 'string', default: '2' }, far: { type: 'string', default: '1' }, iso: { type: 'string', default: '2' }, walk: { type: 'string' }, swap: { type: 'string' }, eval: { type: 'string' }, ring: { type: 'string' }, pairs: { type: 'string', default: '8' },
   chrome: { type: 'string', default: CHROME },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -113,6 +117,21 @@ try {
       }
       probe.walk = { kind: o.walk, tree: [t.x, t.y, t.z, t.h], from: +t.d.toFixed(1), near, steps }; console.log('walk', o.walk, steps.length, 'steps, swap at', near, 'm');
     } else console.log('walk: no', o.walk, 'inside', near, 'm of the tee');
+  }
+  if (o.ring) {
+    const near = await js(`__treeNear.value`), D = near - .5, want = +o.pairs, per = Math.max(2, Math.ceil(want / 4)); probe.ring = [];
+    const sun = await js(`(() => { let d = null; __chains.scene.traverse(l => { if (l.isDirectionalLight && !d) d = [l.position.x - l.target.position.x, l.position.z - l.target.position.z]; }); return d; })()`);
+    for (const [ti, t] of list.filter(t => t.kind === o.ring).entries()) { if (probe.ring.length >= want) break; let got = 0;
+      for (let j = 0; j < 8 && got < per && probe.ring.length < want; j++) { const a = (j * 3 + ti * 5) % 8, ex = t.x + Math.cos(a * Math.PI / 4) * D, ez = t.z + Math.sin(a * Math.PI / 4) * D;
+        if (!await js(`__chains.world.inBounds(${ex}, ${ez}) && !__chains.world.inWater(${ex}, ${ez})`) || !clear(ex, ez, t)) continue;
+        const ey = await js(`__chains.world.height(${ex}, ${ez})`), k = String(probe.ring.length).padStart(2, '0'), fov = +(2 * Math.atan(t.h * .6 / D) * 180 / Math.PI).toFixed(1);
+        await js(`(() => { const c = __chains, p = c.G.players[0]; p.lie = [${ex}, ${ey}, ${ez}]; c.setupTurn(0); })()`); await step(500);
+        await aim([ex, ey + 1.7, ez], [t.x, t.y + t.h * .55, t.z], fov); await step(500); await shot(`ring-${k}-3d`, 'png');
+        await js(`__treeNear.value = ${D - 1}`); await step(500); await shot(`ring-${k}-far`, 'png'); await js(`__treeNear.value = ${near}`);
+        const off = sun ? Math.acos(Math.max(-1, Math.min(1, ((t.x - ex) * sun[0] + (t.z - ez) * sun[1]) / (D * Math.hypot(...sun))))) * 180 / Math.PI : null;   // 0: the tree stands against the sun
+        probe.ring.push({ pair: k, kind: t.kind, tree: [t.x, t.y, t.z, +t.h.toFixed(1)], eye: [+ex.toFixed(1), +(ey + 1.7).toFixed(1), +ez.toFixed(1)], d: D, sun: off == null ? null : Math.round(off) }); got++; } }
+    await js(`(() => { const c = __chains, p = c.G.players[0]; p.lie = ${JSON.stringify(trees.lie)}; c.setupTurn(0); })()`);
+    console.log('ring', o.ring, probe.ring.length, 'pairs at', D, 'm:', probe.ring.map(r => r.sun).join(' '));
   }
   writeFileSync(join(out, 'probe.json'), JSON.stringify(probe, null, 2)); if (errors.length) console.log(errors.length, 'page error(s), see probe.json');
   process.exit(0);
