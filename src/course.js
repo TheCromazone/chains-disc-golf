@@ -650,9 +650,9 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // e^-.6 per metre through), and it gates the back-light glow and the leaf-to-leaf fill, so a crown against the sun is dark at
   // its core with only the thin rim lit, not lit through. The leaves' albedo is 20% desaturated on Full (saturation round, 2026-10-07:
   // 45% left every crown grey-olive, foliage saturation .24-.41 in the top half of a frame against Disc Golf Masters' .40-.54).
-  const canopy = (mat, leaf = true, crown = null) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
+  const canopy = (mat, leaf = true, crown = null, open = 1) => { const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey; mat.onBeforeCompile = s => { prev.call(mat, s);
     if (crown) {   // a 3D crown: where this fragment sits in its variant's crown envelope (see crownOf, per instance scale), and a random per clump
-      s.uniforms.treeCrown = { value: crown };
+      s.uniforms.treeCrown = { value: crown }; s.uniforms.treeOpen = { value: open };   // open: how much of the sky-hole and pocket cuts below this crown takes (planted(): none on a conifer)
       s.vertexShader = 'uniform vec4 treeCrown;varying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;\n' + s.vertexShader.replace('#include <fog_vertex>', `#include <fog_vertex>
         #ifdef USE_INSTANCING
         { mat4 im = modelMatrix * instanceMatrix; float r = mix(treeCrown.y, treeCrown.z, saturate((transformed.y - treeCrown.x) / (2. * treeCrown.w) + .5));
@@ -665,6 +665,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
 #define SKY_HOLES .9
 #define CROWN_NORMAL .6
 #define CROWN_CORE_CUT .85
+#define CONIFER_LIGHT .35
+uniform float treeOpen;
 varying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;
 float crownHash(vec3 p) { p = fract(p * .1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
 float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
@@ -705,7 +707,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         float into = max(pow(saturate(dot(V, L)), 3.), pow(disc, 6.)) + 1.5 * pow(disc, 60.);
         float thru = mix(saturate(.3 - dot(normal, L)), .6, anyFace) * (.1 + 1.5 * into) * leafMask * mix(.4, 1., bakedAO) * sunThin * mix(1., .25, smoothstep(40., 110., length(vViewPosition)));
         #ifdef CROWN
-        thru *= mix(.2, 1., smoothstep(.2, .8, vClump));   // clump to clump the light gets through or does not: broken highlights, not one even halo on every pad
+        thru *= mix(.2, 1., smoothstep(.2, .8, vClump)) * mix(CONIFER_LIGHT, 1., treeOpen);   // clump to clump the light gets through or does not: broken highlights, not one even halo on every pad
         #endif
         // light reaches a back-lit leaf through several leaves, not only through gaps: soften its shadow to 35% for this term
         float lit = mix(.35, 1., dot(directLight.color, vec3(1.)) / max(dot(sun, vec3(1.)), 1e-4));
@@ -720,7 +722,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         // passes it through its back face, most looking into the sun and least through a thick crown (sunThin), warm as the
         // transmitted light is; both carry the shadow (lit) and the crown's core dimming below, so the heart stays dark.
         { float ndl = dot(normal, L), wrap = saturate((ndl + .8) / 1.8) - saturate(ndl);
-          reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * (1.5 * wrap * vec3(1., 1., .8) + saturate(-ndl) * (.3 + into) * mix(.3, 1., sunThin) * vec3(.95, .95, .5)); }
+          reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * mix(CONIFER_LIGHT, 1., treeOpen) * (1.5 * wrap * vec3(1., 1., .8) + saturate(-ndl) * (.3 + into) * mix(.3, 1., sunThin) * vec3(.95, .95, .5)); }
         #endif`}
         #ifdef CROWN
         // Clump light (a crown past 30 m read as one flat dark-green mass under the haze): the crown's sun-side shell, lit by
@@ -729,7 +731,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         { vec3 o = normalize(vCrownP + vec3(0., 1e-4, 0.)), Lw = (vec4(L, 0.) * viewMatrix).xyz;
           float shell = smoothstep(.5, 1., crownDepth), face = saturate((dot(o, Lw) + .5) / 1.5);
           reflectedLight.directDiffuse *= mix(.45, 1., smoothstep(.3, .9, crownDepth));
-          reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * CLUMP_LIGHT * shell * face * face * mix(.15, 1.3, vClump) * vec3(1.05, 1., .66); }
+          reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * CLUMP_LIGHT * mix(CONIFER_LIGHT, 1., treeOpen) * shell * face * face * mix(.15, 1.3, vClump) * vec3(1.05, 1., .66); }
         #endif
       }
       #endif` : ''));
@@ -804,12 +806,12 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       { vec2 g = fwidth(vMapUv) * vec2(textureSize(map, 0)); diffuseColor.a *= 1. + clamp(log2(sqrt(g.x * g.y)) - 1., 0., 2.) * .35; }
       #endif
       #ifdef CROWN
-      diffuseColor.a *= 1. - SKY_HOLES * smoothstep(.7, 1., crownDepth) * step(.5, vClump);   // some outer clumps thin out: sky holes and a broken edge, not a solid silhouette
+      diffuseColor.a *= 1. - SKY_HOLES * treeOpen * smoothstep(.7, 1., crownDepth) * step(.5, vClump);   // some outer clumps thin out: sky holes and a broken edge, not a solid silhouette
       // w3 verdicts (the framing oak: "a dense mass with almost no sky holes", "no dark hollow voids between clumps"): pockets
       // ~1-1.5 m across cut through the outer third of the crown, fixed to the crown (crown-space noise), so the shell breaks
       // into separate clumps with the dark interior showing between them and sky through the rim
       { float nearK = 1. - smoothstep(20., 45., length(vViewPosition));   // w6-2: the framing crown seen from below stayed one dark solid underside (its leaves sit at half depth, under the cut): a near crown's pockets now run through its heart too, so sky shows through it
-        if (crownN * max(smoothstep(.45, .95, crownDepth), CROWN_CORE_CUT * nearK) > .47 - .09 * nearK) diffuseColor.a = 0.; }   // near crowns (the framing tree over the tee) open wider: w6 "solid lumpy blobs, almost no sky holes". Colour pass only: the shadow keeps its own cut
+        if (treeOpen * crownN * max(smoothstep(.45, .95, crownDepth), CROWN_CORE_CUT * nearK) > .47 - .09 * nearK) diffuseColor.a = 0.; }   // near crowns (the framing tree over the tee) open wider: w6 "solid lumpy blobs, almost no sky holes". Colour pass only: the shadow keeps its own cut
       { float w = clamp(fwidth(diffuseColor.a), .25, .5); diffuseColor.a = smoothstep(.5 - w, .5 + w, diffuseColor.a); } if (diffuseColor.a < .01) discard;   // at least a ~2 px coverage ramp: a minified leaf's alpha turns over in under a pixel and .25-.75 cut it to a hard one-pixel edge (gauntlet r2 crisp)
       #else
       #include <alphatest_fragment>
@@ -827,7 +829,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const ys = pts.map(v => v[0]), y0 = q(ys, .03), y1 = q(ys, .97), ym = (y0 + y1) / 2;
     const lo = q(pts.filter(v => v[0] < ym).map(v => v[1]), .95), hi = q(pts.filter(v => v[0] >= ym).map(v => v[1]), .95);
     return new THREE.Vector4(ym, lo, Math.max(2 * hi - lo, .3, hi * .25), (y1 - y0) / 2); };
-  const leafFull = g => nearClip(near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.3, -.3), alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock), true, crownOf(g))));
+  const leafFull = (g, open = 1) => nearClip(near3d(canopy(windMaterial(toonMaterial({ map: leafAtlas, normalMap: leafNormals, normalScale: new THREE.Vector2(.3, -.3), alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, vertexColors: true, roughness: .8 }), windClock), true, crownOf(g), open)));
   // Wood and leaves of the 3D plants near the eye (QA from lies in the woods on a phone, 2026-10-17). Bare low limbs: the spruces'
   // lowest whorl (1.8 m up, 2.2 m out) and the Scots pines' dead branches (1.6-2.7 m up, to 1.65 m out) carry no foliage that shows
   // at eye height (frond and needle cards are flat and vanish edge-on), so from a lie among them each read as a bare black rod
@@ -873,6 +875,10 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // sprays: it casts in their place, drawn only inside the shadow passes (its material is shown by main.js's shadowMap.render),
   // so the sprays (1.6-3.1x the cards' triangles) cost the main pass alone and the ground keeps the shadows it had (gauntlet r4 trees).
   const shadowLeaf = new THREE.MeshBasicMaterial({ visible: false, map: leafAtlas, alphaTest: .5, side: THREE.DoubleSide });   // the depth pass takes its map, cut and sides
+  // A conifer's boughs are its envelope: the sky holes and pockets that open a broadleaf's shell cut half the outer sprays of a
+  // spruce and all of its top (past the envelope, depth 1), a bare pole with stubs that filled out at the swap to its impostor
+  // (crown-probe walk, both tiers). Its crown stays whole, as tools/build-trees.py renders it for the far card.
+  const CONIFER = /^(spruce|scots)/;
   const planted = (name, spots, shadow = true, lod = true) => {
     const src = leafAtlas && model(name); if (!src) return false;
     src.scene.updateMatrixWorld(true); const proxied = new Set();
@@ -880,7 +886,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     src.scene.traverse(o => { if (!o.isMesh) return;
       const proxy = o.name.endsWith('-shadow'), variant = proxy ? o.name.slice(0, -7) : o.name.replace(/_\d+$/, ''), key = o.material.name.replace(/\.\d+$/, ''), mine = spots.filter(s => s.variant === variant), g = o.geometry.clone().applyMatrix4(o.matrixWorld);
       if (proxy) { if (shadow && mine.length) inst(g, shadowLeaf, mine, null, true, lod); return; }
-      const mat = key === 'leaves' ? leafFull(g) : (name === 'bush' ? bushWood : woodMats)[key] || trunkMat, tint = key === 'leaves' ? leafTint : barkTint;
+      const mat = key === 'leaves' ? leafFull(g, CONIFER.test(variant) ? 0 : 1) : (name === 'bush' ? bushWood : woodMats)[key] || trunkMat, tint = key === 'leaves' ? leafTint : barkTint;
       if (mine.length) inst(g, mat, mine, tint, shadow && !(key === 'leaves' && proxied.has(variant)), lod); });
       // Every tree casts. The edge stand's open side and young trees, the clearing groves and the back woods used to skip the
       // shadow pass (it triples a tree's triangles), so from the tee they stood as trunks on evenly sunlit grass (tee-stands

@@ -1356,6 +1356,9 @@ function updateCamera(dt) {
   }
   const gy = world.height(cam.pos.x, cam.pos.z) + 0.7; if (cam.pos.y < gy) cam.pos.y = gy;
   camera.position.copy(cam.pos); camera.lookAt(cam.look);
+  // A lie ring under the lens bows out: the thrower stands on his own, and from the putt camera 3 m behind him the unlit ring in his
+  // colour filled the foot of a phone frame, under the swipe pad (polish r5). Past 9 m it shows in full, as the others' do.
+  for (const q of G.players) if (q.marker.visible) q.marker.material.opacity = .8 * THREE.MathUtils.smoothstep(cam.pos.distanceTo(q.marker.position), 4, 9);
   if (Math.abs(camera.fov - cam.fov) > .01) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }   // resize() resets fov by aspect; this re-applies the mode's lens every frame
   applyViewOffset();
   if (scrim.visible) snapBackdrop(); else if (backdrop.rt) { backdrop.rt.dispose(); backdrop.rt = null; }   // the snapshot's target lives only while the clubhouse shows

@@ -9,6 +9,8 @@
 // of that kind closer than the 3D range, along the ray from the tree through the player (so the tree stays ahead of the player
 // and is never culled), in 0.5 m steps from 4 m inside the 3D range to 4 m past it, a quarter second (the LOD tick) per step (walk-NN.png).
 // --swap <m>: the 3D range for this run (course.js treeNear, every tree: 40 m on Mobile, 62 on Desktop), to try another swap.
+// --eval <js>: statements run in the page before the stills (`c` is __chains, `T` is THREE), to try a material or texture change live;
+// what they leave in window.__evalOut is printed.
 // Writes probe.json: eye, target, distance, draw calls and triangles per still, and the walk's steps.
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
@@ -24,7 +26,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: 'art/qa/crown-probe' }, port: { type: 'string', default: '8404' }, size: { type: 'string', default: '844x390' }, dpr: { type: 'string', default: '3' },
   quality: { type: 'string', default: 'low' }, mobile: { type: 'boolean', default: false }, course: { type: 'string', default: 'pine' }, seed: { type: 'string', default: '4' },
-  kinds: { type: 'string', default: 'spruce,scots' }, near: { type: 'string', default: '2' }, far: { type: 'string', default: '1' }, iso: { type: 'string', default: '2' }, walk: { type: 'string' }, swap: { type: 'string' },
+  kinds: { type: 'string', default: 'spruce,scots' }, near: { type: 'string', default: '2' }, far: { type: 'string', default: '1' }, iso: { type: 'string', default: '2' }, walk: { type: 'string' }, swap: { type: 'string' }, eval: { type: 'string' },
   chrome: { type: 'string', default: CHROME },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -76,7 +78,9 @@ try {
     let imp = null; c.scene.traverse(m => { if (!imp && m.isInstancedMesh && m.geometry.attributes.impCell) imp = m; });
     window.__treeNear = c.renderer.properties.get(imp.material).uniforms.treeNear;   // the uniform course.js shares with every tree material and its LOD tick
     ${o.swap ? `__treeNear.value = ${+o.swap};` : ''}
-    const p = c.G.players[0].lie; return { lie: p, trees: out }; })()`);
+    ${o.eval || ''}
+    const p = c.G.players[0].lie; return { lie: p, trees: out, evalOut: window.__evalOut }; })()`);
+  if (trees.evalOut !== undefined) console.log('eval:', JSON.stringify(trees.evalOut));
   const [px, py, pz] = trees.lie, eye = [px, py + 1.7, pz], probe = { course: o.course, quality: o.quality, size: o.size, eye, views: [], errors };
   const H0 = { spruce: 20, scots: 21, birch: 18, broad: 15, bush: 3 };   // each kind's nominal height: framing never follows a rebuilt card's extent, so two builds shoot the same views
   const list = trees.trees.map(([cell, x, y, z, hh]) => { const v = Object.keys(IMPOSTOR).find(k => IMPOSTOR[k][3] === cell), kind = CELL[cell];
