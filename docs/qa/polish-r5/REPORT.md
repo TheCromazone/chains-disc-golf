@@ -41,13 +41,51 @@ Desktop: coverage .10/.06/.19 -> .24/.15/.46, value unchanged (.38/.47/.35 -> .3
 opacity) lay 3 m from the putt camera, a thick red arc under the swipe pad on every course. It now fades out within
 4-9 m of the lens (`src/main.js`); the other players' rings, and his own once the camera leaves, show as before.
 
+### 3. The colour step at the swap, phone (second PR, 2026-11-09)
+`swap-tone-3d-before-after.jpg`: three trees against the sun, each as its 3D crown, its far card before and its far card
+after, from the same spot half a metre inside the 3D range (Pine spruce, Meadows broadleaf, Pine broadleaf).
+
+Measured with `tools/qa/crown-probe.mjs --ring <kind>` (8 bearings round clear trees, each shot in 3D and as the far
+card) and `tools/qa/swap-tone.py` (foliage pixels of the crown box). The step was largest looking toward the sun: 20-28
+degrees of hue on the back-lit bearings. Cause: Mobile's 3D crowns take a wrap and back light (r4, against "flat, dark
+paper cut-outs") and the clump light on their sun-side shell; the far cards took neither.
+
+Fix (`src/course.js`, Mobile only): the far card takes the same wrap and back light, gated to views toward the sun and
+half under its own self-shadow, and broadleaves take a shell light by the card's crown normal. Each species has its
+share (`FAR_LIGHT`): broadleaf 1, birch .25 (in full its sparse card stepped brighter), conifers their 3D share and no
+shell light. `scene.userData.sun.far` holds the three gains for a live A/B.
+
+Mean absolute step over 8 bearings, far card against 3D crown (hue in degrees / saturation / value):
+
+| ring (phone)        | before          | after          |
+|---------------------|-----------------|----------------|
+| Pine spruce         | 10.2 / .06 / .05 | 1.4 / .03 / .04 |
+| Bluffs spruce       | 8.4 / .03 / .04  | 4.3 / .02 / .03 |
+| Pine broadleaf      | 9.3 / .05 / .08  | 3.5 / .06 / .03 |
+| Meadows broadleaf   | 13.8 / .06 / .07 | 4.9 / .07 / .06 |
+| Pine birch          | 2.9 / .05 / .03  | 1.5 / .07 / .03 |
+| Bluffs Scots pine   | 5.2 / .02 / .02  | 5.5 / .02 / .02 |
+
+The walk off Pine's first tee (a spruce, 39.5 m then 40 m): hue +19.4 -> +1.3, saturation -.11 -> -.07, value -.07 -> -.05.
+Top-half foliage of the phone gauntlet frames moves by at most +.03 saturation and +.03 value. Desktop: its flyover, tee
+and putt on Pine are pixel-identical to master (the block is Mobile's), and its own swap showed no step (broadleaf
+1.9 / .01 / .01).
+
+Tried and dropped: the shell light on conifers (Pine's value step -.04 -> -.02, but Bluffs' hue 4.3 -> 6.8), a larger
+conifer back light (.55: the same trade), the wrap light on every bearing (side-lit cards went 9-13 degrees yellow).
+
+Capture note: frames shot while two other captures ran differed from the same build shot alone in 12-18% of pixels.
+Compare builds only from runs made alone.
+
 ## Checked and left alone
 - Landing camera on a portrait drive: the disc rests at 46% of the half-width, inside the 60% the plan allows.
 - The swipe hint over the athlete's ankles: only before the first throw of a round (`body.thrown` fades it).
 
 ## Still open
-- Tone at the swap: the far spruce card is still darker and bluer than the 3D crown (value .19-.29 against .29-.32).
-  The shape no longer changes; the remaining step needs an impostor-shader round.
+- Tone at the swap: closed in problem 3 to 1-5 degrees of hue; the far cards are still .03-.06 darker or lighter by bearing.
+- A far broadleaf card is one even mass: its 3D crown has sky holes and clump contrast (coverage +.04 to +.09 at the swap).
+- Mobile culls every shrub card within 40 m of the eye and has no 3D shrub to take its place (the cards' 3D-range cut
+  is shared with the trees since the phones got 3D near trees, 2026-10-12): the woods understory starts 40 m out.
 - Carried from r4: female shoulders (Blender re-rig), flat cloud interiors (Unreal re-render), PR #36 (putt feet).
 
 ## Tool

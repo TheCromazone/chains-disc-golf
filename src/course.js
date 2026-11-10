@@ -530,6 +530,8 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   const treeEye = { value: new THREE.Vector3(1e9, 0, 1e9) }, treeNear = { value: quality === 'low' ? 40 : 62 }, nearSets = [];
   const treeDisc = { value: new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - def.sun[2]), THREE.MathUtils.degToRad(def.sun[3])) };   // the sun's visible disc (the sky section's discDir)
   const treeKeep = { value: 0 };   // how much of the far squeeze below the putt gives back (update(): PUTT_AIR.keep)
+  const CONIFER_LIGHT = .35;   // a conifer's share of the clump, back and wrap light (planted())
+  const farLight = { value: new THREE.Vector3(1, .5, 1) };   // Mobile's far cards (canopy(), the impostor's light): the back light's gain, how much of the card's self-shadow falls on it, the shell light's gain (scene.userData.sun.far, for a live A/B)
   const treeAir = { value: 0 };   // 1 round the pin, 0 elsewhere (update(): PUTT_AIR's putt factor): how much of the glare exemptions below the putt's air takes back. The putt looks within ~20° of the low sun, where the tee's dark rim-lit silhouettes left the woods 30-80 m past the pin with half the haze and full contrast (w7-2: "far trunks as dark and saturated as the near birches")
   let lodT = -1;
   const LOD_CELL = 32, lodKey = (i, j) => i * 100000 + j;
@@ -665,7 +667,6 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
 #define SKY_HOLES .9
 #define CROWN_NORMAL .6
 #define CROWN_CORE_CUT .85
-#define CONIFER_LIGHT .35
 uniform float treeOpen;
 varying vec3 vCrownP;varying vec2 vCrownR;varying float vClump;
 float crownHash(vec3 p) { p = fract(p * .1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
@@ -723,6 +724,16 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
         // transmitted light is; both carry the shadow (lit) and the crown's core dimming below, so the heart stays dark.
         { float ndl = dot(normal, L), wrap = saturate((ndl + .8) / 1.8) - saturate(ndl);
           reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * mix(CONIFER_LIGHT, 1., treeOpen) * (1.5 * wrap * vec3(1., 1., .8) + saturate(-ndl) * (.3 + into) * mix(.3, 1., sunThin) * vec3(.95, .95, .5)); }
+        #elif defined(IMPOSTOR)
+        // The far card takes the same light, or a crown stepped darker and bluer as it swapped to its card 40 m out, most of
+        // all against the sun (crown-probe --ring, phone, mean step over 8 bearings: spruce hue +10 deg, value -.05; broadleaf
+        // +9 to +14 deg, -.07; 20-28 deg on the back-lit bearings. Desktop's swap at 62 m sits in its aerial veil: no step).
+        // The wrap and back light as above, half under the card's own self-shadow, and only looking toward the sun: side-lit
+        // and front-lit a card was already as warm as its crown. And the 3D crown's clump light on the sun-side shell, by the
+        // card's crown normal. Each by its species' share (FAR_LIGHT): now 1-5 deg and -.04 to +.01.
+        { float ndl = dot(normal, L), wrap = saturate((ndl + .8) / 1.8) - saturate(ndl), face = saturate((ndl + .5) / 1.5);
+          reflectedLight.directDiffuse += diffuseColor.rgb * sun * lit * RECIPROCAL_PI * leafMask * (vImpLight.x * farLight.x * smoothstep(-.2, .6, dot(V, L)) * mix(1., mix(.35, 1., sunOcc), farLight.y) * (1.5 * wrap * vec3(1., 1., .8) + saturate(-ndl) * (.3 + into) * mix(.3, 1., sunThin) * vec3(.95, .95, .5))
+            + vImpLight.y * farLight.z * face * face * vec3(1.05, 1., .66)); }
         #endif`}
         #ifdef CROWN
         // Clump light (a crown past 30 m read as one flat dark-green mass under the haze): the crown's sun-side shell, lit by
@@ -764,7 +775,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     // against the glare stand as dark, rim-lit silhouettes instead of pale grey-olive puffs. Trunks and stems take 80% from 15 m:
     // bark 15-40 m out has to fall back into the haze row by row, and it has no lit rim to lose.
     s.uniforms.treeDisc = treeDisc; s.uniforms.treeAir = treeAir; s.uniforms.treeKeep = treeKeep;
-    s.fragmentShader = '#define TREE_AIR_GAIN .6\n#define TREE_AIR_MIX .4\nuniform vec3 treeDisc;uniform float treeAir, treeKeep;\n' + s.fragmentShader;
+    s.fragmentShader = '#define TREE_AIR_GAIN .6\n#define TREE_AIR_MIX .4\n#define CONIFER_LIGHT ' + CONIFER_LIGHT + '\nuniform vec3 treeDisc;uniform float treeAir, treeKeep;\n' + s.fragmentShader;
     // Bark in the canopy's shadow also loses a third of its sky (w3-4: "white trunks lit evenly from crown to ground, no
     // patches of sun and shade"): at the putt we see their back-lit faces, which the sun's term never reaches, so without this
     // the leaf shadow crossing a stem changed nothing on it. sunVis: the sun's shadow here, from lights_fragment_begin.
@@ -899,20 +910,20 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // the same canopy shading as the 3D leaves, so a far crown is dark into the sun with lit, glowing rims like the near ones.
   const impMap = texture('impostors'), impNormal = texture('impostors_n', { srgb: false }), impCast = texture('impostors_s', { srgb: false });   // impCast (grey): what a card casts, a conifer's old cards as its 3D crown casts them (tools/build-trees.py)
   const billboard = s => { s.uniforms.treeEye = treeEye; s.uniforms.treeNear = treeNear;
-    s.vertexShader = 'attribute float impCell;attribute vec3 impBark;uniform vec3 treeEye;uniform float treeNear;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;\n' + s.vertexShader
+    s.vertexShader = 'attribute float impCell;attribute vec2 impLight;attribute vec3 impBark;uniform vec3 treeEye;uniform float treeNear;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;varying vec2 vImpLight;\n' + s.vertexShader
       .replace('#include <begin_vertex>', `vec3 impO = instanceMatrix[3].xyz, impT = cameraPosition - impO; impT.y = 0.; impT = normalize(impT + vec3(1e-4, 0., 0.));
-        vImpR = vec3(impT.z, 0., -impT.x); vImpT = impT; vImpFlip = sign(instanceMatrix[0].x); vImpBark = impBark;
+        vImpR = vec3(impT.z, 0., -impT.x); vImpT = impT; vImpFlip = sign(instanceMatrix[0].x); vImpBark = impBark; vImpLight = impLight;
         vec3 transformed = impO + vImpR * position.x * instanceMatrix[0].x + vec3(instanceMatrix[1].x, instanceMatrix[1].y, instanceMatrix[1].z) * position.y;   // the column's x and z lean the card as the 3D tree leans`)
       .replace('#include <project_vertex>', `vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.); gl_Position = projectionMatrix * mvPosition;
         if (distance(impO.xz, treeEye.xz) < treeNear) gl_Position = vec4(2., 2., 2., 1.);`)
       .replace('#include <worldpos_vertex>', 'vec4 worldPosition = modelMatrix * vec4(transformed, 1.);')
       .replace('#include <uv_vertex>', `#include <uv_vertex>\nvMapUv = vec2((mod(impCell, 4.) + uv.x) * .25, 1. - (floor(impCell / 4.) + 1. - uv.y) / ${IMPOSTOR_ROWS}.);`); };
-  const impMat = impMap && impNormal && canopy(Object.assign(toonMaterial({ map: impMap, alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: .85 }), { onBeforeCompile: s => { billboard(s); s.uniforms.impNormal = { value: impNormal };
+  const impMat = impMap && impNormal && canopy(Object.assign(toonMaterial({ map: impMap, alphaTest: .5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: .85 }), { onBeforeCompile: s => { billboard(s); s.uniforms.impNormal = { value: impNormal }; s.uniforms.farLight = farLight;
     // An impostor receives no shadow. Its blue channel is crown depth (sky visibility times how thin the crown is along the view
     // ray): back-lit, sunlight reaches the camera-facing leaves only through thin foliage, so direct light falls steeply with
     // depth (between linear and squared: at squared a side-lit spruce stand went flat black-green, its sunlit tips gone) and
     // only the thin rim transmits, while a crown lit from behind the camera keeps its lit face.
-    s.fragmentShader = 'uniform sampler2D impNormal;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
+    s.fragmentShader = '#define IMPOSTOR\nuniform sampler2D impNormal;uniform vec3 farLight;varying vec3 vImpR;varying vec3 vImpT;varying float vImpFlip;varying vec3 vImpBark;varying vec2 vImpLight;\n' + s.fragmentShader.replace('#include <normal_fragment_maps>', `{ vec4 n = texture2D(impNormal, vMapUv); vec2 t = n.xy * 2. - 1.; t.x *= vImpFlip; float tz = sqrt(saturate(1. - dot(t, t)));
       normal = normalize((viewMatrix * vec4(vImpR * t.x + vec3(0., t.y, 0.) + vImpT * tz, 0.)).xyz); bakedAO = n.z; leafMask = smoothstep(.3, .9, n.a); anyFace = 1.;   // the billboard's normals are a crown average: thinness, not facing, gates what it transmits
       sunThin = smoothstep(.4, .9, n.z); crownDepth = mix(.7, 1., smoothstep(.2, .7, n.z));   // the 3D crown's two depths, from the baked one
       diffuseColor.rgb = mix(diffuseColor.rgb / max(vColor, vec3(1e-3)) * vImpBark, diffuseColor.rgb, leafMask);   // the instance colour is the crown's tint: the stem takes its bark tint instead, as the 3D tree's does
@@ -922,14 +933,18 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
       }`); }, customProgramCacheKey: () => 'chains-impostor' }));
   const impDepth = impMat && canopyGaps(Object.assign(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: impMap, alphaTest: .5 }), { onBeforeCompile: s => { billboard(s); if (!impCast) return; s.uniforms.impCast = { value: impCast };   // its own uniform: three's shadow pass sets a depth material's map to the object material's
     s.fragmentShader = 'uniform sampler2D impCast;\n' + s.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.a = texture2D(impCast, vMapUv).g;'); }, customProgramCacheKey: () => 'chains-impostor-depth' + !!impCast }), .8);   // far crowns cut sun gaps too, a little fewer than near ones (a far crown stands in for its whole stand): solid impostor shadows left the woods floor past ~40 m one even shade, the near cut a sunlit sheet
+  // A far card's share of Mobile's back light and shell light (canopy()), by species, set where the ring's step closed: a birch's
+  // sparse card at a quarter (in full it stepped brighter, value +.07), a conifer's back light as its 3D crown's and no shell
+  // light (with it Bluffs' spruces and Scots pines stepped 2 deg yellower). A shrub's card has no 3D twin on Mobile: none.
+  const FAR_LIGHT = { broad: [1, 1], birch: [.25, .25], spruce: [CONIFER_LIGHT, 0], scots: [CONIFER_LIGHT, 0] };
   const impostors = (spots, shadow = true) => {
     if (!impMat || !spots.length) return false;
-    const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).translate(0, .5, 0), impMat, spots.length), cells = new Float32Array(spots.length), barks = new Float32Array(spots.length * 3);
+    const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).translate(0, .5, 0), impMat, spots.length), cells = new Float32Array(spots.length), lights = new Float32Array(spots.length * 2), barks = new Float32Array(spots.length * 3);
     spots.forEach((s, i) => { const [w, h, b, c] = IMPOSTOR[s.variant] || IMPOSTOR.bush0, sy = s.s * (s.sy || 1), flip = noise(s.x * .71 + 5, s.z * .71 + 9) > .5 ? -1 : 1;
       m.makeScale(w * s.s * (s.g || 1) * flip, h * sy, 1).setPosition(s.x, s.y - .15 + b * sy, s.z);
       m.elements[4] = -(s.tz || 0) * Math.cos(s.rot || 0) * h * sy; m.elements[6] = ((s.tx || 0) + (s.tz || 0) * Math.sin(s.rot || 0)) * h * sy;   // the 3D instance's tilt (tx, rot, tz) as the tip's offset
-      im.setMatrixAt(i, m); im.setColorAt(i, leafTint(s)); barkTint(s).toArray(barks, i * 3); cells[i] = c; });
-    im.geometry.setAttribute('impCell', new THREE.InstancedBufferAttribute(cells, 1)); im.geometry.setAttribute('impBark', new THREE.InstancedBufferAttribute(barks, 3));
+      im.setMatrixAt(i, m); im.setColorAt(i, leafTint(s)); barkTint(s).toArray(barks, i * 3); cells[i] = c; lights.set(FAR_LIGHT[(s.variant || '').replace(/\d+$/, '')] || [0, 0], i * 2); });
+    im.geometry.setAttribute('impCell', new THREE.InstancedBufferAttribute(cells, 1)); im.geometry.setAttribute('impLight', new THREE.InstancedBufferAttribute(lights, 2)); im.geometry.setAttribute('impBark', new THREE.InstancedBufferAttribute(barks, 3));
     // One card per tree over the whole course: one draw. It casts (turned to the sun) but does not receive: the camera-facing
     // card crosses its own sun-facing caster at the trunk, so it would shadow half of itself.
     im.frustumCulled = false; im.castShadow = shadow; im.receiveShadow = false; im.customDepthMaterial = impDepth; group.add(im);
@@ -1161,7 +1176,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // The glare a shade warmer than the key (its light took the long way through the air), and ~40% of the key's strength:
   // any brighter and the tee's back third, which looks into the lobe, goes to a milky cream veil.
   const glow = { r: sunColor.r * .42, g: sunColor.g * .39, b: sunColor.b * .33 }; Object.assign(FOG.glow, glow);   // glow: the base, which the putt scales (update(): PUTT_AIR.glow)
-  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG, gap: { hole: gapHole, aim: gapAim, reach: gapReach, sun: gapSun }, putt: PUTT_AIR, fly: FLY_AIR, air: treeAir };   // air: the putt factor (update())   // effects.js aims the light shafts at the disc; FOG for the debug hook
+  scene.userData.sun = { dir: discDir, color: sunColor, fog: FOG, gap: { hole: gapHole, aim: gapAim, reach: gapReach, sun: gapSun }, putt: PUTT_AIR, fly: FLY_AIR, air: treeAir, far: farLight };   // air: the putt factor (update())   // effects.js aims the light shafts at the disc; FOG for the debug hook
   const sky = skyDome(def, pano); scene.add(sky);
   // Image-based ambient on both tiers: the dome itself prefiltered, so the fill is this sky's blue from above and a
   // green-brown bounce from below (the dome's `ground` switch) and the sun's aureole glints in discs, chains and water.
