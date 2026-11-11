@@ -1288,7 +1288,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const dispose = () => {   // tear down so another course can be built into the same scene
     for(const w of waters)w.userData.dispose?.();
     scene.remove(group, sky, sun, sun.target, hemi); if (near) { scene.remove(near, near.target); near.shadow.map?.dispose(); } scene.fog = null; scene.environment = null; scene.background = null; pano?.dispose(); envRT?.dispose();
-    group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
+    group.traverse(o => { if (o.isInstancedMesh) o.dispose(); o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
   return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs }, props: dressing.meshes, shadowOnly: shadowLeaf };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one); props: the built dressing, for the run-up camera's line-of-sight rays

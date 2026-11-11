@@ -13,7 +13,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toonMaterial, windTime, windVec } from './materials.js';
-import { texture } from './assets.js';
+import { texture, atlasImage } from './assets.js';
 
 const FONT = '"Barlow Condensed", "Arial Narrow", Impact, sans-serif';
 const NAVY = '#16233d', GOLD = '#f2c318', PARK = '#173a2b';
@@ -183,7 +183,13 @@ function paintAtlas(canvas, scale, ctx) {
     const px = x * scale, py = y * scale, pw = w * scale, ph = h * scale, b = 8 * scale;   // bleed the edge texels into the gutter so mips do not pick up neighbours
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(canvas, px, py, 1, ph, px - b, py, b, ph); g.drawImage(canvas, px + pw - 1, py, 1, ph, px + pw, py, b, ph);
     g.drawImage(canvas, px - b, py, pw + 2 * b, 1, px - b, py - b, pw + 2 * b, b); g.drawImage(canvas, px - b, py + ph - 1, pw + 2 * b, 1, px - b, py + ph, pw + 2 * b, b); g.restore(); };
-  draw('mat', paintMat); draw('wood', paintWood);
+  draw('mat', (g, w, h) => {
+    if (ctx.turf) g.drawImage(ctx.turf, 0, 0, w, h); else paintMat(g, w, h);
+    // Plant-foot limit: short inlaid dashes read across the tee without covering its wear.
+    g.fillStyle = '#d9d8ac';
+    for (let x = 18; x < w - 18; x += 44) g.fillRect(x, 38, 24, 5);
+  });
+  draw('wood', (g, w, h) => { if (ctx.timber) g.drawImage(ctx.timber, 0, 0, w, h); else paintWood(g, w, h); });
   draw('concrete', (g, w, h) => g.drawImage(pixels(w, h, (x, y) => { const v = 150 + hash2(x, y, 41) * 40 + vnoise(x / 8, y / 8, 42) * 30; return [v, v - 3, v - 8]; }), 0, 0, w, h));
   ctx.holes.forEach((hole, i) => i < 9 && draw('sign' + i, (g, w, h) => paintSign(g, w, h, hole, { ...ctx, sponsor: ['LOFTWING DISCS', 'BIRDIE BREW', ctx.name.toUpperCase() + ' DGC'][i % 3] })));
   for (let i = 0; i < 3; i++) draw('feather' + i, (g, w, h) => paintFeather(g, w, h, i, ctx.name));
@@ -739,7 +745,13 @@ export function dressCourse({ holes, height, trees, bushes = [], corridor, def, 
   const ctx = { holes, trees, name: def.name, fairwayW: def.fairwayW };
   paintAtlas(atlas, scale, ctx);
   const map = new THREE.CanvasTexture(atlas); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = 8;
-  if (document.fonts && !(document.fonts.check(`800 40px ${FONT}`) && document.fonts.check(`700 40px ${FONT}`))) Promise.all([document.fonts.load(`800 40px ${FONT}`), document.fonts.load(`700 40px ${FONT}`)]).then(() => { if (map.image) { paintAtlas(atlas, scale, ctx); map.needsUpdate = true; } }).catch(() => {});   // signs repaint in the condensed face once it lands
+  let disposed = false; map.addEventListener('dispose', () => { disposed = true; });
+  const repaint = () => { if (!disposed) { paintAtlas(atlas, scale, ctx); map.needsUpdate = true; } };
+  // Repaint only after both optional sources settle; no added GPU maps, materials or draws.
+  Promise.all([atlasImage('tee_turf'), atlasImage('weathered_timber')]).then(([turf, timber]) => {
+    if (disposed || (!turf && !timber)) return; Object.assign(ctx, { turf, timber }); repaint();
+  });
+  if (document.fonts && !(document.fonts.check(`800 40px ${FONT}`) && document.fonts.check(`700 40px ${FONT}`))) Promise.all([document.fonts.load(`800 40px ${FONT}`), document.fonts.load(`700 40px ${FONT}`)]).then(repaint).catch(() => {});
   // Double-sided so cloth reads from behind, but only back faces go into the shadow map: the flat mat and sign faces
   // under a 19° sun would otherwise shadow themselves in bands (acne). Cloth is two sheets, so one always casts.
   const print = new THREE.Mesh(mergeGeometries(K.lists.print), toonMaterial({ map, vertexColors: true, roughness: .82, side: THREE.DoubleSide, shadowSide: THREE.BackSide }));

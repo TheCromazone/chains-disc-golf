@@ -181,5 +181,9 @@
     "pine": "courses/pine_unity.jpg",
     "meadow": "courses/meadow_unity.jpg",
     "lake": "courses/lake_unity.jpg"
+  },
+  "atlas": {
+    "tee_turf": "textures/course/tee-turf-v1.webp",
+    "weathered_timber": "textures/course/weathered-timber-v1.webp"
   }
 }

@@ -1,0 +1,267 @@
+{
+  "runId": "polish-2026-11-11",
+  "url": "http://localhost:8189",
+  "checks": [
+    {
+      "name": "Both generated material assets decode from production",
+      "detail": [
+        {
+          "path": "textures/course/tee-turf-v1.webp",
+          "w": 512,
+          "h": 1600
+        },
+        {
+          "path": "textures/course/weathered-timber-v1.webp",
+          "w": 1024,
+          "h": 256
+        }
+      ]
+    },
+    {
+      "name": "Desktop keyboard guidance visible",
+      "detail": true
+    },
+    {
+      "name": "Equipment picker suppresses keyboard hint",
+      "detail": true
+    },
+    {
+      "name": "Spectator and swipe-error states retain correct guidance",
+      "detail": {
+        "idle": "none",
+        "bad": "none",
+        "feedback": "flex"
+      }
+    },
+    {
+      "name": "Real arrow input aims",
+      "detail": true
+    },
+    {
+      "name": "Escape cancels a keyboard charge without spending a stroke",
+      "detail": true
+    },
+    {
+      "name": "Keyboard throw releases, flies, resolves and returns to the next lie",
+      "detail": true
+    },
+    {
+      "name": "Real short putt completes hole and opens scorecard",
+      "detail": true
+    },
+    {
+      "name": "Scorecard next button advances to hole two",
+      "detail": true
+    },
+    {
+      "name": "Course switch disposes every old instance buffer exactly once",
+      "detail": {
+        "count": 143
+      }
+    },
+    {
+      "name": "New round resets strokes and hole progression",
+      "detail": true
+    },
+    {
+      "name": "Portrait touch view retains swipe guidance",
+      "detail": true
+    },
+    {
+      "name": "OS touch cancel restores aim without a throw",
+      "detail": true
+    },
+    {
+      "name": "Real touch swipe throws and resolves to a playable lie",
+      "detail": true
+    },
+    {
+      "name": "Landscape rotation preserves canvas and avoids horizontal overflow",
+      "detail": true
+    },
+    {
+      "name": "No runtime or console errors",
+      "detail": true
+    }
+  ],
+  "captures": [
+    {
+      "name": "desktop-active",
+      "file": "desktop-active.png",
+      "render": {
+        "frame": 967,
+        "calls": 126,
+        "triangles": 2223651,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 65,
+        "textures": 52
+      },
+      "programs": 106,
+      "performance": {
+        "frameMs": 41.00545111440053,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      },
+      "phase": "aim",
+      "quality": "high",
+      "viewport": [
+        1440,
+        900
+      ],
+      "gpu": "WebKit WebGL"
+    },
+    {
+      "name": "desktop-next-lie",
+      "file": "desktop-next-lie.png",
+      "render": {
+        "frame": 9993,
+        "calls": 139,
+        "triangles": 2297811,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 70,
+        "textures": 55
+      },
+      "programs": 110,
+      "performance": {
+        "frameMs": 22.84228981333131,
+        "resolutionScale": 0.6000000000000002,
+        "postEnabled": true,
+        "ratio": 0.6000000000000002
+      },
+      "phase": "aim",
+      "quality": "high",
+      "viewport": [
+        1440,
+        900
+      ],
+      "gpu": "WebKit WebGL"
+    },
+    {
+      "name": "desktop-score",
+      "file": "desktop-score.png",
+      "render": {
+        "frame": 14774,
+        "calls": 96,
+        "triangles": 2327172,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 72,
+        "textures": 40
+      },
+      "programs": 114,
+      "performance": {
+        "frameMs": 21.015570099543712,
+        "resolutionScale": 0.64,
+        "postEnabled": false,
+        "ratio": 0.64
+      },
+      "phase": "holeEnd",
+      "quality": "high",
+      "viewport": [
+        1440,
+        900
+      ],
+      "gpu": "WebKit WebGL"
+    },
+    {
+      "name": "mobile-active",
+      "file": "mobile-active.png",
+      "render": {
+        "frame": 414,
+        "calls": 82,
+        "triangles": 796868,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 56,
+        "textures": 44
+      },
+      "programs": 64,
+      "performance": {
+        "frameMs": 16.6927754675259,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      },
+      "phase": "aim",
+      "quality": "low",
+      "viewport": [
+        390,
+        844
+      ],
+      "gpu": "WebKit WebGL"
+    },
+    {
+      "name": "mobile-next-lie",
+      "file": "mobile-next-lie.png",
+      "render": {
+        "frame": 1977,
+        "calls": 86,
+        "triangles": 1009396,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 59,
+        "textures": 47
+      },
+      "programs": 64,
+      "performance": {
+        "frameMs": 16.661391653864793,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      },
+      "phase": "aim",
+      "quality": "low",
+      "viewport": [
+        390,
+        844
+      ],
+      "gpu": "WebKit WebGL"
+    },
+    {
+      "name": "mobile-landscape",
+      "file": "mobile-landscape.png",
+      "render": {
+        "frame": 2049,
+        "calls": 93,
+        "triangles": 1033754,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 65,
+        "textures": 49
+      },
+      "programs": 64,
+      "performance": {
+        "frameMs": 16.663275245309396,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      },
+      "phase": "aim",
+      "quality": "low",
+      "viewport": [
+        844,
+        390
+      ],
+      "gpu": "WebKit WebGL"
+    }
+  ],
+  "errors": [],
+  "limitations": [
+    "Headless Chrome on Mac; physical phone GPU and Safari not measured."
+  ]
+}

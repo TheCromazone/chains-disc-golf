@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "runId": "polish-2026-11-11-final",
+  "captures": [
+    {
+      "mode": "desktop",
+      "state": "active-play",
+      "report": "artifacts/polish-2026-11-11/desktop-inspected.json"
+    },
+    {
+      "mode": "mobile",
+      "state": "active-play",
+      "report": "artifacts/polish-2026-11-11/mobile-inspected.json"
+    }
+  ],
+  "artifacts": [
+    "assets/textures/course/tee-turf-v1.webp",
+    "assets/textures/course/weathered-timber-v1.webp",
+    "artifacts/polish-2026-11-11/desktop-throw.webm"
+  ]
+}
