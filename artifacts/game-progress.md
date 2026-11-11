@@ -17,3 +17,9 @@ Pending: generate and inspect materials; integrate assets; focused resource regr
 ## Integration checkpoint
 
 Fetched origin before delivery: local master was 312 commits behind `origin/master` (`eca3c8c`). Rebased this isolated branch onto current remote, resolving main.js in favor of upstream (its panorama-null and duplicate-key fixes already exist). Kept all newer forest, camera, athlete, loading/retry and gameplay work. Refreshed production build and 16 unit test files pass. Production input suite passes all 16 checks, including 143 instance disposal events. Final screenshot/inspector reports regenerated successfully on the rebased revision. Desktop and native Mobile tier screenshots reviewed. Baselines recaptured from archived origin/master source, and original intermediate captures removed. Both named-state canvas reports pass the evidence checker.
+
+## Completed delivery
+
+Production build, all 16 Node test files, all 16 production input/resource checks, named-state desktop/mobile hardware canvas inspections, evidence manifest, and the full three-player/three-hole Pine Hollow round pass. Before/after images and unpaused motion inspected; generated originals, prompts and runtime textures retained. No remaining introduced defects. Physical-phone/Safari performance, multiplayer recertification and existing render budget overruns remain explicitly unverified/retained limits.
+
+Implementation commit: d2564f6. Branch pushed: codex/chains-graphics-polish. Review PR: https://github.com/TheCromazone/chains-disc-golf/pull/39 (not merged; no deployment). Original checkout and its untracked user files preserved. Production preview retained at http://localhost:8189; temporary baseline servers closed.

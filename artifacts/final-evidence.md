@@ -21,6 +21,7 @@ Built-in GPT image generation was used; no separate API key, purchased credits o
 - `npm run build`: production bundle and static assets built successfully, no warnings.
 - `npm test`: all 16 test files pass, including physics, bot planning, assets, animation, throws, protocol, feedback, temporal rendering and the new texture-cache regression.
 - `node tools/verify-polish.mjs --url http://localhost:8189`: 16 assertions pass against `node serve.mjs --dist`. Real CDP keyboard/touch input checks aiming, Escape cancellation, charge/release, flight and return to the next lie, a holed short putt, scorecard next-hole progression, new-round reset, touch OS cancellation, portrait/landscape controls, asset decode, equipment/error hint states, instance-buffer disposal and zero console/runtime errors. Short-putt setup places the player at a controlled 0.8 m lie; the putt is released through real keyboard events and real physics.
+- `node tools/verify-rounds.mjs --url http://localhost:8189 --courses pine --holes 3 --quality low`: all three bot-driven seats complete all three Pine Hollow holes through the real turn/flight/scoring loop, with no browser errors. [Round log](polish-2026-11-11/round-test.txt) records scores and duration. Chrome was launched with Metal GPU flags through the existing `CHROME` override.
 - The director's canvas inspector (`tools/inspect-polish.mjs`) was run through isolated Playwright dependencies (no package changes), using real injected `active-play` setup/acknowledgment and a simulation freeze while rendering continued. It used installed Chrome with Metal; both captures report hardware rendering and no errors. [Current-run manifest](evidence.json) passes `check_evidence.py` for both captures and all required assets/motion.
 - A focused independent code/visual review found a keyboard-hint state regression during implementation. It was fixed before the passing production run: equipment selection, `.idle`, `.bad`, windup and spectator states restore/suppress the appropriate hint.
 
@@ -73,7 +74,7 @@ Genre equivalents: hero = athlete/disc; obstacles = wooded corridors, water and 
 | Lighting/render | 2.5 | 2.5 | Existing sunlight/contact shadow/aerial depth preserved; contrast measured |
 | VFX/motion | 2 | 2 | Existing release, flight, contact/score feedback; unpaused capture inspected |
 | UI/HUD | 2 | 2.5 | Keyboard guidance discoverable, with touch and equipment/state gates verified |
-| Performance evidence | 1 | 2 | Full-frame counts, hardware-rendered inspection and production input checks; budget overruns explicit |
+| Performance evidence | 2 | 2 | Existing QA extended with full-frame counts, hardware-rendered inspection and explicit budget overruns |
 
 After average: 2.35/3. The code and bitmap work is a focused improvement to an already detailed game; it is not a new hero, lighting system or animation overhaul. The render overruns above are retained limitations, not a performance optimization claim.
 

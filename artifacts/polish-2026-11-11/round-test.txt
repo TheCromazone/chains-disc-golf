@@ -1,0 +1,3 @@
+  away order: 32 turns, 19 returns to a hole after another player threw
+PASS pine: 3 holes in 295 s — You 3-4-4, Ricky 3-3-4, Paige 3-3-5
+PASS no browser errors
