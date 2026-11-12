@@ -1,0 +1,287 @@
+{
+  "runId": "polish-2026-11-11",
+  "url": "http://localhost:8289",
+  "checks": [
+    {
+      "name": "Both generated material assets decode from production",
+      "detail": [
+        {
+          "path": "textures/course/tee-turf-v1.webp",
+          "w": 512,
+          "h": 1600
+        },
+        {
+          "path": "textures/course/weathered-timber-v1.webp",
+          "w": 1024,
+          "h": 256
+        }
+      ]
+    },
+    {
+      "name": "Desktop keyboard guidance visible",
+      "detail": true
+    },
+    {
+      "name": "Equipment picker suppresses keyboard hint",
+      "detail": true
+    },
+    {
+      "name": "Spectator and swipe-error states retain correct guidance",
+      "detail": {
+        "idle": "none",
+        "bad": "none",
+        "feedback": "flex"
+      }
+    },
+    {
+      "name": "Mouse mute returns focus to gameplay",
+      "detail": true
+    },
+    {
+      "name": "Keyboard charging still works immediately after mute",
+      "detail": true
+    },
+    {
+      "name": "Keyboard mute keeps focus and activates accessibly",
+      "detail": true
+    },
+    {
+      "name": "Tools arrows skip unavailable Fullscreen",
+      "detail": true
+    },
+    {
+      "name": "Tools keyboard navigation skips disabled actions",
+      "detail": true
+    },
+    {
+      "name": "Real arrow input aims",
+      "detail": true
+    },
+    {
+      "name": "Escape cancels a keyboard charge without spending a stroke",
+      "detail": true
+    },
+    {
+      "name": "Keyboard throw releases, flies, resolves and returns to the next lie",
+      "detail": true
+    },
+    {
+      "name": "Real short putt completes hole and opens scorecard",
+      "detail": true
+    },
+    {
+      "name": "Scorecard next button advances to hole two",
+      "detail": true
+    },
+    {
+      "name": "Course switch disposes every old instance buffer exactly once",
+      "detail": {
+        "count": 143
+      }
+    },
+    {
+      "name": "New round resets strokes and hole progression",
+      "detail": true
+    },
+    {
+      "name": "Portrait touch view retains swipe guidance",
+      "detail": true
+    },
+    {
+      "name": "OS touch cancel restores aim without a throw",
+      "detail": true
+    },
+    {
+      "name": "Real touch swipe throws and resolves to a playable lie",
+      "detail": true
+    },
+    {
+      "name": "Landscape rotation preserves canvas and avoids horizontal overflow",
+      "detail": true
+    },
+    {
+      "name": "No runtime or console errors",
+      "detail": true
+    }
+  ],
+  "captures": [
+    {
+      "name": "desktop-active",
+      "file": "desktop-active.png",
+      "render": {
+        "frame": 1275,
+        "calls": 160,
+        "triangles": 1932832,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 113,
+        "textures": 52
+      },
+      "programs": 106,
+      "performance": {
+        "frameMs": 25.882245596702013,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      },
+      "phase": "aim",
+      "quality": "high",
+      "viewport": [
+        1440,
+        900
+      ],
+      "gpu": "WebKit WebGL"
+    },
+    {
+      "name": "desktop-next-lie",
+      "file": "desktop-next-lie.png",
+      "render": {
+        "frame": 14727,
+        "calls": 167,
+        "triangles": 1974057,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 123,
+        "textures": 56
+      },
+      "programs": 110,
+      "performance": {
+        "frameMs": 19.289432654090668,
+        "resolutionScale": 0.8400000000000001,
+        "postEnabled": true,
+        "ratio": 0.8400000000000001
+      },
+      "phase": "aim",
+      "quality": "high",
+      "viewport": [
+        1440,
+        900
+      ],
+      "gpu": "WebKit WebGL"
+    },
+    {
+      "name": "desktop-score",
+      "file": "desktop-score.png",
+      "render": {
+        "frame": 22737,
+        "calls": 127,
+        "triangles": 1939078,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 129,
+        "textures": 55
+      },
+      "programs": 112,
+      "performance": {
+        "frameMs": 19.257266605008198,
+        "resolutionScale": 0.8400000000000002,
+        "postEnabled": true,
+        "ratio": 0.8400000000000002
+      },
+      "phase": "holeEnd",
+      "quality": "high",
+      "viewport": [
+        1440,
+        900
+      ],
+      "gpu": "WebKit WebGL"
+    },
+    {
+      "name": "mobile-active",
+      "file": "mobile-active.png",
+      "render": {
+        "frame": 353,
+        "calls": 101,
+        "triangles": 642584,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 87,
+        "textures": 44
+      },
+      "programs": 64,
+      "performance": {
+        "frameMs": 16.858795744272477,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      },
+      "phase": "aim",
+      "quality": "low",
+      "viewport": [
+        390,
+        844
+      ],
+      "gpu": "WebKit WebGL"
+    },
+    {
+      "name": "mobile-next-lie",
+      "file": "mobile-next-lie.png",
+      "render": {
+        "frame": 1787,
+        "calls": 97,
+        "triangles": 821225,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 92,
+        "textures": 47
+      },
+      "programs": 64,
+      "performance": {
+        "frameMs": 16.609918672432624,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      },
+      "phase": "aim",
+      "quality": "low",
+      "viewport": [
+        390,
+        844
+      ],
+      "gpu": "WebKit WebGL"
+    },
+    {
+      "name": "mobile-landscape",
+      "file": "mobile-landscape.png",
+      "render": {
+        "frame": 1847,
+        "calls": 118,
+        "triangles": 888182,
+        "points": 96,
+        "lines": 0
+      },
+      "memory": {
+        "geometries": 108,
+        "textures": 49
+      },
+      "programs": 64,
+      "performance": {
+        "frameMs": 16.63589615128258,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      },
+      "phase": "aim",
+      "quality": "low",
+      "viewport": [
+        844,
+        390
+      ],
+      "gpu": "WebKit WebGL"
+    }
+  ],
+  "errors": [],
+  "limitations": [
+    "Headless Chrome on Mac; physical phone GPU and Safari not measured."
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "url": "http://localhost:8289/?mute=1&dpr=1",
+  "mode": "desktop",
+  "state": "active-play",
+  "requestedState": "active-play",
+  "appliedState": "active-play",
+  "runId": "wave-two-final",
+  "seed": null,
+  "screenshotPath": "/Users/matthewcromaz/.codex/worktrees/chains-graphics-polish/chains-disc-golf/artifacts/wave-two/inspection/desktop-active-play-inspected.png",
+  "gpu": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M6, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "softwareRendered": false
+  },
+  "result": {
+    "ok": true,
+    "reason": "nonblank",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 900
+    },
+    "drawingBuffer": {
+      "width": 1440,
+      "height": 900
+    },
+    "alphaPixels": 4102,
+    "variance": 248,
+    "colorBuckets": 273,
+    "metrics": {
+      "colorBuckets": 333,
+      "colorEntropyBits": 6.99,
+      "edgeDensity": 0.595,
+      "luminance": {
+        "mean": 103,
+        "p5": 30.8,
+        "p95": 172.3,
+        "contrast": 141.5
+      },
+      "dominantColorShare": 0.031,
+      "nonBackgroundShare": 0.969
+    },
+    "renderBudget": {
+      "tier": "desktop",
+      "note": "starting-point budget; adjust per game and document overrides",
+      "rows": [
+        {
+          "metric": "calls",
+          "actual": 160,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "triangles",
+          "actual": 1932832,
+          "limit": 750000,
+          "ok": false
+        },
+        {
+          "metric": "geometries",
+          "actual": 113,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "textures",
+          "actual": 52,
+          "limit": 60,
+          "ok": true
+        }
+      ],
+      "withinBudget": false
+    },
+    "diagnostics": {
+      "renderer": {
+        "frame": 665,
+        "calls": 160,
+        "triangles": 1932832,
+        "points": 96,
+        "lines": 0,
+        "geometries": 113,
+        "textures": 52
+      },
+      "state": "aim",
+      "quality": "high",
+      "performance": {
+        "frameMs": 23.421993591015507,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      }
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": [],
+  "consoleErrorCount": 0,
+  "pageErrorCount": 0
+}

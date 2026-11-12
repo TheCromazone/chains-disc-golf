@@ -92,3 +92,69 @@ CHAINS_QA_DEPS=/tmp/chains-inspector node tools/inspect-polish.mjs
 ```
 
 `CHAINS_CANVAS_INSPECTOR` can point to a differently installed `inspect-threejs-canvas.mjs`. `CHROME` overrides the installed browser path. The injected state hooks belong to the inspection context only; they are not shipped in the production game.
+
+## Wave two — static culling and keyboard usability
+
+Follow-up baseline: clean PR head `285d845`, after fetching and confirming `origin/master` remained `eca3c8c`. New implementation commits: `c020405` (static culling) and `5a5f054` (keyboard usability). All existing forest, tournament, athlete and generated turf/timber work remains integrated.
+
+### Changes and measured tradeoff
+
+`src/static-chunks.js` partitions large immutable terrain, ground-contact shading and course furniture into 128 m cells. It preserves every triangle exactly once, including winding, original normals, UVs, colors and custom attributes. Materials, transforms, custom shadow materials, render callbacks and shadow flags remain shared/preserved. Half-metre padded bounds cover current cloth sway; view and shadow cameras use native frustum culling. The physics height function and terrain sample grid are unchanged. Flat furniture mesh lists preserve camera raycasts. Small/grouped, instanced, skinned, morphing, interleaved and partial-range geometry is left intact. UUID allocation uses a scoped stream so it does not shift unrelated game randomness. Course teardown owns the replacement geometries.
+
+The 64 m prototype saved somewhat more triangles but raised the Mobile tee to 139 draws. The selected 128 m cells keep most of the saving at 101 draws. No trees, blades, props, light sources, texture maps or materials were removed or reduced in detail.
+
+Baseline/final production profiles use Pine Hollow, the default avatar, the tee and a controlled 6.5 m putt, fixed DPR 1, Desktop 1440×900 and native Mobile 390×844. Each frame aggregates the scene, both shadow maps and postprocessing. Camera coordinates match exactly in all four recorded comparison pairs.
+
+| Matched state | Before triangles | Final triangles | Reduction | Draw calls before → final |
+| --- | ---: | ---: | ---: | ---: |
+| Mobile tee | 796,868 | 642,584 | 19.4% | 82 → 101 |
+| Mobile putt | 1,165,912 | 964,073 | 17.3% | 100 → 109 |
+| Desktop tee | 2,223,651 | 1,932,832 | 13.1% | 126 → 160 |
+| Desktop putt | 2,455,363 | 2,076,541 | 15.4% | 124 → 141 |
+
+This is reduced submitted geometry, **not a claim of 19% faster frame rate**. More draws and geometry buffers are the deliberate cost. Fresh inspector contexts report 87/92 Mobile geometries at tee/putt and 113/117 Desktop geometries; Mobile textures remain 44/46, Desktop 52/54. The profiling parity check temporarily renders all chunks and therefore uploads extra normally unseen buffers; use the separate inspector reports for normal-view memory counts. Physical phones, Safari and low-end CPU/GPU frame times remain unverified. Existing triangle overruns and Mobile texture overruns remain; the largest residual geometry costs include the blade carpet and near-tree/shadow sets. No texture-budget compliance claim is made.
+
+### Concrete usability fixes
+
+- Clicking mute left its button focused, causing `input.js` to ignore Space/WASD until another click. Pointer activation now releases focus; keyboard activation retains focus and works as an accessible button.
+- Tools arrow navigation included hidden Fullscreen and disabled buttons. It now traverses only rendered, visible, enabled items, so Overview → Menu works when Fullscreen is unavailable.
+
+These were reproduced through real Chrome input before the fixes, then independently verified after implementation.
+
+### Wave-two validation
+
+- Production build passes with no warnings. All **17** Node test files pass: **one new file**, with triangle/attribute/winding invariants, shadow-material/callback preservation, disposal, terrain seam raycasts, unsupported-range fallback, RNG isolation and frustum exclusion. A shadow-material preservation assertion caught a defect during development and passed after correction.
+- Production browser suite passes **21** checks: the original 16 plus **five new checks** for pointer mute focus, immediate keyboard charging, accessible keyboard mute, hidden Fullscreen navigation and disabled action navigation. It also exercises real keyboard/touch throws, cancellation, scoring, hole advancement, restart, course switching, instance disposal, portrait/landscape layout and zero runtime/console errors. [Log](wave-two/browser-checks.txt), [structured results](wave-two/playtest/verification.json), [unit log](wave-two/unit-tests.txt).
+- The existing aim-camera suite passes its obstructed-lie case and **1,242 lies across all four courses**, with no page errors. [Camera log](wave-two/aim-camera-checks.txt).
+- Four independent hardware-rendered inspector captures pass (Desktop/Mobile × tee/putt), with zero browser errors. [Separate current-run manifest](wave-two/evidence.json) passes the director's checker for all seven declared artifacts.
+- Four **raw scene culling parity checks** compare GPU readbacks in the same frozen state, including both shadow maps, with static culling disabled and enabled. Every state records **zero changed channels**. This checks the culling decision, not pixel identity between separately timed before/after screenshots or postprocessing histories. [Baseline profile](wave-two/before-profile.json), [final profile and parity results](wave-two/final-profile.json).
+- Independent rendering review found no actionable defect in attribute preservation, bounds, raycasting, lifetime or shadows. Desktop/Mobile tee and putt captures were visually inspected; the target, detailed woods, turf and contact shadows remain readable. The unpaused 9.96 s [throw motion](wave-two/playtest/desktop-throw.webm) was inspected through flight and ground contact, with no missing terrain/props observed.
+
+Wave-one build/input/round evidence remains historical evidence for that revision. Wave two does not repeat multiplayer recertification or claim a fresh full three-player round; affected real-input progression/restart and all-course camera checks ran on this implementation. No new external artwork/service or production deployment was needed.
+
+### Representative before/after captures
+
+| View | Before | Final |
+| --- | --- | --- |
+| Mobile tee | [Before](wave-two/before-mobile-tee.png) | [Final](wave-two/final-mobile-tee.png) |
+| Mobile putt | [Before](wave-two/before-mobile-putt.png) | [Final](wave-two/final-mobile-putt.png) |
+| Desktop tee | [Before](wave-two/before-desktop-tee.png) | [Final](wave-two/final-desktop-tee.png) |
+| Desktop putt | [Before](wave-two/before-desktop-putt.png) | [Final](wave-two/final-desktop-putt.png) |
+
+The visible comparison deliberately retains the authored scene. Grass/wind and idle timing vary between separate captures. The original visual scorecard is retained; this follow-up improves submission cost and control reliability without claiming a new art overhaul.
+
+### Reproduce wave-two checks
+
+Start a production server on a separate port after `npm run build`, then:
+
+```sh
+PORT=8289 node serve.mjs --dist
+# Separate terminal:
+node tools/profile-course.mjs --label final --url http://localhost:8289
+node tools/verify-polish.mjs --url http://localhost:8289 --out artifacts/wave-two/playtest --debug-port 9478
+node tools/verify-aimcam.mjs --url http://localhost:8289
+CHAINS_QA_DEPS=/tmp/chains-inspector node tools/inspect-polish.mjs --url http://localhost:8289 --out artifacts/wave-two/inspection --run-id wave-two-final --states active-play,putt
+python3 ~/.agents/skills/threejs-game-director/scripts/check_evidence.py . --manifest artifacts/wave-two/evidence.json
+```
+
+To establish a new before measurement, run `profile-course.mjs --label before` on the baseline revision before making changes. Keep hardware, viewport, fixed DPR, course/avatar and pose setup constant. `--out` and `--debug-port` isolate profiling runs. Original wave-one inspection defaults are preserved.
