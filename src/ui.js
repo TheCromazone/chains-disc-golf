@@ -169,7 +169,7 @@ $('btnUtilities').onclick = e => {
 $('sideBtns').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { closeUtilities(e.detail === 0 && b.id !== 'btnMenu'); if (e.detail !== 0) b.blur(); } });
 $('sideBtns').addEventListener('keydown', e => {
   if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
-  e.preventDefault(); const buttons = [...$('sideBtns').querySelectorAll('button')], i = buttons.indexOf(document.activeElement);
+  e.preventDefault(); const buttons = [...$('sideBtns').querySelectorAll('button')].filter(b => !b.disabled && b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden'), i = buttons.indexOf(document.activeElement);
   const step = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowUp' ? -2 : e.key === 'ArrowDown' ? 2 : 1;
   buttons[e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1 : (i + step + buttons.length) % buttons.length]?.focus();
 });

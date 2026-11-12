@@ -1,0 +1,7 @@
+{"k":1,"scores":[0.188,1.002,-2.155,-0.46,-0.702,-0.959,-2.461,0.282,-0.258,-1.33,-0.6],"dist":2.5832788061227423}
+PASS QA lie: spot 1, 2.58 m from the athlete
+PASS pine: 24 of 306 lies move the rig
+PASS meadow: 15 of 324 lies move the rig
+PASS lake: 16 of 300 lies move the rig
+PASS bluff: 11 of 312 lies move the rig
+PASS no page errors

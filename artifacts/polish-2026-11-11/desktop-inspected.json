@@ -1,0 +1,99 @@
+{
+  "url": "http://localhost:8189/?mute=1",
+  "mode": "desktop",
+  "state": "active-play",
+  "requestedState": "active-play",
+  "appliedState": "active-play",
+  "runId": "polish-2026-11-11-final",
+  "seed": null,
+  "screenshotPath": "/Users/matthewcromaz/.codex/worktrees/chains-graphics-polish/chains-disc-golf//artifacts/polish-2026-11-11/desktop-inspected.png",
+  "gpu": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M6, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "softwareRendered": false
+  },
+  "result": {
+    "ok": true,
+    "reason": "nonblank",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 900
+    },
+    "drawingBuffer": {
+      "width": 1440,
+      "height": 900
+    },
+    "alphaPixels": 4102,
+    "variance": 249,
+    "colorBuckets": 268,
+    "metrics": {
+      "colorBuckets": 328,
+      "colorEntropyBits": 6.97,
+      "edgeDensity": 0.594,
+      "luminance": {
+        "mean": 103.3,
+        "p5": 30.7,
+        "p95": 173,
+        "contrast": 142.3
+      },
+      "dominantColorShare": 0.031,
+      "nonBackgroundShare": 0.969
+    },
+    "renderBudget": {
+      "tier": "desktop",
+      "note": "starting-point budget; adjust per game and document overrides",
+      "rows": [
+        {
+          "metric": "calls",
+          "actual": 126,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "triangles",
+          "actual": 2223651,
+          "limit": 750000,
+          "ok": false
+        },
+        {
+          "metric": "geometries",
+          "actual": 65,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "textures",
+          "actual": 52,
+          "limit": 60,
+          "ok": true
+        }
+      ],
+      "withinBudget": false
+    },
+    "diagnostics": {
+      "renderer": {
+        "frame": 571,
+        "calls": 126,
+        "triangles": 2223651,
+        "points": 96,
+        "lines": 0,
+        "geometries": 65,
+        "textures": 52
+      },
+      "state": "aim",
+      "quality": "high",
+      "performance": {
+        "frameMs": 25.65566986519853,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      }
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": [],
+  "consoleErrorCount": 0,
+  "pageErrorCount": 0
+}

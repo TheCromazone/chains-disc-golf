@@ -9,6 +9,7 @@ import { modelParts, addModel } from './models.js';
 import { windMaterial, windTime, toonMaterial, paintDetail, terrainSplat } from './materials.js';
 import { dressCourse, BED } from './props.js';
 import { grassCarpet } from './grass.js';
+import { partitionStaticMesh } from './static-chunks.js';
 
 export const W = 520, H = 400;          // terrain extent (x: ±260, z: ±200)
 
@@ -262,7 +263,7 @@ export function buildCourse(scene, renderer, { course: def = COURSES[0], quality
   // Lite drops the blade normal map: the turf photo already carries the grain, and the fetch buys back the splat cost.
   const pin = { value: new THREE.Vector4(0, 0, 1.5, 0) };   // the hole in play's pin (x, z): gapHole below, aimed by setHole(); the ground and the carpet fray the putting circle round it
   const terrain = new THREE.Mesh(geo, terrainSplat(toonMaterial({ vertexColors: true, normalMap: quality === 'low' ? null : grassNormal, normalScale: new THREE.Vector2(.5, .5), roughness: .95 }), geo, { splat: splats, turf, pads, pin, lite: quality === 'low' }));
-  terrain.receiveShadow = true; group.add(terrain);
+  terrain.receiveShadow = true; terrain.name = 'terrain'; group.add(...partitionStaticMesh(terrain));
 
   // Non-playable distant hills break the horizon into broad asymmetric layers. Their
   // inner edge is outside every in-bounds point; the playable height field is untouched.
@@ -985,6 +986,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   // flight corridor on any course. The one prop in play, hole 1's event arch, hands its legs and beam to the flight
   // model as capsules.
   const dressing = dressCourse({ holes, height, trees: trees.filter(t => !t.edge), bushes, def, quality, corridor: (x, z) => (7.5 + noise(x / 30, z / 30) * 5) * def.fairwayW });
+  dressing.meshes = dressing.meshes.flatMap(mesh => partitionStaticMesh(mesh));
   group.add(...dressing.meshes);
   { // the woods shrubs, clear of every prop (its colliders and the camera's tent canopies, each a capsule; distance in plan to its axis): 3D within treeNear on Full, cards beyond (and everywhere on Lite)
     const props = [...dressing.capsules, ...(dressing.camCapsules || [])], off = (s, c) => { const ax = c.b[0] - c.a[0], az = c.b[2] - c.a[2], L = ax * ax + az * az, t = L ? clamp(((s.x - c.a[0]) * ax + (s.z - c.a[2]) * az) / L, 0, 1) : 0; return Math.hypot(s.x - c.a[0] - ax * t, s.z - c.a[2] - az * t) - c.r; };
@@ -1252,7 +1254,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
     const shadowMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.MultiplyBlending, premultipliedAlpha: true,
       vertexShader: 'attribute float shadowAlpha;varying float vAlpha;varying float vDepth;void main(){vAlpha=shadowAlpha;vec4 mv=modelViewMatrix*vec4(position,1.);vDepth=-mv.z;gl_Position=projectionMatrix*mv;}',
       fragmentShader: 'varying float vAlpha;varying float vDepth;void main(){gl_FragColor=linearToOutputTexel(vec4(vec3(1.-vAlpha*(1.-smoothstep(38.,170.,vDepth))),1.));}' });   // encoded, so Lite's sRGB canvas darkens by the same linear factor as Full's HDR target
-    const shadows = new THREE.Mesh(mergeGeometries(shadowParts), shadowMat); shadows.renderOrder = 1; group.add(shadows);
+    const shadows = new THREE.Mesh(mergeGeometries(shadowParts), shadowMat); shadows.renderOrder = 1; shadows.name = 'ground-contact'; group.add(...partitionStaticMesh(shadows));
     shadowParts.forEach(g => g.dispose());
   }
   // 0 on the fairway, 1 in the rough: the flight model uses it for skip, roll and slide friction.
@@ -1288,7 +1290,7 @@ float crownNoise(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2.
   const dispose = () => {   // tear down so another course can be built into the same scene
     for(const w of waters)w.userData.dispose?.();
     scene.remove(group, sky, sun, sun.target, hemi); if (near) { scene.remove(near, near.target); near.shadow.map?.dispose(); } scene.fog = null; scene.environment = null; scene.background = null; pano?.dispose(); envRT?.dispose();
-    group.traverse(o => { o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
+    group.traverse(o => { if (o.isInstancedMesh) o.dispose(); o.customDepthMaterial?.dispose(); if (!o.geometry?.__shared) o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { if (m.__shared) continue; for (const k of ['map', 'normalMap', 'roughnessMap']) if (m[k] && !m[k].__shared) m[k].dispose(); m.dispose(); } });
     sky.geometry.dispose(); sky.material.dispose(); sun.shadow.map?.dispose();
   };
   return { def, quality, world, holes, group, sky, terrain, update, setHole, sunDir, baskets, dispose, scenery: { bushes, shrubs }, props: dressing.meshes, shadowOnly: shadowLeaf };   // scenery: the non-colliding plants (x, z, s), for QA (tools/qa/fairness.mjs counts discs resting in one); props: the built dressing, for the run-up camera's line-of-sight rays

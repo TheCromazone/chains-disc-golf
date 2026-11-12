@@ -839,3 +839,13 @@ body.gfx-lost::after { content: 'Restoring graphics…'; position: fixed; left: 
   .wr-actions > * { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .wr-card.new, .wr-card.pop .wr-pill, .wr-card.pop .wr-badge, .wr-round.changed, #btnLobbyStart.armed { animation: none; } }
+
+/* Keep keyboard controls discoverable beside the charge meter on a desktop. */
+.keyboard-hint { display: none; }
+@media (hover: hover) and (pointer: fine) and (min-width: 900px) {
+  body[data-phase='aim'] #hud:not(.spectating):not(.equipment-open) #pad:not(.idle):not(.bad) > .hint { display: none; }
+  .keyboard-hint { position: absolute; bottom: 108px; left: 50%; transform: translateX(-50%); flex-direction: column; align-items: center; gap: 4px; width: max-content; max-width: 90vw; padding: 8px 14px; border: 1px solid #ffffff30; border-radius: 12px; background: #0c1114cc; color: #fff; box-shadow: 0 3px 12px #0003; pointer-events: none; }
+  .keyboard-hint b { font-family: var(--display); text-transform: uppercase; font-size: 16px; letter-spacing: .6px; }
+  .keyboard-hint span { font-size: 11px; color: #e4efe9; }
+  body[data-phase='aim'] #hud:not(.spectating):not(.equipment-open) #pad:not(.idle):not(.bad) > .keyboard-hint { display: flex; }
+}

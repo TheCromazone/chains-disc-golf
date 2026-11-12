@@ -1,0 +1,21 @@
+PASS Both generated material assets decode from production [{"path":"textures/course/tee-turf-v1.webp","w":512,"h":1600},{"path":"textures/course/weathered-timber-v1.webp","w":1024,"h":256}]
+PASS Desktop keyboard guidance visible true
+PASS Equipment picker suppresses keyboard hint true
+PASS Spectator and swipe-error states retain correct guidance {"idle":"none","bad":"none","feedback":"flex"}
+PASS Mouse mute returns focus to gameplay true
+PASS Keyboard charging still works immediately after mute true
+PASS Keyboard mute keeps focus and activates accessibly true
+PASS Tools arrows skip unavailable Fullscreen true
+PASS Tools keyboard navigation skips disabled actions true
+PASS Real arrow input aims true
+PASS Escape cancels a keyboard charge without spending a stroke true
+PASS Keyboard throw releases, flies, resolves and returns to the next lie true
+PASS Real short putt completes hole and opens scorecard true
+PASS Scorecard next button advances to hole two true
+PASS Course switch disposes every old instance buffer exactly once {"count":143}
+PASS New round resets strokes and hole progression true
+PASS Portrait touch view retains swipe guidance true
+PASS OS touch cancel restores aim without a throw true
+PASS Real touch swipe throws and resolves to a playable lie true
+PASS Landscape rotation preserves canvas and avoids horizontal overflow true
+PASS No runtime or console errors true

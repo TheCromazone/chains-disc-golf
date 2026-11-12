@@ -1,0 +1,99 @@
+{
+  "url": "http://localhost:8289/?mute=1&dpr=1",
+  "mode": "mobile",
+  "state": "putt",
+  "requestedState": "putt",
+  "appliedState": "putt",
+  "runId": "wave-two-final",
+  "seed": null,
+  "screenshotPath": "/Users/matthewcromaz/.codex/worktrees/chains-graphics-polish/chains-disc-golf/artifacts/wave-two/inspection/mobile-putt-inspected.png",
+  "gpu": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M6, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "softwareRendered": false
+  },
+  "result": {
+    "ok": true,
+    "reason": "nonblank",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 844
+    },
+    "drawingBuffer": {
+      "width": 390,
+      "height": 844
+    },
+    "alphaPixels": 4115,
+    "variance": 253,
+    "colorBuckets": 412,
+    "metrics": {
+      "colorBuckets": 573,
+      "colorEntropyBits": 7.49,
+      "edgeDensity": 0.578,
+      "luminance": {
+        "mean": 120.7,
+        "p5": 16.2,
+        "p95": 213.3,
+        "contrast": 197.1
+      },
+      "dominantColorShare": 0.044,
+      "nonBackgroundShare": 0.956
+    },
+    "renderBudget": {
+      "tier": "mobile",
+      "note": "starting-point budget; adjust per game and document overrides",
+      "rows": [
+        {
+          "metric": "calls",
+          "actual": 109,
+          "limit": 150,
+          "ok": true
+        },
+        {
+          "metric": "triangles",
+          "actual": 964073,
+          "limit": 300000,
+          "ok": false
+        },
+        {
+          "metric": "geometries",
+          "actual": 92,
+          "limit": 200,
+          "ok": true
+        },
+        {
+          "metric": "textures",
+          "actual": 46,
+          "limit": 40,
+          "ok": false
+        }
+      ],
+      "withinBudget": false
+    },
+    "diagnostics": {
+      "renderer": {
+        "frame": 320,
+        "calls": 109,
+        "triangles": 964073,
+        "points": 96,
+        "lines": 0,
+        "geometries": 92,
+        "textures": 46
+      },
+      "state": "aim",
+      "quality": "low",
+      "performance": {
+        "frameMs": 16.68266809307147,
+        "resolutionScale": 1,
+        "postEnabled": true,
+        "ratio": 1
+      }
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": [],
+  "consoleErrorCount": 0,
+  "pageErrorCount": 0
+}

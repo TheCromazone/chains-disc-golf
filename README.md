@@ -28,6 +28,10 @@ Works on phones (touch) and desktop (mouse or keyboard). On a phone, two thumbs:
 
 ### Look
 
+The tee mats and timber props now use GPT-generated albedo artwork packed into the existing prop atlas, with procedural fallbacks and no extra draw calls. Source artwork, exact prompts and WebP rebuild commands live in [art/generated/tee-materials](art/generated/tee-materials/README.md). See [the verified graphics pass](artifacts/final-evidence.md) for desktop/mobile captures, resource fixes and the render-budget limits.
+
+Terrain, contact shadows and course furniture use 128 m spatial cells so the view and shadow cameras can skip unseen triangles. The original vertices, normals, texture coordinates and physics height field are preserved. This trades additional draw calls and geometry buffers for less submitted geometry; [wave-two measurements](artifacts/final-evidence.md#wave-two--static-culling-and-keyboard-usability) cover matched tee/putt states and document the remaining device limits.
+
 Stylised shapes, physically based surfaces. The ground is a photographic grass tile washed 58% toward white so it supplies blade grain while each course's palette lives in vertex colours (mow stripes, first-cut collar, putting green, worn soil); a blade-scale normal map repeats eight times finer than the tile, and dirt and sand blend in by splat weight. Trunks carry a bark photo, tee pads concrete, water a scrolling normal map. One warm sun casts filtered shadows from trees, players and baskets; the sky is prefiltered into image-based ambient so discs, chains and shoes reflect it. Full adds the course HDRI, bloom and a broadcast grade (lift, saturation, grain, corner vignette); Lite keeps every texture and shadow without render targets. ACES tone mapping on both.
 
 ### Athlete

@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "runId": "wave-two-final",
+  "captures": [
+    {
+      "mode": "desktop",
+      "state": "active-play",
+      "report": "artifacts/wave-two/inspection/desktop-active-play-inspected.json"
+    },
+    {
+      "mode": "desktop",
+      "state": "putt",
+      "report": "artifacts/wave-two/inspection/desktop-putt-inspected.json"
+    },
+    {
+      "mode": "mobile",
+      "state": "active-play",
+      "report": "artifacts/wave-two/inspection/mobile-active-play-inspected.json"
+    },
+    {
+      "mode": "mobile",
+      "state": "putt",
+      "report": "artifacts/wave-two/inspection/mobile-putt-inspected.json"
+    }
+  ],
+  "artifacts": [
+    "artifacts/wave-two/playtest/desktop-throw.webm",
+    "artifacts/wave-two/before-profile.json",
+    "artifacts/wave-two/final-profile.json"
+  ]
+}

@@ -33,7 +33,7 @@ export const asset = (group, name) => manifest?.[group]?.[name] ? 'assets/' + ma
 // Starts as a 4x4 white canvas and repaints when the image lands, so materials build synchronously.
 export function washedTexture(name, { wash = .58, repeat = null } = {}) {
   const url = asset('textures', name); if (!url) return null;
-  const key = url + '#wash' + wash; if (cache[key]) return cache[key];
+  const key = JSON.stringify(['wash', url, wash, repeat || [1, 1]]); if (cache[key]) return cache[key];
   const c = document.createElement('canvas'); c.width = c.height = 4; const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.fillRect(0, 0, 4, 4);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
   if (repeat) t.repeat.set(repeat[0], repeat[1]);
@@ -43,9 +43,20 @@ export function washedTexture(name, { wash = .58, repeat = null } = {}) {
 // Texture from the manifest or null. srgb=false for normal/roughness maps.
 export function texture(name, { repeat = null, srgb = true, clamp = false, flipY = true } = {}) {
   const url = asset('textures', name); if (!url) return null;
-  if (cache[url]) return cache[url];
+  const key = JSON.stringify(['texture', url, srgb, clamp, flipY, repeat || [1, 1]]);
+  if (cache[key]) return cache[key];
   const t = new THREE.TextureLoader().load(url);
   t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.wrapS = t.wrapT = clamp ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping; t.anisotropy = 4; t.flipY = flipY;   // glTF UVs are not flipped
   if (repeat) t.repeat.set(repeat[0], repeat[1]);
-  t.__shared = true; return (cache[url] = t);
+  t.__shared = true; return (cache[key] = t);
+}
+
+// CPU images for the shared prop atlas. A failed optional image keeps the procedural painter.
+const images = new Map();
+export function atlasImage(name) {
+  const url = asset('atlas', name); if (!url) return Promise.resolve(null);
+  if (!images.has(url)) images.set(url, new Promise(resolve => {
+    const img = new Image(); img.onload = () => resolve(img); img.onerror = () => resolve(null); img.src = url;
+  }));
+  return images.get(url);
 }

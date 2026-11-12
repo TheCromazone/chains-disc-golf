@@ -1,0 +1,122 @@
+
+> chains-disc-golf@1.0.0 test
+> node --test test/*.test.mjs
+
+Aim line OK: one unbroken strip per flight, measured in metres from the player.
+✔ test/aim-line.test.mjs (881.335583ms)
+Animation contract OK: 22 distinct RH/LH throw clips, 1210 authored joint samples; positive scales; exact .62 release.
+All eleven release poses preserve nonzero, continuous angular momentum.
+All eleven throws and both hands: 2,222 support samples stay on the floor, visible knee loading, braced lead and lifted trailing foot.
+Aim stances and cover-shot idle keep both feet planted for either hand.
+✔ test/animation.test.mjs (1571.835917ms)
+golfer 28615 triangles 280876 bytes
+disc 6000 triangles 151632 bytes
+hand 9396 triangles 285144 bytes
+basket 12960 triangles 145076 bytes
+tee_sign 204 triangles 34960 bytes
+pine 14238 triangles 217044 bytes
+deciduous 7266 triangles 106956 bytes
+bush 346 triangles 12480 bytes
+grass 80 triangles 40156 bytes
+golfer_lod 14713 triangles 174612 bytes
+golfer_idle 0 triangles 31048 bytes
+golfer_practice 0 triangles 19200 bytes
+golfer_backhand 0 triangles 21504 bytes
+golfer_forehand 0 triangles 21504 bytes
+golfer_tomahawk 0 triangles 21500 bytes
+golfer_scoober 0 triangles 21228 bytes
+golfer_putt 0 triangles 21496 bytes
+golfer_celebrate 0 triangles 24952 bytes
+golfer_slump 0 triangles 23020 bytes
+golfer_walk 0 triangles 16940 bytes
+golfer_backhand_io 0 triangles 21508 bytes
+golfer_backhand_io_left 0 triangles 21508 bytes
+golfer_backhand_left 0 triangles 21504 bytes
+golfer_backhand_oi 0 triangles 21508 bytes
+golfer_backhand_oi_left 0 triangles 21508 bytes
+golfer_blade 0 triangles 21232 bytes
+golfer_blade_left 0 triangles 21228 bytes
+golfer_celebrate_left 0 triangles 24944 bytes
+golfer_forehand_io 0 triangles 21504 bytes
+golfer_forehand_io_left 0 triangles 21504 bytes
+golfer_forehand_left 0 triangles 21500 bytes
+golfer_forehand_oi 0 triangles 21504 bytes
+golfer_forehand_oi_left 0 triangles 21504 bytes
+golfer_idle_left 0 triangles 31056 bytes
+golfer_practice_left 0 triangles 19204 bytes
+golfer_putt_left 0 triangles 21496 bytes
+golfer_scoober_left 0 triangles 21232 bytes
+golfer_slump_left 0 triangles 23024 bytes
+golfer_tomahawk_left 0 triangles 21500 bytes
+golfer_walk_left 0 triangles 16944 bytes
+golfer_hammer 0 triangles 21364 bytes
+golfer_hammer_left 0 triangles 21364 bytes
+golfer_f 27803 triangles 344796 bytes
+golfer_f_lod 27803 triangles 318768 bytes
+headwear 65856 triangles 278744 bytes
+golfer_xstep 0 triangles 21364 bytes
+golfer_xstep_left 0 triangles 21500 bytes
+golfer_fxstep 0 triangles 21500 bytes
+golfer_fxstep_left 0 triangles 21500 bytes
+Asset manifest OK: 181 entries, 17887631 bytes (initial load uses a subset)
+✔ test/assets.test.mjs (859.535375ms)
+hard bot past a trunk by its line: 5/100 drives touch it, finishing 9.4 m out on average
+bot OK — a hard bot plans around its own execution error and putts at the middle of the chains
+✔ test/bot.test.mjs (19274.321167ms)
+Canopy geometry OK: six variants, 18 closed shells, 3312 total triangles; bounded radius, vertex AO and Lite budgets.
+✔ test/canopies.test.mjs (806.890667ms)
+Feedback event outcomes OK
+✔ test/feedback.test.mjs (958.771542ms)
+Invite matches OK: catch-up turns, honours, away/back, validation, secrets and racing writes.
+✔ test/match.test.mjs (1559.939917ms)
+driver 106.2 m, rest x -8.5 maxH 5.1 air 5.6
+forehand 86.9 m, rest x 11.7
+lefty backhand 106.2 m, rest x 8.5
+backhand io / oi rest x -17.2 / 14.7
+blade 52.1 m, rest x -7.0 maxH 7.9
+half putt 6.4 m
+putt holed at power 0.65
+mid max right 8.0 final x 3.3 thrown 80.9
+tomahawk 62.8 m, x 0.7 maxH 7.0
+scoober 29.0 m, x -4.1 maxH 6.7
+hammer 47.0 m, x -2.3 maxH 13.1
+hammer 47.0 m, x -2.3 maxH 13.1 apex n.y -0.92
+wind calm/head/tail maxH 5.1 6.8 3.0 thrown 106.2 103.4 82.4
+arch: under 106.2 m; lob 25.5 m arch,land,skip ; leg rest z -25.3 arch,land,skip,skip
+roller 50° bank at 12 m/s: rolls 11.0 m in 3.2 s, rest x -5.7 · roll,flop
+flat landing land,skip,skip,skip,skip,skip · hyzer 50° land,skip,skip,skip,skip,skip · hyzer on edge 7.3 m
+roll down 10% 14.0 m · flat 11.0 · up 10% 8.6 · rough 4.1 · cross slope rest x low-left/low-right -7.0 -4.3
+OI drive 65.5 m roll,flop
+physics OK — eleven throws, both hands, two powers, the arch, rollers
+✔ test/physics.test.mjs (1379.586ms)
+Premium motion OK: exact release, smooth recovery, terrain contact, bounded gaze, physics-backed power suggestions, and terrain/water landing guidance.
+✔ test/premium.test.mjs (1265.887208ms)
+Protocol OK: names are cleaned and repeats numbered.
+Protocol OK: waiting-room tags and settings.
+✔ test/protocol.test.mjs (1041.404209ms)
+putt line ok: 73% from 6.5 m, 44 points
+✔ test/putt-line.test.mjs (1017.686875ms)
+Shot guide OK: a closed ring strip on the ground, the chevrons placed by their far apex, handed over by lens.
+✔ test/shot-guide.test.mjs (1003.295708ms)
+Static chunks preserve triangles, attributes, shadows, seams and RNG while enabling native frustum culling.
+✔ test/static-chunks.test.mjs (1337.55975ms)
+Temporal resolve: Halton jitter in-pixel and centred, jitter only on held frames, projection restored.
+✔ test/temporal.test.mjs (1080.136375ms)
+Texture options remain independent; optional atlas image loads coalesce and fail safely.
+✔ test/texture-cache.test.mjs (1215.303917ms)
+Run-ups hand over to their drives at the full coil.
+Planted feet hold their spot through the hit.
+Releases at chest height; the reach-back peaks straight back.
+Pelvis travel is continuous.
+Run-up feet stay planted; the hand reaches the coil smoothly.
+✔ test/throws.test.mjs (1078.225959ms)
+Flight trail OK: draws from its second sample, fixed angular width, fades at the lens, clears after the flight.
+✔ test/trail.test.mjs (1001.329042ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19487.08125
